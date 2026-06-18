@@ -224,7 +224,7 @@ pip install -r tools/requirements.txt
 
 | 스크립트 | 현재 상태 / 주의점 |
 |---|---|
-| `01_hwp_to_md.py` | 스켈레톤. `parse_filename` 정규식과 표 처리(본문 끝 `## (부록) 표`)를 다듬는 중. CATEGORY 매핑(첫 자리 → 분류 폴더)·암호화/빈 본문 skip 로직을 깨지 않게. |
+| `01_hwp_to_md.py` | 파일명 파싱(`reg_num_from_name`/`parse_date`/`clean_title`)과 표 인라인 처리, `CATEGORY_NAMES` 매핑(첫 자리 → 분류 폴더)·암호화/빈 본문·타임아웃 skip 로직을 깨지 않게. |
 | `02_chunk_and_embed.py` | `제N조` 분할 정규식이 핵심. 고정 길이 청킹으로 바꾸지 말 것. `guide`/`term`은 노트 전체 1청크, `_templates` 제외 규칙 유지. |
 | `03_rag_query.py` | `[근거]` 블록 구성과 시스템 프롬프트 가드레일(5.4) 유지. |
 | `04_rag_api.py` | FastAPI. `/v1/chat/completions`는 비스트리밍 스켈레톤(SSE는 향후). `MODEL_ID=kei-admin-rag`, `x_retrieved` 디버그 필드, `retrieve(query, k=5)` 시그니처를 깨지 않게. |

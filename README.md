@@ -6,9 +6,10 @@
 
 | 항목 | 상태 |
 | --- | --- |
-| 상태 | 🟡 초기 개발 / 설계 |
+| 상태 | 🟢 파이프라인 동작 — 변환·임베딩·검색 검증 완료(답변 생성은 vLLM 연결 대기) |
+| 코퍼스 | 규정 원문 **111개** 변환 · **3,044** 조문·머리말 청크 임베딩(KURE-v1) |
 | 배포 | 🔒 사내 전용 (인터넷 공개 금지) |
-| 모델 | 🖥️ 온프레미스 GPU (A40) |
+| 모델 | 🖥️ 온프레미스 GPU (개발 RTX 6000 / 타깃 A40) |
 | 조직 | KEI · 한국환경연구원 (Korea Environment Institute) |
 | 레포 | github.com/mooner92/KEIAdminSuperv |
 
@@ -61,26 +62,30 @@ flowchart TD
 
 ```bash
 git clone https://github.com/mooner92/KEIAdminSuperv.git
-cd KEIAdminSuperv/tools
+cd KEIAdminSuperv
 
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+python -m venv tools/.venv && source tools/.venv/bin/activate
+pip install -r tools/requirements.txt
+# torch는 드라이버에 맞는 CUDA 빌드로 (드라이버가 CUDA 12.x면 cu124 휠):
+pip install torch --index-url https://download.pytorch.org/whl/cu124
 
-# 01) HWP → 마크다운 (볼트의 20_규정원문/ 아래로)
-python 01_hwp_to_md.py --src /path/to/규정_hwp_폴더 --vault ../KEI-행정가이드
+# 01) HWP/HWPX → 마크다운 (볼트 20_규정원문/ 아래로). 깨진 파일은 --timeout 으로 격리
+python tools/01_hwp_to_md.py --src rule_files --vault KEI-행정가이드
 
-# 02) 제N조 단위 청킹 + 한국어 임베딩 + Chroma 적재
-python 02_chunk_and_embed.py --vault ../KEI-행정가이드 --db ./chroma
+# 02) 제N조 청킹 + KURE-v1 임베딩 + Chroma 적재 (GPU 권장)
+python tools/02_chunk_and_embed.py --vault KEI-행정가이드 --db tools/chroma
 
-# 03) 질의 (검색 → 근거 조문 → 로컬 LLM → 출처 표기)
-python 03_rag_query.py --db ./chroma --q "출장 여비는 어떻게 정산하나요?"
+# 03) 검색만 점검 (LLM 불필요) → 정확한 규정·제N조 회수 확인
+python tools/03_rag_query.py --db tools/chroma --q "출장 여비는 어떻게 정산하나요?" --retrieve-only
+# 03) 전체 RAG (vLLM 필요)
+python tools/03_rag_query.py --db tools/chroma --q "법인카드로 주말에 비품 사도 되나요?"
 
-# 04) OpenAI 호환 RAG API (Open WebUI가 연결할 백엔드)
-uvicorn 04_rag_api:app --host 0.0.0.0 --port 9000
+# 04) OpenAI 호환 RAG API (Open WebUI 백엔드) — tools/ 에서 실행
+cd tools && uvicorn 04_rag_api:app --host 0.0.0.0 --port 9000
 ```
 
-> [!note]
-> `01`/`04`는 현재 **스켈레톤**입니다(정규식·표 처리·SSE 스트리밍 등 다듬기 필요). 실제 HWP·모델로 한 번씩 검증하며 채워 나갑니다. 자세한 건 [tools/README.md](tools/README.md).
+> [!note] 실측 (2026-06-19)
+> 규정 원문 **111개** 변환(+1개는 파서 무한루프로 `--timeout` 격리 → LibreOffice fallback 대상), **3,044 청크** 임베딩, 검색 정확(예: "출장 여비 정산" → 여비규정 제9조). **답변 생성**은 vLLM 엔드포인트 연결 시 동작합니다. 파이프라인 상세는 [docs/04-pipeline.md](docs/04-pipeline.md).
 
 ### 2) [뇌] Quartz 그래프 사이트 (deploy/)
 
@@ -122,7 +127,7 @@ docker compose up -d        # open-webui + (선택)임베딩 컨테이너
 KEIAdminSuperv/
 ├── KEI-행정가이드/            # 📁 마크다운 볼트 = 단일 진실원천
 │   ├── 10_업무가이드/          #   가치층(사람 작성, 항상 [[규정명#제N조]] 원문링크)
-│   ├── 20_규정원문/            #   진실원천(HWP 변환, 의역 금지, 규정번호 1000~6000)
+│   ├── 20_규정원문/            #   진실원천(HWP 변환, 의역 금지, 규정번호 1000~7999)
 │   ├── 30_용어집/              #   개념 1개 = 노트 1개
 │   └── 90_관리/                #   템플릿·개정이력·Dataview 인덱스 (_templates는 청킹 제외)
 ├── tools/                     # 🛠️ 파이프라인
@@ -242,20 +247,22 @@ flowchart LR
 ## 상태 & 로드맵
 
 - 프로젝트 시작: **2026-06-18**
-- 현재 단계: **초기 개발 / 설계** (파이프라인 스켈레톤, 볼트 구조·문서 정비 중)
+- 현재 단계: **파이프라인 동작** — P1 변환·P2 임베딩·P3 검색/API 검증 완료(답변 생성은 vLLM 연결 대기). 다음: 검수 · 미분류 37개 규정번호 배정 · vLLM 생성 검증 · 배포(P4)
 
 ```mermaid
 gantt
     title 로드맵 (개략 · 구체 일정 미정)
     dateFormat YYYY-MM-DD
     section 콘텐츠
-    볼트 구조·템플릿 정비        :done,    a1, 2026-06-18, 7d
-    HWP 원문 변환·검수           :active,  a2, after a1, 21d
+    볼트 구조·템플릿 정비        :done, a1, 2026-06-18, 1d
+    HWP 원문 변환(111개)         :done, a2, after a1, 1d
+    검수·미분류 규정번호 배정    :active, a3, after a2, 21d
     section 시스템
-    파이프라인(01~04) 완성       :active,  b1, after a1, 21d
-    Quartz·Open WebUI 배포       :         b2, after b1, 14d
+    파이프라인 01~04(검색까지)   :done, b1, after a1, 1d
+    vLLM 생성 연결·평가          :active, b2, after b1, 14d
+    Quartz·Open WebUI 배포       :         b3, after b2, 14d
     section 운영
-    Zero Trust·권한·감사         :         c1, after b2, 14d
+    Zero Trust·권한·감사         :         c1, after b3, 14d
 ```
 
 > [!note]

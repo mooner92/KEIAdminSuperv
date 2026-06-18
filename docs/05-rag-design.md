@@ -19,8 +19,11 @@ flowchart LR
   CTX --> LLM["vLLM<br/>Qwen2.5-14B-Instruct<br/>temp=0.1"]
   SYS["시스템 프롬프트<br/>(4 가드레일)"] --> LLM
   LLM --> ANS["답변 + [규정명 제N조] 출처<br/>+ 면책 문구"]
-  CH -.->|x_retrieved 디버그| LOG["회수 조문 로그"]
+  CH -.->|--retrieve-only / x_retrieved| LOG["회수 조문 로그<br/>(LLM 없이 검색 점검)"]
 ```
+
+> [!note] 검증 상태(2026-06-19, 개발 머신)
+> **검색·근거주입·출처 표기까지는 실측 검증됨**(§4.3 실측 결과). 단 **생성(LLM) 단계는 미검증**이다 — 이 개발 머신(GPU 2× Quadro RTX 6000)에는 vLLM이 기동돼 있지 않고, 실제 "답변 생성"은 타깃 배포 GPU(A40 48GB) 서버의 vLLM 엔드포인트를 요구한다. 그래서 03은 `--retrieve-only`(LLM 없이 검색만), 04는 vLLM 미연결 시 회수 출처만 반환하는 그레이스풀 동작을 제공한다(§4.4·§7).
 
 | 단계 | 담당 | 구현 |
 |------|------|------|
@@ -54,8 +57,24 @@ flowchart LR
 # tools/02_chunk_and_embed.py · 03 · 04 공통 패턴
 from sentence_transformers import SentenceTransformer
 model = SentenceTransformer("nlpai-lab/KURE-v1")          # GPU 자동 사용
-vecs = model.encode(texts, normalize_embeddings=True, batch_size=32)
+vecs = model.encode(texts, normalize_embeddings=True, batch_size=8)
 ```
+
+### 2.3 실측 임베딩 파라미터와 잘림(truncation) 한계
+
+KURE-v1은 XLM-RoBERTa(BGE-M3 계열)로 컨텍스트 한계가 8192이지만, 02 실측에서 큰 배치(64)와 긴 조문이 겹쳐 **CUDA OOM**이 났다. 해결책으로 `batch_size=8` + `max_seq_len=2048`(+ `expandable_segments`)로 낮춰 안정화했고, cuda:0에서 약 32초에 3,044 청크를 임베딩했다.
+
+| 파라미터 | 실측값 | 이유 |
+|---------|--------|------|
+| `batch_size` | 8 | 64에서 CUDA OOM → 축소 |
+| `max_seq_len` | 2048 토큰 | OOM 방지(메모리 상한) |
+| 임베딩 시간 | 약 32초 (cuda:0) | 3,044 청크 |
+
+> [!warning] max_seq_len 2048 → 41개 청크 잘림(검색 한계)
+> 메모리 안정화를 위해 `max_seq_len=2048`으로 두면서, **2048 토큰을 초과하는 41개 청크(긴 조문·일부 머리말)는 임베딩 시 뒤가 잘린다.** 잘린 뒷부분의 의미는 벡터에 반영되지 않으므로, 해당 조문 후반부만 묻는 질의는 회수 품질이 떨어질 수 있다. 이는 현재 검색의 알려진 한계이며, **하위청킹(긴 조문을 항·호 단위로 더 쪼개기)**이 향후 과제다(§9).
+
+> [!note] 임베딩 전 노이즈 제거
+> 01이 넣은 H1 제목·HWP 변환 경고 콜아웃은 임베딩 직전 제거한다(검색 노이즈 감소). 출처 태그는 H1이 아니라 메타데이터(`규정명`+`조`)에서 만든다.
 
 ---
 
@@ -68,8 +87,12 @@ vecs = model.encode(texts, normalize_embeddings=True, batch_size=32)
 | 엔진 | Chroma (`chromadb`) |
 | 클라이언트 | `PersistentClient(path=...)` — 기본 `./chroma` |
 | 컬렉션명 | `kei_regs` |
-| 거리 함수 | `hnsw:space=cosine` |
-| 영속 디렉터리 | `tools/chroma/` — **`.gitignore` 대상**(생성물, 커밋 금지) |
+| 적재 규모(실측) | **3,044 items** = 조문청크 2,933 + 머리말 111 (문서 111개) |
+| 거리 함수 | `hnsw:space=cosine` (정규화 임베딩과 짝, 작을수록 유사) |
+| 영속 디렉터리 | `tools/chroma/`(약 44MB) — **`.gitignore` 대상**(생성물, 재생성 가능, 커밋 금지) |
+
+> [!note] 클린 리빌드가 기본
+> 02는 매 실행마다 컬렉션을 비우고 재적재한다(`--no-reset`로 해제). id가 `경로#순번`(위치 기반)이라, 조문을 가감하면 순번이 밀려 stale 청크가 남을 수 있어 전체 재생성으로 방지한다.
 
 ```python
 import chromadb
@@ -80,19 +103,25 @@ col.upsert(ids=ids, embeddings=embs, documents=docs, metadatas=metas)
 
 ### 3.2 청크에 실리는 필드(document + metadata)
 
-청킹·임베딩 단계([`../tools/02_chunk_and_embed.py`](../tools/02_chunk_and_embed.py))는 청크 본문을 `documents=`로, 출처·디버그용 필드를 `metadatas=`로 분리해 넣는다. 즉 아래 첫 행 `text`는 **메타데이터가 아니라 Chroma document 본문**이고, `metadatas=`에는 그 아래 5개(`규정명`·`규정번호`·`조`·`type`·`path`)만 들어간다. 이 필드들이 출처 표기와 디버그 로깅의 재료가 된다.
+청킹·임베딩 단계([`../tools/02_chunk_and_embed.py`](../tools/02_chunk_and_embed.py))는 청크 본문을 `documents=`로, 출처·디버그용 필드를 `metadatas=`로 분리해 넣는다. 즉 아래 첫 행 `text`는 **메타데이터가 아니라 Chroma document 본문**이고, `metadatas=`에는 그 아래 **8개 키**(`규정명`·`규정번호`·`조`·`분류`·`개정일`·`검수상태`·`type`·`path`)가 들어간다. 이 필드들이 출처 표기·필터링·디버그 로깅의 재료가 된다.
 
-| 필드 | 의미 | 채워지는 청크 |
-|------|------|----------------|
+| 필드 | 의미 | 비고 |
+|------|------|------|
 | `text` | 청크 본문(조문 또는 노트 전체) — **metadata 아님, Chroma document 본문(`documents=`)** | 전부 |
-| `규정명` | 규정 제목 | regulation |
-| `규정번호` | KEI 규정번호(1000~6000) | regulation |
-| `조` | 조문 식별자(예: 제N조) | regulation |
+| `규정명` | 규정 제목(번호·날짜·리스트마커·장식 제거, `(영문)` 판본 표시는 유지) | 출처 태그 재료 |
+| `규정번호` | KEI 규정번호(파일명 맨 앞 4자리만 신뢰; 본문 박힌 코드는 미사용) | 미분류는 비어 있을 수 있음 |
+| `조` | 조문 식별자(예: 제N조). 첫 조 앞 머리말은 `조=""` | regulation 본문 |
+| `분류` | `1000_기관`~`6000_총무·보안·회계` / `0000_미분류`(7xxx 회계·구매는 6000) | 03 회수 로그에 표시 |
+| `개정일` | 다형식 파서로 추출(6건 미검출) | 미검출 시 비어 있을 수 있음 |
+| `검수상태` | 현재 전부 **미검수** | 비서 답변 근거 허용 전 사람 검수 필요 |
 | `type` | `regulation` / `guide` / `term` | 전부 |
-| `path` | 볼트 내 원본 노트 경로 | 전부 |
+| `path` | 볼트 내 원본 노트의 **상대경로** | 전부 |
 
 > [!note] 청킹 단위
-> `type=regulation`은 **제N조 = 청크 1개**(고정 길이 청킹 금지). `guide`·`term`은 노트 전체가 1청크. `_templates`는 청킹에서 제외한다. 근거는 [ADR 0002](adr/0002-article-level-chunking.md).
+> `type=regulation`은 **제N조 = 청크 1개**(고정 길이 청킹 금지). 첫 `제N조` 앞 머리말(규정명·제정/개정 이력·표)은 `조=""` 머리말 청크로 별도 보존한다(문서당 1개, 총 111개). `guide`·`term`은 노트 전체가 1청크. `_templates`는 청킹에서 제외한다. 근거는 [ADR 0002](adr/0002-article-level-chunking.md).
+
+> [!warning] 현재 적재 콘텐츠는 전부 미검수
+> 위 `검수상태`는 3,044 청크 모두 **미검수**다. 가드레일상(§5 규칙 1·면책) 미검수 콘텐츠를 비서 답변의 단정 근거로 쓰면 안 된다. 평가셋·운영 전환은 `20_규정원문/` 검수 완료를 전제로 한다.
 
 ---
 
@@ -100,8 +129,9 @@ col.upsert(ids=ids, embeddings=embs, documents=docs, metadatas=metas)
 
 ### 4.1 top-k 회수
 
-- 기본 `k=5` (CLI: `03_rag_query.py --k 5`, API: `retrieve(query, k=5)`).
+- 기본 `k=5` (CLI: `03_rag_query.py --k 5`, API: `RAG_TOPK` 환경변수, 기본 5).
 - 질의를 KURE-v1로 임베딩(정규화) → `col.query(query_embeddings=[qv], n_results=k)` → cosine 상위 k개 청크 회수.
+- 03은 `include=[..., "distances"]`로 **코사인 거리**를 함께 받아 회수 로그에 표시한다(작을수록 유사 — §4.3).
 
 ### 4.2 컨텍스트 블록 조립
 
@@ -130,6 +160,33 @@ context = "\n\n---\n\n".join(blocks)
 
 > [!tip] 왜 이 형식인가
 > 제N조 단위 청킹 덕분에 한 블록이 정확히 한 조문에 대응한다. 그래서 LLM이 출처를 `[규정명 제N조]`로 깔끔하게 돌려줄 수 있고, 사람이 디버그할 때도 "어느 조문이 회수됐나"가 한눈에 보인다.
+
+### 4.3 실측 검색 결과 (2026-06-19, `--retrieve-only`)
+
+`03_rag_query.py --retrieve-only`로 LLM 없이 검색만 점검한 결과다. 거리는 **코사인**(작을수록 유사)이며, 6개 대표 질의 모두 **의미상 정확한 규정·제N조를 top-1으로 회수**했다.
+
+| 질의 | top-1 회수 규정·조 | 거리(코사인) |
+|------|--------------------|:---:|
+| 출장 여비는 어떻게 정산하나요? | 여비규정 제9조 | 0.243 |
+| 휴양시설은 누가 이용할 수 있나요? | 휴양시설 운영요령 제3조 | 0.240 |
+| 육아시간은 하루에 몇 시간? | 복무규정 제19조의2 | 0.268 |
+| 퇴직금은 어떻게 산정? | 퇴직금규정 제4조 | 0.253 |
+| 내부감사는 누가 어떻게? | 내부감사규정 제17조 | 0.348 |
+| 법인카드 분실하면? | 법인카드관리및사용규칙 제3조 | 0.354 |
+
+> [!note] 검색은 검증, 답변 본문은 미검증
+> 위 표는 **회수(retrieval)의 정확성**을 보여준다. 회수된 조문 본문을 근거로 한 **실제 답변 생성**은 vLLM(A40 서버)이 필요해 이 개발 머신에서는 아직 측정하지 못했다(§4.4·§7). 또한 회수된 조문은 모두 `검수상태=미검수`이므로, 운영 답변 근거로 쓰기 전 사람 검수가 선행돼야 한다.
+
+### 4.4 `--retrieve-only` — LLM 없이 검색 점검
+
+03은 `--retrieve-only` 플래그로 **vLLM 없이 검색만** 실행한다. 회수된 각 조문의 거리·`[규정명 조]`·분류·본문 앞부분을 출력하므로, 임베딩/청킹/top-k 품질을 LLM 변수 없이 격리해 점검할 수 있다. §8.3의 "검색 실패 vs 생성 실패" 분리 디버깅의 1차 도구다.
+
+```bash
+# LLM 불필요 — 검색 품질만 점검
+python 03_rag_query.py --db tools/chroma --q "출장 여비 정산" --retrieve-only
+```
+
+03의 LLM 경로(플래그 미지정 시)는 환경변수 `VLLM_BASE`·`LLM_MODEL`로 엔드포인트·모델을 오버라이드할 수 있고, LLM 호출이 실패하면 친절한 안내(엔드포인트 확인 / `--retrieve-only` 권유)를 출력한다.
 
 ---
 
@@ -215,8 +272,17 @@ sequenceDiagram
 
 | 메서드 · 경로 | 역할 |
 |---------------|------|
+| `GET /health` | 상태·컬렉션·임베딩 모델·vLLM/LLM 설정 노출 |
 | `GET /v1/models` | 모델 목록(`kei-admin-rag`) 노출 |
 | `POST /v1/chat/completions` | 검색 → 근거 주입 → vLLM 호출 → 출처 포함 응답(비스트리밍 스켈레톤) |
+
+> [!note] 지연 로딩(lazy loading)
+> 임베딩·Chroma·LLM 클라이언트는 **첫 요청 때 한 번만** 로드한다. 덕분에 `/v1/models` 등록·헬스체크는 무거운 모델 로딩 없이 즉시 응답하고, Open WebUI 모델 목록에 곧바로 잡힌다.
+
+> [!warning] vLLM 미연결이어도 그레이스풀 — `x_retrieved`로 회수 출처 반환
+> 04는 vLLM 엔드포인트에 연결하지 못해도 **에러로 죽지 않는다.** 검색·근거주입은 그대로 수행하고, 답변 본문에 "생성 모델 미연결" 안내 + 회수된 근거 조문 목록을 담아 돌려주며, 응답의 `x_retrieved` 필드에도 회수 출처를 그대로 싣는다. 그래서 운영자가 **검색이 됐는지 / vLLM이 문제인지**를 한 응답에서 분리해 진단할 수 있다(원인 단서: `VLLM_BASE`·`LLM_MODEL`·예외 타입).
+
+04의 동작은 환경변수로 조정한다: `CHROMA_DIR`, `RAG_COLLECTION`, `EMBED_MODEL`, `VLLM_BASE`, `LLM_MODEL`, `RAG_MODEL_ID`, `RAG_TOPK`. (`EMBED_MODEL`은 색인(02)·CLI(03)와 **반드시 동일** — §2.1 불변식.)
 
 실행과 등록:
 
@@ -227,6 +293,9 @@ uvicorn 04_rag_api:app --host 0.0.0.0 --port 9000
 
 > [!warning] 연결 URL에 localhost 쓰지 말 것
 > Open WebUI(Docker) → API 연결 시 Base URL은 **서버 실제 IP**를 써야 한다(`http://<서버실제IP>:9000/v1`, API Key=`EMPTY`). Docker 네트워크 특성상 `localhost`/`host.docker.internal`은 컨테이너 안에서 다른 곳을 가리킨다.
+
+> [!warning] 생성 단계는 아직 미검증 — vLLM(A40) 필요
+> 검색·근거주입·`x_retrieved` 출처 반환까지는 이 개발 머신에서 검증됐지만(§4.3), **실제 답변 생성은 vLLM 엔드포인트(타깃 A40 48GB 서버)가 떠 있어야** 동작한다. 현재 개발 머신(2× Quadro RTX 6000)에는 vLLM이 기동돼 있지 않아 생성 품질은 미검증이다. 운영 전환 시 vLLM 기동 후 §8 지표로 첫 측정해야 한다.
 
 결정 근거: [ADR 0003 — 통제형 RAG API](adr/0003-controlled-rag-api.md). 배포 절차는 [06-deployment.md](06-deployment.md).
 
@@ -259,7 +328,7 @@ RAG 품질을 "느낌"이 아니라 재현 가능한 지표로 본다.
 
 ### 8.3 디버그 — `x_retrieved`로 회수 조문 로깅
 
-`04_rag_api.py`의 응답에는 디버그용 `x_retrieved` 필드가 들어가, **어떤 조문이 회수됐는지** 그대로 남긴다. CLI(`03_rag_query.py`)는 실행 끝에 회수된 조 목록을 출력한다.
+`04_rag_api.py`의 응답에는 디버그용 `x_retrieved` 필드가 들어가, **어떤 조문이 회수됐는지** 그대로 남긴다(vLLM 미연결 시에도 회수 출처는 반환 — §7). CLI(`03_rag_query.py`)는 `--retrieve-only`로 LLM 없이 회수된 조 목록·거리를 출력한다(§4.4). 이미 §4.3에서 6개 대표 질의의 회수 정확성을 이 경로로 검증했다.
 
 ```python
 # 04_rag_api.py 응답 일부 — 회수 조문을 디버그로 노출
@@ -284,6 +353,8 @@ flowchart TD
 
 | 항목 | 내용 |
 |------|------|
+| 긴 조문 하위청킹 | `max_seq_len=2048` 초과로 임베딩 시 잘리는 **41개 청크**를 항·호 단위로 더 쪼개 잘림 없이 색인(§2.3 검색 한계 해소) |
+| 생성 단계 검증 | vLLM(A40) 기동 후 §8 지표로 답변 정답성·출처 정확도·거부율 첫 측정(현재 검색만 검증) |
 | 리랭커(reranker) | top-k 회수 후 cross-encoder 등으로 재정렬해 상위 근거 품질 향상 |
 | 스트리밍(SSE) | `04_rag_api.py`의 `/v1/chat/completions`를 SSE 스트리밍으로 확장(현재는 비스트리밍 스켈레톤) |
 | 하이브리드 검색 | 임베딩(dense) + 키워드(BM25 등 sparse) 결합으로 규정번호·고유명 회수 보강 |
@@ -306,4 +377,4 @@ flowchart TD
 
 ---
 
-최종 수정: 2026-06-18
+최종 수정: 2026-06-19

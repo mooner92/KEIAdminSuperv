@@ -43,7 +43,7 @@ flowchart TD
         direction TB
         CONV["01 변환<br/>HWP/HWPX → MD"]
         EMBED["02 청킹·임베딩<br/>제N조 단위 · KURE-v1"]
-        CHROMA[("Chroma<br/>collection: kei_regs<br/>hnsw:space=cosine")]
+        CHROMA[("Chroma<br/>collection: kei_regs<br/>3044 items · hnsw:space=cosine")]
         RAGAPI["04_rag_api.py<br/>OpenAI 호환 RAG<br/>(MODEL_ID=kei-admin-rag)"]
         VLLM["vLLM<br/>Qwen2.5-14B-Instruct<br/>:8000/v1"]
         WEBUI["Open WebUI<br/>(UI · 멀티유저 · 권한)"]
@@ -67,6 +67,9 @@ flowchart TD
 
 > [!warning] 변환 단계는 일회성 적재 흐름
 > `01 변환`은 실시간 경로가 아니라 HWP/HWPX 원문을 볼트의 `20_규정원문/`에 적재하는 **파이프라인 작업**입니다. 평상시 임베딩(`02`)은 볼트의 마크다운을 직접 읽습니다. 점선은 이 적재 관계를 나타냅니다.
+
+> [!note] 현재 검증 상태 (2026-06-19)
+> 변환·임베딩·검색까지는 실제 실행으로 검증되었고(112개 중 111개 변환, 3044 청크 임베딩, 회수 정확도 확인), **답변 생성 단계만 vLLM 엔드포인트(A40 서버) 연결을 대기 중**입니다. 개발 머신에 vLLM이 미기동이라 생성은 미검증이며, 검색·근거주입·출처 표기는 검증되었습니다(상세: [04-pipeline.md](04-pipeline.md)).
 
 ---
 
@@ -151,6 +154,9 @@ sequenceDiagram
 
 두 화면 모두 단일 호스트에서 서빙하며, 모델·임베딩은 전부 사내 GPU에서 구동합니다. 노출은 Cloudflare Zero Trust 뒤에서만 이뤄집니다.
 
+> [!note] 개발 GPU vs 타깃 GPU
+> 현재 개발·검증은 **Quadro RTX 6000(24GB)** 머신에서 진행했고(드라이버 R535/CUDA 12.2, torch 2.6.0+cu124), **타깃 배포 GPU는 A40(48GB)** 입니다. 아래 토폴로지의 `A40`은 배포 기준이며, 임베딩·검색은 24GB 개발 GPU에서도 검증되었습니다(생성용 vLLM은 A40 서버에서 구동).
+
 ```mermaid
 flowchart TB
     subgraph HOST["data05lx (Ubuntu) · 내부망"]
@@ -197,10 +203,10 @@ flowchart TB
 
 > [!todo] 확인 필요: 인프라 상세
 > 다음 값은 확정 전이므로 본 문서에서 단정하지 않습니다 — 정해지면 채울 것.
-> - `data05lx` 외 정확한 호스트명/IP
-> - A40 외 정확한 GPU 수량
+> - `data05lx` 외 정확한 배포 호스트명/IP
 > - Cloudflare 팀/도메인명
-> - Chroma `PersistentClient` 경로(`tools/chroma/`는 gitignore 대상)
+>
+> (해소됨) 개발 GPU=2× Quadro RTX 6000(24GB), 타깃 배포 GPU=A40(48GB). Chroma 경로는 `tools/chroma/`(약 44MB, `.gitignore` 대상이라 `02_chunk_and_embed.py`로 재생성).
 
 ---
 
@@ -220,7 +226,7 @@ flowchart TB
 
 | 영역 | 선택 |
 | --- | --- |
-| 벡터DB | Chroma `PersistentClient(path)`, collection `kei_regs`, 메타 `hnsw:space=cosine` |
+| 벡터DB | Chroma `PersistentClient(path)`, collection `kei_regs`(3044 items), 컬렉션 메타 `hnsw:space=cosine`. 청크 메타데이터 키: `규정명`·`규정번호`·`조`·`분류`·`개정일`·`검수상태`·`type`·`path`(볼트 상대경로) |
 | LLM 서빙 | vLLM(OpenAI 호환), 모델 `Qwen/Qwen2.5-14B-Instruct`(일반 instruct, 코더/VL 아님). 한국어 특화 대안 EXAONE/Kanana |
 | HWP 변환 | `hwp-hwpx-parser`. 표/별표 깨지면 LibreOffice + H2Orestart → PDF → Qwen2.5-VL로 표만 재추출 |
 | 비서 UI | Open WebUI(Docker), `04_rag_api.py`를 `kei-admin-rag` 모델로 등록 |
@@ -239,4 +245,4 @@ flowchart TB
 
 ---
 
-최종 수정: 2026-06-18
+최종 수정: 2026-06-19
