@@ -7,6 +7,13 @@ sentence-transformers>=3.0.0   # KURE-v1 / BGE-M3 로드
 chromadb>=0.5.0                # 로컬 벡터 스토어
 kss>=6.0.0                     # (선택) 한국어 문장 분할
 
+# torch: GPU 드라이버에 '맞는' CUDA 빌드를 설치해야 한다(중요).
+#   기본 PyPI 휠은 최신 CUDA(예: cu130)라 구형 드라이버(R535/CUDA 12.2)에선 CUDA 인식 실패.
+#   드라이버가 CUDA 12.x면 cu124 휠로 설치:
+#     pip install torch --index-url https://download.pytorch.org/whl/cu124
+#   (nvidia-smi 의 'CUDA Version'으로 드라이버 지원 한도를 먼저 확인)
+torch>=2.6.0
+
 # 3) RAG 질의 (로컬 vLLM = OpenAI 호환 엔드포인트)
 openai>=1.40.0
 
