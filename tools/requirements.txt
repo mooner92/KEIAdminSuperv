@@ -1,0 +1,15 @@
+# 1) HWP/HWPX → Markdown (순수 파이썬, JVM 불필요)
+hwp-hwpx-parser>=1.0.0
+# (대안) pyhwp  # hwp5txt/hwp5html, HWP5 전용
+
+# 2) 청킹 + 임베딩 + 벡터DB
+sentence-transformers>=3.0.0   # KURE-v1 / BGE-M3 로드
+chromadb>=0.5.0                # 로컬 벡터 스토어
+kss>=6.0.0                     # (선택) 한국어 문장 분할
+
+# 3) RAG 질의 (로컬 vLLM = OpenAI 호환 엔드포인트)
+openai>=1.40.0
+
+# 4) 배포: RAG를 OpenAI 호환 API로 (Open WebUI 연결용)
+fastapi>=0.115.0
+uvicorn>=0.30.0

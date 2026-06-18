@@ -1,0 +1,62 @@
+# CLAUDE.md — KEI 행정 가이드 / 행정 비서
+
+> 이 파일은 Claude Code가 매 세션 자동으로 읽는 프로젝트 컨텍스트다. 작업 전 반드시 숙지한다.
+> 상세 작업 순서는 `WORKPLAN.md` 참조. 설계 문서는 `docs/` 참조.
+
+## 프로젝트 한 줄 정의
+KEI(한국환경연구원) 행정 초보(신입·전입자)가 "이 업무 어떻게 처리하지?"를 빠르게 해결하도록,
+사내 규정을 근거로 답하는 **온프레미스 지식베이스 + 로컬 LLM 비서**를 만든다.
+
+## 아키텍처: 하나의 볼트, 두 개의 화면
+- 단일 진실원천(Source of Truth) = 이 레포의 마크다운 볼트 `KEI-행정가이드/`
+- **[뇌]** Quartz 정적 사이트 — 노드/링크 그래프 + 전문검색 (사람이 탐색)
+- **[비서]** Open WebUI + vLLM — 질문에 `[규정명 제N조]` 출처 달아 답변 (행정 초보가 사용)
+- 모델·임베딩은 전부 사내 GPU(A40)에서 구동. 두 화면 모두 Cloudflare Zero Trust 뒤(사내 전용).
+- 핵심: 그래프와 채팅은 *같은 마크다운을 먹는 두 화면*이다. 채팅은 그림이 아니라 텍스트+임베딩 검색으로 답한다.
+
+## ⛔ 절대 규칙 (어기면 프로젝트가 위험해진다)
+1. **규정 내용을 지어내지 말 것.** 금액·한도·기한·조건을 추측해 쓰지 않는다.
+   원문이 없으면 `「TODO: 원문 확인」` placeholder를 두고 사람에게 알린다.
+   (행정·회계·감사 영역에서 틀린 답은 실제 사고가 된다.)
+2. **원문층(`20_규정원문/`)은 의역 금지.** HWP 변환 문구를 보존하고, 표/별표 깨짐과 오타만 교정한다.
+   조문(제N조) 구조를 유지한다.
+3. **모든 가이드/답변에 출처.** 가이드는 `[[규정명#제N조]]`로 링크, RAG 답변은 끝에 `[규정명 제N조]` 표기 + 면책 문구 유지.
+4. RAG 시스템 프롬프트의 가드레일("근거에 없으면 '규정에서 확인되지 않습니다'")을 약화시키지 않는다.
+5. 내부 규정이다. 어떤 화면도 인터넷에 공개하지 않는다.
+
+## 레포 구조
+- `KEI-행정가이드/` — Obsidian 볼트(= RAG 코퍼스). 2-layer 구조:
+  - `10_업무가이드/` — 업무 단위 쉬운 설명 (가치층, 사람이 작성, 항상 원문 링크)
+  - `20_규정원문/` — HWP 변환 원문 (진실원천, 의역 금지, KEI 규정번호 체계 1000~6000)
+  - `30_용어집/` — 개념 1개 = 노트 1개
+  - `90_관리/` — 템플릿, 개정이력, Dataview 인덱스
+- `tools/` — 파이프라인: 01 변환 → 02 청킹·임베딩 → 03 질의 / 04 OpenAI호환 RAG API
+- `deploy/` — Ubuntu HWP 셋업 스크립트, docker-compose, 배포 README
+- `docs/` — 설계·계획 문서(아키텍처, 콘텐츠 모델, 파이프라인, RAG, 배포, 보안, 로드맵, ADR)
+
+## 기술 스택 & 규약
+- Python: 가상환경 사용(`tools/.venv`), 의존성 `tools/requirements.txt`
+- 변환: `hwp-hwpx-parser`(.hwp/.hwpx 모두). 표/별표 깨질 땐 LibreOffice+H2Orestart→PDF→VLM(Qwen2.5-VL)
+- 청킹: **제N조 단위** (고정 길이 청킹 금지)
+- 임베딩: `nlpai-lab/KURE-v1` (대안 `BAAI/bge-m3`) — 양자화하지 않음
+- 벡터DB: Chroma (`tools/chroma/`, gitignore됨)
+- LLM 서빙: 기존 vLLM(OpenAI 호환). 모델은 일반 instruct(Qwen2.5-14B-Instruct 등), 코더/VL 아님
+- 비서 UI: Open WebUI(Docker). `tools/04_rag_api.py`를 OpenAI 호환 '모델'로 등록해 사용
+- 그래프 사이트: Quartz v5 (Node v22+), `public/` 산출 → nginx
+- 언어: 사용자 노출 콘텐츠는 한국어. 한글 파일명 사용(`git config core.quotepath false` 적용됨)
+
+## 노트 프론트매터 (일관성 유지 — 양식은 `KEI-행정가이드/90_관리/_templates/`)
+- regulation: `type, 규정번호, 규정명, 분류, 개정일, 원본파일, 태그, 검수상태(미검수|검수완료)`
+- guide: `type, 제목, 분류, 대상, 관련규정[], 관련서식[], 최종검토일, 검토자, 태그`
+- term: `type, 용어, 영문, 관련규정[], 태그`
+
+## 실행 커맨드
+- 변환:   `python tools/01_hwp_to_md.py --src <hwp폴더> --vault KEI-행정가이드`
+- 임베딩: `python tools/02_chunk_and_embed.py --vault KEI-행정가이드 --db tools/chroma`
+- 질의:   `python tools/03_rag_query.py --db tools/chroma --q "..."`
+- RAG API: `tools/04_rag_api.py` (FastAPI, Open WebUI 연결용) — 실행 방법 정리는 WORKPLAN P4 참조
+
+## 작업 방식
+- 작은 단위로 커밋. 변환·생성물은 사람이 검수하기 전 `검수상태: 미검수` 유지.
+- 큰 변경 전에는 계획을 먼저 요약해 보여줄 것. 막히면 추측하지 말고 질문.
+- 절대 규칙(위 ⛔)을 매 작업에서 지킨다.

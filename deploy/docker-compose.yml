@@ -1,0 +1,39 @@
+# KEI 행정 비서 배포 스택 (시작 템플릿)
+# 전제: vLLM(LLM)은 이미 data05lx에서 돌고 있다고 가정 → 여기선 UI + 임베딩만.
+# 모두 사내 전용. 반드시 Cloudflare Zero Trust Access 뒤에 두세요(인터넷 공개 금지).
+services:
+
+  # 1) 채팅 UI (행정 초보가 실제로 쓰는 화면)
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: kei-webui
+    ports: ["3000:8080"]
+    volumes: ["open-webui:/app/backend/data"]
+    environment:
+      # 우리 RAG API(04_rag_api.py)를 '모델'로 연결. localhost 말고 실제 IP/호스트명!
+      - OPENAI_API_BASE_URL=http://kei-rag-api:9000/v1
+      - OPENAI_API_KEY=EMPTY
+      - WEBUI_AUTH=true            # 멀티유저/권한 켬
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    restart: always
+
+  # 2) (선택) 한국어 임베딩 서버 — Open WebUI 내장 RAG를 쓸 경우 여기에 연결
+  #    우리 04_rag_api.py 경로로만 갈 거면 이 블록은 없어도 됨.
+  embeddings-tei:
+    image: ghcr.io/huggingface/text-embeddings-inference:latest
+    container_name: kei-embeddings
+    command: ["--model-id", "nlpai-lab/KURE-v1"]
+    ports: ["8080:80"]
+    # GPU 쓰려면: deploy.resources.reservations.devices 로 nvidia 할당
+    restart: always
+
+  # 3) 우리 통제형 RAG (제N조 청킹 + 출처강제) — 04_rag_api.py 컨테이너화
+  #    Dockerfile은 tools/ 기준으로 별도 작성. 우선은 호스트에서 uvicorn으로 띄워도 됨.
+  # kei-rag-api:
+  #   build: ../tools
+  #   container_name: kei-rag-api
+  #   ports: ["9000:9000"]
+  #   restart: always
+
+volumes:
+  open-webui:

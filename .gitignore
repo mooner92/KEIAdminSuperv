@@ -1,0 +1,51 @@
+# ───────────────────────────────────────────────────────────
+# KEI 행정 가이드 / 행정 비서 — .gitignore
+# 원칙: 마크다운 볼트(KEI-행정가이드/)는 단일 진실원천이므로 항상 버전관리한다.
+#       생성물·캐시·비밀·대용량 바이너리만 제외한다.
+# ───────────────────────────────────────────────────────────
+
+# ── Python (tools/) ──
+tools/.venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+
+# ── 벡터DB / 임베딩 캐시 (재생성 가능) ──
+tools/chroma/
+chroma/
+*.sqlite3
+.cache/
+models/            # 로컬에 내려받은 임베딩/모델 가중치
+
+# ── HWP 변환 중간 산출물 ──
+tools/pdf/         # LibreOffice → PDF 중간물
+*.pdf              # 변환 중간물 (필요 시 화이트리스트로 예외 추가)
+원본HWP/           # 변환 전 원본 HWP 보관 폴더(있다면) — 내부 문서, 비공개
+
+# ── Quartz 정적 사이트 (그래프 화면) ──
+public/
+node_modules/
+.quartz-cache/
+
+# ── 비밀/환경 ──
+.env
+*.env
+*.local
+secrets/
+*.key
+*.pem
+
+# ── Obsidian 작업공간(공유 불필요) ──
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/cache
+.trash/
+
+# ── OS / 에디터 ──
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
