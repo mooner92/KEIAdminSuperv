@@ -53,6 +53,12 @@ def strip_injected(body: str) -> str:
     return "\n".join(out).strip()
 
 
+def strip_wikilinks(text: str) -> str:
+    """[[대상|표시]] → 표시, [[대상]] → 대상. 01b가 넣은 위키링크 마크업을 임베딩 전에 벗겨
+    검색 노이즈를 없앤다(그래프용 링크는 볼트에 유지, 임베딩 텍스트만 정리)."""
+    return re.sub(r"\[\[(?:[^\]|]*\|)?([^\]]*)\]\]", r"\1", text)
+
+
 def article_no(chunk: str) -> str:
     m = re.match(r"\s*제\s*(\d+)\s*조", chunk)
     return f"제{m.group(1)}조" if m else ""
@@ -65,6 +71,7 @@ def iter_chunks(vault: Path):
         meta, body = split_frontmatter(md.read_text(encoding="utf-8"))
         typ = meta.get("type", "")
         rel = str(md.relative_to(vault))
+        body = strip_wikilinks(body)             # 그래프용 [[ ]] 는 검색 텍스트에서 제거
         if typ == "regulation":
             body = strip_injected(body)
             parts = [p.strip() for p in ARTICLE.split(body) if p.strip()]
