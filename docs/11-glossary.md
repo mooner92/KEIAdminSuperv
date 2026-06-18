@@ -69,7 +69,7 @@ flowchart LR
 | **단일 진실원천 (SoT)** (Source of Truth) | 사실의 유일한 출처. 본 프로젝트에서는 레포의 마크다운 볼트 `KEI-행정가이드/`가 SoT다. 그래프와 채팅은 **같은 볼트를 먹는** 두 화면일 뿐이다. | → [02-architecture.md](02-architecture.md), [03-content-model.md](03-content-model.md) |
 | **가드레일** (Guardrail) | LLM이 지켜야 할 규칙을 시스템 프롬프트로 강제하는 것. 근거 없는 추측 금지, 출처 표기 강제, 면책 문구 부착 등. | 03/04 공통. **약화 금지.** → [05-rag-design.md](05-rag-design.md) |
 | **환각** (Hallucination) | LLM이 근거 없이 그럴듯하게 지어내는 현상. 특히 **금액·한도·기한**에서 위험하다. RAG와 가드레일은 이를 막기 위한 장치다. | 근거에 없으면 "규정에서 확인되지 않습니다"로 답하게 한다. → [05-rag-design.md](05-rag-design.md) |
-| **온프레미스** (On-premises) | 외부 클라우드가 아니라 사내 인프라(사내 GPU A40, 서버 예: `data05lx`)에서 직접 운영하는 방식. 데이터가 사내 망 밖으로 나가지 않는다. | 모델·임베딩 모두 사내 GPU 구동. → [06-deployment.md](06-deployment.md), [07-security-governance.md](07-security-governance.md) |
+| **온프레미스** (On-premises) | 외부 클라우드가 아니라 사내 인프라(사내 GPU Quadro RTX 6000 24GB×2(총 48GB), 서버 예: `data05lx`)에서 직접 운영하는 방식. 데이터가 사내 망 밖으로 나가지 않는다. | 모델·임베딩 모두 사내 GPU 구동. → [06-deployment.md](06-deployment.md), [07-security-governance.md](07-security-governance.md) |
 | **면책 문구** | RAG 답변 끝에 항상 붙이는 문장: **"최종 판단은 원문과 담당 부서 확인 바랍니다."** 비서의 답은 참고용이며 최종 근거는 원문임을 분명히 한다. | 가드레일 4번. → [05-rag-design.md](05-rag-design.md) |
 
 > [!tip] 출처 표기 두 가지를 헷갈리지 말 것
@@ -112,4 +112,4 @@ flowchart LR
 
 ---
 
-최종 수정: 2026-06-18
+최종 수정: 2026-06-19

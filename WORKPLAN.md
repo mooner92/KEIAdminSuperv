@@ -24,7 +24,7 @@
 > 두 화면([뇌] Quartz / [비서] Open WebUI+vLLM) 모두 **사내 전용**입니다. 어떤 단계에서도 인터넷에 공개하지 않습니다. (P0/P4 참조)
 
 > [!note]
-> **진행 상태(2026-06-19):** P1 변환 완료(111 변환 / 1 timeout 스킵 / 37 미분류), P2 임베딩 완료(3044 청크·KURE-v1·GPU·클린 리빌드), P3 검색·API 완료(생성은 vLLM=A40 서버 대기로 미검증). 남은 작업: 미분류 규정번호 배정, timeout 1건 fallback, vLLM 생성 검증, 원문 검수, P4 배포, P5 운영. 커밋: `6750748`(convert), `9226c42`(embed), `fa18378`(rag).
+> **진행 상태(2026-06-19):** P1 변환 완료(111 변환 / 1 timeout 스킵 / 37 미분류), P2 임베딩 완료(3044 청크·KURE-v1·GPU·클린 리빌드), P3 검색·API 완료(생성은 vLLM=Quadro RTX 6000(24GB) 2장 서버 대기로 미검증). 남은 작업: 미분류 규정번호 배정, timeout 1건 fallback, vLLM 생성 검증, 원문 검수, P4 배포, P5 운영. 커밋: `6750748`(convert), `9226c42`(embed), `fa18378`(rag).
 
 ---
 
@@ -45,7 +45,7 @@
 
 ```mermaid
 flowchart TD
-    P0["P0 · 준비·환경<br/>venv · GPU(A40) · vLLM · Node · Docker · Cloudflare"]
+    P0["P0 · 준비·환경<br/>venv · GPU(Quadro RTX 6000 24GB×2) · vLLM · Node · Docker · Cloudflare"]
     P1["P1 · 원문 변환<br/>01_hwp_to_md → 20_규정원문/ (미검수)"]
     P2["P2 · 청킹·임베딩<br/>02_chunk_and_embed → kei_regs (KURE-v1)"]
     P3["P3 · RAG 질의·평가<br/>03_rag_query · 가드레일 · 평가셋"]
@@ -75,14 +75,14 @@ flowchart TD
 - GitHub 레포 `github.com/mooner92/KEIAdminSuperv` 접근 권한
 
 > [!todo]
-> 확인 필요: 정확한 서버 호스트명/IP(`data05lx` 외), A40 GPU 수량, Cloudflare 팀/도메인명.
+> 확인 필요: 정확한 서버 호스트명/IP(`data05lx` 외), Cloudflare 팀/도메인명. (GPU는 nvidia-smi 실측 = Quadro RTX 6000 24GB×2.)
 
 ### 작업 체크리스트
 - [ ] 레포 클론, `git config core.quotepath false`(한글 파일명 표시) 설정
 - [ ] 협업자(`CrownClownCrowd`) 권한/브랜치 전략 합의
 - [ ] `python -m venv tools/.venv && source tools/.venv/bin/activate`
 - [ ] `pip install -r tools/requirements.txt` (hwp-hwpx-parser, sentence-transformers, chromadb, openai, fastapi, uvicorn 등)
-- [ ] GPU(A40) 접근 확인: `nvidia-smi`로 가용 메모리/사용 현황 확인
+- [ ] GPU(Quadro RTX 6000 24GB×2) 접근 확인: `nvidia-smi`로 가용 메모리/사용 현황 확인
 - [ ] 기존 vLLM 엔드포인트 확인: 기본 `http://localhost:8000/v1`의 `/v1/models`가 instruct 모델(예: `Qwen/Qwen2.5-14B-Instruct`)을 응답하는지
 - [ ] Node v22+ 설치 확인 (`node -v`) — [뇌] Quartz용
 - [ ] Docker / `docker compose` 동작 확인 — [비서] Open WebUI용
@@ -102,8 +102,8 @@ flowchart TD
 
 ### 리스크
 - vLLM에 instruct가 아닌 코더/VL 모델만 떠 있을 수 있음 → P3 답변 품질 저하. 사전 확인 필수.
-- A40 메모리를 다른 워크로드가 점유 → 임베딩/서빙 OOM. P0에서 가용량 측정.
-- **기본 PyPI torch 휠은 최신 CUDA(cu130)** → 구형 드라이버(R535/CUDA 12.2)에서 CUDA 인식 실패. 드라이버가 12.x면 cu124 휠 설치(CUDA 12.x 마이너 호환). `nvidia-smi`의 CUDA Version으로 드라이버 한도 확인. (개발 머신 실측: 2× Quadro RTX 6000 24GB, R535/CUDA 12.2, Python 3.13, torch 2.6.0+cu124 / 타깃 배포 GPU는 A40 48GB)
+- Quadro RTX 6000(24GB×2) 메모리를 다른 워크로드가 점유 → 임베딩/서빙 OOM. P0에서 가용량 측정.
+- **기본 PyPI torch 휠은 최신 CUDA(cu130)** → 구형 드라이버(R535/CUDA 12.2)에서 CUDA 인식 실패. 드라이버가 12.x면 cu124 휠 설치(CUDA 12.x 마이너 호환). `nvidia-smi`의 CUDA Version으로 드라이버 한도 확인. (서버 실측: Quadro RTX 6000 24GB×2(총 48GB, 단일 통합 메모리 아님), R535/CUDA 12.2, Python 3.13, torch 2.6.0+cu124)
 
 ---
 
@@ -268,7 +268,7 @@ soffice --headless --convert-to pdf:writer_pdf_Export <규정파일>.hwp
   - 03 신규: `--retrieve-only`(LLM 없이 검색만), 거리 표시, 환경변수 `VLLM_BASE`/`LLM_MODEL` 오버라이드, LLM 실패 시 친절 안내.
 - [x] 검색 → `[규정명 조]` 블록으로 컨텍스트 구성(`---` 구분) → vLLM chat 흐름 확인 (검색·근거주입까지 검증)
 - [ ] vLLM 설정 확인: `VLLM_BASE=http://localhost:8000/v1`, `LLM_MODEL=Qwen/Qwen2.5-14B-Instruct`, `temperature=0.1`, `api_key=EMPTY` — 미완(이 개발 환경엔 vLLM 미기동).
-- [ ] 출력에 답변 + 회수된 조 목록이 함께 나오는지 확인 — 회수 목록은 검증, **답변 생성은 vLLM(A40 서버) 대기**.
+- [ ] 출력에 답변 + 회수된 조 목록이 함께 나오는지 확인 — 회수 목록은 검증, **답변 생성은 vLLM(Quadro RTX 6000 24GB×2 서버) 대기**.
 - [ ] **가드레일 검증**(아래 4개 약화 금지) — 생성 단계 미검증으로 보류.
 - [ ] 평가셋 구축: 각 항목 `질문 → 기대 출처(규정명 제N조)` 형식 — 미완.
 - [ ] **출처정확도** 측정: 기대 출처가 회수/인용되었는가 — 미완(회수는 위 표로 사전 확인).
@@ -352,7 +352,8 @@ uvicorn 04_rag_api:app --host 0.0.0.0 --port 9000
 ```
 
 - 동작: `04_rag_api.py`는 `/health`, `/v1/models`, `/v1/chat/completions`를 제공한다. 백엔드(임베딩/Chroma/LLM)는 **지연 로딩** → `/v1/models` 등록은 즉시 응답. `/v1/chat/completions`는 비스트리밍 스켈레톤(SSE는 향후), 응답에 `x_retrieved`(회수된 조)를 디버그로 포함한다.
-- 실측(2026-06-19): **vLLM 미연결이어도 `x_retrieved`(회수 출처)를 반환하며 그레이스풀**(운영자가 원인 파악 가능). 단, 실제 "답변 생성"은 vLLM 엔드포인트(A40 서버)가 필요하므로 이 개발 환경에서는 **생성 단계 미검증**(검색·근거주입·출처는 검증됨). 환경변수: `CHROMA_DIR / RAG_COLLECTION / EMBED_MODEL / VLLM_BASE / LLM_MODEL / RAG_MODEL_ID / RAG_TOPK`.
+- 실측(2026-06-19): **vLLM 미연결이어도 `x_retrieved`(회수 출처)를 반환하며 그레이스풀**(운영자가 원인 파악 가능). 단, 실제 "답변 생성"은 vLLM 엔드포인트(Quadro RTX 6000 24GB×2 서버)가 필요하므로 이 개발 환경에서는 **생성 단계 미검증**(검색·근거주입·출처는 검증됨). 환경변수: `CHROMA_DIR / RAG_COLLECTION / EMBED_MODEL / VLLM_BASE / LLM_MODEL / RAG_MODEL_ID / RAG_TOPK`.
+  - vLLM 서빙 주의: Qwen2.5-14B-Instruct fp16(약 28GB)은 RTX 6000 단일 24GB를 초과하므로 2장 텐서병렬(`tensor-parallel-size=2`) 또는 더 작은 instruct(7B/3B)·양자화 서빙이 필요. 임베딩(KURE-v1)은 1장으로 충분(실측).
 - **Open WebUI 등록** (설정 > 연결 > OpenAI API):
 
   | 항목 | 값 |

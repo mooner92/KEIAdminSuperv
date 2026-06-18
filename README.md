@@ -2,14 +2,14 @@
 
 > 행정 초보(신입·전입자)가 "이 업무 어떻게 처리하지?"를 **사내 규정 근거로** 빠르게 해결하도록 돕는 온프레미스 지식베이스 + 로컬 LLM 비서.
 >
-> 단일 진실원천(Source of Truth)인 마크다운 볼트 하나를, 사람이 탐색하는 **[뇌] Quartz 그래프**와 신입이 물어보는 **[비서] Open WebUI + vLLM** 두 화면으로 동시에 서빙합니다. 모델·임베딩은 전부 사내 GPU(A40)에서 돌고, 두 화면 모두 Cloudflare Zero Trust 뒤(사내 전용)에 둡니다.
+> 단일 진실원천(Source of Truth)인 마크다운 볼트 하나를, 사람이 탐색하는 **[뇌] Quartz 그래프**와 신입이 물어보는 **[비서] Open WebUI + vLLM** 두 화면으로 동시에 서빙합니다. 모델·임베딩은 전부 사내 GPU(Quadro RTX 6000 24GB×2)에서 돌고, 두 화면 모두 Cloudflare Zero Trust 뒤(사내 전용)에 둡니다.
 
 | 항목 | 상태 |
 | --- | --- |
 | 상태 | 🟢 파이프라인 동작 — 변환·임베딩·검색 검증 완료(답변 생성은 vLLM 연결 대기) |
 | 코퍼스 | 규정 원문 **111개** 변환 · **3,044** 조문·머리말 청크 임베딩(KURE-v1) |
 | 배포 | 🔒 사내 전용 (인터넷 공개 금지) |
-| 모델 | 🖥️ 온프레미스 GPU (개발 RTX 6000 / 타깃 A40) |
+| 모델 | 🖥️ 온프레미스 GPU (Quadro RTX 6000 24GB×2, 총 48GB) |
 | 조직 | KEI · 한국환경연구원 (Korea Environment Institute) |
 | 레포 | github.com/mooner92/KEIAdminSuperv |
 
@@ -54,7 +54,7 @@ flowchart TD
 
 > [!warning] 전제 조건
 > - **HWP 원본** 규정 파일(`.hwp` / `.hwpx`)이 한 폴더에 모여 있어야 합니다.
-> - **GPU 서버**(A40, 예: `data05lx` / Ubuntu)에서 임베딩·LLM을 구동합니다.
+> - **GPU 서버**(Quadro RTX 6000 24GB×2, 예: `data05lx` / Ubuntu)에서 임베딩·LLM을 구동합니다.
 > - **vLLM**(OpenAI 호환, 기본 `http://localhost:8000/v1`)이 이미 떠 있어야 03/04 단계가 동작합니다.
 > - Quartz 빌드에는 **Node v22+**, 비서 화면에는 **Docker**가 필요합니다.
 
@@ -207,7 +207,7 @@ flowchart LR
 | 변환 | `hwp-hwpx-parser` | `.hwp`/`.hwpx` 모두. 표 깨지면 LibreOffice + H2Orestart + `Qwen2.5-VL` |
 | 임베딩 | `nlpai-lab/KURE-v1` | 대안 `BAAI/bge-m3`. 양자화 안 함, `normalize_embeddings=True` |
 | 벡터DB | Chroma `PersistentClient` | collection `kei_regs`, 메타 `hnsw:space=cosine` |
-| LLM 서빙 | vLLM (OpenAI 호환) | 기본 `http://localhost:8000/v1`, 모델 `Qwen/Qwen2.5-14B-Instruct` 등 일반 instruct |
+| LLM 서빙 | vLLM (OpenAI 호환) | 기본 `http://localhost:8000/v1`, 모델 `Qwen/Qwen2.5-14B-Instruct` 등 일반 instruct. 14B fp16(약 28GB)은 RTX 6000 단일 24GB 초과 → 2장 텐서병렬(`--tensor-parallel-size 2`) 또는 더 작은 instruct(7B/3B)·양자화 서빙. 임베딩(KURE-v1)은 1장으로 충분(실측) |
 | 한국어 LLM 대안 | EXAONE / Kanana | 코더·VL 모델 아님 |
 | RAG API | FastAPI + uvicorn | `04_rag_api.py`, `MODEL_ID=kei-admin-rag`, 포트 9000 |
 | 비서 UI | Open WebUI (Docker) | 포트 3000:8080, `WEBUI_AUTH=true` |
@@ -236,7 +236,7 @@ flowchart LR
 
 - 두 화면 모두 **Cloudflare Zero Trust Access** 정책 뒤에 둡니다.
 - Open WebUI 자체 인증(RBAC/SSO)으로 한 겹 더 보호합니다.
-- 모델·임베딩·벡터DB가 전부 **온프레미스(A40)**라 데이터는 망 밖으로 나가지 않습니다.
+- 모델·임베딩·벡터DB가 전부 **온프레미스(Quadro RTX 6000 24GB×2)**라 데이터는 망 밖으로 나가지 않습니다.
 
 자세한 정책은 [07-security-governance.md](docs/07-security-governance.md) 및 [ADR 0005](docs/adr/0005-on-prem-zero-trust.md).
 
@@ -286,4 +286,4 @@ gantt
 
 ---
 
-최종 수정: 2026-06-18
+최종 수정: 2026-06-19

@@ -6,7 +6,7 @@
 이 문서는 `tools/`의 01~04 스크립트를 실행·운영하는 개발자/운영자를 위한 상세 레퍼런스다. 설계 배경은 [02-architecture.md](02-architecture.md), 콘텐츠 모델은 [03-content-model.md](03-content-model.md), RAG 검색 설계는 [05-rag-design.md](05-rag-design.md)를 참고한다.
 
 > [!note] 현재 상태 (2026-06-19)
-> P1 변환 완료(111/112개), P2 임베딩 완료(3044 청크), P3 검색·API 완료. **답변 생성**만 vLLM 서버(A40) 대기 중이라 미검증이다(검색·근거 주입·출처는 검증됨). 04의 SSE 스트리밍은 향후 확장. 변환·생성물은 검수 전까지 프론트매터 `검수상태: 미검수`를 유지한다. 실측 수치는 문서 맨 끝 [실측 결과(2026-06-19)](#-실측-결과-2026-06-19) 참고.
+> P1 변환 완료(111/112개), P2 임베딩 완료(3044 청크), P3 검색·API 완료. **답변 생성**만 vLLM 서버(Quadro RTX 6000(24GB) 2장) 대기 중이라 미검증이다(검색·근거 주입·출처는 검증됨). 04의 SSE 스트리밍은 향후 확장. 변환·생성물은 검수 전까지 프론트매터 `검수상태: 미검수`를 유지한다. 실측 수치는 문서 맨 끝 [실측 결과(2026-06-19)](#-실측-결과-2026-06-19) 참고.
 
 ---
 
@@ -232,7 +232,7 @@ col.upsert(ids, embeddings, documents, metadatas)
 
 ### 튜닝 포인트
 - `--model`(`EMBED_MODEL`): KURE-v1 ↔ bge-m3 교체. **단, 교체 시 03/04도 같은 값으로 맞추고 재적재해야 한다**(아래 03 제약 참고).
-- `--batch-size` / `--max-seq-len`: GPU 메모리에 맞춰 조정(타깃 A40 48GB는 더 키울 여지가 있다).
+- `--batch-size` / `--max-seq-len`: GPU 메모리에 맞춰 조정(사내 GPU Quadro RTX 6000 24GB×2(총 48GB)는 더 키울 여지가 있다).
 - `ARTICLE` 정규식: 「제 1 조」처럼 띄어쓰기/장(章)·항(項) 혼재 문서면 경계 규칙 보강.
 
 ### 알려진 한계
@@ -396,7 +396,8 @@ sequenceDiagram
 
 ### 알려진 한계
 > [!warning]
-> - **답변 생성은 vLLM 엔드포인트(A40 서버)가 있어야 동작**한다. 이 개발 환경엔 vLLM이 미기동이라 **생성 단계는 미검증**이다(검색·근거 주입·출처는 검증됨).
+> - **답변 생성은 vLLM 엔드포인트(Quadro RTX 6000 서버)가 있어야 동작**한다. 이 개발 환경엔 vLLM이 미기동이라 **생성 단계는 미검증**이다(검색·근거 주입·출처는 검증됨).
+> - **Qwen2.5-14B-Instruct fp16(약 28GB)은 Quadro RTX 6000 단일 24GB를 초과**한다 → 2장 텐서병렬(`tensor-parallel-size=2`) 또는 더 작은 instruct(7B/3B)·양자화 서빙이 필요하다. 임베딩(KURE-v1)은 1장으로 충분(실측).
 > - 비스트리밍 → 긴 답변은 응답 지연이 체감된다. **SSE 스트리밍은 향후 추가.**
 > - 인증/요청 검증이 얇다(`api_key=EMPTY`). 접근 통제는 Cloudflare Zero Trust + Open WebUI RBAC가 담당([07-security-governance.md](07-security-governance.md)).
 > - `x_retrieved`는 회수 출처 디버그용이며 UI 출처 표기는 답변 본문의 `[규정명 제N조]`에 의존한다.
@@ -476,14 +477,14 @@ cd tools && uvicorn 04_rag_api:app --host 0.0.0.0 --port 9000
 > 02는 기본 **클린 리빌드**라 재실행 시 컬렉션을 비우고 재적재한다(`--no-reset`로 upsert만). 임베딩 모델을 바꿨다면 반드시 재적재한다. 배포/Docker 구성은 [06-deployment.md](06-deployment.md), 운영 절차는 [10-operations.md](10-operations.md) 참고.
 
 > [!warning] 내부 전용
-> [뇌] Quartz와 [비서] Open WebUI 두 화면 모두 Cloudflare Zero Trust 뒤의 사내 전용이다. 온프레미스(A40 GPU)에서만 구동하며 어느 화면도 인터넷에 공개하지 않는다.
+> [뇌] Quartz와 [비서] Open WebUI 두 화면 모두 Cloudflare Zero Trust 뒤의 사내 전용이다. 온프레미스(사내 GPU Quadro RTX 6000 24GB×2)에서만 구동하며 어느 화면도 인터넷에 공개하지 않는다.
 
 ---
 
 ## 📊 실측 결과 (2026-06-19)
 
 > [!note] 실측 환경
-> 개발 머신: GPU 2× Quadro RTX 6000(24GB), 드라이버 R535 / CUDA 12.2, Python 3.13, torch 2.6.0+cu124. **타깃 배포 GPU는 A40(48GB)**. 입력 `rule_files/` 112개(.hwp 53 + .hwpx 59, KEI 내부 규정). 커밋: `6750748`(convert), `9226c42`(embed), `fa18378`(rag).
+> 서버(data05lx): GPU Quadro RTX 6000 24GB×2(총 48GB, 단일 통합 메모리 아님), 드라이버 R535 / CUDA 12.2, Python 3.13, torch 2.6.0+cu124. 입력 `rule_files/` 112개(.hwp 53 + .hwpx 59, KEI 내부 규정). 커밋: `6750748`(convert), `9226c42`(embed), `fa18378`(rag).
 
 ### 01 변환
 
@@ -531,7 +532,7 @@ cd tools && uvicorn 04_rag_api:app --host 0.0.0.0 --port 9000
 ### 04 API · 생성
 
 - `/health`, `/v1/models`, `/v1/chat/completions` 동작. 백엔드 지연 로딩이라 모델 등록 즉시 응답.
-- **검색·근거 주입·출처(`x_retrieved`)는 검증됨.** vLLM 미기동이라 **답변 생성은 미검증**(A40 서버 필요).
+- **검색·근거 주입·출처(`x_retrieved`)는 검증됨.** vLLM 미기동이라 **답변 생성은 미검증**(Quadro RTX 6000 서버 필요).
 - 진행 상태: **P1 변환 완료 · P2 임베딩 완료 · P3 검색/API 완료**(생성은 vLLM 대기).
 
 ---

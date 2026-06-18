@@ -200,7 +200,7 @@ KURE-v1은 컨텍스트가 8192라, 긴 조문이 섞인 배치를 큰 batch로 
 python tools/02_chunk_and_embed.py --vault KEI-행정가이드 --db tools/chroma \
   --batch-size 8 --max-seq-len 2048
 
-# 여유 VRAM이 큰 배포 GPU(A40 48GB)에서는 batch를 키워 처리량을 올려도 된다
+# 여유 VRAM이 있으면 batch를 키워 처리량을 올려도 된다(사내 GPU: Quadro RTX 6000 24GB×2, 총 48GB)
 # (먼저 nvidia-smi로 잔여 VRAM 확인, vLLM과 같은 GPU를 나눠 쓰면 보수적으로)
 ```
 
@@ -251,7 +251,7 @@ flowchart LR
 
 ## 10.6 모니터링
 
-매일 보는 건 다섯 가지다: **vLLM · Open WebUI · 디스크 · GPU(A40) · nginx.** 모두 사내(`data05lx` 등) 망 안에서 확인하며, 어떤 화면도 인터넷에 노출하지 않는다.
+매일 보는 건 다섯 가지다: **vLLM · Open WebUI · 디스크 · GPU(Quadro RTX 6000) · nginx.** 모두 사내(`data05lx` 등) 망 안에서 확인하며, 어떤 화면도 인터넷에 노출하지 않는다.
 
 | 대상 | 무엇을 보나 | 빠른 점검 | 빨간불 신호 |
 | --- | --- | --- | --- |
@@ -259,11 +259,11 @@ flowchart LR
 | RAG API (`04`) | `kei-admin-rag` 응답·출처 주입 | `curl -s http://<서버IP>:9000/v1/models` | 500 / `x_retrieved` 빔 |
 | Open WebUI | UI·로그인·모델 연결 | `docker ps` → `kei-webui` Up, 웹 접속 | 컨테이너 Exit / 모델 안 보임 |
 | 디스크 | 모델 가중치·Chroma·로그 여유 | `df -h` | 임베딩/빌드 중 No space |
-| GPU(A40) | VRAM·사용률·온도 | `nvidia-smi` | OOM / 프로세스 미점유 |
+| GPU(Quadro RTX 6000) | VRAM·사용률·온도 | `nvidia-smi` | OOM / 프로세스 미점유 |
 | nginx | Quartz 정적 서빙·라우팅 | `nginx -t` + `systemctl status nginx` | 502/504, config 오류 |
 
 ```bash
-# GPU(A40) — vLLM·임베딩이 실제로 점유 중인지
+# GPU(Quadro RTX 6000) — vLLM·임베딩이 실제로 점유 중인지
 nvidia-smi
 
 # 디스크 — 모델·Chroma·로그가 차지하는 용량
@@ -288,14 +288,14 @@ flowchart LR
     WEBUI -->|OpenAI 호환| RAG["04_rag_api :9000"]
     RAG -->|검색| CHROMA["Chroma kei_regs"]
     RAG -->|생성| VLLM["vLLM :8000"]
-    VLLM -.->|GPU| A40["A40"]
-    RAG -.->|GPU| A40
+    VLLM -.->|GPU| GPU["Quadro RTX 6000<br/>24GB×2"]
+    RAG -.->|GPU| GPU
     classDef gpu fill:#eef,stroke:#88a;
-    class A40 gpu;
+    class GPU gpu;
 ```
 
 > [!note]
-> 두 화면 모두 Cloudflare Zero Trust 뒤(사내 전용)에 있다. 모니터링 엔드포인트(`8000`/`9000`/`8080`)는 디버그용이며 인터넷에 열지 않는다. `nvidia-smi`에 vLLM·임베딩 두 프로세스가 같은 A40을 나눠 쓰므로, 임베딩 배치를 돌릴 때 vLLM VRAM이 빠듯해질 수 있다 — OOM이 나면 §10.7 GPU 항목을 본다.
+> 두 화면 모두 Cloudflare Zero Trust 뒤(사내 전용)에 있다. 모니터링 엔드포인트(`8000`/`9000`/`8080`)는 디버그용이며 인터넷에 열지 않는다. `nvidia-smi`에 vLLM·임베딩 두 프로세스가 같은 Quadro RTX 6000을 나눠 쓰므로, 임베딩 배치를 돌릴 때 vLLM VRAM이 빠듯해질 수 있다 — OOM이 나면 §10.7 GPU 항목을 본다.
 
 > [!todo] 확인 필요: 정식 모니터링 스택
 > 현재는 수동 점검(curl/`nvidia-smi`/`df`) 기준이다. Prometheus/Grafana·로그 수집·알림(예: 디스크 80% 경고)을 둘지, 어떤 호스트(`data05lx` 외)에서 돌릴지는 [06 배포](06-deployment.md)·[08 로드맵](08-roadmap.md)에서 정한다.
@@ -351,7 +351,7 @@ python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_
 ```
 
 > [!note]
-> 실측 환경: GPU 2× Quadro RTX 6000(24GB), 드라이버 R535/CUDA 12.2, Python 3.13, `torch 2.6.0+cu124`. 핵심은 **휠의 CUDA 버전 ≤ 드라이버가 지원하는 CUDA 버전**. 드라이버가 12.x인데 cu130 휠을 깔면 인식에 실패하므로 cu124로 맞춘다. 배포 GPU(A40 48GB)는 드라이버 한도가 다를 수 있으니 그 장비에서도 `nvidia-smi`로 다시 확인한다.
+> 실측 환경: GPU 2× Quadro RTX 6000(24GB, 총 48GB), 드라이버 R535/CUDA 12.2, Python 3.13, `torch 2.6.0+cu124`. 핵심은 **휠의 CUDA 버전 ≤ 드라이버가 지원하는 CUDA 버전**. 드라이버가 12.x인데 cu130 휠을 깔면 인식에 실패하므로 cu124로 맞춘다. 드라이버를 갱신·재설치했다면 그 뒤에도 `nvidia-smi`로 다시 확인한다.
 
 ### 추가 점검 메모
 

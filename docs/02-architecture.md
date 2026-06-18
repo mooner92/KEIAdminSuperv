@@ -69,7 +69,7 @@ flowchart TD
 > `01 변환`은 실시간 경로가 아니라 HWP/HWPX 원문을 볼트의 `20_규정원문/`에 적재하는 **파이프라인 작업**입니다. 평상시 임베딩(`02`)은 볼트의 마크다운을 직접 읽습니다. 점선은 이 적재 관계를 나타냅니다.
 
 > [!note] 현재 검증 상태 (2026-06-19)
-> 변환·임베딩·검색까지는 실제 실행으로 검증되었고(112개 중 111개 변환, 3044 청크 임베딩, 회수 정확도 확인), **답변 생성 단계만 vLLM 엔드포인트(A40 서버) 연결을 대기 중**입니다. 개발 머신에 vLLM이 미기동이라 생성은 미검증이며, 검색·근거주입·출처 표기는 검증되었습니다(상세: [04-pipeline.md](04-pipeline.md)).
+> 변환·임베딩·검색까지는 실제 실행으로 검증되었고(112개 중 111개 변환, 3044 청크 임베딩, 회수 정확도 확인), **답변 생성 단계만 vLLM 엔드포인트(사내 GPU Quadro RTX 6000 24GB×2) 연결을 대기 중**입니다. 머신에 vLLM이 미기동이라 생성은 미검증이며, 검색·근거주입·출처 표기는 검증되었습니다(상세: [04-pipeline.md](04-pipeline.md)).
 
 ---
 
@@ -154,14 +154,16 @@ sequenceDiagram
 
 두 화면 모두 단일 호스트에서 서빙하며, 모델·임베딩은 전부 사내 GPU에서 구동합니다. 노출은 Cloudflare Zero Trust 뒤에서만 이뤄집니다.
 
-> [!note] 개발 GPU vs 타깃 GPU
-> 현재 개발·검증은 **Quadro RTX 6000(24GB)** 머신에서 진행했고(드라이버 R535/CUDA 12.2, torch 2.6.0+cu124), **타깃 배포 GPU는 A40(48GB)** 입니다. 아래 토폴로지의 `A40`은 배포 기준이며, 임베딩·검색은 24GB 개발 GPU에서도 검증되었습니다(생성용 vLLM은 A40 서버에서 구동).
+> [!note] 사내 GPU
+> 개발·검증·배포 모두 단일 서버(data05lx)의 **사내 GPU(Quadro RTX 6000 24GB×2, 총 48GB)** 에서 구동합니다(드라이버 R535/CUDA 12.2, torch 2.6.0+cu124, `nvidia-smi`로 확인). 24GB×2이며 단일 통합 메모리가 아닙니다. 임베딩·검색은 1장으로도 검증되었습니다(생성용 vLLM도 같은 사내 GPU에서 구동).
+>
+> Qwen2.5-14B-Instruct fp16(약 28GB)은 RTX 6000 단일 24GB를 초과하므로 2장 텐서병렬(`tensor-parallel-size=2`) 또는 더 작은 instruct(7B/3B)·양자화 서빙이 필요합니다. 임베딩(KURE-v1)은 1장으로 충분합니다(실측).
 
 ```mermaid
 flowchart TB
     subgraph HOST["data05lx (Ubuntu) · 내부망"]
-        subgraph GPU["GPU (A40)"]
-            VLLM["vLLM<br/>Qwen2.5-14B-Instruct"]
+        subgraph GPU["GPU (Quadro RTX 6000 24GB×2)"]
+            VLLM["vLLM<br/>Qwen2.5-14B-Instruct<br/>(14B fp16 ~28GB → TP=2)"]
             EMB["임베딩 KURE-v1"]
         end
         RAG["04_rag_api.py<br/>:9000 (uvicorn)"]
@@ -206,7 +208,7 @@ flowchart TB
 > - `data05lx` 외 정확한 배포 호스트명/IP
 > - Cloudflare 팀/도메인명
 >
-> (해소됨) 개발 GPU=2× Quadro RTX 6000(24GB), 타깃 배포 GPU=A40(48GB). Chroma 경로는 `tools/chroma/`(약 44MB, `.gitignore` 대상이라 `02_chunk_and_embed.py`로 재생성).
+> (해소됨) 사내 GPU=Quadro RTX 6000 24GB×2(총 48GB, 단일 통합 메모리 아님), 단일 서버(data05lx) 구동. Chroma 경로는 `tools/chroma/`(약 44MB, `.gitignore` 대상이라 `02_chunk_and_embed.py`로 재생성).
 
 ---
 

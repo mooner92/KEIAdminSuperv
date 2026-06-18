@@ -13,7 +13,7 @@
 | --- | --- | --- |
 | 내부전용 | 행정 가이드/비서는 KEI 직원만 사용. 외부 공개 대상이 아니다. | 사내 규정 문서를 다룸 |
 | 인터넷 공개 금지 | [뇌] Quartz, [비서] Open WebUI+vLLM **두 화면 모두** 공개 라우트를 갖지 않는다. | ⛔ 절대 규칙 5 |
-| 망 밖 비유출 | 모델·임베딩·벡터DB 전부 사내 GPU(A40) 온프레미스 구동. 외부 API 호출 없음. | 온프레미스 설계 |
+| 망 밖 비유출 | 모델·임베딩·벡터DB 전부 사내 GPU(Quadro RTX 6000 24GB×2) 온프레미스 구동. 외부 API 호출 없음. | 온프레미스 설계 |
 | 출처 강제 | 모든 답변/가이드에 `[규정명 제N조]` 출처 + 면책 문구. 근거 없는 단정 금지. | ⛔ 절대 규칙 3·4 |
 | 의역 금지 | 원문층(`20_규정원문/`)은 변환 그대로. 사람 해석은 가치층(`10_업무가이드/`)으로 분리. | ⛔ 절대 규칙 2 |
 
@@ -34,7 +34,7 @@ flowchart LR
     NG --> Q["[뇌] Quartz 정적 사이트"]
     NG --> W["[비서] Open WebUI"]
     W -->|RBAC / SSO| RAG["tools/04_rag_api.py<br/>kei-admin-rag"]
-    RAG --> V["vLLM + Chroma<br/>온프레미스 A40"]
+    RAG --> V["vLLM + Chroma<br/>온프레미스 Quadro RTX 6000"]
 
     subgraph 망경계["계층 1: 망 경계 (Zero Trust)"]
         CF
@@ -71,8 +71,8 @@ flowchart LR
 
 | 구성요소 | 위치 | 외부 호출 여부 |
 | --- | --- | --- |
-| 임베딩 모델 `nlpai-lab/KURE-v1` (대안 `BAAI/bge-m3`) | 사내 GPU(A40) | 없음 (로컬 추론) |
-| LLM 서빙 vLLM (`Qwen/Qwen2.5-14B-Instruct` 등) | 사내 GPU(A40) | 없음 (OpenAI 호환 로컬 엔드포인트 `http://localhost:8000/v1`) |
+| 임베딩 모델 `nlpai-lab/KURE-v1` (대안 `BAAI/bge-m3`) | 사내 GPU(Quadro RTX 6000) | 없음 (로컬 추론, 1장으로 충분 — 실측) |
+| LLM 서빙 vLLM (`Qwen/Qwen2.5-14B-Instruct` 등) | 사내 GPU(Quadro RTX 6000) | 없음 (OpenAI 호환 로컬 엔드포인트 `http://localhost:8000/v1`) |
 | 벡터DB Chroma (`PersistentClient`, 컬렉션 `kei_regs`) | 로컬 디스크 (`tools/chroma/`, gitignore) | 없음 |
 | RAG API `tools/04_rag_api.py` (`MODEL_ID=kei-admin-rag`) | 사내 호스트(예: data05lx) | 없음 (api_key=`EMPTY`, base는 로컬 vLLM) |
 
@@ -89,6 +89,9 @@ flowchart TB
     INET((인터넷))
     KEI망 -. "외부 추론 API 호출 없음" .-x INET
 ```
+
+> [!note] GPU 메모리와 14B 서빙
+> Qwen2.5-14B-Instruct fp16(약 28GB)은 Quadro RTX 6000 단일 24GB를 초과한다. 2장 텐서병렬(`--tensor-parallel-size=2`)로 서빙하거나, 더 작은 instruct(7B/3B)·양자화 모델을 사용한다. 임베딩(KURE-v1)은 1장으로 충분하다(실측). 2장은 총 48GB이지만 단일 통합 메모리가 아니라 카드별 24GB이다.
 
 > [!warning] 외부 추론 API 도입 금지(설계 변경 시 ADR 필요)
 > 클라우드 LLM·임베딩 API를 호출하는 순간 규정 텍스트가 망 밖으로 나간다. 외부 API 사용은 데이터 비유출 원칙 위반이며, 검토가 필요하면 반드시 [ADR](adr/README.md)로 결정 기록을 남긴다.
@@ -228,4 +231,4 @@ secrets/
 
 ---
 
-최종 수정: 2026-06-18
+최종 수정: 2026-06-19

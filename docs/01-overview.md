@@ -51,7 +51,7 @@ flowchart LR
 
 - **근거 있는 답.** 모든 답변 끝에 `[규정명 제N조]` 출처가 붙고, 근거에 없는 내용은 지어내지 않는다.
 - **업무 언어로 물어도 됨.** 임베딩 검색이 "여비 청구" 같은 질문을 해당 조문으로 연결한다.
-- **데이터가 밖으로 나가지 않음.** 모델·임베딩·벡터DB 전부 사내 GPU(A40)에서 구동, 두 화면 모두 Cloudflare Zero Trust 뒤 사내 전용.
+- **데이터가 밖으로 나가지 않음.** 모델·임베딩·벡터DB 전부 사내 GPU(Quadro RTX 6000 24GB×2, 총 48GB)에서 구동, 두 화면 모두 Cloudflare Zero Trust 뒤 사내 전용.
 - **하나만 관리하면 된다.** 볼트(`KEI-행정가이드/`)가 단일 진실원천. 그래프와 채팅을 따로 채우지 않는다.
 
 ```mermaid
@@ -116,7 +116,7 @@ flowchart TD
 
 사내 행정 규정은 외부로 나가서는 안 되는 내부 자산이다. 그래서 추론·임베딩·검색의 **모든 단계를 사내에서** 처리한다.
 
-- **모델·임베딩·벡터DB가 전부 사내에.** vLLM(LLM 서빙)·`nlpai-lab/KURE-v1`(임베딩)·Chroma(벡터DB `kei_regs`)가 사내 GPU(A40) 위에서 돈다. 외부 API로 규정 텍스트를 보내지 않는다.
+- **모델·임베딩·벡터DB가 전부 사내에.** vLLM(LLM 서빙)·`nlpai-lab/KURE-v1`(임베딩)·Chroma(벡터DB `kei_regs`)가 사내 GPU(Quadro RTX 6000 24GB×2) 위에서 돈다. 외부 API로 규정 텍스트를 보내지 않는다.
 - **두 화면 모두 사내 전용.** [뇌] Quartz, [비서] Open WebUI 모두 Cloudflare Zero Trust 뒤에 둔다. 인터넷 공개 금지.
 - **연결도 내부 경로.** Open WebUI는 RAG API를 **서버 실제 IP**로 연결한다(`localhost`/`host.docker.internal` 금지). 상세는 [06-deployment.md](06-deployment.md).
 
@@ -131,7 +131,7 @@ flowchart LR
         RAG --> EMB["임베딩 KURE-v1"]
         RAG --> DB["Chroma kei_regs"]
         RAG --> LLM["vLLM (OpenAI 호환)"]
-        EMB --- GPU["사내 GPU · A40"]
+        EMB --- GPU["사내 GPU · Quadro RTX 6000 24GB×2"]
         LLM --- GPU
     end
     X(("인터넷")):::ext -. 차단 .- net
@@ -139,7 +139,7 @@ flowchart LR
 ```
 
 > [!todo]
-> 확인 필요: 정확한 서버 호스트명/IP(예시: `data05lx`, Ubuntu) · GPU 정확 수량(A40 외) · Cloudflare 팀/도메인명. 본 문서에서는 단정하지 않는다.
+> 확인 필요: 정확한 서버 호스트명/IP(예시: `data05lx`, Ubuntu) · GPU 정확 수량(Quadro RTX 6000 24GB×2 외) · Cloudflare 팀/도메인명. 본 문서에서는 단정하지 않는다.
 
 자세한 보안·거버넌스 원칙(RBAC/SSO, 검수 워크플로 포함)은 [07-security-governance.md](07-security-governance.md)와 ADR [0005-on-prem-zero-trust](adr/0005-on-prem-zero-trust.md) 참조.
 
@@ -157,4 +157,4 @@ flowchart LR
 
 ---
 
-_최종 수정: 2026-06-18_
+_최종 수정: 2026-06-19_

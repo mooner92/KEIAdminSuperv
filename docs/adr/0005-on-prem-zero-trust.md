@@ -1,13 +1,13 @@
 # ADR 0005 — 온프레미스 구동 + Cloudflare Zero Trust 경계
 
 > KEI 행정 규정은 사내 전용 데이터다. 이 ADR은 시스템의 **배포·보안 경계**를 결정한다.
-> 핵심 명제: 모델·임베딩·데이터는 사내 GPU(A40)를 떠나지 않으며, 두 화면 모두 인터넷에 공개하지 않고 **Cloudflare Zero Trust Access 뒤 + Open WebUI 인증** 안쪽에서만 접근한다.
+> 핵심 명제: 모델·임베딩·데이터는 사내 GPU(Quadro RTX 6000 24GB×2, 총 48GB)를 떠나지 않으며, 두 화면 모두 인터넷에 공개하지 않고 **Cloudflare Zero Trust Access 뒤 + Open WebUI 인증** 안쪽에서만 접근한다.
 
 | 항목 | 내용 |
 | --- | --- |
 | 상태 | ✅ **채택 (Accepted)** |
 | 결정일 | 2026-06-18 |
-| 결정 | 모델·임베딩 전부 사내 GPU(A40) 구동 · 두 화면 모두 Cloudflare Zero Trust Access 뒤 + Open WebUI 인증 |
+| 결정 | 모델·임베딩 전부 사내 GPU(Quadro RTX 6000 24GB×2) 구동 · 두 화면 모두 Cloudflare Zero Trust Access 뒤 + Open WebUI 인증 |
 | 검토 대안 | 클라우드 LLM API / 클라우드 호스팅 |
 | 영향 범위 | [`../deploy/docker-compose.yml`](../../deploy/docker-compose.yml), [`../deploy/README.md`](../../deploy/README.md), 운영 호스트 `data05lx`(Ubuntu) |
 | 관련 ADR | [0003 — 통제형 RAG API](0003-controlled-rag-api.md), [0004 — Quartz 그래프 사이트](0004-quartz-graph-site.md) |
@@ -34,7 +34,7 @@ flowchart TB
     User["사내 사용자<br/>(행정 초보·운영자)"]
 
     subgraph ZT["Cloudflare Zero Trust Access (사내 전용 경계)"]
-        subgraph Host["온프레미스 서버 data05lx (Ubuntu) · GPU A40"]
+        subgraph Host["온프레미스 서버 data05lx (Ubuntu) · GPU Quadro RTX 6000 24GB×2"]
             Brain["[뇌] Quartz v5 정적 사이트<br/>(nginx, public/)"]
             Asst["[비서] Open WebUI<br/>+ WEBUI_AUTH 인증"]
             RAG["통제형 RAG API<br/>04_rag_api.py"]
@@ -55,17 +55,17 @@ flowchart TB
 
 ## 2. 결정 (Decision)
 
-### 2.1 추론은 전부 사내 GPU(A40)에서
+### 2.1 추론은 전부 사내 GPU(Quadro RTX 6000)에서
 
-모델과 임베딩은 **외부 API를 일절 쓰지 않고 사내 GPU(A40)에서만** 구동한다.
+모델과 임베딩은 **외부 API를 일절 쓰지 않고 사내 GPU(Quadro RTX 6000 24GB×2)에서만** 구동한다.
 
 | 구성요소 | 구동 위치 | 비고 |
 | --- | --- | --- |
-| 임베딩 `nlpai-lab/KURE-v1` | 사내 GPU(A40) | 양자화 없음, `normalize_embeddings=True` (ADR [0001](0001-embedding-kure-v1.md)) |
+| 임베딩 `nlpai-lab/KURE-v1` | 사내 GPU(Quadro RTX 6000) | 양자화 없음, `normalize_embeddings=True` (ADR [0001](0001-embedding-kure-v1.md)) · 1장으로 충분(실측) |
 | 벡터DB Chroma (`kei_regs`) | 사내 디스크 (`tools/chroma/`) | `PersistentClient`, `hnsw:space=cosine` |
-| LLM 서빙 vLLM | 사내 GPU(A40) | OpenAI 호환, 기본 `http://localhost:8000/v1` |
+| LLM 서빙 vLLM | 사내 GPU(Quadro RTX 6000) | OpenAI 호환, 기본 `http://localhost:8000/v1` · Qwen2.5-14B-Instruct fp16(약 28GB)은 단일 24GB 초과 → 2장 텐서병렬(`--tensor-parallel-size 2`) 또는 더 작은 instruct(7B/3B)·양자화 서빙 필요 |
 | 통제형 RAG API `04_rag_api.py` | 사내 호스트 | `MODEL_ID=kei-admin-rag`, 포트 9000 |
-| 표 재추출 VLM `Qwen2.5-VL` | 사내 GPU(A40) | 변환 단계에서 필요 시에만 |
+| 표 재추출 VLM `Qwen2.5-VL` | 사내 GPU(Quadro RTX 6000) | 변환 단계에서 필요 시에만 |
 
 데이터(규정 원문·임베딩·질의·답변)는 이 서버 경계 안에서만 흐른다. **온프레미스 구동이므로 데이터가 망 밖으로 나가지 않는다.**
 
@@ -138,12 +138,12 @@ sequenceDiagram
 
 ### 제약 / 비용
 
-- **자체 GPU·운영 부담.** A40 GPU와 `data05lx`(Ubuntu) 호스트를 직접 운영·유지보수해야 한다. 모델 적재, vLLM·임베딩·RAG API 프로세스, Open WebUI 컨테이너, Quartz 빌드/nginx, Cloudflare 경계까지 운영 책임이 사내에 있다.
+- **자체 GPU·운영 부담.** Quadro RTX 6000 24GB×2 GPU와 `data05lx`(Ubuntu) 호스트를 직접 운영·유지보수해야 한다. 모델 적재, vLLM·임베딩·RAG API 프로세스, Open WebUI 컨테이너, Quartz 빌드/nginx, Cloudflare 경계까지 운영 책임이 사내에 있다.
 - **자원 경합.** 임베딩(`nlpai-lab/KURE-v1`) + vLLM(예: `Qwen/Qwen2.5-14B-Instruct`) + (변환 시) `Qwen2.5-VL`이 같은 GPU 자원을 두고 경합할 수 있다(메모리 예산은 ADR [0001](0001-embedding-kure-v1.md) 참조).
 - **경계 운영.** Cloudflare Zero Trust 정책과 Open WebUI RBAC/사용자 관리를 사내에서 지속 관리해야 한다. 연결 URL 실수(`localhost`/`host.docker.internal`)는 흔한 장애 원인이다.
 
 > [!todo]
-> 확인 필요: A40의 정확한 **수량/총 VRAM**, 그리고 `data05lx` 외 호스트명/IP. — 미확정.
+> GPU 사양 확정: Quadro RTX 6000 **24GB×2(총 48GB, 단일 통합 메모리 아님)** — `nvidia-smi`로 확인됨. 확인 필요: `data05lx` 외 호스트명/IP. — 미확정.
 
 > [!todo]
 > 확인 필요: Cloudflare **팀(team)·도메인명**과 Zero Trust 접근 정책(허용 대상·SSO 연동 방식). — 미확정.
@@ -163,4 +163,4 @@ sequenceDiagram
 
 ---
 
-최종 수정: 2026-06-18
+최종 수정: 2026-06-19
