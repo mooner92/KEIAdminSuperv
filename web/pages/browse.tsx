@@ -1,25 +1,25 @@
 import type { GetStaticProps } from "next";
 import Head from "next/head";
 import Layout from "../components/Layout";
-import Assistant from "../components/Assistant";
+import Explorer from "../components/Explorer";
 import { getAllDocs, type DocMeta } from "../lib/vault";
 import styles from "../styles/Home.module.css";
 
-export default function Home({ docs }: { docs: DocMeta[] }) {
+export default function Browse({ docs }: { docs: DocMeta[] }) {
   return (
     <Layout>
       <Head>
-        <title>KEI 행정 비서</title>
-        <meta name="description" content="KEI 사내 규정 기반 행정 비서 (내부 전용)" />
+        <title>규정 둘러보기 · KEI 행정 가이드</title>
+        <meta name="description" content="KEI 사내 규정·연구행정 가이드 둘러보기 (내부 전용)" />
         <meta name="robots" content="noindex, nofollow" />
       </Head>
       <section className={styles.hero}>
-        <h1 className={styles.h1}>KEI 행정 비서</h1>
+        <h1 className={styles.h1}>규정 둘러보기</h1>
         <p className={styles.lead}>
-          “이 업무 어떻게 처리하지?” — 사내 규정을 근거로 답하고, 출처 조문까지 함께 보여드려요.
+          왼쪽에서 구분·분류·검수상태로 좁히고, 문서를 누르면 오른쪽에서 바로 펼쳐 읽을 수 있어요.
         </p>
       </section>
-      <Assistant docs={docs} />
+      <Explorer docs={docs} />
     </Layout>
   );
 }

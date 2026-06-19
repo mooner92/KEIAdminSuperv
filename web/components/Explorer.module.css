@@ -1,18 +1,84 @@
-.toolbar {
+.wrap {
+  display: grid;
+  grid-template-columns: 248px 1fr;
+  gap: var(--space-5);
+  align-items: start;
+}
+
+/* ── 좌측 필터 사이드바 ── */
+.side {
+  position: sticky;
+  top: calc(var(--header-h) + var(--space-4));
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-4) var(--space-4) var(--space-5);
+}
+.sideHead {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-4);
-  flex-wrap: wrap;
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-3);
 }
-/* TDS SegmentedControl + SearchField가 자체 스타일을 가짐. 레이아웃만 잡는다. */
-.searchWrap {
-  flex: 1;
-  min-width: 240px;
-  max-width: 420px;
+.sideTitle { font-size: 14px; font-weight: 800; color: var(--color-text); }
+.reset {
+  border: none;
+  background: var(--color-bg-subtle);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 3px 10px;
+  cursor: pointer;
 }
+.reset:hover { color: var(--color-primary); }
 
+.group { padding: var(--space-3) 0; border-top: 1px solid var(--color-border); }
+.group:first-of-type { border-top: none; }
+.groupTitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-tertiary);
+  margin-bottom: 8px;
+  letter-spacing: 0.01em;
+}
+.scrollGroup { max-height: 340px; overflow-y: auto; overscroll-behavior: contain; }
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 13.5px;
+}
+.check:hover { background: var(--color-bg-subtle); }
+.check input {
+  accent-color: var(--color-primary);
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+}
+.checkLabel {
+  flex: 1;
+  min-width: 0;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.checkCount {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.checkMuted { opacity: 0.45; }
+
+/* ── 결과 ── */
+.content { min-width: 0; }
+.searchWrap { max-width: 460px; margin-bottom: var(--space-3); }
 .metaRow { margin: 0 4px var(--space-3); }
 .count { font-size: 13px; color: var(--color-text-tertiary); font-weight: 600; }
 
@@ -29,6 +95,12 @@
 .list > li + li .row { border-top: 1px solid var(--color-border); }
 
 .row {
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  background: transparent;
+  border: none;
+  cursor: pointer;
   display: grid;
   grid-template-columns: 64px 1fr auto;
   align-items: center;
@@ -101,6 +173,11 @@
   font-size: 14px;
 }
 
+@media (max-width: 880px) {
+  .wrap { grid-template-columns: 1fr; }
+  .side { position: static; }
+  .scrollGroup { max-height: none; }
+}
 @media (max-width: 720px) {
   .row { grid-template-columns: 1fr; gap: 8px; padding: 14px var(--space-4); }
   .regno { display: none; }

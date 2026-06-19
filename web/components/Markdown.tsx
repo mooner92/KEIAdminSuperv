@@ -12,7 +12,14 @@ function nodeText(node: unknown): string {
   return "";
 }
 
-export default function Markdown({ source }: { source: string }) {
+export default function Markdown({
+  source,
+  onNavigate,
+}: {
+  source: string;
+  // 드로어 안에서 내부 문서 링크(/d/<slug>/#조)를 가로채 페이지 이동 없이 전환
+  onNavigate?: (slug: string, anchor: string) => void;
+}) {
   // 1) 01이 넣은 머리 H1(중복 제목) 제거
   // 2) 각 제N조가 별도 단락이 되도록 앞에 빈 줄 삽입 → 단락별 id 부여 가능
   const md = source
@@ -24,6 +31,24 @@ export default function Markdown({ source }: { source: string }) {
   const components: Components = {
     a({ href, children }) {
       const h = href ?? "";
+      // 드로어 모드: 내부 문서 링크는 드로어 안에서 전환
+      const internal = h.match(/^\/d\/([^/#]+)\/?(#.+)?$/);
+      if (internal && onNavigate) {
+        const slug = decodeURIComponent(internal[1]);
+        const anchor = internal[2] || "";
+        return (
+          <a
+            href={h}
+            className={styles.link}
+            onClick={(e) => {
+              e.preventDefault();
+              onNavigate(slug, anchor);
+            }}
+          >
+            {children}
+          </a>
+        );
+      }
       if (h.startsWith("/")) {
         return (
           <Link href={h} className={styles.link}>

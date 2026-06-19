@@ -5,8 +5,8 @@
   "description": "KEI 행정 가이드 — Next.js + Toss Design System (사내 전용, 정적 export)",
   "scripts": {
     "dev": "next dev -p 3100",
-    "build": "next build",
-    "start": "next start -p 3100",
+    "build": "next build && node --experimental-strip-types scripts/emit-docdata.mts",
+    "serve": "node server.js",
     "lint": "next lint"
   },
   "dependencies": {
