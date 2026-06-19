@@ -1,6 +1,6 @@
 # 05 · RAG 설계 — 검색 · 프롬프트 · 가드레일 · 평가
 
-> [비서] Open WebUI + vLLM 화면이 "이 업무 어떻게 처리하지?"에 **사내 규정 근거**로 답하기 위한 검색·생성 파이프라인 설계.
+> [비서] 통합 채팅(Next.js + TDS 앱) + Ollama 화면이 "이 업무 어떻게 처리하지?"에 **사내 규정 근거**로 답하기 위한 검색·생성 파이프라인 설계.
 > 핵심 원칙: 그림이 아니라 **텍스트 + 임베딩 검색**으로 답하고, 모든 답변 끝에 `[규정명 제N조]` 출처와 면책 문구를 강제한다.
 
 이 문서는 RAG의 네 축 — **검색(retrieval)**, **프롬프트(prompt)**, **가드레일(guardrail)**, **평가(eval)** — 를 정의한다. 콘텐츠 모델·청킹 규칙은 [03-content-model.md](03-content-model.md)·[04-pipeline.md](04-pipeline.md)에서, 전체 아키텍처는 [02-architecture.md](02-architecture.md)에서 다룬다.
@@ -16,21 +16,21 @@ flowchart LR
   Q["사용자 질문<br/>(행정 초보)"] --> EMB["KURE-v1<br/>질의 임베딩<br/>(normalize=True)"]
   EMB --> CH["Chroma<br/>kei_regs<br/>cosine top-k"]
   CH --> CTX["컨텍스트 조립<br/>[규정명 조] 블록<br/>--- 구분"]
-  CTX --> LLM["vLLM<br/>Qwen2.5-14B-Instruct<br/>temp=0.1"]
+  CTX --> LLM["Ollama<br/>Qwen2.5-14B-Instruct Q4_K_M<br/>temp=0.1"]
   SYS["시스템 프롬프트<br/>(4 가드레일)"] --> LLM
   LLM --> ANS["답변 + [규정명 제N조] 출처<br/>+ 면책 문구"]
-  CH -.->|--retrieve-only / x_retrieved| LOG["회수 조문 로그<br/>(LLM 없이 검색 점검)"]
+  CH -.->|--retrieve-only / x_sources·x_retrieved| LOG["회수 조문 로그<br/>(LLM 없이 검색 점검)"]
 ```
 
 > [!note] 검증 상태(2026-06-19, 개발 머신)
-> **검색·근거주입·출처 표기까지는 실측 검증됨**(§4.3 실측 결과). 단 **생성(LLM) 단계는 미검증**이다 — 이 서버(data05lx, 사내 GPU Quadro RTX 6000 24GB×2)에는 vLLM이 기동돼 있지 않고, 실제 "답변 생성"은 이 서버의 vLLM 엔드포인트를 요구한다. 그래서 03은 `--retrieve-only`(LLM 없이 검색만), 04는 vLLM 미연결 시 회수 출처만 반환하는 그레이스풀 동작을 제공한다(§4.4·§7). 참고로 Qwen2.5-14B-Instruct fp16(약 28GB)은 Quadro RTX 6000 단일 24GB를 초과하므로 2장 텐서병렬(`tensor-parallel-size=2`)이나 더 작은 instruct(7B/3B)·양자화 서빙이 필요하다(임베딩 KURE-v1은 1장으로 충분 — 실측).
+> **검색·근거주입·출처 표기에 더해 생성(LLM) 단계까지 엔드투엔드로 가동·검증됐다.** 생성 LLM은 **Ollama**(OpenAI 호환, `127.0.0.1:11434/v1`)로 **Qwen2.5-14B-Instruct Q4_K_M GGUF**(약 9GB, GPU1에 약 18GB 상주)를 띄워 한국어 답변을 확인했다(예: "법인카드로 주말에 비품 사도 되나요?" → `법인카드관리및사용규칙 제4조` 근거 답변). 임베딩 KURE-v1은 변경 없이 1장으로 충분하다(실측). 03은 여전히 `--retrieve-only`(LLM 없이 검색만), 04는 LLM 미연결 시 회수 출처만 반환하는 그레이스풀 동작을 제공한다(§4.4·§7). 참고로 Qwen2.5-14B-Instruct fp16(약 28GB)은 Quadro RTX 6000 단일 24GB를 초과하므로 현재는 양자화(Q4) 서빙을 쓰며, vLLM으로 갈 경우 2장 텐서병렬(`tensor-parallel-size=2`)이나 더 작은 instruct(7B/3B)·양자화 서빙이 대안이다.
 
 | 단계 | 담당 | 구현 |
 |------|------|------|
 | 변환·청킹·임베딩 | 오프라인 파이프라인 | [`../tools/01_hwp_to_md.py`](../tools/01_hwp_to_md.py) → [`../tools/02_chunk_and_embed.py`](../tools/02_chunk_and_embed.py) |
 | CLI 질의(개발·디버그) | 단발 스크립트 | [`../tools/03_rag_query.py`](../tools/03_rag_query.py) |
-| 통제형 RAG API(운영) | OpenAI 호환 서버 | [`../tools/04_rag_api.py`](../tools/04_rag_api.py) |
-| 채팅 UI/권한 | Open WebUI | [06-deployment.md](06-deployment.md) |
+| 통제형 RAG API(운영) | OpenAI 호환 서버, PM2 `kei-rag-api`(`127.0.0.1:9000`) | [`../tools/04_rag_api.py`](../tools/04_rag_api.py) |
+| 채팅 UI | Next.js + TDS 앱에 통합(`/` 비서, 같은 오리진 `/api/rag/chat` 프록시) | [06-deployment.md](06-deployment.md) |
 
 ---
 
@@ -174,19 +174,19 @@ context = "\n\n---\n\n".join(blocks)
 | 내부감사는 누가 어떻게? | 내부감사규정 제17조 | 0.348 |
 | 법인카드 분실하면? | 법인카드관리및사용규칙 제3조 | 0.354 |
 
-> [!note] 검색은 검증, 답변 본문은 미검증
-> 위 표는 **회수(retrieval)의 정확성**을 보여준다. 회수된 조문 본문을 근거로 한 **실제 답변 생성**은 vLLM(사내 GPU Quadro RTX 6000 24GB×2)이 필요해 이 서버에서는 아직 측정하지 못했다(§4.4·§7). 또한 회수된 조문은 모두 `검수상태=미검수`이므로, 운영 답변 근거로 쓰기 전 사람 검수가 선행돼야 한다.
+> [!note] 검색·생성 모두 가동, 단 본문은 미검수 콘텐츠 기반
+> 위 표는 **회수(retrieval)의 정확성**을 보여준다. 회수된 조문 본문을 근거로 한 **실제 답변 생성**도 현재 Ollama(Qwen2.5-14B-Instruct Q4_K_M)로 가동돼 엔드투엔드로 확인됐다(§1·§7). 다만 회수된 조문은 모두 `검수상태=미검수`이므로, 운영 답변 근거로 쓰기 전 사람 검수가 선행돼야 한다.
 
 ### 4.4 `--retrieve-only` — LLM 없이 검색 점검
 
-03은 `--retrieve-only` 플래그로 **vLLM 없이 검색만** 실행한다. 회수된 각 조문의 거리·`[규정명 조]`·분류·본문 앞부분을 출력하므로, 임베딩/청킹/top-k 품질을 LLM 변수 없이 격리해 점검할 수 있다. §8.3의 "검색 실패 vs 생성 실패" 분리 디버깅의 1차 도구다.
+03은 `--retrieve-only` 플래그로 **생성 LLM 없이 검색만** 실행한다. 회수된 각 조문의 거리·`[규정명 조]`·분류·본문 앞부분을 출력하므로, 임베딩/청킹/top-k 품질을 LLM 변수 없이 격리해 점검할 수 있다. §8.3의 "검색 실패 vs 생성 실패" 분리 디버깅의 1차 도구다.
 
 ```bash
 # LLM 불필요 — 검색 품질만 점검
 python 03_rag_query.py --db tools/chroma --q "출장 여비 정산" --retrieve-only
 ```
 
-03의 LLM 경로(플래그 미지정 시)는 환경변수 `VLLM_BASE`·`LLM_MODEL`로 엔드포인트·모델을 오버라이드할 수 있고, LLM 호출이 실패하면 친절한 안내(엔드포인트 확인 / `--retrieve-only` 권유)를 출력한다.
+03의 LLM 경로(플래그 미지정 시)는 환경변수 `VLLM_BASE`(현재는 Ollama의 `127.0.0.1:11434/v1`을 가리킴)·`LLM_MODEL`로 엔드포인트·모델을 오버라이드할 수 있고, LLM 호출이 실패하면 친절한 안내(엔드포인트 확인 / `--retrieve-only` 권유)를 출력한다.
 
 ---
 
@@ -240,62 +240,63 @@ RAG 답변은 **항상** 끝에 `[규정명 제N조]` 형식으로 사용한 출
 
 ---
 
-## 7. 왜 통제형 `04_rag_api.py`인가 (vs Open WebUI 내장 RAG)
+## 7. 왜 통제형 `04_rag_api.py`인가 + 비서 채팅을 Next 앱에 통합
 
-Open WebUI에는 자체 RAG 기능이 있지만, **청킹·출처 표기 통제가 약하다**. 우리 요구(제N조 단위 검색, 근거 주입, `[규정명 제N조]` 출처 강제)를 보장하려면 직접 통제해야 한다.
+검색·근거주입·출처·가드레일 통제는 우리가 직접 쥐어야 한다(제N조 단위 검색, 근거 주입, `[규정명 제N조]` 출처 강제). 그래서 이 통제 책임을 전부 `04_rag_api.py`에 둔다.
 
-해법: `04_rag_api.py`를 **OpenAI 호환 모델**(`MODEL_ID=kei-admin-rag`)로 Open WebUI에 등록한다. 역할 분담은 다음과 같다.
+채팅 UI는 별도 Open WebUI가 아니라 **우리 Next.js 14 + Toss Design System 앱에 통합**했다. 커스텀 채팅 UI(`/` 비서)가 같은 오리진 `/api/rag/chat`로 우리 RAG API를 호출한다. 이유는 ① **디자인 통일**(TDS) ② 채팅·그래프·문서 드로어를 **한 화면**으로 통합이다. Open WebUI는 브랜딩 보호 라이선스 이슈가 있어 기본 채택하지 않고, **같은 RAG API를 쓰는 선택적 관리자 폴백**으로만 남긴다(향후 스트리밍 UI 프리미티브로 assistant-ui를 검토 중). 역할 분담은 다음과 같다.
 
 | 책임 | 담당 |
 |------|------|
-| 채팅 UI · 멀티유저 · 권한(RBAC/SSO) | Open WebUI |
-| 제N조 단위 검색 · 근거 주입 · `[규정명 제N조]` 출처 강제 · 가드레일 | `04_rag_api.py` |
+| 채팅 UI · 근거 조문 패널 · 문서 드로어 | Next.js + TDS 앱(`/` 비서) |
+| 제N조 단위 검색 · 근거 주입 · `[규정명 제N조]` 출처 강제 · 가드레일 · `x_sources` 구조화 출처 | `04_rag_api.py` |
 
 ```mermaid
 sequenceDiagram
   participant U as 사용자
-  participant W as Open WebUI<br/>(UI/권한)
-  participant A as 04_rag_api<br/>(:9000, MODEL_ID=kei-admin-rag)
+  participant W as Next+TDS 앱<br/>(/ 비서, /api/rag/chat 프록시)
+  participant A as 04_rag_api<br/>(127.0.0.1:9000, PM2 kei-rag-api)
   participant C as Chroma kei_regs
-  participant V as vLLM<br/>Qwen2.5-14B-Instruct
+  participant V as Ollama<br/>Qwen2.5-14B-Instruct Q4_K_M
   U->>W: 질문
-  W->>A: POST /v1/chat/completions
+  W->>A: POST /api/rag/chat → /v1/chat/completions
   A->>C: retrieve(query, k=5)
   C-->>A: top-k 조문 + 메타
   A->>V: system(가드레일) + [질문]+[근거]
   V-->>A: 답변
-  A-->>W: 답변 + x_retrieved(회수 조문)
-  W-->>U: 답변 + [규정명 제N조] + 면책
+  A-->>W: 답변 + x_sources(구조화 출처) + x_retrieved(하위호환)
+  W-->>U: 답변 + 근거 조문 패널 + [규정명 제N조] + 면책
 ```
 
 엔드포인트:
 
 | 메서드 · 경로 | 역할 |
 |---------------|------|
-| `GET /health` | 상태·컬렉션·임베딩 모델·vLLM/LLM 설정 노출 |
+| `GET /health` | 상태·컬렉션·임베딩 모델·LLM(Ollama) 설정 노출 |
 | `GET /v1/models` | 모델 목록(`kei-admin-rag`) 노출 |
-| `POST /v1/chat/completions` | 검색 → 근거 주입 → vLLM 호출 → 출처 포함 응답(비스트리밍 스켈레톤) |
+| `POST /v1/chat/completions` | 검색 → 근거 주입 → Ollama 호출 → `x_sources` 출처 포함 응답(비스트리밍 v1) |
 
 > [!note] 지연 로딩(lazy loading)
-> 임베딩·Chroma·LLM 클라이언트는 **첫 요청 때 한 번만** 로드한다. 덕분에 `/v1/models` 등록·헬스체크는 무거운 모델 로딩 없이 즉시 응답하고, Open WebUI 모델 목록에 곧바로 잡힌다.
+> 임베딩·Chroma·LLM 클라이언트는 **첫 요청 때 한 번만** 로드한다. 덕분에 `/v1/models` 등록·헬스체크는 무거운 모델 로딩 없이 즉시 응답하고, OpenAI 호환 클라이언트(통합 채팅·선택적 Open WebUI 폴백)의 모델 목록에 곧바로 잡힌다.
 
-> [!warning] vLLM 미연결이어도 그레이스풀 — `x_retrieved`로 회수 출처 반환
-> 04는 vLLM 엔드포인트에 연결하지 못해도 **에러로 죽지 않는다.** 검색·근거주입은 그대로 수행하고, 답변 본문에 "생성 모델 미연결" 안내 + 회수된 근거 조문 목록을 담아 돌려주며, 응답의 `x_retrieved` 필드에도 회수 출처를 그대로 싣는다. 그래서 운영자가 **검색이 됐는지 / vLLM이 문제인지**를 한 응답에서 분리해 진단할 수 있다(원인 단서: `VLLM_BASE`·`LLM_MODEL`·예외 타입).
+> [!warning] LLM 미연결이어도 그레이스풀 — `x_sources`·`x_retrieved`로 회수 출처 반환
+> 04는 생성 LLM(현재 Ollama) 엔드포인트에 연결하지 못해도 **에러로 죽지 않는다.** 검색·근거주입은 그대로 수행하고, 답변 본문에 "생성 모델 미연결" 안내 + 회수된 근거 조문 목록을 담아 돌려주며, 응답의 `x_sources`(구조화 출처: 규정명/조/분류/snippet/distance)와 `x_retrieved`(하위호환 태그 문자열) 필드에도 회수 출처를 그대로 싣는다. 그래서 운영자가 **검색이 됐는지 / LLM이 문제인지**를 한 응답에서 분리해 진단할 수 있다(원인 단서: `VLLM_BASE`·`LLM_MODEL`·예외 타입).
 
-04의 동작은 환경변수로 조정한다: `CHROMA_DIR`, `RAG_COLLECTION`, `EMBED_MODEL`, `VLLM_BASE`, `LLM_MODEL`, `RAG_MODEL_ID`, `RAG_TOPK`. (`EMBED_MODEL`은 색인(02)·CLI(03)와 **반드시 동일** — §2.1 불변식.)
+04의 동작은 환경변수로 조정한다: `CHROMA_DIR`, `RAG_COLLECTION`, `EMBED_MODEL`, `VLLM_BASE`(현재 Ollama `127.0.0.1:11434/v1`), `LLM_MODEL`(현재 `hf.co/bartowski/Qwen2.5-14B-Instruct-GGUF:Q4_K_M`), `RAG_MODEL_ID`, `RAG_TOPK`. (`EMBED_MODEL`은 색인(02)·CLI(03)와 **반드시 동일** — §2.1 불변식.)
 
-실행과 등록:
+실행과 운영:
 
 ```bash
-# 호스트에서 직접 띄우기(우선 권장; compose 블록은 주석 처리되어 있음)
-uvicorn 04_rag_api:app --host 0.0.0.0 --port 9000
+# PM2로 상시 구동(프로세스명 kei-rag-api, uvicorn, 127.0.0.1:9000 로컬 전용)
+# Ollama 연결 env는 tools/ecosystem.config.js에 정의
+pm2 start tools/ecosystem.config.js   # 이후 pm2 save 완료
 ```
 
-> [!warning] 연결 URL에 localhost 쓰지 말 것
-> Open WebUI(Docker) → API 연결 시 Base URL은 **서버 실제 IP**를 써야 한다(`http://<서버실제IP>:9000/v1`, API Key=`EMPTY`). Docker 네트워크 특성상 `localhost`/`host.docker.internal`은 컨테이너 안에서 다른 곳을 가리킨다.
+> [!note] 같은 오리진 프록시 — RAG API는 LAN 비노출
+> RAG API는 `127.0.0.1:9000`에만 바인딩되어 LAN에 직접 노출되지 않는다. 프론트(Next 앱, PM2 `kei-guide`)가 `/api/rag/*`를 `127.0.0.1:9000`으로 리버스 프록시하므로 **같은 오리진**이라 CORS도 불필요하다. 선택적 폴백인 Open WebUI(Docker)에서 붙일 경우에만 Base URL에 **서버 실제 IP**를 써야 한다(`http://<서버실제IP>:9000/v1`, API Key=`EMPTY`; Docker 네트워크 특성상 `localhost`/`host.docker.internal`은 컨테이너 안에서 다른 곳을 가리킴).
 
-> [!warning] 생성 단계는 아직 미검증 — vLLM(Quadro RTX 6000) 필요
-> 검색·근거주입·`x_retrieved` 출처 반환까지는 이 서버에서 검증됐지만(§4.3), **실제 답변 생성은 vLLM 엔드포인트(사내 GPU Quadro RTX 6000 24GB×2, 총 48GB)가 떠 있어야** 동작한다. 현재 이 서버(Quadro RTX 6000 24GB×2)에는 vLLM이 기동돼 있지 않아 생성 품질은 미검증이다. 또한 Qwen2.5-14B-Instruct fp16(약 28GB)은 RTX 6000 단일 24GB를 초과하므로 2장 텐서병렬(`tensor-parallel-size=2`) 또는 더 작은 instruct(7B/3B)·양자화 서빙이 필요하다. 운영 전환 시 vLLM 기동 후 §8 지표로 첫 측정해야 한다.
+> [!note] 생성 단계 가동 중 — Ollama(Q4) 엔드투엔드 검증
+> 검색·근거주입·`x_sources`/`x_retrieved` 출처 반환은 물론 **실제 답변 생성까지 가동·검증됐다.** 현재 생성 LLM은 **Ollama**(OpenAI 호환, `127.0.0.1:11434/v1`)로 **Qwen2.5-14B-Instruct Q4_K_M GGUF**(약 9GB)를 띄워 사용하며, GPU1에 약 18GB 상주하고 GPU0은 비어 있어 전용 인스턴스 여지가 있다. 한국어 답변을 엔드투엔드로 확인했다(예: "법인카드로 주말에 비품 사도 되나요?" → `법인카드관리및사용규칙 제4조` 근거 답변). Qwen2.5-14B-Instruct fp16(약 28GB)은 RTX 6000 단일 24GB를 초과하므로 현재는 Q4 양자화로 단일 GPU에 올렸고, **vLLM은 대안**으로 남는다(2장 텐서병렬 `tensor-parallel-size=2` 또는 더 작은 instruct(7B/3B)·양자화 서빙). 운영 정답성·출처 정확도·거부율은 §8 지표로 본측정 예정이다.
 
 결정 근거: [ADR 0003 — 통제형 RAG API](adr/0003-controlled-rag-api.md). 배포 절차는 [06-deployment.md](06-deployment.md).
 
@@ -317,7 +318,7 @@ RAG 품질을 "느낌"이 아니라 재현 가능한 지표로 본다.
 | 지표 | 정의 | 측정 방법 |
 |------|------|-----------|
 | 정답성(correctness) | 답변 내용이 규정과 일치하는가 | 기대 답변 요지 대비 사람/LLM 채점 |
-| 출처 정확도(citation accuracy) | `[규정명 제N조]`가 실제 근거 조문을 가리키는가 | 답변 출처 vs 회수 조문(`x_retrieved`) 대조 |
+| 출처 정확도(citation accuracy) | `[규정명 제N조]`가 실제 근거 조문을 가리키는가 | 답변 출처 vs 회수 조문(`x_sources`/`x_retrieved`) 대조 |
 | 거부율(refusal rate) | 근거에 없을 때 "규정에서 확인되지 않습니다"라고 제대로 거부하는가 | **모르면 모른다** 시나리오 통과율 |
 
 > [!note] 거부율은 약점이 아니라 미덕
@@ -326,15 +327,16 @@ RAG 품질을 "느낌"이 아니라 재현 가능한 지표로 본다.
 > [!todo] 확인 필요: 목표 수치
 > 각 지표의 목표치(예: 출처 정확도 N% 이상, 위험 질문 거부율 N% 이상)는 첫 측정 후 베이스라인을 보고 정한다. (「TODO: 목표 수치 확정」)
 
-### 8.3 디버그 — `x_retrieved`로 회수 조문 로깅
+### 8.3 디버그 — `x_sources`/`x_retrieved`로 회수 조문 로깅
 
-`04_rag_api.py`의 응답에는 디버그용 `x_retrieved` 필드가 들어가, **어떤 조문이 회수됐는지** 그대로 남긴다(vLLM 미연결 시에도 회수 출처는 반환 — §7). CLI(`03_rag_query.py`)는 `--retrieve-only`로 LLM 없이 회수된 조 목록·거리를 출력한다(§4.4). 이미 §4.3에서 6개 대표 질의의 회수 정확성을 이 경로로 검증했다.
+`04_rag_api.py`의 응답에는 **어떤 조문이 회수됐는지** 그대로 남기는 출처 필드가 들어간다(생성 LLM 미연결 시에도 회수 출처는 반환 — §7). 프론트 근거 패널이 소비하는 `x_sources`(구조화 출처: 규정명/조/분류/snippet/distance)와, 디버그·하위호환용 `x_retrieved`(태그 문자열) 두 형태로 제공한다. CLI(`03_rag_query.py`)는 `--retrieve-only`로 LLM 없이 회수된 조 목록·거리를 출력한다(§4.4). 이미 §4.3에서 6개 대표 질의의 회수 정확성을 이 경로로 검증했다.
 
 ```python
-# 04_rag_api.py 응답 일부 — 회수 조문을 디버그로 노출
+# 04_rag_api.py 응답 일부 — 회수 조문을 출처로 노출
 return JSONResponse({
     ...,
-    "x_retrieved": srcs,   # 디버그용: 회수된 조문 태그 목록
+    "x_sources": sources,    # 구조화 출처: 규정명/조/분류/snippet/distance
+    "x_retrieved": srcs,     # 하위호환·디버그용: 회수된 조문 태그 목록
 })
 ```
 
@@ -342,7 +344,7 @@ return JSONResponse({
 
 ```mermaid
 flowchart TD
-  BAD["답변 이상"] --> CHK{"x_retrieved의<br/>조문이 적절한가?"}
+  BAD["답변 이상"] --> CHK{"x_sources/x_retrieved의<br/>조문이 적절한가?"}
   CHK -->|아니오| R["검색 문제<br/>→ 임베딩/청킹/top-k 점검"]
   CHK -->|예| G["생성 문제<br/>→ 프롬프트/모델 점검"]
 ```
@@ -354,9 +356,9 @@ flowchart TD
 | 항목 | 내용 |
 |------|------|
 | 긴 조문 하위청킹 | `max_seq_len=2048` 초과로 임베딩 시 잘리는 **41개 청크**를 항·호 단위로 더 쪼개 잘림 없이 색인(§2.3 검색 한계 해소) |
-| 생성 단계 검증 | vLLM(Quadro RTX 6000 24GB×2) 기동 후 §8 지표로 답변 정답성·출처 정확도·거부율 첫 측정(현재 검색만 검증) |
+| 생성 지표 본측정 | 현재 Ollama(Qwen2.5-14B-Instruct Q4_K_M)로 생성까지 가동·검증됨 → §8 지표로 답변 정답성·출처 정확도·거부율 베이스라인 첫 측정 |
 | 리랭커(reranker) | top-k 회수 후 cross-encoder 등으로 재정렬해 상위 근거 품질 향상 |
-| 스트리밍(SSE) | `04_rag_api.py`의 `/v1/chat/completions`를 SSE 스트리밍으로 확장(현재는 비스트리밍 스켈레톤) |
+| 스트리밍(SSE) | `04_rag_api.py`의 `/v1/chat/completions`와 프론트 통합 채팅을 SSE 스트리밍으로 확장(현재는 비스트리밍 v1; assistant-ui를 프리미티브 후보로 검토 중) |
 | 하이브리드 검색 | 임베딩(dense) + 키워드(BM25 등 sparse) 결합으로 규정번호·고유명 회수 보강 |
 
 > [!todo] 확인 필요: 우선순위·일정

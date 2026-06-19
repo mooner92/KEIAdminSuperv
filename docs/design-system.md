@@ -7,7 +7,8 @@
 
 ## 0. 기술 스택 (확정)
 - **Next.js 14 (Pages Router)** + TypeScript. 전사 방침: 원내 서비스는 Next.js로 개발.
-- **정적 export**(`output: "export"`) → `nginx 127.0.0.1` → Cloudflare Zero Trust(사내 전용). 서버 런타임 불필요.
+- **정적 export**(`output: "export"`) → `web/server.js`(PM2 `kei-guide`, 0.0.0.0:3100) 또는 `nginx 127.0.0.1` → Cloudflare Zero Trust(사내 전용). 서버 런타임 불필요.
+- **비서(RAG 채팅)**: 클라이언트가 같은 오리진 `/api/rag/chat`(정적 서버가 로컬 RAG API `127.0.0.1:9000`로 리버스 프록시)로 호출 → 정적 export를 유지하면서 동적 답변. 생성=Ollama(Qwen2.5-14B-Instruct), 검색=KURE-v1+Chroma.
 - **Toss Design System**: `@toss/tds-mobile` · `@toss/tds-mobile-ait`(Provider) + `@emotion/react`. React 18 고정(TDS peer).
 - 스타일: **CSS 변수 토큰 + CSS Modules**(SSG 안전). 콘텐츠 렌더는 `react-markdown` + `remark-gfm`.
   - Pages Router를 택한 이유: TDS(emotion 기반)와 SSG에 마찰이 적다. App Router는 emotion 레지스트리 셋업 후 향후 검토.
@@ -55,11 +56,13 @@
 | 컴포넌트 | 위치 | 규약 |
 |---|---|---|
 | **Layout** | `web/components/Layout.tsx` | sticky 헤더(브랜드+사내전용 플래그) · `--maxw`(1120) 중앙 정렬 · breadcrumb · footer(내부전용 고지) |
-| **목록(GuideList)** | `web/components/GuideList.tsx` | TDS `SegmentedControl`(섹션 탭) + `SearchField`(검색) + 행. 행 = `규정번호 │ 제목·칩 │ 개정일·상태badge`. hover 강조, 1열 반응형 |
+| **비서(Assistant)** | `web/components/Assistant.tsx` | 홈(`/`) RAG 채팅. 질문 → `/api/rag/chat` → 근거 기반 답변(Markdown). 우측 **근거 조문 패널**(`x_sources` 카드), 카드 클릭 시 문서 드로어가 해당 조로 펼침. 면책 고지 상시 |
+| **둘러보기(Explorer)** | `web/components/Explorer.tsx` | `/browse` 좌측 **체크박스 필터**(구분·분류·검수상태, 패싯 카운트) + `SearchField` + 행. 행 클릭 = 페이지 이동 없이 **문서 드로어**로 본문. 행 = `규정번호 │ 제목·칩 │ 개정일·상태badge` |
 | **칩(섹션)** | — | 규정집=blue, 가이드=green, 용어집=orange. `data-section`으로 색 분기 |
 | **상태 배지** | — | `미검수`=orange, `검수완료`=green. 항상 표시(거버넌스) |
 | **Markdown** | `web/components/Markdown.tsx` | `[[위키링크]]`는 빌드타임에 `/d/<slug>/#조` 링크로 변환 → 내부는 `next/link`. **제N조 헤딩에 id 부여 → 조 단위 점프(앵커)**. 표/인용/코드 토큰 스타일 |
 | **관계 그래프** | `web/components/GraphCanvas.tsx` | `react-force-graph-2d`로 규정 상호참조를 노드·간선으로 시각화. 노드 클릭 → 해당 문서로 이동. 코드 스플릿(동적 import)으로 초기 번들과 분리 |
+| **문서 드로어(DocDrawer)** | `web/components/DocDrawer.tsx` | Notion형 우측 슬라이드인. `out/docdata/<slug>.json` 지연 로드(빌드 산출, `scripts/emit-docdata.mts`가 `lib/vault.ts` 재사용 → 페이지와 동일 본문). 제N조 앵커 스크롤, 내부링크·백링크는 드로어 안에서 전환, ESC/배경 닫기 |
 | TDS 컴포넌트 | `@toss/tds-mobile` | `TDSMobileAITProvider`로 감싼다. `SearchField`·`SegmentedControl` 등 데스크톱에 맞는 것부터 점진 도입 |
 
 ---
@@ -76,8 +79,12 @@
 - [x] W2 TDS 컴포넌트 심화(`SearchField`·`SegmentedControl` 도입 — 목록 검색/섹션탭)
 - [x] W2 제N조 단위 앵커(헤딩 id) → 조 단위 점프
 - [x] W3 관계 그래프 뷰(`react-force-graph-2d`, 노드 클릭→문서 이동, 코드 스플릿)
+- [x] W4 비서(RAG 채팅) 통합 — `/api/rag/chat`(server.js 프록시 → 로컬 RAG API), 근거 조문 패널, 출처 카드
+- [x] W5 둘러보기 좌측 체크박스 필터 + Notion형 문서 드로어(지연 로드, 페이지 이동 없는 읽기)
 - [ ] KEI 메인 컬러 토큰 교체 (미정 — 사용자가 색을 주면 `globals.css` 토큰 한 블록 교체)
-- [ ] 번들 경량화(현재 first-load ~388KB, TDS)
+- [ ] 번들 경량화(현재 first-load `/` ~433KB, TDS+react-markdown)
+- [ ] 비서 응답 스트리밍(SSE) + 멀티턴 — 도입 시 `@assistant-ui/react` 프리미티브 검토
+- [ ] 관계 그래프를 비서 화면에 임베드(질문↔노드 상호 탐색)
 - [ ] TDS 컴포넌트 추가 확대
 
 > 최종 수정: 2026-06-19 · 변경 시 이 문서를 먼저 갱신하고 코드에 반영한다(원칙 3 일관성).
