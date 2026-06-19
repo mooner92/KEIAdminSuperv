@@ -5,6 +5,9 @@
 
 이 문서는 [01-overview.md](01-overview.md)의 목표와 [02-architecture.md](02-architecture.md)의 "하나의 볼트, 두 개의 화면" 구조를 전제로, 운영 시 지켜야 할 보안·거버넌스 원칙을 정리한다. 배포의 실제 절차는 [06-deployment.md](06-deployment.md), RAG 가드레일의 구현은 [05-rag-design.md](05-rag-design.md)를 함께 본다.
 
+> [!note] 공개 레포 데이터 분리
+> 이 시스템의 소스는 공개 GitHub 레포에 있지만 **규정 데이터(볼트·HWP)는 공개하지 않는다.** 데이터 분류·위협 모델·통제(`.gitignore`+pre-commit 훅+CI+히스토리 purge)·사고 교정 이력은 루트 [SECURITY.md](../SECURITY.md)에 정리되어 있다.
+
 ---
 
 ## 1. 원칙 (Principles)
