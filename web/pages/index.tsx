@@ -3,7 +3,6 @@ import Head from "next/head";
 import Layout from "../components/Layout";
 import Assistant from "../components/Assistant";
 import { getAllDocs, type DocMeta } from "../lib/vault";
-import styles from "../styles/Home.module.css";
 
 export default function Home({ docs }: { docs: DocMeta[] }) {
   return (
@@ -13,12 +12,6 @@ export default function Home({ docs }: { docs: DocMeta[] }) {
         <meta name="description" content="KEI 사내 규정 기반 행정 비서 (내부 전용)" />
         <meta name="robots" content="noindex, nofollow" />
       </Head>
-      <section className={styles.hero}>
-        <h1 className={styles.h1}>KEI 행정 비서</h1>
-        <p className={styles.lead}>
-          “이 업무 어떻게 처리하지?” — 사내 규정을 근거로 답하고, 출처 조문까지 함께 보여드려요.
-        </p>
-      </section>
       <Assistant docs={docs} />
     </Layout>
   );
