@@ -21,6 +21,7 @@ import time
 import uuid
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -41,6 +42,14 @@ SYSTEM = (
 )
 
 app = FastAPI(title="KEI Admin RAG (OpenAI-compatible)")
+# 내부망 전용. 정적 프론트(다른 포트)에서 직접 호출/디버깅 가능하도록 허용.
+# 운영은 server.js가 같은 오리진으로 프록시하므로 CORS에 의존하지 않는다.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 _state: dict = {}
 
 
@@ -78,12 +87,24 @@ def models():
 
 def retrieve(embed, col, query: str, k: int = TOPK):
     qv = embed.encode([query], normalize_embeddings=True)[0].tolist()
-    r = col.query(query_embeddings=[qv], n_results=k, include=["documents", "metadatas"])
+    r = col.query(query_embeddings=[qv], n_results=k,
+                  include=["documents", "metadatas", "distances"])
     blocks, srcs = [], []
-    for doc, m in zip(r["documents"][0], r["metadatas"][0]):
-        tag = f"{m.get('규정명', '')} {m.get('조', '')}".strip()
+    for doc, m, dist in zip(r["documents"][0], r["metadatas"][0], r["distances"][0]):
+        name = (m.get("규정명") or "").strip()
+        article = (m.get("조") or "").strip()
+        tag = f"{name} {article}".strip()
         blocks.append(f"[{tag}]\n{doc}")
-        srcs.append(tag)
+        # 프론트의 근거 패널/문서 드로어 연결용 구조화 출처
+        srcs.append({
+            "규정명": name,
+            "조": article,
+            "분류": (m.get("분류") or "").strip(),
+            "slug": (m.get("slug") or m.get("파일") or "").strip(),
+            "tag": tag,
+            "snippet": doc[:240].replace("\n", " ").strip(),
+            "distance": round(float(dist), 4),
+        })
     return "\n\n---\n\n".join(blocks), srcs
 
 
@@ -93,6 +114,7 @@ def chat(req: ChatReq):
     user_msg = next((m["content"] for m in reversed(req.messages)
                      if m.get("role") == "user"), "")
     context, srcs = retrieve(embed, col, user_msg)
+    tags = [s["tag"] for s in srcs]
     try:
         out = llm.chat.completions.create(
             model=LLM_MODEL, temperature=req.temperature or 0.1,
@@ -101,14 +123,16 @@ def chat(req: ChatReq):
         )
         answer = out.choices[0].message.content
     except Exception as e:
-        # vLLM 미연결 시에도 회수 근거는 돌려줘 운영자가 원인 파악 가능하게
-        answer = ("⚠️ 생성 모델(vLLM)에 연결하지 못했습니다. 회수된 근거 조문은 아래와 같습니다.\n\n"
-                  + "\n".join(f"- {s}" for s in srcs)
+        # 생성 모델 미연결 시에도 회수 근거는 돌려줘 운영자가 원인 파악 가능하게
+        answer = ("⚠️ 생성 모델에 연결하지 못했습니다. 회수된 근거 조문은 아래와 같습니다.\n\n"
+                  + "\n".join(f"- {t}" for t in tags)
                   + f"\n\n(관리자 확인: {VLLM_BASE} / {LLM_MODEL} · {type(e).__name__})")
     return JSONResponse({
         "id": f"chatcmpl-{uuid.uuid4().hex[:12]}", "object": "chat.completion",
         "created": int(time.time()), "model": MODEL_ID,
         "choices": [{"index": 0, "finish_reason": "stop",
                      "message": {"role": "assistant", "content": answer}}],
-        "usage": {}, "x_retrieved": srcs,   # 디버그용: 회수된 조문
+        "usage": {},
+        "x_retrieved": tags,    # 하위호환: 회수된 조문 태그 문자열
+        "x_sources": srcs,      # 구조화 출처(규정명·조·분류·snippet·distance) — 근거 패널용
     })
