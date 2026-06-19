@@ -59,7 +59,7 @@
 | **칩(섹션)** | — | 규정집=blue, 가이드=green, 용어집=orange. `data-section`으로 색 분기 |
 | **상태 배지** | — | `미검수`=orange, `검수완료`=green. 항상 표시(거버넌스) |
 | **Markdown** | `web/components/Markdown.tsx` | `[[위키링크]]`는 빌드타임에 `/d/<slug>/#조` 링크로 변환 → 내부는 `next/link`. **제N조 헤딩에 id 부여 → 조 단위 점프(앵커)**. 표/인용/코드 토큰 스타일 |
-| **관계 그래프** | `web/components/Graph.tsx` | `react-force-graph-2d`로 규정 상호참조를 노드·간선으로 시각화. 노드 클릭 → 해당 문서로 이동. 코드 스플릿(동적 import)으로 초기 번들과 분리 |
+| **관계 그래프** | `web/components/GraphCanvas.tsx` | `react-force-graph-2d`로 규정 상호참조를 노드·간선으로 시각화. 노드 클릭 → 해당 문서로 이동. 코드 스플릿(동적 import)으로 초기 번들과 분리 |
 | TDS 컴포넌트 | `@toss/tds-mobile` | `TDSMobileAITProvider`로 감싼다. `SearchField`·`SegmentedControl` 등 데스크톱에 맞는 것부터 점진 도입 |
 
 ---
