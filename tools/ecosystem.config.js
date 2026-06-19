@@ -33,6 +33,9 @@ module.exports = {
         RAG_MODEL_ID: "kei-admin-rag",
         RAG_TOPK: "5",
         HF_HUB_OFFLINE: "1", // 임베딩 모델은 로컬 캐시 사용(망 호출 차단)
+        OLLAMA_KEEP_ALIVE: "-1", // LLM 무한 상주(콜드스타트 방지). GPU0 여유 충분
+        OLLAMA_PING_SECONDS: "240", // 주기 keep-alive(외부 언로드 대비 백스톱). 0이면 끔
+        PYTHONUNBUFFERED: "1", // print/로그 즉시 flush(PM2 로그 가시성)
       },
     },
   ],

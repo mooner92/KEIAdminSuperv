@@ -7,6 +7,7 @@
 가드레일(절대 규칙): 근거 밖 내용 금지, 출처 [규정명 제N조], 면책 문구. 약화시키지 말 것.
 """
 import os
+import threading
 
 EMBED_MODEL = os.environ.get("EMBED_MODEL", "nlpai-lab/KURE-v1")   # 02/03과 동일해야 함
 CHROMA_DIR = os.environ.get("CHROMA_DIR", "tools/chroma")
@@ -14,6 +15,16 @@ COLLECTION = os.environ.get("RAG_COLLECTION", "kei_regs")
 VLLM_BASE = os.environ.get("VLLM_BASE", "http://localhost:8000/v1")  # 실제로는 Ollama
 LLM_MODEL = os.environ.get("LLM_MODEL", "Qwen/Qwen2.5-14B-Instruct")
 TOPK = int(os.environ.get("RAG_TOPK", "5"))
+# 모델 상주(콜드스타트 방지). -1 = 무한 상주(언로드 안 함). "30m" 등 Ollama keep_alive 값도 가능.
+KEEP_ALIVE = os.environ.get("OLLAMA_KEEP_ALIVE", "-1")
+
+
+def _keep_alive():
+    try:
+        return int(KEEP_ALIVE)
+    except (TypeError, ValueError):
+        return KEEP_ALIVE
+
 
 SYSTEM = (
     "너는 KEI 행정 도우미다. 아래 [근거] 규정 조문만 사용해 답한다.\n"
@@ -25,18 +36,21 @@ SYSTEM = (
 )
 
 _state: dict = {}
+_lock = threading.Lock()
 
 
 def backend():
-    """임베딩/벡터DB/LLM 클라이언트를 첫 사용 시 한 번만 로드."""
+    """임베딩/벡터DB/LLM 클라이언트를 첫 사용 시 한 번만 로드(스레드 안전 — 워밍업/요청 경쟁 방지)."""
     if "embed" not in _state:
-        import chromadb
-        from openai import OpenAI
-        from sentence_transformers import SentenceTransformer
-        print(f"임베딩/벡터DB 로딩... ({EMBED_MODEL}, {CHROMA_DIR}/{COLLECTION})")
-        _state["embed"] = SentenceTransformer(EMBED_MODEL)
-        _state["col"] = chromadb.PersistentClient(path=CHROMA_DIR).get_collection(COLLECTION)
-        _state["llm"] = OpenAI(base_url=VLLM_BASE, api_key="EMPTY")
+        with _lock:
+            if "embed" not in _state:
+                import chromadb
+                from openai import OpenAI
+                from sentence_transformers import SentenceTransformer
+                print(f"임베딩/벡터DB 로딩... ({EMBED_MODEL}, {CHROMA_DIR}/{COLLECTION})")
+                _state["embed"] = SentenceTransformer(EMBED_MODEL)
+                _state["col"] = chromadb.PersistentClient(path=CHROMA_DIR).get_collection(COLLECTION)
+                _state["llm"] = OpenAI(base_url=VLLM_BASE, api_key="EMPTY")
     return _state["embed"], _state["col"], _state["llm"]
 
 
@@ -85,6 +99,7 @@ def answer(question: str, context: str, history=None, temperature: float = 0.1) 
     out = llm.chat.completions.create(
         model=LLM_MODEL, temperature=temperature,
         messages=_build_messages(question, context, history),
+        extra_body={"keep_alive": _keep_alive()},  # 매 요청마다 상주 재확인
     )
     return out.choices[0].message.content or ""
 
@@ -95,6 +110,7 @@ def answer_stream(question: str, context: str, history=None, temperature: float 
     stream = llm.chat.completions.create(
         model=LLM_MODEL, temperature=temperature,
         messages=_build_messages(question, context, history), stream=True,
+        extra_body={"keep_alive": _keep_alive()},  # 매 요청마다 상주 재확인
     )
     for chunk in stream:
         try:
@@ -103,3 +119,20 @@ def answer_stream(question: str, context: str, history=None, temperature: float 
             delta = None
         if delta:
             yield delta
+
+
+def keepalive_once():
+    """LLM을 메모리에 상주시키는 초경량 호출(1토큰). keep_alive로 언로드 타이머를 재설정."""
+    _, _, llm = backend()
+    llm.chat.completions.create(
+        model=LLM_MODEL, temperature=0, max_tokens=1,
+        messages=[{"role": "user", "content": "ping"}],
+        extra_body={"keep_alive": _keep_alive()},
+    )
+
+
+def warmup():
+    """서버 기동 시 백그라운드로 호출 → 임베딩/벡터DB 로드 + LLM 상주(첫 질문 콜드스타트 제거)."""
+    embed, _, _ = backend()
+    embed.encode(["워밍업"], normalize_embeddings=True)  # 임베딩 연산 경로까지 예열
+    keepalive_once()

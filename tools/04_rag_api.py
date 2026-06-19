@@ -14,6 +14,7 @@
          APP_DB, APP_SECRET_FILE (비서 앱 DB/세션키)
 """
 import os
+import threading
 import time
 import uuid
 
@@ -34,6 +35,27 @@ app = FastAPI(title="KEI 행정 비서 (RAG + 채팅기록)")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 app.include_router(app_router)  # /app/* (로그인·채팅기록)
 init_db()  # SQLite 테이블 보장(idempotent)
+
+
+def _warm_loop():
+    """기동 시 모델 예열 + 주기적 keep-alive로 LLM을 상주시켜 첫 질문 콜드스타트를 없앤다.
+    GPU 여유가 충분(GPU0 비어있음)하므로 상주가 유리. OLLAMA_PING_SECONDS=0이면 주기 핑 끔."""
+    try:
+        rag_core.warmup()
+        print("워밍업 완료: 임베딩(KURE-v1) 로드 + LLM 상주")
+    except Exception as e:
+        print(f"워밍업 실패(첫 요청 때 재시도): {type(e).__name__}: {e}")
+    interval = int(os.environ.get("OLLAMA_PING_SECONDS", "240"))  # Ollama 기본 언로드(5분)보다 짧게
+    while interval > 0:
+        time.sleep(interval)
+        try:
+            rag_core.keepalive_once()
+        except Exception as e:
+            print(f"keepalive 실패: {type(e).__name__}: {e}")
+
+
+# 데몬 스레드 → import(=uvicorn 기동)는 즉시 끝나고 백그라운드로 예열
+threading.Thread(target=_warm_loop, name="kei-warmup", daemon=True).start()
 
 
 class ChatReq(BaseModel):
