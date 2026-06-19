@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/router";
 import type { GraphData } from "../lib/vault";
+import { useTheme } from "../lib/theme";
 import styles from "../styles/Graph.module.css";
 
 // react-force-graph는 canvas/window 의존 → 클라이언트에서만 로드
@@ -19,6 +20,8 @@ const SECTION_COLOR: Record<string, string> = {
 export default function GraphCanvas({ graph }: { graph: GraphData }) {
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const { resolved } = useTheme();
+  const dark = resolved === "dark";
   const [size, setSize] = useState({ w: 900, h: 600 });
 
   useEffect(() => {
@@ -44,9 +47,9 @@ export default function GraphCanvas({ graph }: { graph: GraphData }) {
         nodeRelSize={4}
         nodeVal={(n: any) => 1 + (n.deg || 0)}
         nodeColor={(n: any) => SECTION_COLOR[n.section] || "#8b95a1"}
-        linkColor={() => "rgba(25,31,40,0.10)"}
+        linkColor={() => (dark ? "rgba(233,237,243,0.16)" : "rgba(25,31,40,0.10)")}
         linkWidth={1}
-        backgroundColor="#ffffff"
+        backgroundColor={dark ? "#20242c" : "#ffffff"}
         cooldownTicks={120}
         onNodeClick={(n: any) => router.push(`/d/${n.id}/`)}
         nodeCanvasObjectMode={() => "after"}
@@ -55,7 +58,7 @@ export default function GraphCanvas({ graph }: { graph: GraphData }) {
           if (scale < 2.2) return;
           const label = String(node.title);
           ctx.font = `${11 / scale}px -apple-system, sans-serif`;
-          ctx.fillStyle = "#4e5968";
+          ctx.fillStyle = dark ? "#c2c9d2" : "#4e5968";
           ctx.textBaseline = "middle";
           ctx.fillText(label, node.x + (Math.sqrt(1 + (node.deg || 0)) * 4 + 2) / scale, node.y);
         }}

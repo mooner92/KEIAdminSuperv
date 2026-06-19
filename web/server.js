@@ -97,7 +97,11 @@ function serveFile(res, filePath, status = 200) {
       return;
     }
     const type = MIME[path.extname(filePath).toLowerCase()] || "application/octet-stream";
-    send(res, status, data, { "Content-Type": type });
+    // 해시 붙은 _next 자산은 영구 캐시(immutable), 나머지(HTML·docdata)는 항상 재검증
+    // → 배포 후 새로고침하면 항상 최신을 받음(stale HTML 방지).
+    const immutable = filePath.includes(`${path.sep}_next${path.sep}`);
+    const cache = immutable ? "public, max-age=31536000, immutable" : "no-cache";
+    send(res, status, data, { "Content-Type": type, "Cache-Control": cache });
   });
 }
 
