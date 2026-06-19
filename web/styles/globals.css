@@ -101,6 +101,10 @@ html, body {
   font-size: 15px;
   line-height: 1.55;
 }
+/* TDS가 런타임에 body 배경을 OS 컬러스킴(white)으로 덮어써, 앱을 다크로 토글해도 흰 배경이 남는 문제 방지.
+   selector specificity를 올려(html body > body) 우리 시맨틱 토큰이 이기게 한다. */
+html body { background-color: var(--color-bg-subtle); }
+
 a { color: inherit; text-decoration: none; }
 :focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; border-radius: 4px; }
 
