@@ -40,8 +40,15 @@
 | `--accent-규정집/가이드/용어집` | `blue/green/orange 500` | 섹션 구분 칩 |
 
 > [!tip] KEI 메인 컬러로 바꾸기
-> `globals.css`의 **`[KEI 시맨틱 토큰]` 블록만** 교체한다(예: `--color-primary: #<KEI색>`). 컴포넌트는 안 건드린다.
+> `globals.css`의 **시맨틱 토큰 블록만** 교체한다(예: `--color-primary: #<KEI색>`). 컴포넌트는 안 건드린다.
+> 라이트는 `:root`, 다크는 `[data-theme="dark"]` **두 블록**을 같이 손본다.
 > TDS 컴포넌트 자체 색은 `ThemeProvider({ token })`(seed token)로 재정의 가능 — 도입 시점에 연결.
+
+### 2-1. 다크모드 · 테마 시스템
+- 선호: **라이트 · 다크 · 시스템(OS 따름)** 3단. `lib/theme.tsx`(컨텍스트)가 선호를 `localStorage`에 저장하고, 적용값을 `<html data-theme>`로 내려 `[data-theme="dark"]` 토큰을 분기한다. 헤더의 `ThemeToggle`로 순환.
+- 깜빡임(FOUC) 방지: `_document.tsx`의 인라인 스크립트가 **페인트 전에** `data-theme`를 설정.
+- 토큰만 바꾸면 끝(원칙 3): 다크는 `globals.css`의 `[data-theme="dark"]` 한 블록. 컴포넌트는 시맨틱 토큰만 보므로 자동 적응(배지·헤더·표 줄무늬 등도 `--badge-*`/`--color-header-bg`/`--color-code-bg`로 토큰화).
+- TDS 컴포넌트(현재 `SearchField`)는 `<ColorSchemeArea theme={resolved}>`로 감싸 테마를 따르게 함. `color-scheme` 속성으로 네이티브 폼·스크롤바도 함께 전환.
 
 ---
 
@@ -56,7 +63,8 @@
 ## 4. 컴포넌트 규약
 | 컴포넌트 | 위치 | 규약 |
 |---|---|---|
-| **Layout** | `web/components/Layout.tsx` | sticky 헤더(브랜드+사내전용 플래그) · `--maxw`(1120) 중앙 정렬 · breadcrumb · footer(내부전용 고지) |
+| **Layout** | `web/components/Layout.tsx` | sticky 헤더(브랜드 · 내비 · **테마 토글** · 사내전용 플래그) · `--maxw`(1120) 중앙 정렬 · breadcrumb · footer(내부전용 고지) |
+| **테마 토글** | `web/components/ThemeToggle.tsx` · `lib/theme.tsx` | 라이트/다크/시스템 순환. `data-theme`로 토큰 분기, `localStorage` 보관, FOUC 방지(`_document`) |
 | **비서(ChatApp)** | `Assistant.tsx`(인증 게이트) · `ChatApp.tsx` | 홈(`/`). 로그인 시 좌측 **대화목록**(새/선택/삭제) · 중앙 **멀티턴 채팅**(`/api/app/chats/{id}/messages`) · 우측 **메시지별 근거 패널**(지난 답변 클릭 → 그때의 근거). 근거 카드 클릭 → 문서 드로어. 면책 고지 상시 |
 | **로그인(Login)** | `web/components/Login.tsx` | 로그인/회원가입(bcrypt + JWT httpOnly 쿠키). 미인증 시 게이트가 노출. 채팅기록은 계정별 보관 |
 | **둘러보기(Explorer)** | `web/components/Explorer.tsx` | `/browse` 좌측 **체크박스 필터**(구분·분류·검수상태, 패싯 카운트) + `SearchField` + 행. 행 클릭 = 페이지 이동 없이 **문서 드로어**로 본문. 행 = `규정번호 │ 제목·칩 │ 개정일·상태badge` |
@@ -85,6 +93,7 @@
 - [x] W5 둘러보기 좌측 체크박스 필터 + Notion형 문서 드로어(지연 로드, 페이지 이동 없는 읽기)
 - [x] W6 로그인 + 채팅기록 영속화(SQLite/SQLModel) + 멀티턴 기억 + 메시지별 근거 저장 (`/api/app/*`)
 - [x] W7 비서 응답 스트리밍(SSE) — `?stream=1`(`meta`→`delta`→`done`), 근거 먼저·본문 타자치듯
+- [x] W8 다크모드 + 테마 시스템(라이트·다크·시스템) — `[data-theme]` 토큰 분기, FOUC 방지, TDS `ColorSchemeArea` 연동
 - [ ] KEI 메인 컬러 토큰 교체 (미정 — 사용자가 색을 주면 `globals.css` 토큰 한 블록 교체)
 - [ ] 번들 경량화(현재 first-load `/` ~433KB, TDS+react-markdown)
 - [ ] 관계 그래프를 비서 화면에 임베드(질문↔노드 상호 탐색)
