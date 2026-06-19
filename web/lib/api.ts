@@ -30,12 +30,21 @@ export class ApiError extends Error {
   }
 }
 
-async function j<T>(path: string, init?: RequestInit): Promise<T> {
-  const r = await fetch(BASE + path, {
-    credentials: "same-origin",
-    ...init,
-    headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
-  });
+async function j<T>(path: string, init?: RequestInit, timeoutMs = 12000): Promise<T> {
+  // 타임아웃 → 게이트가 무한 '불러오는 중'으로 멈추지 않게(네트워크/엣지 지연 시 에러로 떨어져 로그인 노출)
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  let r: Response;
+  try {
+    r = await fetch(BASE + path, {
+      credentials: "same-origin",
+      signal: ctrl.signal,
+      ...init,
+      headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
+    });
+  } finally {
+    clearTimeout(timer);
+  }
   if (!r.ok) {
     let msg = `요청 실패 (${r.status})`;
     try {
@@ -105,7 +114,7 @@ async function sendMessageStream(id: number, content: string, h: StreamHandlers)
 }
 
 export const api = {
-  me: () => j<User>("/auth/me"),
+  me: () => j<User>("/auth/me", undefined, 7000), // 게이트: 7초 내 미응답이면 로그인 화면으로
   login: (username: string, password: string) =>
     j<User>("/auth/login", { method: "POST", body: JSON.stringify({ username, password }) }),
   register: (username: string, password: string) =>
