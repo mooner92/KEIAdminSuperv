@@ -26,6 +26,12 @@ tools/chroma/
 chroma/
 *.sqlite3
 .cache/
+
+# ── 비서 앱 DB / 비밀키 (사용자·채팅 데이터 + 규정 스니펫 포함 → 커밋 금지) ──
+tools/app.db
+tools/app.db-wal
+tools/app.db-shm
+tools/.app_secret
 # 로컬에 내려받은 임베딩/모델 가중치
 models/
 
