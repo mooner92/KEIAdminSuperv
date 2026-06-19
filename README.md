@@ -2,7 +2,7 @@
 
 > 행정 초보(신입·전입자)가 "이 업무 어떻게 처리하지?"를 **사내 규정 근거로** 빠르게 해결하도록 돕는 온프레미스 지식베이스 + 로컬 LLM 비서.
 >
-> 단일 진실원천(Source of Truth)인 마크다운 볼트 하나를, 사람이 탐색하는 **[뇌] Quartz 그래프**와 신입이 물어보는 **[비서] Open WebUI + vLLM** 두 화면으로 동시에 서빙합니다. 모델·임베딩은 전부 사내 GPU(Quadro RTX 6000 24GB×2)에서 돌고, 두 화면 모두 Cloudflare Zero Trust 뒤(사내 전용)에 둡니다.
+> 단일 진실원천(Source of Truth)인 마크다운 볼트 하나를, 사람이 탐색하는 **[뇌] Next.js 14 + TDS 정적 사이트**와 신입이 물어보는 **[비서] Open WebUI + vLLM** 두 화면으로 동시에 서빙합니다. 모델·임베딩은 전부 사내 GPU(Quadro RTX 6000 24GB×2)에서 돌고, 두 화면 모두 Cloudflare Zero Trust 뒤(사내 전용)에 둡니다.
 
 | 항목 | 상태 |
 | --- | --- |
@@ -36,10 +36,10 @@
 flowchart TD
     Vault["📁 KEI-행정가이드/<br/>(마크다운 볼트 = 단일 진실원천)"]
 
-    Vault --> Brain["[뇌] Quartz v5 정적 사이트<br/>노드/링크 그래프 + 전문검색<br/>사람이 탐색"]
+    Vault --> Brain["[뇌] Next.js 14 + TDS 정적 사이트 (web/)<br/>관계 그래프 + 검색 + 문서<br/>사람이 탐색"]
     Vault --> Assistant["[비서] Open WebUI + vLLM<br/>질문에 [규정명 제N조] 출처 달아 답변<br/>행정 초보가 사용"]
 
-    Brain --> Nginx["nginx (public/ 서빙)"]
+    Brain --> Nginx["Next.js(web/) → out/ → nginx 127.0.0.1"]
     Assistant --> RAG["tools/04_rag_api.py<br/>제N조 검색 + 근거 주입 + 출처 강제"]
 
     Nginx --> ZT["🔒 Cloudflare Zero Trust (사내 전용)"]
@@ -56,7 +56,7 @@ flowchart TD
 > - **HWP 원본** 규정 파일(`.hwp` / `.hwpx`)이 한 폴더에 모여 있어야 합니다.
 > - **GPU 서버**(Quadro RTX 6000 24GB×2, 예: `data05lx` / Ubuntu)에서 임베딩·LLM을 구동합니다.
 > - **vLLM**(OpenAI 호환, 기본 `http://localhost:8000/v1`)이 이미 떠 있어야 03/04 단계가 동작합니다.
-> - Quartz 빌드에는 **Node v22+**, 비서 화면에는 **Docker**가 필요합니다.
+> - [뇌] 화면(`web/`, Next.js 14 + TDS) 빌드에는 **Node v22+**, 비서 화면에는 **Docker**가 필요합니다.
 
 ### 1) 파이프라인 (tools/)
 
@@ -88,16 +88,21 @@ cd tools && uvicorn 04_rag_api:app --host 0.0.0.0 --port 9000
 > [!note] 실측 (2026-06-19)
 > 규정 원문 **111개** 변환(+1개는 파서 무한루프로 `--timeout` 격리 → LibreOffice fallback 대상), **3,044 청크** 임베딩, 검색 정확(예: "출장 여비 정산" → 여비규정 제9조). **답변 생성**은 vLLM 엔드포인트 연결 시 동작합니다. 파이프라인 상세는 [docs/04-pipeline.md](docs/04-pipeline.md).
 
-### 2) [뇌] Quartz 그래프 사이트 (deploy/)
+### 2) [뇌] Next.js + TDS 사이트 (web/)
+
+이전 방식(Quartz)을 대체하는 현재 [뇌] 화면은 레포의 `web/`(Next.js 14 + Toss Design System)입니다. 볼트는 빌드타임에 read-only로 읽습니다(`VAULT_DIR`, 기본값은 레포 루트).
 
 ```bash
 # Node v22+ 필요
-git clone https://github.com/jackyzha0/quartz.git && cd quartz
-npm i && npx quartz create
-ln -s /path/to/KEI-행정가이드 content   # 볼트를 content로 심볼릭 링크
-npx quartz build --serve                # 로컬 미리보기 :8080
-npx quartz build                        # → public/ 정적 산출물 → nginx
+cd web
+npm install
+VAULT_DIR=/path/to/KEI-행정가이드 npm run dev    # 로컬 미리보기 http://127.0.0.1:3100
+VAULT_DIR=/path/to/KEI-행정가이드 npm run build  # → web/out/ 정적 산출물(next output:export)
+# 운영은 web/out/ 을 nginx 127.0.0.1 로 서빙 → Cloudflare Zero Trust 뒤(사내 전용)
 ```
+
+> [!note] 실측 (2026-06-19)
+> `next build` 성공 — 정적 **115페이지**(목록·관계 그래프·문서 111). 한글 mojibake 0, 위키링크 내부 네비 + 제N조 앵커 동작, 관계 그래프 **111 노드·82 연결**, TDS 컬러 적용. 디자인 원칙·토큰·컴포넌트 규약은 [docs/design-system.md](docs/design-system.md).
 
 ### 3) [비서] Open WebUI (deploy/)
 
@@ -138,6 +143,10 @@ KEIAdminSuperv/
 │   ├── 04_rag_api.py          #   OpenAI 호환 RAG API (FastAPI)
 │   ├── requirements.txt
 │   └── chroma/                #   벡터DB (gitignore)
+├── web/                       # 🧠 [뇌] Next.js 14 + TDS 앱 (Pages Router·SSG, output:export)
+│   ├── lib/vault.ts           #   볼트를 빌드타임 read-only로 읽음(VAULT_DIR, 기본 레포 루트)
+│   ├── styles/globals.css     #   KEI 시맨틱 토큰(CSS 변수) — KEI 메인 컬러는 이 한 블록만 교체
+│   └── (node_modules·.next·out 은 .gitignore)
 ├── deploy/                    # 🚀 배포
 │   ├── setup_ubuntu_hwp.sh    #   HWP 변환 환경(LibreOffice + H2Orestart) 셋업
 │   ├── docker-compose.yml     #   Open WebUI (+ 선택 임베딩)
@@ -187,14 +196,15 @@ flowchart LR
 | 03 | 콘텐츠 모델 | 볼트 구조(핵심 2-layer + 보조 2폴더)·프론트매터 스키마 | [03-content-model.md](docs/03-content-model.md) |
 | 04 | 파이프라인 | 변환·청킹·임베딩 흐름 | [04-pipeline.md](docs/04-pipeline.md) |
 | 05 | RAG 설계 | 검색·근거 주입·가드레일 | [05-rag-design.md](docs/05-rag-design.md) |
-| 06 | 배포 | Quartz·Open WebUI·nginx | [06-deployment.md](docs/06-deployment.md) |
+| 06 | 배포 | [뇌] Next.js+TDS(web/out/)·Open WebUI·nginx | [06-deployment.md](docs/06-deployment.md) |
 | 07 | 보안·거버넌스 | Zero Trust·검수·권한 | [07-security-governance.md](docs/07-security-governance.md) |
 | 08 | 로드맵 | 단계별 계획·우선순위 | [08-roadmap.md](docs/08-roadmap.md) |
 | 09 | 기여 가이드 | 협업·커밋·검수 절차 | [09-contributing.md](docs/09-contributing.md) |
 | 10 | 운영 | 재빌드·갱신·장애 대응 | [10-operations.md](docs/10-operations.md) |
 | 11 | 용어집 | 프로젝트 용어 정의 | [11-glossary.md](docs/11-glossary.md) |
+| — | 디자인 시스템 | [뇌] 화면(web/) 디자인 원칙·TDS 토큰·컴포넌트 규약 | [design-system.md](docs/design-system.md) |
 
-**아키텍처 결정 기록(ADR):** [docs/adr/README.md](docs/adr/README.md) — 임베딩 모델, 조문 단위 청킹, 통제형 RAG API, Quartz 그래프, 온프레미스 Zero Trust 등 주요 결정의 근거.
+**아키텍처 결정 기록(ADR):** [docs/adr/README.md](docs/adr/README.md) — 임베딩 모델, 조문 단위 청킹, 통제형 RAG API, 그래프 사이트(이전 Quartz → 현재 Next.js+TDS), 온프레미스 Zero Trust 등 주요 결정의 근거.
 
 > [!tip] 독자별 추천 경로
 > - **신입·행정 담당자:** 01 → 03 → 11
@@ -214,7 +224,7 @@ flowchart LR
 | 한국어 LLM 대안 | EXAONE / Kanana | 코더·VL 모델 아님 |
 | RAG API | FastAPI + uvicorn | `04_rag_api.py`, `MODEL_ID=kei-admin-rag`, 포트 9000 |
 | 비서 UI | Open WebUI (Docker) | 포트 3000:8080, `WEBUI_AUTH=true` |
-| 그래프 사이트 | Quartz v5 (Node v22+) | `public/` 산출 → nginx |
+| [뇌] 화면 | Next.js 14 + TDS (Node v22+) | `web/`, Pages Router·SSG(`output:export`), React 18 고정. `@toss/tds-mobile` v2.5.0 + `TDSMobileAITProvider`, CSS 변수 토큰 + CSS Modules, 콘텐츠는 react-markdown + remark-gfm. 관계 그래프 react-force-graph-2d. `web/out/` 산출 → nginx 127.0.0.1 |
 | 청킹 보조 | `kss`(선택) | 한국어 문장 분리 |
 | 런타임 | Python venv `tools/.venv` | deps `tools/requirements.txt` |
 
@@ -235,7 +245,7 @@ flowchart LR
 ## 보안 / 내부 전용
 
 > [!warning]
-> KEI 내부 규정입니다. **[뇌] Quartz와 [비서] Open WebUI 두 화면 모두 인터넷 공개 금지.**
+> KEI 내부 규정입니다. **[뇌] Next.js+TDS 사이트와 [비서] Open WebUI 두 화면 모두 인터넷 공개 금지.**
 
 - 두 화면 모두 **Cloudflare Zero Trust Access** 정책 뒤에 둡니다.
 - Open WebUI 자체 인증(RBAC/SSO)으로 한 겹 더 보호합니다.
@@ -250,7 +260,7 @@ flowchart LR
 ## 상태 & 로드맵
 
 - 프로젝트 시작: **2026-06-18**
-- 현재 단계: **파이프라인 동작** — P1 변환·P2 임베딩·P3 검색/API 검증 완료(답변 생성은 vLLM 연결 대기). 다음: 검수 · 미분류 37개 규정번호 배정 · vLLM 생성 검증 · 배포(P4)
+- 현재 단계: **파이프라인 동작 + [뇌] 화면 이관** — P1 변환·P2 임베딩·P3 검색/API 검증 완료(답변 생성은 vLLM 연결 대기). [뇌] 화면을 Quartz → **Next.js 14 + TDS(`web/`)** 로 이관 완료 — 목록(TDS SearchField·SegmentedControl 검색/섹션탭, 가독성 행)·문서(메타 칩·본문·백링크·제N조 앵커 점프)·관계 그래프(react-force-graph-2d, 노드 클릭→문서 이동, 코드 스플릿) 동작. 위키링크 `[[ ]]` 내부 라우트 연결 + 이름 변이(공백·가운뎃점 ·`.`·및) 정규화(01b) 흡수. `next build` 정적 115페이지·그래프 111 노드·82 연결·한글 mojibake 0. 커밋 `ba6bc8d`(W0+W1)·`fe77df3`(W2)·`bfdb7e8`(W3). 다음: 검수 · 미분류 37개 규정번호 배정 · vLLM 생성 검증 · KEI 메인 컬러 토큰 교체(미정) · 번들 first-load ~388KB(TDS) 경량화 · 배포(P4)
 
 ```mermaid
 gantt
@@ -263,7 +273,8 @@ gantt
     section 시스템
     파이프라인 01~04(검색까지)   :done, b1, after a1, 1d
     vLLM 생성 연결·평가          :active, b2, after b1, 14d
-    Quartz·Open WebUI 배포       :         b3, after b2, 14d
+    [뇌] Next.js+TDS 화면 이관    :done, b3, after b1, 1d
+    Next.js+TDS·Open WebUI 배포   :         b4, after b2, 14d
     section 운영
     Zero Trust·권한·감사         :         c1, after b3, 14d
 ```

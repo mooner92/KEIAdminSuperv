@@ -55,11 +55,12 @@
 | 컴포넌트 | 위치 | 규약 |
 |---|---|---|
 | **Layout** | `web/components/Layout.tsx` | sticky 헤더(브랜드+사내전용 플래그) · `--maxw`(1120) 중앙 정렬 · breadcrumb · footer(내부전용 고지) |
-| **목록(GuideList)** | `web/components/GuideList.tsx` | 섹션 탭(pill) + 검색 + 행. 행 = `규정번호 │ 제목·칩 │ 개정일·상태badge`. hover 강조, 1열 반응형 |
+| **목록(GuideList)** | `web/components/GuideList.tsx` | TDS `SegmentedControl`(섹션 탭) + `SearchField`(검색) + 행. 행 = `규정번호 │ 제목·칩 │ 개정일·상태badge`. hover 강조, 1열 반응형 |
 | **칩(섹션)** | — | 규정집=blue, 가이드=green, 용어집=orange. `data-section`으로 색 분기 |
 | **상태 배지** | — | `미검수`=orange, `검수완료`=green. 항상 표시(거버넌스) |
-| **Markdown** | `web/components/Markdown.tsx` | `[[위키링크]]`는 빌드타임에 `/d/<slug>/#조` 링크로 변환 → 내부는 `next/link`. 표/인용/코드 토큰 스타일 |
-| TDS 컴포넌트 | `@toss/tds-mobile` | `TDSMobileAITProvider`로 감싼다. 데스크톱에 맞는 것(Button 등)부터 점진 도입 |
+| **Markdown** | `web/components/Markdown.tsx` | `[[위키링크]]`는 빌드타임에 `/d/<slug>/#조` 링크로 변환 → 내부는 `next/link`. **제N조 헤딩에 id 부여 → 조 단위 점프(앵커)**. 표/인용/코드 토큰 스타일 |
+| **관계 그래프** | `web/components/Graph.tsx` | `react-force-graph-2d`로 규정 상호참조를 노드·간선으로 시각화. 노드 클릭 → 해당 문서로 이동. 코드 스플릿(동적 import)으로 초기 번들과 분리 |
+| TDS 컴포넌트 | `@toss/tds-mobile` | `TDSMobileAITProvider`로 감싼다. `SearchField`·`SegmentedControl` 등 데스크톱에 맞는 것부터 점진 도입 |
 
 ---
 
@@ -72,8 +73,11 @@
 ## 6. 로드맵 (이 디자인 시스템 기준)
 - [x] W0 파운데이션: Next.js+TDS 스캐폴드, 토큰, 정적 export
 - [x] W1 목록·문서·검색·백링크 (가독성 재설계)
-- [ ] W2 TDS 컴포넌트 심화(`SearchField`·`SegmentedControl`·`ListRow`·`Chip`), 섹션 인덱스 페이지
-- [ ] W2 제N조 단위 앵커(헤딩 id) → 조 단위 점프
-- [ ] W3 그래프 뷰(관계 시각화), KEI 메인 컬러 토큰 교체, 번들 경량화(현재 first-load ~380KB)
+- [x] W2 TDS 컴포넌트 심화(`SearchField`·`SegmentedControl` 도입 — 목록 검색/섹션탭)
+- [x] W2 제N조 단위 앵커(헤딩 id) → 조 단위 점프
+- [x] W3 관계 그래프 뷰(`react-force-graph-2d`, 노드 클릭→문서 이동, 코드 스플릿)
+- [ ] KEI 메인 컬러 토큰 교체 (미정 — 사용자가 색을 주면 `globals.css` 토큰 한 블록 교체)
+- [ ] 번들 경량화(현재 first-load ~388KB, TDS)
+- [ ] TDS 컴포넌트 추가 확대
 
 > 최종 수정: 2026-06-19 · 변경 시 이 문서를 먼저 갱신하고 코드에 반영한다(원칙 3 일관성).

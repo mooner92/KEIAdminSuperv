@@ -1,7 +1,7 @@
 # 02. 아키텍처 — 시스템 구조 · 데이터 흐름 · 토폴로지
 
 > KEI 행정 가이드 / 행정 비서의 시스템 구조를 다룹니다.
-> 핵심은 **하나의 볼트, 두 개의 화면**: 단일 마크다운 볼트를 [뇌] Quartz 그래프와 [비서] Open WebUI+vLLM 두 화면이 함께 먹습니다.
+> 핵심은 **하나의 볼트, 두 개의 화면**: 단일 마크다운 볼트를 [뇌] Next.js+TDS 그래프와 [비서] Open WebUI+vLLM 두 화면이 함께 먹습니다.
 
 이 문서는 개발자·운영자를 1차 독자로 하며, 일부 절(원칙·데이터 흐름)은 행정 담당자도 읽을 수 있게 풀어 씁니다.
 
@@ -13,7 +13,7 @@
 
 | 화면 | 정체 | 무엇을 하나 | 누가 쓰나 | 어떻게 답하나 |
 | --- | --- | --- | --- | --- |
-| **[뇌]** | Quartz v5 정적 사이트 (Node v22+) | 노드/링크 그래프 + 전문검색으로 규정·가이드를 **탐색** | 구조를 파악하려는 사람 | 사람이 직접 읽고 링크를 따라감 |
+| **[뇌]** | Next.js 14 + TDS 정적 사이트 (`web/`, Node v22+) | 노드/링크 그래프 + 검색으로 규정·가이드를 **탐색** | 구조를 파악하려는 사람 | 사람이 직접 읽고 링크를 따라감 |
 | **[비서]** | Open WebUI + vLLM | 질문에 `[규정명 제N조]` 출처를 달아 **답변** | 행정 초보(신입·전입자) | 텍스트 + 임베딩 검색(RAG) |
 
 > [!note] 가장 흔한 오해
@@ -33,10 +33,10 @@ flowchart TD
 
     subgraph BRAIN["[뇌] 탐색 화면"]
         direction TB
-        QUARTZ["Quartz v5 빌드<br/>(Node v22+)"]
-        PUBLIC["public/<br/>(정적 산출물)"]
-        NGINX["nginx"]
-        QUARTZ --> PUBLIC --> NGINX
+        NEXT["Next.js 14 + TDS 빌드<br/>web/ · output:export<br/>(Node v22+)"]
+        OUT["web/out/<br/>(정적 export 산출물)"]
+        NGINX["nginx<br/>127.0.0.1"]
+        NEXT --> OUT --> NGINX
     end
 
     subgraph ASSIST["[비서] 질의응답 화면"]
@@ -53,7 +53,7 @@ flowchart TD
         RAGAPI --> WEBUI
     end
 
-    VAULT --> QUARTZ
+    VAULT -- "빌드타임 read-only" --> NEXT
     VAULT -. "원문은 변환 후 볼트에 적재" .-> CONV
     VAULT --> EMBED
 
@@ -64,6 +64,20 @@ flowchart TD
 
 > [!note] 컴포넌트 책임 분리
 > `04_rag_api.py`가 제N조 검색 + 근거주입 + `[규정명 제N조]` 출처 강제를 담당하고, Open WebUI는 UI/멀티유저/권한만 담당합니다. Open WebUI 내장 RAG는 청킹·출처표기 통제가 약하기 때문입니다(결정 근거: [adr/0003-controlled-rag-api.md](adr/0003-controlled-rag-api.md)).
+
+> [!note] [뇌] 화면 구성 — Next.js 14 + TDS (이전 방식 Quartz 대체)
+> [뇌] 탐색 화면은 레포의 `web/` 디렉터리에 있는 **Next.js 14 + Toss Design System(TDS)** 앱입니다. 서버 런타임 없이 `next.config`의 `output: 'export'`로 정적 export(`web/out/`)만 산출하고, 이전 Quartz와 동일하게 nginx(127.0.0.1) → Cloudflare Zero Trust(사내 전용)로 노출합니다.
+> - **라우터·런타임**: Pages Router(TDS=emotion 기반과 SSG 호환), React 18 고정(TDS peer · Next 14).
+> - **TDS**: `@toss/tds-mobile` v2.5.0 + `TDSMobileAITProvider`(`@toss/tds-mobile-ait`). TDS 팔레트를 KEI 시맨틱 토큰(`web/styles/globals.css`의 CSS 변수)으로 매핑해, 나중에 KEI 메인 컬러는 그 한 블록만 교체합니다(메인 컬러는 미정). `ThemeProvider`(seed token)로 TDS 컴포넌트 색도 재정의 가능합니다.
+> - **스타일·콘텐츠**: CSS 변수 토큰 + CSS Modules(SSG 안전). 본문은 `react-markdown` + `remark-gfm`로 렌더합니다.
+> - **볼트 소비**: `web/lib/vault.ts`가 볼트(`KEI-행정가이드/`, git 비추적·Syncthing)를 **빌드타임 read-only**로 읽습니다(`VAULT_DIR` 환경변수, 기본 레포 루트). `web/node_modules`·`.next`·`out`은 `.gitignore` 대상입니다.
+> - **기능**: 목록(TDS `SearchField`·`SegmentedControl`로 검색/섹션탭) / 문서(메타 칩·본문·백링크·제N조 앵커로 조 단위 점프) / 관계 그래프(`react-force-graph-2d`, 노드 클릭 → 문서 이동, 코드 스플릿). 단일 앱·단일 볼트 안에서 섹션(규정집/연구행정 가이드/용어집)을 분리하며, 가이드는 `10_업무가이드/`에 문서 추가 시 자동 합류합니다.
+> - **위키링크**: 규정 상호참조 `[[ ]]`가 내부 라우트로 연결되고, 이름 변이(공백·가운뎃점·`.`·`및`)도 자동 흡수합니다(01b 정규화).
+>
+> 디자인 원칙·토큰·컴포넌트 규약은 [design-system.md](design-system.md)를 참고하세요.
+
+> [!note] [뇌] 빌드 검증 상태 (2026-06-19)
+> `next build` 성공, 정적 **115페이지**(목록·관계 그래프·문서 111). 한글 mojibake 0, 위키링크 내부 네비+제N조 앵커 동작, 그래프 **111 노드·82 연결**, TDS 컬러 적용을 실측했습니다(커밋 `ba6bc8d`·`fe77df3`·`bfdb7e8`). 남은 일(미정): KEI 메인 컬러 토큰 블록 교체, first-load 번들(~388KB, TDS) 경량화, TDS 컴포넌트 확대.
 
 > [!warning] 변환 단계는 일회성 적재 흐름
 > `01 변환`은 실시간 경로가 아니라 HWP/HWPX 원문을 볼트의 `20_규정원문/`에 적재하는 **파이프라인 작업**입니다. 평상시 임베딩(`02`)은 볼트의 마크다운을 직접 읽습니다. 점선은 이 적재 관계를 나타냅니다.
@@ -80,8 +94,8 @@ flowchart TD
 | 구분 | A. 탐색용 그래프 ([뇌]) | B. 질의응답 RAG ([비서]) |
 | --- | --- | --- |
 | 입력 | 볼트 마크다운 + 위키링크 | 볼트 마크다운(조문) |
-| 변환 | Quartz 빌드 → 노드/링크/전문검색 색인 | 제N조 단위 청킹 → KURE-v1 임베딩 |
-| 저장 | `public/` 정적 파일 | Chroma 벡터(`kei_regs`) |
+| 변환 | Next.js+TDS 정적 export → 노드/링크/검색 페이지 | 제N조 단위 청킹 → KURE-v1 임베딩 |
+| 저장 | `web/out/` 정적 파일 | Chroma 벡터(`kei_regs`) |
 | 서빙 | nginx | `04_rag_api.py` → Open WebUI |
 | 소비 방식 | 사람이 링크/그래프를 탐색 | 임베딩 유사도 검색으로 조문 회수 |
 | 출력 형태 | 백링크·그래프 시각화·검색 결과 | `[규정명 제N조]` 출처 포함 답변 |
@@ -90,8 +104,8 @@ flowchart TD
 flowchart LR
     V["📁 볼트 마크다운"]
 
-    V --> A1["Quartz 빌드"]
-    A1 --> A2["노드/링크 그래프<br/>+ 전문검색 색인"]
+    V --> A1["Next.js+TDS 정적 export<br/>(web/)"]
+    A1 --> A2["노드/링크 그래프<br/>+ 목록/검색 페이지"]
     A2 --> A3["사람이 탐색<br/>(읽고 링크 따라감)"]
 
     V --> B1["제N조 청킹<br/>(02_chunk_and_embed)"]
@@ -169,7 +183,7 @@ flowchart TB
         RAG["04_rag_api.py<br/>:9000 (uvicorn)"]
         CHR[("Chroma<br/>PersistentClient(path)")]
         WEBUI["Open WebUI (Docker)<br/>컨테이너 kei-webui<br/>:3000 → 8080"]
-        NGINX["nginx<br/>(Quartz public/ 서빙)"]
+        NGINX["nginx 127.0.0.1<br/>(web/out/ 정적 서빙)"]
     end
 
     CFT["Cloudflare Tunnel /<br/>Zero Trust Access"]
@@ -191,11 +205,11 @@ flowchart TB
 | vLLM (OpenAI 호환) | `8000/v1` | `VLLM_BASE=http://localhost:8000/v1` (기존 서버) |
 | `04_rag_api.py` | `9000` | `uvicorn 04_rag_api:app --host 0.0.0.0 --port 9000` |
 | Open WebUI | `3000 → 8080` | Docker, 컨테이너 `kei-webui` |
-| Quartz 미리보기 | `8080` | `npx quartz build --serve` (개발용) |
+| [뇌] Next.js 미리보기 | `3100` | `cd web && VAULT_DIR=<볼트> npm run dev` → `http://127.0.0.1:3100` (개발용) |
 | 임베딩 TEI(선택) | `8080 → 80` | Open WebUI 내장 RAG 쓸 때만 |
 
-> [!warning] 포트 8080 충돌
-> Quartz 미리보기와 임베딩 TEI가 **둘 다 호스트 8080**을 점유합니다 — 동시 기동 시 한쪽 포트를 바꿔야 합니다. Quartz 미리보기는 개발용, TEI는 선택 컴포넌트이므로 평상시 충돌이 잦지 않지만, 함께 띄울 때는 한쪽(예: TEI의 호스트 매핑)을 다른 포트로 변경하세요.
+> [!note] 미리보기 포트
+> [뇌] Next.js 미리보기는 `3100`을 쓰므로([이전 방식 Quartz의 8080과 달리] 임베딩 TEI의 호스트 8080과 충돌하지 않습니다), 개발 중 두 화면을 동시에 띄워도 됩니다. 임베딩 TEI(선택 컴포넌트)는 그대로 호스트 8080을 점유하므로, TEI를 다른 8080 점유 프로세스와 함께 띄울 때만 한쪽 매핑을 변경하세요.
 
 > [!warning] 연결 URL 함정
 > 연결 대상이 **어디서 도는지**에 따라 Base URL이 달라집니다. 컴포즈 내부 통신(Open WebUI ↔ 같은 컴포즈의 RAG API)은 **서비스명**(`http://kei-rag-api:9000/v1`, 위 토폴로지 다이어그램)을 씁니다. 반면 컨테이너 외부에서 호스트가 직접 띄운 RAG API(uvicorn)에 붙을 때는 `localhost`/`host.docker.internal`이 아니라 **서버 실제 IP** 를 써야 합니다(흔한 Docker 네트워크 함정). 후자의 Open WebUI 등록: 설정 > 연결 > OpenAI API, Base URL=`http://<서버실제IP>:9000/v1`, API Key=`EMPTY`.
@@ -221,7 +235,7 @@ flowchart TB
 | 임베딩 모델 | `nlpai-lab/KURE-v1` (대안 `BAAI/bge-m3`) | 한국어 규정 검색 품질 · 양자화 안 함 · `normalize_embeddings=True` | [adr/0001-embedding-kure-v1.md](adr/0001-embedding-kure-v1.md) |
 | 청킹 단위 | 제N조 단위(조문 1개 = 청크 1개) | 고정 길이 청킹 금지 → `[규정명 제N조]` 출처 정확도 | [adr/0002-article-level-chunking.md](adr/0002-article-level-chunking.md) |
 | RAG 방식 | 통제형 RAG API(`04_rag_api.py`) | 출처 강제·근거주입·가드레일을 우리가 통제(Open WebUI는 UI만) | [adr/0003-controlled-rag-api.md](adr/0003-controlled-rag-api.md) |
-| 탐색 화면 | Quartz v5 정적 사이트 | 노드/링크 그래프 + CJK 전문검색 + 백링크 기본 지원 | [adr/0004-quartz-graph-site.md](adr/0004-quartz-graph-site.md) |
+| 탐색 화면 | Next.js 14 + TDS 정적 사이트(`web/`) — 이전 방식(Quartz) 대체 | 정적 export로 그래프·목록·검색·문서 제공 + TDS 디자인 일관성 + KEI 시맨틱 토큰 | [adr/0004-quartz-graph-site.md](adr/0004-quartz-graph-site.md)(이전 방식 배경), [design-system.md](design-system.md) |
 | 노출·보안 | 온프레미스 + Cloudflare Zero Trust | 내부 규정 비공개 · 데이터 망 밖 미유출 | [adr/0005-on-prem-zero-trust.md](adr/0005-on-prem-zero-trust.md) |
 
 부수 선택(추가 ADR 없이 본문 사실로 고정):
