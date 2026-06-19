@@ -140,7 +140,7 @@ def iter_chunks(vault: Path):
                     "type": "regulation",
                     "path": rel,
                 }
-        elif typ in ("guide", "term"):
+        elif typ in ("guide", "term", "system"):
             body = strip_injected(body)              # 머리 H1·경고 콜아웃 제거(임베딩 노이즈↓)
             name = meta.get("제목") or meta.get("용어") or md.stem
             for text, label in chunk_guide(body):

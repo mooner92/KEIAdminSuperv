@@ -116,7 +116,7 @@ def main():
         if "_templates" in md.parts or md.name == "README.md":
             continue
         meta, fm, body = split_fm(md.read_text(encoding="utf-8"))
-        if meta.get("type") not in ("regulation", "guide", "term"):
+        if meta.get("type") not in ("regulation", "guide", "term", "system"):
             continue
         self_name = (meta.get("규정명") or meta.get("제목") or meta.get("용어") or "")
         # 기존 [[...]] 보호: 링크 밖 구간만 변환

@@ -39,6 +39,10 @@ export default function GraphPage({ graph }: { graph: GraphData }) {
             <i style={{ background: "#fe9800" }} />
             용어집
           </span>
+          <span>
+            <i style={{ background: "#8b5cf6" }} />
+            ERP 시스템
+          </span>
         </div>
       </div>
       <GraphCanvas graph={graph} />

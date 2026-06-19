@@ -9,8 +9,9 @@ const SECTION_LABEL: Record<string, string> = {
   규정집: "규정집",
   가이드: "연구행정 가이드",
   용어집: "용어집",
+  시스템: "ERP 시스템",
 };
-const SECTIONS: SectionKey[] = ["규정집", "가이드", "용어집"];
+const SECTIONS: SectionKey[] = ["규정집", "가이드", "용어집", "시스템"];
 const REVIEWED = ["검수완료", "미검수"];
 
 const reviewedOf = (d: DocMeta) => (d.reviewed === "검수완료" ? "검수완료" : "미검수");

@@ -10,6 +10,7 @@ const SECTION_LABEL: Record<string, string> = {
   규정집: "규정집",
   가이드: "연구행정 가이드",
   용어집: "용어집",
+  시스템: "ERP 시스템",
 };
 
 export default function DocPage({ doc, backlinks }: { doc: Doc; backlinks: DocMeta[] }) {

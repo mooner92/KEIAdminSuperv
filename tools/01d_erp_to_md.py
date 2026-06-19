@@ -20,7 +20,7 @@ WARN = "> [!warning] 자동 분석 자료(Claude Chrome extension로 ERP 메뉴 
 def note(title, body, original, extra_meta=""):
     fm = [
         "---",
-        "type: guide",
+        "type: system",
         f'제목: "{title}"',
         f'분류: "{CAT}"',
         '대상: "전직원"',
@@ -52,7 +52,7 @@ def main():
     args = ap.parse_args()
 
     src = Path(args.src)
-    out_root = Path(args.vault) / "10_업무가이드" / "ERP"
+    out_root = Path(args.vault) / "40_시스템"
     text = src.read_text(encoding="utf-8")
     original = src.name
 

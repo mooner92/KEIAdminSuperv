@@ -12,6 +12,7 @@ export const SECTIONS = {
   규정집: { dir: "20_규정원문", label: "규정집", desc: "KEI 규정 원문(제N조 단위)" },
   가이드: { dir: "10_업무가이드", label: "연구행정 가이드", desc: "업무 단위 쉬운 설명" },
   용어집: { dir: "30_용어집", label: "용어집", desc: "개념 사전" },
+  시스템: { dir: "40_시스템", label: "ERP 시스템", desc: "ERP 메뉴·기능" },
 } as const;
 export type SectionKey = keyof typeof SECTIONS;
 

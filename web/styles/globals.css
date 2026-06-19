@@ -58,6 +58,7 @@
   --accent-규정집: var(--blue500);
   --accent-가이드: var(--green500);
   --accent-용어집: var(--orange500);
+  --accent-시스템: #8b5cf6;
 
   /* 상태 배지 / 위험 표면 / 헤더 (다크에선 토큰만 교체) */
   --badge-warn-bg: #fff6e9;
@@ -141,6 +142,7 @@ html { transition: background-color 0.2s ease; }
   --accent-규정집: #4593fc;
   --accent-가이드: #2dd08f;
   --accent-용어집: #ffb547;
+  --accent-시스템: #a78bfa;
 
   --badge-warn-bg: #3a2e16;
   --badge-warn-border: #5c4a1f;
