@@ -27,10 +27,13 @@ const PORT = parseInt(process.env.PORT || "3100", 10);
 // 이 서버가 로컬 RAG API로 프록시한다 → CORS 불필요 + API가 LAN에 직접 노출되지 않음.
 const RAG_HOST = process.env.RAG_HOST || "127.0.0.1";
 const RAG_PORT = parseInt(process.env.RAG_PORT || "9000", 10);
+// 정확 매핑(무상태 OpenAI 호환 RAG)
 const API_ROUTES = {
   "/api/rag/chat": "/v1/chat/completions",
   "/api/rag/health": "/health",
 };
+// 비서 앱(상태형): /api/app/* → /app/*  (로그인/채팅기록, 쿠키 전달)
+const APP_PREFIX = "/api/app/";
 
 function proxyToRag(req, res, upstreamPath) {
   const opts = {
@@ -110,11 +113,14 @@ const server = http.createServer((req, res) => {
     return send(res, 400, "Bad Request", { "Content-Type": "text/plain" });
   }
 
-  // RAG API 리버스 프록시 (정적 라우팅보다 먼저 가로챈다)
+  // RAG/비서 API 리버스 프록시 (정적 라우팅보다 먼저 가로챈다)
   if (pathname.startsWith("/api/")) {
-    const upstreamPath = API_ROUTES[pathname];
-    if (!upstreamPath) return notFound(res);
-    return proxyToRag(req, res, upstreamPath);
+    if (API_ROUTES[pathname]) return proxyToRag(req, res, API_ROUTES[pathname]);
+    // 비서 앱: /api/app/* → /app/* (쿼리스트링·원본 인코딩 보존)
+    if (pathname.startsWith(APP_PREFIX)) {
+      return proxyToRag(req, res, req.url.replace(/^\/api\/app/, "/app"));
+    }
+    return notFound(res);
   }
 
   // 경로 정규화 + 디렉터리 탈출(..) 차단
