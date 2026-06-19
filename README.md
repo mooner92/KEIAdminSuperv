@@ -125,7 +125,7 @@ docker compose up -d        # open-webui + (선택)임베딩 컨테이너
 
 ```text
 KEIAdminSuperv/
-├── KEI-행정가이드/            # 📁 마크다운 볼트 = 단일 진실원천
+├── KEI-행정가이드/            # 🔒 내부 전용 볼트 — git 비추적(.gitignore)·Syncthing 동기화. 공개 구조 예시는 vault-example/
 │   ├── 10_업무가이드/          #   가치층(사람 작성, 항상 [[규정명#제N조]] 원문링크)
 │   ├── 20_규정원문/            #   진실원천(HWP 변환, 의역 금지, 규정번호 1000~7999)
 │   ├── 30_용어집/              #   개념 1개 = 노트 1개
@@ -141,7 +141,9 @@ KEIAdminSuperv/
 │   ├── setup_ubuntu_hwp.sh    #   HWP 변환 환경(LibreOffice + H2Orestart) 셋업
 │   ├── docker-compose.yml     #   Open WebUI (+ 선택 임베딩)
 │   └── README.md
+├── vault-example/             # 🧪 공개용 합성 볼트 예시(실데이터 0) — 구조 시연
 ├── docs/                      # 📚 설계·계획 문서 (+ adr/)
+├── SECURITY.md                # 🔒 데이터 분류·위협모델·통제
 ├── README.md                  # ← 지금 이 문서
 ├── CLAUDE.md                  # 작업 규칙·절대 규칙
 ├── WORKPLAN.md                # 작업 계획·진행 상황
