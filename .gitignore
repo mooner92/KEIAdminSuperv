@@ -42,6 +42,9 @@ research_rule_files/
 *.ppt
 *.doc
 *.docx
+# ERP 기능 분석 원본(내부 시스템 구조 — 커밋 금지. 구조화 결과는 볼트(역시 gitignore)로)
+KEI_ERP_entire_features.md
+KEI_ERP*.md
 # 로컬에 내려받은 임베딩/모델 가중치
 models/
 

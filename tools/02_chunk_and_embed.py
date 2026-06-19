@@ -64,6 +64,59 @@ def article_no(chunk: str) -> str:
     return f"제{m.group(1)}조" if m else ""
 
 
+def chunk_guide(body: str, max_chars: int = 1800, pack: int = 1400):
+    """가이드/시스템 노트를 헤딩(####/###/##) 단위로 청킹. (text, label) 리스트 반환.
+    - `#### 기능` 단위(앞 `### 서브그룹`을 맥락으로 prefix) → ERP 기능별 정밀 검색
+    - `##`(예: pptx 슬라이드)도 경계. 헤딩이 없으면 문단 패킹(긴 가이드 잘림 방지)
+    - 과대 청크는 문단 단위로 재분할. label = 그 청크의 헤딩 텍스트(출처 부제)."""
+    lines = body.split("\n")
+    if not any(re.match(r"^#{2,4}\s", ln) for ln in lines):
+        paras = [p.strip() for p in re.split(r"\n{2,}", body) if p.strip()]
+        out, buf, cur = [], [], 0
+        for p in paras:
+            if cur + len(p) > pack and buf:
+                out.append(("\n\n".join(buf), "")); buf, cur = [], 0
+            buf.append(p); cur += len(p)
+        if buf:
+            out.append(("\n\n".join(buf), ""))
+        return out or [(body.strip(), "")]
+
+    out, buf, label, cur_sub = [], [], "", ""
+
+    def flush():
+        t = "\n".join(buf).strip()
+        if t:
+            out.append((t, label))
+
+    for ln in lines:
+        s = ln.strip()
+        if re.match(r"^####\s", s):
+            flush(); buf = []; label = s.lstrip("#").strip()
+            if cur_sub:
+                buf.append(f"[{cur_sub}]")
+            buf.append(ln)
+        elif re.match(r"^###\s", s):
+            flush(); buf = []; label = ""; cur_sub = s.lstrip("#").strip().lstrip("▎").strip()
+        elif re.match(r"^##\s", s):
+            flush(); buf = []; label = s.lstrip("#").strip()
+        else:
+            buf.append(ln)
+    flush()
+
+    final = []
+    for text, lab in out:
+        if len(text) <= max_chars:
+            final.append((text, lab)); continue
+        b, c = [], 0
+        for p in [x.strip() for x in re.split(r"\n{2,}", text) if x.strip()]:
+            if c + len(p) > pack and b:
+                final.append(("\n\n".join(b), lab)); b, c = [], 0
+            b.append(p); c += len(p)
+        if b:
+            final.append(("\n\n".join(b), lab))
+    return final or [(body.strip(), "")]
+
+
 def iter_chunks(vault: Path):
     for md in sorted(vault.rglob("*.md")):
         if "_templates" in md.parts:
@@ -88,17 +141,20 @@ def iter_chunks(vault: Path):
                     "path": rel,
                 }
         elif typ in ("guide", "term"):
-            yield {
-                "text": body,
-                "규정명": meta.get("제목") or meta.get("용어") or md.stem,
-                "규정번호": "",
-                "조": "",
-                "분류": meta.get("분류", ""),
-                "개정일": "",
-                "검수상태": meta.get("검수상태", ""),
-                "type": typ,
-                "path": rel,
-            }
+            body = strip_injected(body)              # 머리 H1·경고 콜아웃 제거(임베딩 노이즈↓)
+            name = meta.get("제목") or meta.get("용어") or md.stem
+            for text, label in chunk_guide(body):
+                yield {
+                    "text": text,
+                    "규정명": name,
+                    "규정번호": "",
+                    "조": label,                     # #### 기능명/슬라이드/소제목 → 출처 부제
+                    "분류": meta.get("분류", ""),
+                    "개정일": meta.get("개정일", ""),
+                    "검수상태": meta.get("검수상태", ""),
+                    "type": typ,
+                    "path": rel,
+                }
 
 
 META_KEYS = ("규정명", "규정번호", "조", "분류", "개정일", "검수상태", "type", "path")
