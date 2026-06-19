@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
-import { SearchField } from "@toss/tds-mobile";
+import { ColorSchemeArea, SearchField } from "@toss/tds-mobile";
 import type { DocMeta, SectionKey } from "../lib/vault";
+import { useTheme } from "../lib/theme";
 import DocDrawer from "./DocDrawer";
 import styles from "./Explorer.module.css";
 
@@ -21,6 +22,7 @@ type Filters = { section: Set<string>; category: Set<string>; reviewed: Set<stri
  * 행을 클릭하면 페이지 이동 없이 우측 Notion형 드로어로 본문을 연다.
  */
 export default function Explorer({ docs }: { docs: DocMeta[] }) {
+  const { resolved } = useTheme();
   const [q, setQ] = useState("");
   const [f, setF] = useState<Filters>({ section: new Set(), category: new Set(), reviewed: new Set() });
   const [openSlug, setOpenSlug] = useState<string | null>(null);
@@ -112,13 +114,15 @@ export default function Explorer({ docs }: { docs: DocMeta[] }) {
 
       <section className={styles.content}>
         <div className={styles.searchWrap}>
-          <SearchField
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            onDeleteClick={() => setQ("")}
-            placeholder="제목 · 규정번호 · 분류로 검색"
-            aria-label="검색"
-          />
+          <ColorSchemeArea theme={resolved}>
+            <SearchField
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              onDeleteClick={() => setQ("")}
+              placeholder="제목 · 규정번호 · 분류로 검색"
+              aria-label="검색"
+            />
+          </ColorSchemeArea>
         </div>
         <div className={styles.metaRow}>
           <span className={styles.count}>{filtered.length}건</span>

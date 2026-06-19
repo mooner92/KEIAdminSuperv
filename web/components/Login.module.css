@@ -46,13 +46,13 @@
   color: var(--color-text);
   outline: none;
 }
-.field input:focus { border-color: var(--color-primary); background: #fff; }
+.field input:focus { border-color: var(--color-primary); background: var(--color-surface); }
 
 .err {
   font-size: 13px;
   color: var(--color-danger);
-  background: var(--red50);
-  border: 1px solid #ffd5d9;
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger-border);
   border-radius: var(--radius-sm);
   padding: 8px 11px;
 }

@@ -84,4 +84,4 @@
   vertical-align: top;
 }
 .md th { background: var(--color-bg-subtle); font-weight: 700; white-space: nowrap; }
-.md tr:nth-child(even) td { background: #fcfcfd; }
+.md tr:nth-child(even) td { background: var(--color-bg-subtle); }

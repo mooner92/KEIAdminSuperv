@@ -52,7 +52,7 @@
 .chatTitle { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .del { flex: 0 0 auto; opacity: 0; color: var(--color-text-tertiary); font-size: 12px; padding: 2px 4px; border-radius: 4px; }
 .chatItem:hover .del { opacity: 0.7; }
-.del:hover { opacity: 1; color: var(--color-danger); background: #fff; }
+.del:hover { opacity: 1; color: var(--color-danger); background: var(--color-surface); }
 .noChats { padding: var(--space-4); font-size: 13px; color: var(--color-text-tertiary); text-align: center; }
 .userBar {
   border-top: 1px solid var(--color-border);
@@ -193,7 +193,7 @@
   gap: 4px;
   transition: all 0.1s;
 }
-.srcCard:hover { border-color: var(--color-primary); background: #fff; }
+.srcCard:hover { border-color: var(--color-primary); background: var(--color-surface); }
 .srcCardFlat { cursor: default; }
 .srcCardFlat:hover { border-color: var(--color-border); background: var(--color-bg-subtle); }
 .srcTag { font-size: 13px; color: var(--color-text); }

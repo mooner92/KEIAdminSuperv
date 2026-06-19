@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import ThemeToggle from "./ThemeToggle";
 import styles from "./Layout.module.css";
 
 export default function Layout({
@@ -22,7 +23,10 @@ export default function Layout({
             <Link href="/browse/">규정 둘러보기</Link>
             <Link href="/graph/">관계 그래프</Link>
           </nav>
-          <span className={styles.flag}>🔒 사내 전용</span>
+          <div className={styles.headerRight}>
+            <ThemeToggle />
+            <span className={styles.flag}>🔒 사내 전용</span>
+          </div>
         </div>
       </header>
       {breadcrumb ? (

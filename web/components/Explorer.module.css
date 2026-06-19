@@ -158,13 +158,13 @@
   padding: 3px 9px;
   border-radius: 999px;
   color: var(--color-warning);
-  background: #fff6e9;
-  border: 1px solid #ffe2b8;
+  background: var(--badge-warn-bg);
+  border: 1px solid var(--badge-warn-border);
 }
 .badgeOk {
   color: var(--color-success);
-  background: var(--green50);
-  border-color: #b9ead4;
+  background: var(--badge-ok-bg);
+  border-color: var(--badge-ok-border);
 }
 .empty {
   padding: 48px;

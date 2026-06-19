@@ -59,6 +59,16 @@
   --accent-가이드: var(--green500);
   --accent-용어집: var(--orange500);
 
+  /* 상태 배지 / 위험 표면 / 헤더 (다크에선 토큰만 교체) */
+  --badge-warn-bg: #fff6e9;
+  --badge-warn-border: #ffe2b8;
+  --badge-ok-bg: var(--green50);
+  --badge-ok-border: #b9ead4;
+  --color-danger-bg: var(--red50);
+  --color-danger-border: #ffd5d9;
+  --color-header-bg: rgba(255, 255, 255, 0.85);
+  --color-code-bg: var(--grey50);
+
   /* ── 형태 토큰 ── */
   --radius-sm: 6px;
   --radius-md: 10px;
@@ -93,3 +103,49 @@ html, body {
 }
 a { color: inherit; text-decoration: none; }
 :focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; border-radius: 4px; }
+
+/* ── 컬러 스킴(네이티브 폼·스크롤바가 테마 따라가게) + 부드러운 전환 ── */
+:root { color-scheme: light; }
+[data-theme="dark"] { color-scheme: dark; }
+html { transition: background-color 0.2s ease; }
+
+/* ── 다크 테마: KEI 시맨틱 토큰만 교체(원자 팔레트·컴포넌트 코드는 불변 — 원칙 3) ──
+   라이트/다크는 [data-theme]로 분기. "system"은 JS가 prefers-color-scheme로 해석해 data-theme를 설정한다. */
+[data-theme="dark"] {
+  --color-primary: #4593fc;
+  --color-primary-strong: #6aa9ff;
+  --color-primary-weak: #16314f;
+  --color-on-primary: #ffffff;
+
+  --color-bg: #16181c;
+  --color-bg-subtle: #1e2128;
+  --color-surface: #23272e;
+  --color-surface-hover: #2b3038;
+  --color-border: #313640;
+  --color-border-strong: #3d434e;
+
+  --color-text: #e9edf1;
+  --color-text-secondary: #aab1bb;
+  --color-text-tertiary: #7e8690;
+  --color-text-disabled: #5a616b;
+
+  --color-success: #2dd08f;
+  --color-warning: #ffb547;
+  --color-danger: #ff6b78;
+
+  --accent-규정집: #4593fc;
+  --accent-가이드: #2dd08f;
+  --accent-용어집: #ffb547;
+
+  --badge-warn-bg: #3a2e16;
+  --badge-warn-border: #5c4a1f;
+  --badge-ok-bg: #123026;
+  --badge-ok-border: #1f5640;
+  --color-danger-bg: #3a1d20;
+  --color-danger-border: #5e2a30;
+  --color-header-bg: rgba(22, 24, 28, 0.86);
+  --color-code-bg: #1a1d23;
+
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.55);
+}
