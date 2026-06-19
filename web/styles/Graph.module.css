@@ -1,0 +1,39 @@
+.head { margin-bottom: var(--space-4); }
+.h1 {
+  margin: 0 0 8px;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+}
+.lead { margin: 0 0 14px; font-size: 14.5px; color: var(--color-text-secondary); }
+.lead b { color: var(--color-text); }
+.sep { color: var(--color-text-disabled); margin: 0 8px; }
+
+.legend { display: flex; gap: 18px; font-size: 13px; color: var(--color-text-secondary); }
+.legend span { display: inline-flex; align-items: center; }
+.legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 7px;
+}
+
+.canvas {
+  height: 72vh;
+  min-height: 480px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--color-text-tertiary);
+  font-size: 14px;
+}

@@ -105,3 +105,36 @@ export function getBacklinks(slug: string): DocMeta[] {
 function escapeReg(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
+
+// 관계 그래프: 노드 = 문서, 엣지 = 본문의 위키링크(상호참조)
+export type GraphData = {
+  nodes: { id: string; title: string; section: SectionKey; deg: number }[];
+  links: { source: string; target: string }[];
+};
+
+export function getGraph(): GraphData {
+  const all = loadAll();
+  const stems = new Set(all.map((d) => d.slug));
+  const deg: Record<string, number> = {};
+  const links: { source: string; target: string }[] = [];
+  const seen = new Set<string>();
+  for (const d of all) {
+    for (const m of d.body.matchAll(/\]\(\/d\/([^/)#]+)\//g)) {
+      const t = m[1];
+      if (t === d.slug || !stems.has(t)) continue;
+      const key = `${d.slug}→${t}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      links.push({ source: d.slug, target: t });
+      deg[d.slug] = (deg[d.slug] || 0) + 1;
+      deg[t] = (deg[t] || 0) + 1;
+    }
+  }
+  const nodes = all.map((d) => ({
+    id: d.slug,
+    title: d.title,
+    section: d.section,
+    deg: deg[d.slug] || 0,
+  }));
+  return { nodes, links };
+}

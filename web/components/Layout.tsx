@@ -17,6 +17,10 @@ export default function Layout({
             <span className={styles.mark}>KEI</span>
             <span className={styles.brandText}>행정 가이드</span>
           </Link>
+          <nav className={styles.nav}>
+            <Link href="/">목록</Link>
+            <Link href="/graph/">관계 그래프</Link>
+          </nav>
           <span className={styles.flag}>🔒 사내 전용</span>
         </div>
       </header>
