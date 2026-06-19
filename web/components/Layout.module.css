@@ -1,0 +1,72 @@
+.root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.inner {
+  width: 100%;
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 0 var(--space-5);
+}
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  height: var(--header-h);
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: saturate(180%) blur(8px);
+  border-bottom: 1px solid var(--color-border);
+}
+.header .inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 800;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+}
+.mark {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  font-size: 14px;
+  font-weight: 900;
+}
+.brandText { color: var(--color-text); }
+.flag {
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-subtle);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 4px 10px;
+}
+.crumbBar {
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+.crumbBar .inner { padding-top: 10px; padding-bottom: 10px; }
+.main { flex: 1; padding: var(--space-6) 0 var(--space-8); }
+.footer {
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-tertiary);
+  font-size: 12.5px;
+}
+.footer .inner { padding-top: 16px; padding-bottom: 16px; }
+
+@media (max-width: 640px) {
+  .inner { padding: 0 var(--space-4); }
+  .brandText { display: none; }
+}

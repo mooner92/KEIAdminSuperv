@@ -44,6 +44,13 @@ public/
 node_modules/
 .quartz-cache/
 
+# ── Next.js 웹앱 (web/) — 빌드 산출물·의존성 ──
+web/.next/
+web/out/
+web/next-env.d.ts
+.next/
+out/
+
 # ── 비밀/환경 ──
 .env
 *.env

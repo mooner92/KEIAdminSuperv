@@ -1,0 +1,19 @@
+.hero {
+  margin-bottom: var(--space-6);
+}
+.h1 {
+  margin: 0 0 8px;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+}
+.lead {
+  margin: 0;
+  font-size: 15.5px;
+  color: var(--color-text-secondary);
+  max-width: 640px;
+}
+@media (max-width: 640px) {
+  .h1 { font-size: 23px; }
+}

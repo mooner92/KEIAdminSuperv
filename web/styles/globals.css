@@ -1,0 +1,95 @@
+/* ──────────────────────────────────────────────────────────────
+   KEI 행정 가이드 — 디자인 토큰 (Toss Design System 파운데이션 기반)
+   원칙: TDS 팔레트를 '원자 토큰'으로 두고, 그 위에 'KEI 시맨틱 토큰'을 얹는다.
+        나중에 KEI 메인 컬러로 바꿀 땐 [KEI 시맨틱 토큰] 블록만 교체하면 된다.
+   참고: https://tossmini-docs.toss.im/tds-mobile/foundation/colors/
+   ────────────────────────────────────────────────────────────── */
+:root {
+  /* ── TDS 원자 팔레트 (foundation) ── */
+  --grey50: #f9fafb;
+  --grey100: #f2f4f6;
+  --grey200: #e5e8eb;
+  --grey300: #d1d6db;
+  --grey400: #b0b8c1;
+  --grey500: #8b95a1;
+  --grey600: #6b7684;
+  --grey700: #4e5968;
+  --grey800: #333d4b;
+  --grey900: #191f28;
+
+  --blue50: #e8f3ff;
+  --blue100: #c9e2ff;
+  --blue300: #64a8ff;
+  --blue500: #3182f6;
+  --blue600: #2272eb;
+  --blue700: #1b64da;
+
+  --red50: #ffeeee;
+  --red500: #f04452;
+  --red600: #e42939;
+  --green50: #f0faf6;
+  --green500: #03b26c;
+  --orange500: #fe9800;
+  --yellow500: #ffc342;
+
+  /* ── KEI 시맨틱 토큰 (← 나중에 KEI 메인 컬러로 여기만 교체) ── */
+  --color-primary: var(--blue500);
+  --color-primary-strong: var(--blue600);
+  --color-primary-weak: var(--blue50);
+  --color-on-primary: #ffffff;
+
+  --color-bg: #ffffff;
+  --color-bg-subtle: var(--grey50);
+  --color-surface: #ffffff;
+  --color-surface-hover: var(--grey50);
+  --color-border: var(--grey200);
+  --color-border-strong: var(--grey300);
+
+  --color-text: var(--grey900);
+  --color-text-secondary: var(--grey600);
+  --color-text-tertiary: var(--grey500);
+  --color-text-disabled: var(--grey400);
+
+  --color-success: var(--green500);
+  --color-warning: var(--orange500);
+  --color-danger: var(--red500);
+
+  /* 섹션 악센트 (규정집/가이드/용어집) */
+  --accent-규정집: var(--blue500);
+  --accent-가이드: var(--green500);
+  --accent-용어집: var(--orange500);
+
+  /* ── 형태 토큰 ── */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-8: 48px;
+  --shadow-card: 0 1px 3px rgba(0, 19, 43, 0.08), 0 1px 2px rgba(0, 19, 43, 0.04);
+  --shadow-pop: 0 6px 20px rgba(0, 19, 43, 0.12);
+
+  --font-sans: "Pretendard", "Pretendard Variable", -apple-system, BlinkMacSystemFont,
+    "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --maxw: 1120px;
+  --header-h: 56px;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--color-bg-subtle);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-size: 15px;
+  line-height: 1.55;
+}
+a { color: inherit; text-decoration: none; }
+:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; border-radius: 4px; }
