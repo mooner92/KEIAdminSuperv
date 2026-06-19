@@ -25,3 +25,7 @@ uvicorn>=0.30.0
 sqlmodel>=0.0.22   # SQLAlchemy 2.0 + Pydantic 기반 ORM (FastAPI 친화)
 pyjwt>=2.9.0       # 세션 쿠키(JWT, HS256)
 bcrypt>=4.0        # 비밀번호 해시(직접 사용 — passlib은 bcrypt 5 호환 이슈로 미사용)
+
+# 6) 연구행정 가이드 변환(01c): PDF/PPTX → md
+pymupdf>=1.24      # PDF 텍스트 추출(fitz). 스캔 이미지 PDF는 image-pdf로 표시
+python-pptx>=1.0   # PPTX 슬라이드 텍스트/표 추출

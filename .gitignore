@@ -32,6 +32,16 @@ tools/app.db
 tools/app.db-wal
 tools/app.db-shm
 tools/.app_secret
+
+# ── 원본 규정/가이드 소스 (내부 전용 — 절대 커밋 금지) ──
+rule_files/
+research_rule_files/
+*.hwp
+*.hwpx
+*.pptx
+*.ppt
+*.doc
+*.docx
 # 로컬에 내려받은 임베딩/모델 가중치
 models/
 
