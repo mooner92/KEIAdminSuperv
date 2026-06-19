@@ -9,6 +9,8 @@
 - ⛔ 의역 금지: 표시 텍스트(alias)에 **원문을 글자 그대로** 넣어 화면 표기는 불변. 링크 마크업만 추가.
 - 자기 자신(같은 규정)으로는 링크하지 않는다.
 - 인용이 분명한 경우만 링크: ① `「규정명」`(꺾쇠 인용) ② `규정명 제N조`(이름+조). 맨 이름만 있는 언급은 건너뜀(노이즈 방지).
+- **이름 변이 흡수**: 꺾쇠 인용은 공백·가운뎃점(`·` `.`)·`및`·괄호 차이를 정규화해 같은 규정으로 연결한다.
+  (예: 「승진·전직에관한규칙」→ 승진.전직에관한규칙, 「법인카드관리 및 사용규칙」→ 법인카드관리및사용규칙)
 - 멱등(idempotent): 이미 `[[ ]]` 안은 다시 건드리지 않으므로 반복 실행해도 안전.
 - 01(변환) → 01b(링크) → 02(임베딩) 순서. 02는 임베딩 전에 위키링크 마크업을 벗겨 검색 노이즈를 없앤다.
 
@@ -18,6 +20,11 @@
 import argparse
 import re
 from pathlib import Path
+
+# 조 표기: 제N조 / 제N조의M / 제N조제M항
+ART = r"(?:\s*제\s*\d+\s*조(?:\s*의\s*\d+)?(?:\s*제\s*\d+\s*항)?)"
+TRAIL_ART = re.compile(r"(제\s*\d+\s*조(?:\s*의\s*\d+)?(?:\s*제\s*\d+\s*항)?)\s*$")
+ANUM = re.compile(r"제\s*(\d+)\s*조")
 
 
 def split_fm(text: str):
@@ -30,6 +37,11 @@ def split_fm(text: str):
                 meta[k.strip()] = v.strip().strip('"')
         return meta, "---" + fm + "---", body
     return {}, "", text
+
+
+def norm(s: str) -> str:
+    """이름 변이 흡수: 공백·가운뎃점(·.ㆍ･・)·'및'·괄호·따옴표 제거."""
+    return re.sub(r"[\s·.,;:「」()\[\]‘’“”ㆍ･・及및]", "", s)
 
 
 def build_registry(vault: Path):
@@ -46,34 +58,40 @@ def build_registry(vault: Path):
     return reg
 
 
-def make_pattern(names):
+def build_pattern(names):
     # 긴 이름 우선(내부감사규정 > 감사규정). re 교대는 leftmost-first 라 정렬이 중요.
     alt = "|".join(re.escape(n) for n in sorted(names, key=len, reverse=True))
-    # 「?이름」? (제N조(의M)(제M항))?
+    # (1)(2): 「임의 인용」 + 선택 조  → 정규화로 변이 흡수
+    # (3)(4): 정확 이름 + 조(필수)  → 꺾쇠 없는 평문 인용
     return re.compile(
-        r"「?(" + alt + r")」?(\s*제\s*\d+\s*조(?:\s*의\s*\d+)?(?:\s*제\s*\d+\s*항)?)?"
+        r"「\s*([^」\n]{2,40}?)\s*」(" + ART + r")?"
+        + r"|(" + alt + r")(" + ART + r")"
     )
 
 
-def link_text(segment: str, pat, reg, self_name, counter):
+def link_text(segment, pat, reg, normmap, self_name, counter):
+    def lookup(nm):
+        return nm if nm in reg else normmap.get(norm(nm))
+
     def repl(m):
-        name = m.group(1)
-        if name == self_name:           # 자기 규정으로는 링크 안 함
+        if m.group(1) is not None:                 # 「...」 인용 (변이 허용)
+            inside = m.group(1).strip()
+            tm = TRAIL_ART.search(inside)           # 조가 꺾쇠 안에 있으면 분리
+            if tm:
+                name_part, art = inside[:tm.start()].strip(), tm.group(1)
+            else:
+                name_part, art = inside, (m.group(2) or "")
+            actual = lookup(name_part)
+        else:                                      # 정확 이름 + 조
+            name_part, art = m.group(3), m.group(4)
+            actual = name_part if name_part in reg else None
+        if not actual or actual == self_name:      # 미상/자기참조 → 그대로
             return m.group(0)
-        stem = reg.get(name)
-        if not stem:
-            return m.group(0)
-        article = m.group(2)
-        disp = m.group(0)
-        if article:
-            anum = re.search(r"제\s*(\d+)\s*조", article)
-            anchor = f"#제{anum.group(1)}조" if anum else ""
-            counter[0] += 1
-            return f"[[{stem}{anchor}|{disp}]]"
-        if disp.startswith("「"):        # 꺾쇠 인용만 링크(맨 이름은 skip)
-            counter[0] += 1
-            return f"[[{stem}|{disp}]]"
-        return disp
+        am = ANUM.search(art or "")
+        anchor = f"#제{am.group(1)}조" if am else ""
+        counter[0] += 1
+        return f"[[{reg[actual]}{anchor}|{m.group(0)}]]"
+
     return pat.sub(repl, segment)
 
 
@@ -85,8 +103,11 @@ def main():
 
     vault = Path(args.vault)
     reg = build_registry(vault)
-    pat = make_pattern(reg.keys())
-    print(f"규정 레지스트리 {len(reg)}건 로드")
+    normmap = {}
+    for nm in reg:
+        normmap.setdefault(norm(nm), nm)
+    pat = build_pattern(reg.keys())
+    print(f"규정 레지스트리 {len(reg)}건 로드 (정규화 키 {len(normmap)}개)")
 
     total_links = 0
     changed = 0
@@ -102,7 +123,7 @@ def main():
         parts = re.split(r"(\[\[[^\]]*\]\])", body)
         counter = [0]
         for i in range(0, len(parts), 2):
-            parts[i] = link_text(parts[i], pat, reg, self_name, counter)
+            parts[i] = link_text(parts[i], pat, reg, normmap, self_name, counter)
         if counter[0]:
             new_body = "".join(parts)
             per_file.append((md.stem, counter[0]))
