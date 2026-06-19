@@ -117,17 +117,18 @@ html { transition: background-color 0.2s ease; }
   --color-primary-weak: #16314f;
   --color-on-primary: #ffffff;
 
-  --color-bg: #16181c;
-  --color-bg-subtle: #1e2128;
-  --color-surface: #23272e;
-  --color-surface-hover: #2b3038;
-  --color-border: #313640;
-  --color-border-strong: #3d434e;
+  /* 레이어 대비를 분명히: 페이지(가장 어두움) < 카드/패널(확실히 밝게) < hover, 경계선은 보이게 */
+  --color-bg: #0f1116;
+  --color-bg-subtle: #15181e; /* body(페이지) + 카드 내부 옅은 영역 */
+  --color-surface: #20242c;   /* 카드·패널 — 페이지보다 한 단계 밝게(떠 보이게) */
+  --color-surface-hover: #282e38;
+  --color-border: #2f3540;
+  --color-border-strong: #3d4553;
 
-  --color-text: #e9edf1;
-  --color-text-secondary: #aab1bb;
-  --color-text-tertiary: #7e8690;
-  --color-text-disabled: #5a616b;
+  --color-text: #edf0f3;
+  --color-text-secondary: #aab2bd;
+  --color-text-tertiary: #7c8590;
+  --color-text-disabled: #565d67;
 
   --color-success: #2dd08f;
   --color-warning: #ffb547;
@@ -143,8 +144,8 @@ html { transition: background-color 0.2s ease; }
   --badge-ok-border: #1f5640;
   --color-danger-bg: #3a1d20;
   --color-danger-border: #5e2a30;
-  --color-header-bg: rgba(22, 24, 28, 0.86);
-  --color-code-bg: #1a1d23;
+  --color-header-bg: rgba(16, 18, 23, 0.82);
+  --color-code-bg: #181b21;
 
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.55);
