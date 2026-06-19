@@ -1,0 +1,9 @@
+# (선택) pre-commit 프레임워크 — 레포 포함 훅(.githooks/pre-commit)에 더해 시크릿 스캔 한 겹.
+#   설치:  pip install pre-commit && pre-commit install
+#   주의:  아래 rev(gitleaks 버전)는 예시다. 최신 태그를 확인해 핀 고정할 것
+#          → https://github.com/gitleaks/gitleaks/releases
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks

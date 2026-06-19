@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# ───────────────────────────────────────────────────────────
+# 공개 레포에 내부 전용 콘텐츠(KEI 규정 볼트·HWP)가 커밋되는 것을 차단한다.
+# 활성화: clone 후 한 번  →  git config core.hooksPath .githooks
+# ───────────────────────────────────────────────────────────
+BLOCK_REGEX='^(KEI-행정가이드/|rule_files/)|\.(hwp|hwpx)$'
+
+staged=$(git diff --cached --name-only --diff-filter=AM || true)
+violations=$(printf '%s\n' "$staged" | grep -E "$BLOCK_REGEX" || true)
+if [ -n "$violations" ]; then
+  echo "❌ 커밋 차단: 내부 전용 콘텐츠가 스테이징됨 (공개 레포 금지):"
+  printf '%s\n' "$violations" | sed 's/^/   - /'
+  echo "   → git restore --staged <file> 로 제외하세요. (.gitignore 대상)"
+  exit 1
+fi
+
+# (선택) gitleaks 가 설치돼 있으면 스테이징된 변경에 대해 시크릿 스캔
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks protect --staged --redact --no-banner || { echo "❌ gitleaks: 시크릿 의심 — 중단"; exit 1; }
+fi
+
+exit 0

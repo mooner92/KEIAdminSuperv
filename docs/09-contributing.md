@@ -25,6 +25,24 @@
 | 배포 설정 | `deploy/` | 내부 전용 — 인터넷 공개 금지 |
 | 설계·계획 문서 | `docs/` | 사실의 출처는 코드와 `CLAUDE.md` |
 
+> [!warning] 공개 레포에는 **코드·설계문서만** 둔다
+> `KEI-행정가이드/`(규정 볼트)·`rule_files/`(HWP)는 **내부 전용**이라 git에 추적하지 않는다(`.gitignore`). 볼트 콘텐츠 작업은 공개 레포가 아니라 **Syncthing으로 동기화된 로컬 볼트 + Obsidian**에서 한다. 공개 구조 예시는 [`vault-example/`](../vault-example/), 데이터 분리 모델은 [SECURITY.md](../SECURITY.md) 참조.
+
+---
+
+## 1.5 보안 가드레일 (clone 후 1회 필수)
+
+공개 레포에 내부 규정이 섞여 들어가지 않도록 **3중 통제**가 있다.
+
+1. **`.gitignore`** — `KEI-행정가이드/`·`rule_files/`·`*.hwp`·`*.hwpx` 차단.
+2. **공유 pre-commit 훅** — clone 후 한 번 활성화하면, 내부 콘텐츠가 스테이징된 커밋을 로컬에서 차단한다.
+   ```bash
+   git config core.hooksPath .githooks   # 레포에 포함된 훅 사용 (clone 후 1회)
+   ```
+3. **GitHub Actions CI**(`.github/workflows/security-scan.yml`) — 푸시·PR마다 내부 콘텐츠 존재 여부 + 시크릿(gitleaks)을 검사해 실패시킨다.
+
+> 일부러 `git add -f KEI-행정가이드/x.md` 후 커밋을 시도하면 훅이 차단한다(검증됨). (선택) `pre-commit` 프레임워크는 [`.pre-commit-config.yaml`](../.pre-commit-config.yaml) 참조.
+
 ---
 
 ## 2. 작업 방식 (CLAUDE.md 정신)

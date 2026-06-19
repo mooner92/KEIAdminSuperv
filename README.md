@@ -63,6 +63,7 @@ flowchart TD
 ```bash
 git clone https://github.com/mooner92/KEIAdminSuperv.git
 cd KEIAdminSuperv
+git config core.hooksPath .githooks   # 내부 콘텐츠 커밋 차단 훅 활성화 (1회)
 
 python -m venv tools/.venv && source tools/.venv/bin/activate
 pip install -r tools/requirements.txt

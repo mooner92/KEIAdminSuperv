@@ -1,0 +1,25 @@
+name: security-scan
+
+# 공개 레포에 내부 전용 콘텐츠가 들어오거나 시크릿이 커밋되면 CI를 실패시킨다.
+on: [push, pull_request]
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Block internal-only content (볼트·HWP 차단)
+        run: |
+          if git ls-files | grep -E '^(KEI-행정가이드/|rule_files/)|\.(hwp|hwpx)$'; then
+            echo "::error::내부 전용 콘텐츠(KEI 규정 볼트·HWP)가 레포에 존재합니다. .gitignore + filter-repo 확인."
+            exit 1
+          fi
+          echo "OK — 내부 전용 콘텐츠 없음."
+
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
