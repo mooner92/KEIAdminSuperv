@@ -9,7 +9,7 @@
 - **Next.js 14 (Pages Router)** + TypeScript. 전사 방침: 원내 서비스는 Next.js로 개발.
 - **정적 export**(`output: "export"`) → `web/server.js`(PM2 `kei-guide`, 0.0.0.0:3100) 또는 `nginx 127.0.0.1` → Cloudflare Zero Trust(사내 전용). 서버 런타임 불필요.
 - **비서(RAG 채팅)**: 클라이언트가 같은 오리진 `/api/*`(정적 서버가 로컬 비서 API `127.0.0.1:9000`로 리버스 프록시)로 호출 → 정적 export를 유지하면서 동적 답변. 생성=Ollama(Qwen2.5-14B-Instruct), 검색=KURE-v1+Chroma.
-- **로그인·채팅기록·멀티턴**: `/api/app/*`(SQLite/SQLModel + bcrypt·PyJWT httpOnly 쿠키). 답변(메시지)마다 근거 조문을 저장해 지난 답변의 근거를 다시 볼 수 있다.
+- **로그인·채팅기록·멀티턴·스트리밍**: `/api/app/*`(SQLite/SQLModel + bcrypt·PyJWT httpOnly 쿠키). 답변(메시지)마다 근거 조문을 저장해 지난 답변의 근거를 다시 볼 수 있다. 답변은 **SSE로 타자치듯 스트리밍**(`?stream=1`: `meta`→`delta`→`done`), 근거가 먼저 뜨고 본문이 흐른다.
 - **Toss Design System**: `@toss/tds-mobile` · `@toss/tds-mobile-ait`(Provider) + `@emotion/react`. React 18 고정(TDS peer).
 - 스타일: **CSS 변수 토큰 + CSS Modules**(SSG 안전). 콘텐츠 렌더는 `react-markdown` + `remark-gfm`.
   - Pages Router를 택한 이유: TDS(emotion 기반)와 SSG에 마찰이 적다. App Router는 emotion 레지스트리 셋업 후 향후 검토.
@@ -84,9 +84,9 @@
 - [x] W4 비서(RAG 채팅) 통합 — `/api/rag/chat`(server.js 프록시 → 로컬 RAG API), 근거 조문 패널, 출처 카드
 - [x] W5 둘러보기 좌측 체크박스 필터 + Notion형 문서 드로어(지연 로드, 페이지 이동 없는 읽기)
 - [x] W6 로그인 + 채팅기록 영속화(SQLite/SQLModel) + 멀티턴 기억 + 메시지별 근거 저장 (`/api/app/*`)
+- [x] W7 비서 응답 스트리밍(SSE) — `?stream=1`(`meta`→`delta`→`done`), 근거 먼저·본문 타자치듯
 - [ ] KEI 메인 컬러 토큰 교체 (미정 — 사용자가 색을 주면 `globals.css` 토큰 한 블록 교체)
 - [ ] 번들 경량화(현재 first-load `/` ~433KB, TDS+react-markdown)
-- [ ] 비서 응답 스트리밍(SSE) + 멀티턴 — 도입 시 `@assistant-ui/react` 프리미티브 검토
 - [ ] 관계 그래프를 비서 화면에 임베드(질문↔노드 상호 탐색)
 - [ ] TDS 컴포넌트 추가 확대
 

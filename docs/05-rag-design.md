@@ -353,7 +353,7 @@ text = answer(question, context, history)      # history는 맥락 재생용(근
 | `GET /app/chats` · `POST /app/chats` | 대화 목록 · 새 대화 생성 |
 | `GET /app/chats/{id}` | 메시지 포함 단일 대화 조회 |
 | `PATCH /app/chats/{id}` · `DELETE /app/chats/{id}` | 제목 변경 · 삭제 |
-| `POST /app/chats/{id}/messages` | **검색 → 멀티턴 생성 → user/assistant 메시지 저장(assistant에 근거) → 반환.** 첫 질문으로 대화 제목 자동 설정 |
+| `POST /app/chats/{id}/messages` | **검색 → 멀티턴 생성 → user/assistant 메시지 저장(assistant에 근거) → 반환.** 첫 질문으로 대화 제목 자동 설정. `?stream=1`이면 SSE(`meta`=근거+user → `delta`=토큰… → `done`=저장된 assistant+session)로 스트리밍 후 동일하게 저장(`rag_core.answer_stream`) |
 
 `POST /app/chats/{id}/messages` 한 번의 흐름:
 
