@@ -49,6 +49,61 @@ async function j<T>(path: string, init?: RequestInit): Promise<T> {
   return (r.status === 204 ? null : await r.json()) as T;
 }
 
+export type StreamHandlers = {
+  onMeta?: (sources: Source[], user: Message) => void;
+  onDelta?: (token: string) => void;
+  onDone?: (assistant: Message, session: ChatMeta | null) => void;
+  onError?: (message: string) => void;
+};
+
+// 스트리밍(SSE) 전송 — fetch + ReadableStream으로 토큰을 순차 수신.
+// 서버 이벤트(한 줄 JSON): {type:"meta"|"delta"|"done"|"error", ...}
+async function sendMessageStream(id: number, content: string, h: StreamHandlers): Promise<void> {
+  const r = await fetch(`${BASE}/chats/${id}/messages?stream=1`, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+  });
+  if (!r.ok || !r.body) {
+    let msg = `요청 실패 (${r.status})`;
+    try {
+      const e = await r.json();
+      if (e?.detail) msg = typeof e.detail === "string" ? e.detail : JSON.stringify(e.detail);
+    } catch {
+      /* ignore */
+    }
+    h.onError?.(msg);
+    return;
+  }
+  const reader = r.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let nl: number;
+    // 이벤트 구분자 "\n\n"
+    while ((nl = buf.indexOf("\n\n")) !== -1) {
+      const block = buf.slice(0, nl);
+      buf = buf.slice(nl + 2);
+      const line = block.split("\n").find((l) => l.startsWith("data:"));
+      if (!line) continue;
+      let obj: any;
+      try {
+        obj = JSON.parse(line.slice(5).trim());
+      } catch {
+        continue;
+      }
+      if (obj.type === "meta") h.onMeta?.(obj.sources || [], obj.user);
+      else if (obj.type === "delta") h.onDelta?.(obj.t || "");
+      else if (obj.type === "done") h.onDone?.(obj.assistant, obj.session ?? null);
+      else if (obj.type === "error") h.onError?.(obj.message || "오류가 발생했습니다.");
+    }
+  }
+}
+
 export const api = {
   me: () => j<User>("/auth/me"),
   login: (username: string, password: string) =>
@@ -65,6 +120,7 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ content }),
     }),
+  sendMessageStream,
   renameChat: (id: number, title: string) =>
     j<ChatMeta>(`/chats/${id}`, { method: "PATCH", body: JSON.stringify({ title }) }),
   deleteChat: (id: number) => j<{ ok: boolean }>(`/chats/${id}`, { method: "DELETE" }),

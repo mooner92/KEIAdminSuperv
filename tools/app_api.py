@@ -19,6 +19,7 @@ from typing import Optional
 import bcrypt
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 
@@ -248,8 +249,12 @@ def delete_chat(cid: int, user: User = Depends(current_user)):
     return {"ok": True}
 
 
+def _sse(obj: dict) -> str:
+    return "data: " + json.dumps(obj, ensure_ascii=False) + "\n\n"
+
+
 @router.post("/chats/{cid}/messages")
-def post_message(cid: int, body: MsgIn, user: User = Depends(current_user)):
+def post_message(cid: int, body: MsgIn, stream: bool = False, user: User = Depends(current_user)):
     q = body.content.strip()
     if not q:
         raise HTTPException(400, "질문이 비어 있습니다.")
@@ -261,30 +266,77 @@ def post_message(cid: int, body: MsgIn, user: User = Depends(current_user)):
             .order_by(Message.created_at, Message.id)
         ).all()
         history = [{"role": m.role, "content": m.content} for m in prior]
-    # 2) 검색 + 생성 (이전 대화를 LLM에 재생 → 멀티턴 기억)
+    # 2) 검색(이전 대화를 LLM에 재생 → 멀티턴 기억)
     context, sources = rag_core.retrieve(q)
-    try:
-        ans = rag_core.answer(q, context, history)
-    except Exception as e:
-        ans = ("⚠️ 생성 모델에 연결하지 못했습니다. 회수된 근거 조문은 우측에 표시됩니다.\n"
-               f"(관리자 확인: {rag_core.VLLM_BASE} / {rag_core.LLM_MODEL} · {type(e).__name__})")
-    # 3) 저장(user + assistant) + 제목/시각 갱신
-    with Session(engine) as s:
-        cs = _owned(s, cid, user)
-        um = Message(session_id=cid, role="user", content=q)
-        am = Message(session_id=cid, role="assistant", content=ans,
-                     sources_json=json.dumps(sources, ensure_ascii=False))
-        s.add(um)
-        s.add(am)
-        if cs.title == "새 대화":
-            cs.title = q[:40]
-        cs.updated_at = time.time()
-        s.add(cs)
-        s.commit()
-        s.refresh(um)
-        s.refresh(am)
-        s.refresh(cs)
-        return {"user": _msg(um), "assistant": _msg(am), "session": _ses(cs)}
+
+    # 비스트리밍(하위호환): 한 번에 생성 후 저장
+    if not stream:
+        try:
+            ans = rag_core.answer(q, context, history)
+        except Exception as e:
+            ans = ("⚠️ 생성 모델에 연결하지 못했습니다. 회수된 근거 조문은 우측에 표시됩니다.\n"
+                   f"(관리자 확인: {rag_core.VLLM_BASE} / {rag_core.LLM_MODEL} · {type(e).__name__})")
+        with Session(engine) as s:
+            cs = _owned(s, cid, user)
+            um = Message(session_id=cid, role="user", content=q)
+            am = Message(session_id=cid, role="assistant", content=ans,
+                         sources_json=json.dumps(sources, ensure_ascii=False))
+            s.add(um)
+            s.add(am)
+            if cs.title == "새 대화":
+                cs.title = q[:40]
+            cs.updated_at = time.time()
+            s.add(cs)
+            s.commit()
+            s.refresh(um)
+            s.refresh(am)
+            s.refresh(cs)
+            return {"user": _msg(um), "assistant": _msg(am), "session": _ses(cs)}
+
+    # 스트리밍(SSE): meta(근거+user) → delta(토큰…) → done(저장된 assistant+session)
+    def gen():
+        # user 메시지 먼저 저장(스트림이 끊겨도 질문은 보존)
+        with Session(engine) as s:
+            um = Message(session_id=cid, role="user", content=q)
+            s.add(um)
+            s.commit()
+            s.refresh(um)
+            user_dict = _msg(um)
+        yield _sse({"type": "meta", "sources": sources, "user": user_dict})
+        # 토큰 스트리밍
+        acc, err = [], None
+        try:
+            for tok in rag_core.answer_stream(q, context, history):
+                acc.append(tok)
+                yield _sse({"type": "delta", "t": tok})
+        except Exception as e:
+            err = type(e).__name__
+        full = "".join(acc)
+        if not full:
+            full = ("⚠️ 생성 모델에 연결하지 못했습니다. 회수된 근거 조문은 우측에 표시됩니다."
+                    + (f" ({err})" if err else ""))
+        # assistant 메시지 저장 + 제목/시각 갱신
+        with Session(engine) as s:
+            cs = s.get(ChatSession, cid)
+            am = Message(session_id=cid, role="assistant", content=full,
+                         sources_json=json.dumps(sources, ensure_ascii=False))
+            s.add(am)
+            if cs and cs.title == "새 대화":
+                cs.title = q[:40]
+            if cs:
+                cs.updated_at = time.time()
+                s.add(cs)
+            s.commit()
+            s.refresh(am)
+            if cs:
+                s.refresh(cs)
+            yield _sse({"type": "done", "assistant": _msg(am), "session": _ses(cs) if cs else None})
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 # 모듈 로드 시 테이블 보장(idempotent)

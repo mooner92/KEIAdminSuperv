@@ -12,6 +12,7 @@ const EXAMPLES = [
   "연차휴가는 어떻게 신청하나요?",
   "초과근무 수당 지급 기준이 궁금해요.",
 ];
+const STREAM_ID = -3; // 스트리밍 중인 assistant 메시지의 임시 id
 
 /** 비서 본체 — 좌측 대화 목록 + 중앙 채팅(멀티턴) + 우측 메시지별 근거 + 문서 드로어. */
 export default function ChatApp({
@@ -56,7 +57,9 @@ export default function ChatApp({
   }, []);
 
   useEffect(() => {
-    threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: "smooth" });
+    // 스트리밍 중엔 토큰마다 갱신되므로 즉시 스크롤(애니메이션 X)으로 따라간다
+    const el = threadRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [messages, sending]);
 
   const selectChat = async (id: number) => {
@@ -103,25 +106,37 @@ export default function ChatApp({
       cid = c.id;
       setActiveId(cid);
     }
+    const chatId = cid as number;
     setInput("");
     setSending(true);
-    setMessages((prev) => [...prev, { id: -1, role: "user", content: q, sources: [], created_at: 0 }]);
+    // 낙관적: 사용자 메시지 + 비어있는 스트리밍 assistant 자리 추가
+    setMessages((prev) => [
+      ...prev,
+      { id: -1, role: "user", content: q, sources: [], created_at: 0 },
+      { id: STREAM_ID, role: "assistant", content: "", sources: [], created_at: 0 },
+    ]);
+    setActiveMsgId(STREAM_ID);
     try {
-      const res = await api.sendMessage(cid, q);
-      setMessages((prev) => prev.map((m) => (m.id === -1 ? res.user : m)).concat(res.assistant));
-      setActiveMsgId(res.assistant.id);
-      setChats((prev) => [res.session, ...prev.filter((c) => c.id !== cid)]);
+      await api.sendMessageStream(chatId, q, {
+        onMeta: (sources, user) =>
+          setMessages((prev) =>
+            prev.map((m) => (m.id === -1 ? user : m.id === STREAM_ID ? { ...m, sources } : m))
+          ),
+        onDelta: (t) =>
+          setMessages((prev) => prev.map((m) => (m.id === STREAM_ID ? { ...m, content: m.content + t } : m))),
+        onDone: (assistant, session) => {
+          setMessages((prev) => prev.map((m) => (m.id === STREAM_ID ? assistant : m)));
+          setActiveMsgId(assistant.id);
+          if (session) setChats((prev) => [session, ...prev.filter((c) => c.id !== chatId)]);
+        },
+        onError: (msg) =>
+          setMessages((prev) =>
+            prev.map((m) => (m.id === STREAM_ID ? { ...m, content: m.content || `⚠️ ${msg}` } : m))
+          ),
+      });
     } catch {
       setMessages((prev) =>
-        prev
-          .filter((m) => m.id !== -1)
-          .concat({
-            id: -2,
-            role: "assistant",
-            content: "⚠️ 답변을 가져오지 못했습니다. 잠시 후 다시 시도해 주세요.",
-            sources: [],
-            created_at: 0,
-          })
+        prev.map((m) => (m.id === STREAM_ID ? { ...m, content: m.content || "⚠️ 답변을 가져오지 못했습니다." } : m))
       );
     } finally {
       setSending(false);
@@ -209,7 +224,11 @@ export default function ChatApp({
                       onClick={() => m.sources.length && setActiveMsgId(m.id)}
                       title={m.sources.length ? "이 답변의 근거 조문 보기" : ""}
                     >
-                      <Markdown source={m.content} />
+                      {m.content ? (
+                        <Markdown source={m.content} />
+                      ) : (
+                        <span className={styles.typing}>근거 조문을 찾아 답변을 작성 중…</span>
+                      )}
                       {m.sources.length ? (
                         <div className={styles.aiSrcHint}>
                           📎 근거 {m.sources.length}개 {m.id === activeMsgId ? "· 우측 표시 중" : "· 클릭해서 보기"}
@@ -219,14 +238,6 @@ export default function ChatApp({
                   </li>
                 )
               )}
-              {sending ? (
-                <li className={styles.aiRow}>
-                  <span className={styles.aiTag}>비서</span>
-                  <div className={styles.aiBubble}>
-                    <span className={styles.typing}>근거 조문을 찾아 답변을 작성 중…</span>
-                  </div>
-                </li>
-              ) : null}
             </ul>
           )}
         </div>

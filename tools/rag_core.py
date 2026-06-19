@@ -64,13 +64,11 @@ def retrieve(query: str, k: int = TOPK):
     return "\n\n---\n\n".join(blocks), srcs
 
 
-def answer(question: str, context: str, history=None, temperature: float = 0.1) -> str:
-    """근거 주입 + (선택)이전 대화 맥락으로 답변 생성.
+def _build_messages(question: str, context: str, history=None):
+    """system + (선택)이전 대화 + (이번 질문+근거). 멀티턴은 history를 LLM에 재생(replay).
 
     history: [{"role": "user"|"assistant", "content": str}, ...] (원문 질문/답변, 근거 미포함).
-    멀티턴 기억은 history를 그대로 LLM에 재생(replay)해서 구현한다.
     """
-    _, _, llm = backend()
     msgs = [{"role": "system", "content": SYSTEM}]
     for h in history or []:
         role = h.get("role")
@@ -78,5 +76,30 @@ def answer(question: str, context: str, history=None, temperature: float = 0.1) 
         if role in ("user", "assistant") and content:
             msgs.append({"role": role, "content": content})
     msgs.append({"role": "user", "content": f"[질문]\n{question}\n\n[근거]\n{context}"})
-    out = llm.chat.completions.create(model=LLM_MODEL, temperature=temperature, messages=msgs)
+    return msgs
+
+
+def answer(question: str, context: str, history=None, temperature: float = 0.1) -> str:
+    """근거 주입 + (선택)이전 대화 맥락으로 답변 생성(비스트리밍)."""
+    _, _, llm = backend()
+    out = llm.chat.completions.create(
+        model=LLM_MODEL, temperature=temperature,
+        messages=_build_messages(question, context, history),
+    )
     return out.choices[0].message.content or ""
+
+
+def answer_stream(question: str, context: str, history=None, temperature: float = 0.1):
+    """answer()의 스트리밍 버전 — LLM 토큰을 순차적으로 yield(제너레이터)."""
+    _, _, llm = backend()
+    stream = llm.chat.completions.create(
+        model=LLM_MODEL, temperature=temperature,
+        messages=_build_messages(question, context, history), stream=True,
+    )
+    for chunk in stream:
+        try:
+            delta = chunk.choices[0].delta.content
+        except (AttributeError, IndexError):
+            delta = None
+        if delta:
+            yield delta

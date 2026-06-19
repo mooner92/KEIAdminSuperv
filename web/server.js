@@ -44,7 +44,12 @@ function proxyToRag(req, res, upstreamPath) {
     headers: { ...req.headers, host: `${RAG_HOST}:${RAG_PORT}` },
   };
   const up = http.request(opts, (upRes) => {
-    res.writeHead(upRes.statusCode || 502, upRes.headers);
+    // hop-by-hop 헤더 제거 → Node가 프레이밍을 다시 잡게(SSE 스트리밍이 버퍼링/중복청크 없이 흐르도록)
+    const headers = { ...upRes.headers };
+    delete headers["transfer-encoding"];
+    delete headers["content-length"];
+    delete headers["connection"];
+    res.writeHead(upRes.statusCode || 502, headers);
     upRes.pipe(res);
   });
   up.on("error", (e) => {
