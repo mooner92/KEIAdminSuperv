@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { SearchField, SegmentedControl } from "@toss/tds-mobile";
 import type { DocMeta, SectionKey } from "../lib/vault";
 import styles from "./GuideList.module.css";
 
-const TABS: ("전체" | SectionKey)[] = ["전체", "규정집", "가이드", "용어집"];
+type Tab = "전체" | SectionKey;
+const TABS: Tab[] = ["전체", "규정집", "가이드", "용어집"];
 const LABEL: Record<string, string> = {
   규정집: "규정집",
   가이드: "연구행정 가이드",
@@ -12,7 +14,7 @@ const LABEL: Record<string, string> = {
 
 export default function GuideList({ docs }: { docs: DocMeta[] }) {
   const [q, setQ] = useState("");
-  const [tab, setTab] = useState<"전체" | SectionKey>("전체");
+  const [tab, setTab] = useState<Tab>("전체");
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { 전체: docs.length };
@@ -32,31 +34,25 @@ export default function GuideList({ docs }: { docs: DocMeta[] }) {
   return (
     <div>
       <div className={styles.toolbar}>
-        <div className={styles.tabs} role="tablist" aria-label="섹션">
+        <SegmentedControl
+          value={tab}
+          onChange={(v) => setTab(v as Tab)}
+          alignment="fluid"
+          aria-label="섹션"
+        >
           {TABS.map((t) => (
-            <button
-              key={t}
-              role="tab"
-              aria-selected={tab === t}
-              className={tab === t ? `${styles.tab} ${styles.tabOn}` : styles.tab}
-              onClick={() => setTab(t)}
-            >
-              {t === "전체" ? "전체" : LABEL[t]}
-              <span className={styles.tabCount}>{counts[t] || 0}</span>
-            </button>
+            <SegmentedControl.Item key={t} value={t}>
+              {t === "전체" ? "전체" : LABEL[t]} {counts[t] || 0}
+            </SegmentedControl.Item>
           ))}
-        </div>
+        </SegmentedControl>
         <div className={styles.searchWrap}>
-          <span className={styles.searchIcon} aria-hidden>
-            🔍
-          </span>
-          <input
-            className={styles.search}
+          <SearchField
             value={q}
             onChange={(e) => setQ(e.target.value)}
+            onDeleteClick={() => setQ("")}
             placeholder="제목 · 규정번호 · 분류로 검색"
             aria-label="검색"
-            type="search"
           />
         </div>
       </div>
