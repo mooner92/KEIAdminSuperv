@@ -1,0 +1,22 @@
+# Syncthing — 비공개 볼트 동기화 (서버 ↔ 내 PC). 내부 전용.
+# ⛔ 인터넷 노출 금지. 관리 GUI(8384)는 로컬(127.0.0.1)에만 바인딩.
+#    외부에서 접근할 땐 SSH 터널로만: ssh -L 8384:127.0.0.1:8384 <서버>
+#    기기 페어링(디바이스 ID 교환)은 사람이 GUI에서 직접 — 자동/임의 페어링 금지.
+# 실행:  docker compose -f deploy/syncthing-compose.yml up -d
+services:
+  syncthing:
+    image: syncthing/syncthing:latest
+    container_name: syncthing
+    hostname: kei-vault-sync
+    environment:
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - ./syncthing-config:/var/st/config
+      - /KEIAdminSuperv/KEI-행정가이드:/var/st/vault   # 동기화 대상 = 볼트(진실원천)
+    ports:
+      - "127.0.0.1:8384:8384"   # 관리 GUI: 로컬만 — 외부 노출 금지
+      - "22000:22000/tcp"        # 동기화 프로토콜(피어 연결, 암호화)
+      - "22000:22000/udp"
+      - "21027:21027/udp"        # 로컬 네트워크 디스커버리
+    restart: always

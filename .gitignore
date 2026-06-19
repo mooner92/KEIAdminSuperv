@@ -36,6 +36,9 @@ tools/pdf/
 # 변환 전 원본 HWP 보관 폴더 — 내부 문서, 비공개
 원본HWP/
 
+# ── Syncthing 런타임(디바이스 키·상태 — 비밀) ──
+deploy/syncthing-config/
+
 # ── Quartz 정적 사이트 (그래프 화면) ──
 public/
 node_modules/
