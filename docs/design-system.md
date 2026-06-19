@@ -8,7 +8,8 @@
 ## 0. 기술 스택 (확정)
 - **Next.js 14 (Pages Router)** + TypeScript. 전사 방침: 원내 서비스는 Next.js로 개발.
 - **정적 export**(`output: "export"`) → `web/server.js`(PM2 `kei-guide`, 0.0.0.0:3100) 또는 `nginx 127.0.0.1` → Cloudflare Zero Trust(사내 전용). 서버 런타임 불필요.
-- **비서(RAG 채팅)**: 클라이언트가 같은 오리진 `/api/rag/chat`(정적 서버가 로컬 RAG API `127.0.0.1:9000`로 리버스 프록시)로 호출 → 정적 export를 유지하면서 동적 답변. 생성=Ollama(Qwen2.5-14B-Instruct), 검색=KURE-v1+Chroma.
+- **비서(RAG 채팅)**: 클라이언트가 같은 오리진 `/api/*`(정적 서버가 로컬 비서 API `127.0.0.1:9000`로 리버스 프록시)로 호출 → 정적 export를 유지하면서 동적 답변. 생성=Ollama(Qwen2.5-14B-Instruct), 검색=KURE-v1+Chroma.
+- **로그인·채팅기록·멀티턴**: `/api/app/*`(SQLite/SQLModel + bcrypt·PyJWT httpOnly 쿠키). 답변(메시지)마다 근거 조문을 저장해 지난 답변의 근거를 다시 볼 수 있다.
 - **Toss Design System**: `@toss/tds-mobile` · `@toss/tds-mobile-ait`(Provider) + `@emotion/react`. React 18 고정(TDS peer).
 - 스타일: **CSS 변수 토큰 + CSS Modules**(SSG 안전). 콘텐츠 렌더는 `react-markdown` + `remark-gfm`.
   - Pages Router를 택한 이유: TDS(emotion 기반)와 SSG에 마찰이 적다. App Router는 emotion 레지스트리 셋업 후 향후 검토.
@@ -56,7 +57,8 @@
 | 컴포넌트 | 위치 | 규약 |
 |---|---|---|
 | **Layout** | `web/components/Layout.tsx` | sticky 헤더(브랜드+사내전용 플래그) · `--maxw`(1120) 중앙 정렬 · breadcrumb · footer(내부전용 고지) |
-| **비서(Assistant)** | `web/components/Assistant.tsx` | 홈(`/`) RAG 채팅. 질문 → `/api/rag/chat` → 근거 기반 답변(Markdown). 우측 **근거 조문 패널**(`x_sources` 카드), 카드 클릭 시 문서 드로어가 해당 조로 펼침. 면책 고지 상시 |
+| **비서(ChatApp)** | `Assistant.tsx`(인증 게이트) · `ChatApp.tsx` | 홈(`/`). 로그인 시 좌측 **대화목록**(새/선택/삭제) · 중앙 **멀티턴 채팅**(`/api/app/chats/{id}/messages`) · 우측 **메시지별 근거 패널**(지난 답변 클릭 → 그때의 근거). 근거 카드 클릭 → 문서 드로어. 면책 고지 상시 |
+| **로그인(Login)** | `web/components/Login.tsx` | 로그인/회원가입(bcrypt + JWT httpOnly 쿠키). 미인증 시 게이트가 노출. 채팅기록은 계정별 보관 |
 | **둘러보기(Explorer)** | `web/components/Explorer.tsx` | `/browse` 좌측 **체크박스 필터**(구분·분류·검수상태, 패싯 카운트) + `SearchField` + 행. 행 클릭 = 페이지 이동 없이 **문서 드로어**로 본문. 행 = `규정번호 │ 제목·칩 │ 개정일·상태badge` |
 | **칩(섹션)** | — | 규정집=blue, 가이드=green, 용어집=orange. `data-section`으로 색 분기 |
 | **상태 배지** | — | `미검수`=orange, `검수완료`=green. 항상 표시(거버넌스) |
@@ -81,6 +83,7 @@
 - [x] W3 관계 그래프 뷰(`react-force-graph-2d`, 노드 클릭→문서 이동, 코드 스플릿)
 - [x] W4 비서(RAG 채팅) 통합 — `/api/rag/chat`(server.js 프록시 → 로컬 RAG API), 근거 조문 패널, 출처 카드
 - [x] W5 둘러보기 좌측 체크박스 필터 + Notion형 문서 드로어(지연 로드, 페이지 이동 없는 읽기)
+- [x] W6 로그인 + 채팅기록 영속화(SQLite/SQLModel) + 멀티턴 기억 + 메시지별 근거 저장 (`/api/app/*`)
 - [ ] KEI 메인 컬러 토큰 교체 (미정 — 사용자가 색을 주면 `globals.css` 토큰 한 블록 교체)
 - [ ] 번들 경량화(현재 first-load `/` ~433KB, TDS+react-markdown)
 - [ ] 비서 응답 스트리밍(SSE) + 멀티턴 — 도입 시 `@assistant-ui/react` 프리미티브 검토

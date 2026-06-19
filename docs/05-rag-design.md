@@ -29,8 +29,8 @@ flowchart LR
 |------|------|------|
 | 변환·청킹·임베딩 | 오프라인 파이프라인 | [`../tools/01_hwp_to_md.py`](../tools/01_hwp_to_md.py) → [`../tools/02_chunk_and_embed.py`](../tools/02_chunk_and_embed.py) |
 | CLI 질의(개발·디버그) | 단발 스크립트 | [`../tools/03_rag_query.py`](../tools/03_rag_query.py) |
-| 통제형 RAG API(운영) | OpenAI 호환 서버, PM2 `kei-rag-api`(`127.0.0.1:9000`) | [`../tools/04_rag_api.py`](../tools/04_rag_api.py) |
-| 채팅 UI | Next.js + TDS 앱에 통합(`/` 비서, 같은 오리진 `/api/rag/chat` 프록시) | [06-deployment.md](06-deployment.md) |
+| 통제형 RAG API(운영) | OpenAI 호환 + `/app` 채팅 API 서버, PM2 `kei-rag-api`(`127.0.0.1:9000`) | [`../tools/04_rag_api.py`](../tools/04_rag_api.py)(진입점) · [`../tools/rag_core.py`](../tools/rag_core.py)(검색·생성 코어) · [`../tools/app_api.py`](../tools/app_api.py)(인증·채팅) |
+| 채팅 UI | Next.js + TDS 앱에 통합(`/` 비서, 같은 오리진 프록시 — 무상태 `/api/rag/chat` + 영속 `/api/app/*`) | [06-deployment.md](06-deployment.md) |
 
 ---
 
@@ -302,6 +302,101 @@ pm2 start tools/ecosystem.config.js   # 이후 pm2 save 완료
 
 ---
 
+## 7b. 로그인 · 채팅기록 · 멀티턴 · 메시지별 근거
+
+비서는 여전히 **Next.js + TDS 앱에 통합**(별도 Open WebUI 아님)이지만, 무상태 한 방 질의를 넘어 **로그인/회원가입 · 채팅기록 영속 · 멀티턴 기억 · 답변(메시지)별 근거 저장**을 추가했다. 핵심 원칙은 그대로다 — **사실 근거는 매 턴 새로 검색한 `[근거]`에서만** 가져오고, 이전 대화는 *맥락*으로만 재생(replay)한다. 즉 멀티턴이 가드레일(§5)을 약화시키지 않는다.
+
+### 7b.1 백엔드 3분리(한 PM2 프로세스 `kei-rag-api`)
+
+검색·생성·인증·채팅을 한 프로세스 안에서 모듈로 나눈다.
+
+| 모듈 | 책임 |
+|------|------|
+| [`../tools/rag_core.py`](../tools/rag_core.py) | 검색·생성 공용 코어. `backend()`(임베딩/Chroma/LLM 클라이언트 1회 로드), `retrieve(query) -> (근거컨텍스트, 구조화출처)`, `answer(question, context, history) -> 문자열` |
+| [`../tools/app_api.py`](../tools/app_api.py) | SQLModel 모델 + bcrypt/PyJWT 인증 + 채팅 라우터(`prefix=/app`) + `init_db()` |
+| [`../tools/04_rag_api.py`](../tools/04_rag_api.py) | 진입점. OpenAI 호환 `/v1/*`·`/health` + `app_api` 라우터(`/app/*`) include + `init_db()`. `uvicorn 04_rag_api:app`(`127.0.0.1:9000`) |
+
+`03`·`04`의 OpenAI 호환 경로와 `/app` 채팅 경로가 **같은 `rag_core`** 를 쓰므로 검색·청킹·가드레일은 한 곳에 남고 변하지 않는다.
+
+### 7b.2 인증 스택과 영속 저장
+
+조사로 확정한 스택은 다음과 같다(무거운 의존성 회피).
+
+| 항목 | 채택 | 비고 |
+|------|------|------|
+| 비밀번호 해시 | **bcrypt 직접 사용** | `passlib` 미사용(bcrypt 5 호환 이슈) |
+| 토큰 | **PyJWT**(HS256, httpOnly 쿠키) | `fastapi-users` 미사용(2026 유지보수 모드·과함) |
+| ORM·DB | **SQLModel + SQLite** | 테이블: `user`, `chatsession`, `message` |
+| 프론트 데이터 | **plain fetch + React hooks** | React Query 미도입(번들 경량) |
+
+- **SQLite: `tools/app.db`** — 사용자·채팅·근거 스니펫을 담으므로 **`.gitignore` 대상**(커밋 금지). `message.sources_json`(JSON 컬럼)에 그 답변 시점의 회수 근거를 함께 저장한다.
+- **JWT 서명키: `tools/.app_secret`** — 퍼미션 `0600`, `.gitignore`, 없으면 자동 생성. 디스크에 영속되므로 재시작에도 세션이 유지된다.
+- `requirements.txt` 추가: `sqlmodel>=0.0.22`, `pyjwt>=2.9.0`, `bcrypt>=4.0`(이미 설치됨).
+
+### 7b.3 멀티턴 — 세션 재생, 단 근거는 매 턴 새 검색
+
+멀티턴은 세션의 **이전 메시지를 LLM에 재생(replay)** 해 맥락을 잇는다. 그러나 **사실 근거는 매 턴 새로 검색한 `[근거]`에서만** 쓴다(가드레일 규칙 1 유지). OpenAI 호환 엔드포인트(`/v1`)도 동일하게 **마지막 user 메시지로 검색**하고, 그 앞 메시지들은 맥락으로 전달한다.
+
+```python
+# tools/rag_core.py — 매 턴 새로 검색한 context + 이전 메시지(history)를 함께 전달
+context, sources = retrieve(question)          # 근거는 이번 턴 검색에서만
+text = answer(question, context, history)      # history는 맥락 재생용(근거 아님)
+```
+
+### 7b.4 `/app` 엔드포인트와 메시지 흐름
+
+프론트는 `server.js`가 `/api/app/*` → `/app/*` 로 프록시한다(쿠키·set-cookie 전달, 쿼리 보존).
+
+| 메서드 · 경로 | 역할 |
+|---------------|------|
+| `POST /app/auth/register` · `POST /app/auth/login` · `POST /app/auth/logout` · `GET /app/auth/me` | 회원가입 · 로그인 · 로그아웃 · 현재 사용자 |
+| `GET /app/chats` · `POST /app/chats` | 대화 목록 · 새 대화 생성 |
+| `GET /app/chats/{id}` | 메시지 포함 단일 대화 조회 |
+| `PATCH /app/chats/{id}` · `DELETE /app/chats/{id}` | 제목 변경 · 삭제 |
+| `POST /app/chats/{id}/messages` | **검색 → 멀티턴 생성 → user/assistant 메시지 저장(assistant에 근거) → 반환.** 첫 질문으로 대화 제목 자동 설정 |
+
+`POST /app/chats/{id}/messages` 한 번의 흐름:
+
+```mermaid
+sequenceDiagram
+  participant U as 사용자
+  participant W as Next+TDS 앱<br/>(/api/app/* 프록시)
+  participant A as app_api(/app)<br/>+ rag_core
+  participant C as Chroma kei_regs
+  participant V as Ollama LLM
+  participant D as SQLite app.db
+  U->>W: 질문(인증 쿠키)
+  W->>A: POST /api/app/chats/{id}/messages → /app/...
+  A->>C: retrieve(질문)  · 매 턴 새 검색
+  C-->>A: top-k 근거 + 구조화 출처
+  A->>D: 세션 이전 메시지 로드(history)
+  A->>V: answer(질문, 근거, history)  · 멀티턴 재생
+  V-->>A: 답변
+  A->>D: user 메시지 + assistant 메시지 저장<br/>(assistant.sources_json = 이번 근거)
+  A-->>W: 답변 + 메시지별 근거
+  W-->>U: 답변 + 우측 '메시지별' 근거 패널
+```
+
+### 7b.5 프론트엔드 신규
+
+- [`../web/lib/api.ts`](../web/lib/api.ts) — 타입 클라이언트.
+- [`../web/components/Login.tsx`](../web/components/Login.tsx) — 로그인/회원가입.
+- [`../web/components/ChatApp.tsx`](../web/components/ChatApp.tsx) — 좌측 대화목록 사이드바(새 대화/선택/삭제) · 중앙 멀티턴 채팅 · 우측 **'메시지별' 근거 패널** · 문서 드로어. 지난 답변을 클릭하면 그때 저장된 근거(`message.sources_json`)를 우측에 다시 표시한다.
+- `Assistant.tsx` — 인증 게이트(`/auth/me` → `Login` 또는 `ChatApp`). 정적 export는 유지(게이트는 클라이언트 렌더).
+
+### 7b.6 프록시 · 쿠키 · 보안
+
+- [`../web/server.js`](../web/server.js): 기존 무상태 `/api/rag/chat` + 신규 `/api/app/*` → `/app/*` 프록시. RAG/비서 API는 `127.0.0.1:9000` 전용 유지(LAN 비노출), 같은 오리진이라 CORS 의존 안 함.
+- 쿠키: `httponly` + `samesite=lax` + `secure=False`(내부망 HTTP). Cloudflare ZT/HTTPS 도입 시 `secure=True` 권장. ZT 식별자(`Cf-Access-Authenticated-User-Email`)는 향후 옵션(LAN 직접접속 dev는 비밀번호 로그인 유지).
+
+> [!warning] 영속 파일은 커밋 금지 · 백업 대상
+> `tools/app.db`(사용자·채팅·근거 스니펫)와 `tools/.app_secret`(JWT 서명키)은 **`.gitignore` 대상이며 커밋 금지**다(vault/HWP와 동일 원칙). 동시에 **백업 대상**이다 — `pm2 restart kei-rag-api` 시 두 파일이 디스크에 영속되어 사용자·기록이 유지된다. 부팅 자동시작은 여전히 `pm2 startup`(systemd) 1회 별도 설정이 필요하다.
+
+> [!note] 검증 완료(2026-06-19, 개발 머신)
+> register → login → 멀티턴(이전 답변 참조) → 기록 영속 → 메시지별 근거 → 미인증 401, 그리고 프론트 프록시 경유까지 엔드투엔드로 통과했다.
+
+---
+
 ## 8. 평가
 
 RAG 품질을 "느낌"이 아니라 재현 가능한 지표로 본다.
@@ -329,7 +424,7 @@ RAG 품질을 "느낌"이 아니라 재현 가능한 지표로 본다.
 
 ### 8.3 디버그 — `x_sources`/`x_retrieved`로 회수 조문 로깅
 
-`04_rag_api.py`의 응답에는 **어떤 조문이 회수됐는지** 그대로 남기는 출처 필드가 들어간다(생성 LLM 미연결 시에도 회수 출처는 반환 — §7). 프론트 근거 패널이 소비하는 `x_sources`(구조화 출처: 규정명/조/분류/snippet/distance)와, 디버그·하위호환용 `x_retrieved`(태그 문자열) 두 형태로 제공한다. CLI(`03_rag_query.py`)는 `--retrieve-only`로 LLM 없이 회수된 조 목록·거리를 출력한다(§4.4). 이미 §4.3에서 6개 대표 질의의 회수 정확성을 이 경로로 검증했다.
+`04_rag_api.py`의 응답에는 **어떤 조문이 회수됐는지** 그대로 남기는 출처 필드가 들어간다(생성 LLM 미연결 시에도 회수 출처는 반환 — §7). 프론트 근거 패널이 소비하는 `x_sources`(구조화 출처: 규정명/조/분류/snippet/distance)와, 디버그·하위호환용 `x_retrieved`(태그 문자열) 두 형태로 제공한다. `/app` 채팅 경로에서는 같은 회수 근거를 답변 메시지의 `message.sources_json`에 함께 저장하므로, 지난 답변별로 "그때 무엇이 회수됐는지"를 사후에도 되짚을 수 있다(§7b.4). CLI(`03_rag_query.py`)는 `--retrieve-only`로 LLM 없이 회수된 조 목록·거리를 출력한다(§4.4). 이미 §4.3에서 6개 대표 질의의 회수 정확성을 이 경로로 검증했다.
 
 ```python
 # 04_rag_api.py 응답 일부 — 회수 조문을 출처로 노출
