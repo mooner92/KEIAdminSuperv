@@ -1,15 +1,18 @@
 .app {
   display: grid;
   grid-template-columns: 232px 1fr 336px;
+  grid-template-rows: minmax(0, 1fr); /* 행을 컨테이너 높이로 고정(콘텐츠로 늘어나지 않게) */
   gap: var(--space-4);
   height: calc(100vh - var(--header-h) - 150px);
   min-height: 520px;
+  overflow: hidden; /* 안전장치: 내용이 footer 위로 흘러나오지 않도록 */
 }
 
 /* ── 좌측 사이드바: 대화 목록 ── */
 .sidebar {
   display: flex;
   flex-direction: column;
+  min-height: 0; /* 그리드 아이템이 행 높이로 줄어들 수 있게(내부 스크롤 활성화) */
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -28,7 +31,7 @@
   cursor: pointer;
 }
 .newBtn:hover { background: var(--color-primary); color: #fff; }
-.chatList { flex: 1; overflow-y: auto; padding: 0 var(--space-2) var(--space-2); }
+.chatList { flex: 1; min-height: 0; overflow-y: auto; padding: 0 var(--space-2) var(--space-2); }
 .chatItem {
   width: 100%;
   display: flex;
@@ -64,9 +67,10 @@
 .logout:hover { color: var(--color-danger); }
 
 /* ── 중앙: 채팅 ── */
-.main { min-width: 0; display: flex; flex-direction: column; }
+.main { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .thread {
   flex: 1;
+  min-height: 0;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -168,13 +172,14 @@
   padding: var(--space-4);
   display: flex;
   flex-direction: column;
+  min-height: 0;
   overflow: hidden;
 }
 .srcHead { display: flex; align-items: center; gap: 8px; margin-bottom: var(--space-3); }
 .srcTitle { font-size: 14px; font-weight: 800; color: var(--color-text); }
 .srcCount { font-size: 12px; font-weight: 700; color: var(--color-primary); background: var(--color-primary-weak); border-radius: 999px; padding: 1px 8px; }
 .srcEmpty { font-size: 13px; color: var(--color-text-tertiary); line-height: 1.6; }
-.srcList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
+.srcList { flex: 1; min-height: 0; list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
 .srcCard {
   width: 100%;
   text-align: left;
@@ -199,10 +204,17 @@
 
 /* ── 반응형 ── */
 @media (max-width: 1080px) {
-  .app { grid-template-columns: 200px 1fr; height: auto; }
+  .app {
+    grid-template-columns: 200px 1fr;
+    grid-template-rows: auto;
+    height: auto;
+    overflow: visible;
+  }
   .sources { display: none; }
+  .thread { height: 64vh; } /* 자동 높이 모드에선 스레드에 명시 높이를 줘 내부 스크롤 유지 */
 }
 @media (max-width: 720px) {
   .app { grid-template-columns: 1fr; }
-  .sidebar { height: auto; max-height: 220px; }
+  .sidebar { height: auto; max-height: 200px; }
+  .thread { height: 60vh; }
 }
