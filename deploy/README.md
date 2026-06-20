@@ -3,7 +3,7 @@
 ```
         볼트 (마크다운 = 단일 진실원천 · git 아님 → Syncthing 동기화, 내부 전용)
         ├──────────────► [뇌]  Quartz 정적 사이트  : 노드/링크 그래프 + 전문검색
-        └──────────────► [비서] Open WebUI + vLLM   : 질문에 출처 달아 답변
+        └──────────────► [LLM] Open WebUI + vLLM   : 질문에 출처 달아 답변
    둘 다 data05lx(우분투)에서 서빙 · 둘 다 Cloudflare Zero Trust 뒤 (사내 전용)
 ```
 
@@ -39,7 +39,7 @@ npx quartz build                  # → public/ 정적 산출물
 ```
 한국어(CJK) 검색·그래프·백링크 기본 지원. 규정 개정 → 볼트 갱신 → 재빌드.
 
-## [비서] 채팅 = Open WebUI (+ 기존 vLLM)
+## [LLM] 채팅 = Open WebUI (+ 기존 vLLM)
 ```bash
 docker compose up -d        # open-webui + (선택)임베딩
 ```

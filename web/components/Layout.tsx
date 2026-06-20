@@ -19,7 +19,7 @@ export default function Layout({
             <span className={styles.brandText}>행정 가이드</span>
           </Link>
           <nav className={styles.nav}>
-            <Link href="/">비서</Link>
+            <Link href="/">LLM</Link>
             <Link href="/browse/">규정 둘러보기</Link>
             <Link href="/graph/">관계 그래프</Link>
           </nav>

@@ -14,7 +14,7 @@ const EXAMPLES = [
 ];
 const STREAM_ID = -3; // 스트리밍 중인 assistant 메시지의 임시 id
 
-/** 비서 본체 — 좌측 대화 목록 + 중앙 채팅(멀티턴) + 우측 메시지별 근거 + 문서 드로어. */
+/** LLM 본체 — 좌측 대화 목록 + 중앙 채팅(멀티턴) + 우측 메시지별 근거 + 문서 드로어. */
 export default function ChatApp({
   user,
   docs,
@@ -216,7 +216,7 @@ export default function ChatApp({
                   </li>
                 ) : (
                   <li key={m.id} className={styles.aiRow}>
-                    <span className={styles.aiTag}>비서</span>
+                    <span className={styles.aiTag}>LLM</span>
                     <div
                       className={`${styles.aiBubble} ${m.id === activeMsgId ? styles.aiActive : ""} ${
                         m.sources.length ? styles.aiClickable : ""

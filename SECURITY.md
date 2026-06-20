@@ -51,7 +51,7 @@
 | **탐지** | CI — `git ls-files`로 내부 콘텐츠 존재 검사 + gitleaks 시크릿 스캔 | `.github/workflows/security-scan.yml` |
 | **탐지** | (선택) pre-commit 프레임워크 gitleaks 훅 | `.pre-commit-config.yaml` |
 | **교정** | `git-filter-repo`로 전 히스토리에서 볼트·HWP 제거 후 force-push | (유지관리자 실행) |
-| **서빙 보안** | 두 화면([뇌] Quartz / [비서] Open WebUI) 모두 Cloudflare Zero Trust Access 뒤 + Open WebUI RBAC/SSO | `docs/07-security-governance.md` |
+| **서빙 보안** | 두 화면([뇌] Quartz / [LLM] Open WebUI) 모두 Cloudflare Zero Trust Access 뒤 + Open WebUI RBAC/SSO | `docs/07-security-governance.md` |
 | **데이터 비유출** | 모델·임베딩 온프레미스(사내 GPU) → 추론 데이터 망 밖 유출 없음 | `docs/adr/0005-on-prem-zero-trust.md` |
 | **비공개 동기화** | 볼트는 git이 아니라 Syncthing(내부 전용, GUI는 로컬 바인딩)으로 서버↔PC 동기화 | `deploy/syncthing-compose.yml` |
 

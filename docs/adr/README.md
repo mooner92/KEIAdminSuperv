@@ -1,6 +1,6 @@
 # ADR 인덱스 — 아키텍처 결정 기록
 
-> KEI 행정 가이드 / 행정 비서 프로젝트의 주요 설계 결정을 한 곳에 모은 목록입니다.
+> KEI 행정 가이드 / 행정 LLM 프로젝트의 주요 설계 결정을 한 곳에 모은 목록입니다.
 > "왜 이렇게 만들었는가"를 나중에도 추적할 수 있도록, 결정이 내려진 맥락과 함께 기록합니다.
 
 ## ADR이란
@@ -53,7 +53,7 @@ flowchart TB
 
     subgraph Screens["두 개의 화면"]
         Brain["[뇌] Quartz v5 정적 사이트<br/>(ADR-0004)"]
-        Asst["[비서] Open WebUI + vLLM"]
+        Asst["[LLM] Open WebUI + vLLM"]
     end
 
     Net["온프레미스 + Cloudflare Zero Trust<br/>(ADR-0005)"]

@@ -8,8 +8,8 @@ export default function Home({ docs }: { docs: DocMeta[] }) {
   return (
     <Layout>
       <Head>
-        <title>KEI 행정 비서</title>
-        <meta name="description" content="KEI 사내 규정 기반 행정 비서 (내부 전용)" />
+        <title>KEI 행정 LLM</title>
+        <meta name="description" content="KEI 사내 규정 기반 행정 LLM (내부 전용)" />
         <meta name="robots" content="noindex, nofollow" />
       </Head>
       <Assistant docs={docs} />

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""app_api.py — 비서 앱: 로그인 + 채팅기록 영속화 + 멀티턴 + 메시지별 근거.
+"""app_api.py — LLM 앱: 로그인 + 채팅기록 영속화 + 멀티턴 + 메시지별 근거.
 
 설계(조사 확정): bcrypt(직접) + PyJWT(httpOnly 쿠키) + SQLModel/SQLite.
 - passlib 미사용(bcrypt 5 호환 이슈), fastapi-users 미사용(과함, 2026 유지보수 모드).
