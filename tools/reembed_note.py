@@ -109,7 +109,7 @@ def main():
         ids=ids,
         embeddings=[e.tolist() for e in embs],
         documents=[c["text"] for c in sel],
-        metadatas=[{k: (c[k] or "") for k in mod.META_KEYS} for c in sel],
+        metadatas=[{k: (c.get(k) or "") for k in mod.META_KEYS} for c in sel],
     )
     after = col.count()
     print(f"\n갱신 완료: '{rel}' {len(sel)}청크 재적재. 컬렉션 {before} → {after} items.")

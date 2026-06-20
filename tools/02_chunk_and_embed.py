@@ -22,8 +22,13 @@ os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
 EMBED_MODEL = "nlpai-lab/KURE-v1"   # 대안: "BAAI/bge-m3"
 COLLECTION = "kei_regs"
+# 별표/별지 1급 청크 분리(P1.3). 기본 on. CHUNK_BYEOLPYO=0이면 기존(제N조만) — A/B 비교용.
+BYEOLPYO_SPLIT = os.environ.get("CHUNK_BYEOLPYO", "1") not in ("0", "false", "")
 
 ARTICLE = re.compile(r"(?=^\s*제\s*\d+\s*조)", re.MULTILINE)  # 제N조 경계
+# 제N조 | 별표 | 별지 경계로 분할(P1.3: 별표/별지를 1급 청크로). 본문 인용("별표 1의…")이 아니라
+# 줄머리 대괄호 헤더([별표 N], [별지 제N호…])만 경계로 본다.
+BOUNDARY = re.compile(r"(?=^\s*제\s*\d+\s*조)|(?=^\s*\[\s*별표)|(?=^\s*\[\s*별지)", re.MULTILINE)
 WARN_PREFIX = "> [!warning] 자동 변환"
 
 
@@ -62,6 +67,36 @@ def strip_wikilinks(text: str) -> str:
 def article_no(chunk: str) -> str:
     m = re.match(r"\s*제\s*(\d+)\s*조", chunk)
     return f"제{m.group(1)}조" if m else ""
+
+
+def chunk_label(chunk: str):
+    """청크 머리로 (kind, 라벨) 판정. kind ∈ article|byeolpyo|byeolji|head."""
+    s = chunk.lstrip()
+    m = re.match(r"제\s*(\d+)\s*조", s)
+    if m:
+        return "article", f"제{m.group(1)}조"
+    m = re.match(r"\[\s*별표\s*(\d+)", s)
+    if m:
+        return "byeolpyo", f"별표 {m.group(1)}"
+    if re.match(r"\[\s*별표", s):
+        return "byeolpyo", "별표"
+    m = re.match(r"\[\s*별지\s*제?\s*(\d+)\s*호", s)
+    if m:
+        return "byeolji", f"별지 제{m.group(1)}호"
+    if re.match(r"\[\s*별지", s):
+        return "byeolji", "별지"
+    return "head", ""
+
+
+def find_refs(label: str, kind: str, articles):
+    """별표/별지 N을 '인용하는' 조문 목록(refs) 산출 — 본문에서 '별표 N'/'별지 제N호' 언급 탐색."""
+    m = re.search(r"(\d+)", label)
+    if not m:
+        return ""
+    n = m.group(1)
+    key = "별표" if kind == "byeolpyo" else "별지"
+    pat = re.compile(rf"{key}\s*제?\s*{n}(?!\d)")
+    return ",".join(a_label for a_label, a_text in articles if pat.search(a_text))
 
 
 def chunk_guide(body: str, max_chars: int = 1800, pack: int = 1400):
@@ -127,17 +162,24 @@ def iter_chunks(vault: Path):
         body = strip_wikilinks(body)             # 그래프용 [[ ]] 는 검색 텍스트에서 제거
         if typ == "regulation":
             body = strip_injected(body)
-            parts = [p.strip() for p in ARTICLE.split(body) if p.strip()]
-            for p in parts:
+            splitter = BOUNDARY if BYEOLPYO_SPLIT else ARTICLE  # A/B: 별표 분리 on/off
+            parts = [p.strip() for p in splitter.split(body) if p.strip()]
+            labeled = [(chunk_label(p), p) for p in parts]
+            # ref 산출용 조문 텍스트(라벨, 본문)
+            articles = [(lab, p) for (kind, lab), p in labeled if kind == "article"]
+            for (kind, label), p in labeled:
+                refs = find_refs(label, kind, articles) if kind in ("byeolpyo", "byeolji") else ""
                 yield {
                     "text": p,
                     "규정명": meta.get("규정명") or md.stem,
                     "규정번호": meta.get("규정번호", ""),
-                    "조": article_no(p),
+                    "조": label,                      # 제N조 | 별표 N | 별지 제N호 | (머리말 "")
                     "분류": meta.get("분류", ""),
                     "개정일": meta.get("개정일", ""),
                     "검수상태": meta.get("검수상태", ""),
                     "type": "regulation",
+                    "별표": "Y" if kind in ("byeolpyo", "byeolji") else "",  # 별표/별지 1급 청크 표식
+                    "refs": refs,                     # 이 별표/별지를 인용하는 조문들(그래프/출처 연결)
                     "path": rel,
                 }
         elif typ in ("guide", "term", "system"):
@@ -157,7 +199,7 @@ def iter_chunks(vault: Path):
                 }
 
 
-META_KEYS = ("규정명", "규정번호", "조", "분류", "개정일", "검수상태", "type", "path")
+META_KEYS = ("규정명", "규정번호", "조", "분류", "개정일", "검수상태", "type", "별표", "refs", "path")
 
 
 def main():
@@ -231,7 +273,7 @@ def main():
         ids=ids,
         embeddings=[e.tolist() for e in embs],
         documents=[c["text"] for c in chunks],
-        metadatas=[{k: (c[k] or "") for k in META_KEYS} for c in chunks],
+        metadatas=[{k: (c.get(k) or "") for k in META_KEYS} for c in chunks],
     )
     print(f"\n적재 완료 → {args.db} (collection={args.collection}, {col.count()} items)")
 
