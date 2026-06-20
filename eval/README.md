@@ -28,6 +28,7 @@ bash eval/run.sh --judge         # + LLM-as-judge 충실도(근거충실·출처
 bash eval/run.sh --tag before    # 리포트 파일명 태그 → before/after 비교
 bash eval/run.sh --hybrid        # 하이브리드 검색(밀집+BM25 RRF) 측정 — 현재 이득 없어 기본 off
 bash eval/run.sh --rerank        # cross-encoder 리랭커 측정 — strict Hit@1 0.600→0.829 (운영 적용됨)
+bash eval/run.sh --rewrite       # 멀티턴 쿼리 재작성(history 문항) 측정 — 운영 적용됨(P1.5)
 bash eval/run_eval.py --ks 1,3,5 --topn 20   # 옵션 직접 지정
 ```
 

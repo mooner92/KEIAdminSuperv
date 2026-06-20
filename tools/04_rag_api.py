@@ -87,7 +87,9 @@ def chat(req: ChatReq):
                           if msgs[i].get("role") == "user"), None)
     user_msg = msgs[last_user_idx]["content"] if last_user_idx is not None else ""
     history = msgs[:last_user_idx] if last_user_idx is not None else []
-    context, srcs = rag_core.retrieve(user_msg)
+    # 후속 질문을 직전 맥락으로 재작성한 독립 검색어로 회수(멀티턴 정확도↑). 답변은 원 질문으로.
+    q_search = rag_core.condense_query(user_msg, history)
+    context, srcs = rag_core.retrieve(q_search)
     tags = [s["tag"] for s in srcs]
     try:
         answer = rag_core.answer(user_msg, context, history, temperature=req.temperature or 0.1)

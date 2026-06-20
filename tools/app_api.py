@@ -266,8 +266,9 @@ def post_message(cid: int, body: MsgIn, stream: bool = False, user: User = Depen
             .order_by(Message.created_at, Message.id)
         ).all()
         history = [{"role": m.role, "content": m.content} for m in prior]
-    # 2) 검색(이전 대화를 LLM에 재생 → 멀티턴 기억)
-    context, sources = rag_core.retrieve(q)
+    # 2) 검색: 후속 질문을 직전 맥락으로 재작성한 독립 검색어로 회수(멀티턴 정확도↑). 답변은 원 질문 q로.
+    q_search = rag_core.condense_query(q, history)
+    context, sources = rag_core.retrieve(q_search)
 
     # 비스트리밍(하위호환): 한 번에 생성 후 저장
     if not stream:

@@ -25,6 +25,9 @@ RERANK = os.environ.get("RAG_RERANK", "0") not in ("0", "", "false", "False")
 RERANK_MODEL = os.environ.get("RAG_RERANK_MODEL", "BAAI/bge-reranker-v2-m3")
 RERANK_POOL = int(os.environ.get("RAG_RERANK_POOL", "20"))      # 재점수 후보 수
 RERANK_DEVICE = os.environ.get("RAG_RERANK_DEVICE", "cpu")      # 운영은 cuda 권장(여유 GPU)
+# 멀티턴 질의 재작성: 후속 질문("몇 퍼센트야?")을 직전 맥락을 복원한 '독립 검색어'로 바꿔 검색 정확도↑.
+# 검색어만 바꾸고 답변 생성은 원 질문/근거 그대로(가드레일 불변). 기본 on, 첫 턴(history 없음)은 미적용.
+REWRITE = os.environ.get("RAG_QUERY_REWRITE", "1") not in ("0", "", "false", "False")
 # 모델 상주(콜드스타트 방지). -1 = 무한 상주(언로드 안 함). "30m" 등 Ollama keep_alive 값도 가능.
 KEEP_ALIVE = os.environ.get("OLLAMA_KEEP_ALIVE", "-1")
 
@@ -57,6 +60,15 @@ def _ensure_disclaimer(text: str) -> str:
         return t
     return (t.rstrip() + "\n\n" + DISCLAIMER) if t.strip() else DISCLAIMER
 
+
+CONDENSE_SYS = (
+    "너는 검색어 재작성기다. [대화]를 참고해 [후속질문]을, 그 자체로 의미가 통하는 "
+    "'독립 질문' 한 줄로 바꾼다.\n"
+    "- 대화에서 생략된 주제·대상을 복원한다(예: '몇 퍼센트야?'는 직전 주제를 넣어 완성).\n"
+    "- 새로운 사실·추측을 더하지 않는다. 질문 의도만 보존한다.\n"
+    "- 출력은 재작성된 질문 한 줄만. 따옴표·설명·접두어 금지."
+)
+
 _state: dict = {}
 _lock = threading.Lock()
 
@@ -74,6 +86,35 @@ def backend():
                 _state["col"] = chromadb.PersistentClient(path=CHROMA_DIR).get_collection(COLLECTION)
                 _state["llm"] = OpenAI(base_url=VLLM_BASE, api_key="EMPTY")
     return _state["embed"], _state["col"], _state["llm"]
+
+
+def condense_query(question: str, history=None, enabled: bool = None) -> str:
+    """멀티턴 후속 질문을 직전 맥락을 복원한 '독립 검색어'로 재작성(검색 정확도↑).
+
+    - history 없으면(첫 턴) 원 질문 그대로. enabled=None이면 환경변수 RAG_QUERY_REWRITE를 따름.
+    - ⛔ 검색어만 바꾼다. 답변 생성은 원 질문/근거로 — 가드레일·사실성 불변.
+    - 실패(LLM 오류 등) 시 원 질문으로 우아하게 강등.
+    """
+    use = REWRITE if enabled is None else enabled
+    recent = [h for h in (history or [])
+              if h.get("role") in ("user", "assistant") and h.get("content")][-6:]
+    if not use or not recent:
+        return question
+    try:
+        _, _, llm = backend()
+        hist_text = "\n".join(
+            f"{'사용자' if h['role'] == 'user' else '도우미'}: {h['content'][:500]}" for h in recent)
+        out = llm.chat.completions.create(
+            model=LLM_MODEL, temperature=0.0, max_tokens=80,
+            messages=[{"role": "system", "content": CONDENSE_SYS},
+                      {"role": "user", "content": f"[대화]\n{hist_text}\n\n[후속질문]\n{question}\n\n[독립 질문]"}],
+            extra_body={"keep_alive": _keep_alive()},
+        )
+        rq = (out.choices[0].message.content or "").strip().strip('"').strip()
+        rq = rq.splitlines()[0].strip() if rq else ""
+        return rq if len(rq) >= 2 else question  # 비었거나 너무 짧으면 원문
+    except Exception:  # noqa: BLE001 — 재작성 실패는 원 질문으로 강등(서비스 영향 없음)
+        return question
 
 
 def _ensure_bm25():

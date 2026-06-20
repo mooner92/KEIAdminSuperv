@@ -73,7 +73,7 @@ def recall_at(expected, retrieved, matcher) -> float:
     return hit / len(expected)
 
 
-def evaluate(golden, ks, topn, judge=False, hybrid=False, rerank=False):
+def evaluate(golden, ks, topn, judge=False, hybrid=False, rerank=False, rewrite=False):
     import rag_core  # 임베딩/벡터DB 로드(첫 호출 시 수 초)
 
     # 적중 케이스(기대출처 있음) vs 부정 케이스(코퍼스 밖 → 거부 기대)
@@ -90,9 +90,12 @@ def evaluate(golden, ks, topn, judge=False, hybrid=False, rerank=False):
     for row in retr_rows:
         q = row["question"]
         expected = row.get("expected_sources", [])
-        _, srcs = rag_core.retrieve(q, k=topn, hybrid=hybrid, rerank=rerank)  # top-N 회수 후 k별로 슬라이스
+        # 멀티턴: history 있고 --rewrite면 독립 검색어로 재작성 후 검색(답변 X, 검색만)
+        hist = row.get("history")
+        q_search = rag_core.condense_query(q, hist, enabled=True) if (rewrite and hist) else q
+        _, srcs = rag_core.retrieve(q_search, k=topn, hybrid=hybrid, rerank=rerank)  # top-N 회수 후 k별 슬라이스
         rec = {"id": row["id"], "category": row.get("category", ""),
-               "question": q, "expected": expected,
+               "question": q, "q_search": q_search, "expected": expected,
                "retrieved": [{"규정명": s["규정명"], "조": s["조"], "distance": s["distance"]} for s in srcs]}
         for k in ks:
             topk = srcs[:k]
@@ -212,6 +215,7 @@ def main():
     ap.add_argument("--judge", action="store_true", help="LLM-as-judge 충실도까지(느림, Ollama 필요)")
     ap.add_argument("--hybrid", action="store_true", help="하이브리드 검색(밀집+BM25 RRF) 사용")
     ap.add_argument("--rerank", action="store_true", help="cross-encoder 리랭커로 재정렬")
+    ap.add_argument("--rewrite", action="store_true", help="멀티턴 history 있는 문항을 독립 검색어로 재작성 후 검색")
     ap.add_argument("--tag", default="", help="리포트 파일명 태그(before/after 비교용)")
     args = ap.parse_args()
 
@@ -225,8 +229,10 @@ def main():
           f" · cutoff {ks} · top-N {topn}"
           + (" · 하이브리드(BM25+RRF)" if args.hybrid else " · 밀집(dense)")
           + (" · +리랭커" if args.rerank else "")
+          + (" · +쿼리재작성" if args.rewrite else "")
           + (" · +LLM judge" if args.judge else ""))
-    result = evaluate(golden, ks, topn, judge=args.judge, hybrid=args.hybrid, rerank=args.rerank)
+    result = evaluate(golden, ks, topn, judge=args.judge, hybrid=args.hybrid,
+                      rerank=args.rerank, rewrite=args.rewrite)
 
     # 콘솔 요약
     print("\n=== 검색 지표 (strict = 규정명+조) ===")
@@ -262,7 +268,7 @@ def main():
     fn = reports / (f"{ts}{('-' + args.tag) if args.tag else ''}.json")
     meta = {"timestamp": ts, "golden": os.path.basename(args.golden), "n": len(golden),
             "n_unverified": n_unverified, "ks": ks, "topn": topn, "judge": args.judge,
-            "hybrid": args.hybrid, "rerank": args.rerank, "tag": args.tag,
+            "hybrid": args.hybrid, "rerank": args.rerank, "rewrite": args.rewrite, "tag": args.tag,
             "backend": {"embed": os.environ.get("EMBED_MODEL", "nlpai-lab/KURE-v1"),
                         "chroma": os.environ.get("CHROMA_DIR", "tools/chroma"),
                         "collection": os.environ.get("RAG_COLLECTION", "kei_regs"),
