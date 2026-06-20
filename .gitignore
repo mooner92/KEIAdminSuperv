@@ -33,6 +33,10 @@ tools/app.db-wal
 tools/app.db-shm
 tools/.app_secret
 
+# ── 레거시 v1.0.0 동결 사본 (런타임 산출물: out/docdata 규정 원문·chroma·app.db·세션키 → 커밋 금지) ──
+# 동결/실행 방법은 deploy/ecosystem.legacy-v1.config.js · deploy/README.md 참조(설정 파일만 추적).
+.legacy-v1/
+
 # ── 원본 규정/가이드 소스 (내부 전용 — 절대 커밋 금지) ──
 rule_files/
 research_rule_files/
