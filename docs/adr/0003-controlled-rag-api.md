@@ -1,6 +1,6 @@
 # ADR 0003 — 통제형 RAG API를 직접 운영 (`tools/04_rag_api.py`)
 
-> [비서] Open WebUI + vLLM 화면의 답변 품질·출처 신뢰성을 어디서 통제할지 결정한다.
+> [LLM] Open WebUI + vLLM 화면의 답변 품질·출처 신뢰성을 어디서 통제할지 결정한다.
 > Open WebUI **내장 RAG**에 맡기지 않고, `../tools/04_rag_api.py`를 **OpenAI 호환 모델**로 노출해
 > 검색·근거 주입·`[규정명 제N조]` 출처 강제·가드레일을 우리가 직접 통제한다.
 
@@ -18,7 +18,7 @@
 
 ## 1. 맥락 (Context)
 
-[비서] Open WebUI + vLLM 화면은 행정 초보(신입·전입자)가 "이 업무 어떻게 처리하지?"를 물으면
+[LLM] Open WebUI + vLLM 화면은 행정 초보(신입·전입자)가 "이 업무 어떻게 처리하지?"를 물으면
 **사내 규정 근거**로 답하는 화면이다. 이 화면의 가치는 곧 **답변에 달린 출처의 신뢰성**이다.
 근거 없이 그럴듯한 문장을 만들어내면(특히 금액·한도·기한) 행정 사고로 이어진다.
 
@@ -29,7 +29,7 @@
 
 ```mermaid
 flowchart LR
-    User["행정 초보 사용자"] --> WebUI["[비서] Open WebUI<br/>(UI · 멀티유저 · 권한)"]
+    User["행정 초보 사용자"] --> WebUI["[LLM] Open WebUI<br/>(UI · 멀티유저 · 권한)"]
     WebUI -->|OpenAI 호환 호출<br/>model=kei-admin-rag| API["04_rag_api.py<br/>(통제형 RAG)"]
     API -->|retrieve k=5| DB[("Chroma<br/>kei_regs<br/>제N조 청크")]
     API -->|근거 주입 + 가드레일| LLM["vLLM<br/>Qwen/Qwen2.5-14B-Instruct"]

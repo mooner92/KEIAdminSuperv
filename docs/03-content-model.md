@@ -8,7 +8,7 @@
 
 ## 1. 큰 그림
 
-볼트는 **하나의 마크다운 트리**이고, [뇌] Quartz 그래프 사이트와 [비서] Open WebUI + vLLM 두 화면이 같은 파일을 먹는다. 그러니 콘텐츠 모델이 곧 두 화면의 품질을 결정한다.
+볼트는 **하나의 마크다운 트리**이고, [뇌] Quartz 그래프 사이트와 [LLM] Open WebUI + vLLM 두 화면이 같은 파일을 먹는다. 그러니 콘텐츠 모델이 곧 두 화면의 품질을 결정한다.
 
 ```mermaid
 flowchart LR
@@ -21,7 +21,7 @@ flowchart LR
   end
   V --> Q["[뇌] Quartz<br/>그래프 + 전문검색"]
   V --> C["02 청킹·임베딩<br/>→ Chroma(kei_regs)"]
-  C --> R["[비서] Open WebUI + vLLM<br/>RAG 답변"]
+  C --> R["[LLM] Open WebUI + vLLM<br/>RAG 답변"]
 ```
 
 ---
@@ -318,7 +318,7 @@ flowchart TD
 
 ### 9.2 RAG 답변의 출처 (필수 — 강제는 05/07에서)
 
-[비서] Open WebUI + vLLM 답변은 끝에 `[규정명 제N조]` 형식으로 출처를 모두 달고, `"최종 판단은 원문과 담당 부서 확인 바랍니다."` 면책 문구를 붙인다. 가드레일 상세는 [05-rag-design.md](05-rag-design.md)·[07-security-governance.md](07-security-governance.md).
+[LLM] Open WebUI + vLLM 답변은 끝에 `[규정명 제N조]` 형식으로 출처를 모두 달고, `"최종 판단은 원문과 담당 부서 확인 바랍니다."` 면책 문구를 붙인다. 가드레일 상세는 [05-rag-design.md](05-rag-design.md)·[07-security-governance.md](07-security-governance.md).
 
 ### 9.3 docs 내부 링크 (이 문서들)
 

@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
-04_rag_api.py — KEI 행정 비서 API (한 프로세스, PM2 `kei-rag-api` 진입점)
+04_rag_api.py — KEI 행정 LLM API (한 프로세스, PM2 `kei-rag-api` 진입점)
 
 두 가지 표면을 함께 제공한다(둘 다 rag_core 공유 → 모델 1회 로드):
   1) OpenAI 호환 RAG       : /v1/chat/completions, /v1/models  (Open WebUI 등 외부 연결용, 무상태)
-  2) 비서 앱(상태형) 라우터 : /app/*  (로그인 + 채팅기록 + 멀티턴 + 메시지별 근거 — app_api.py)
+  2) LLM 앱(상태형) 라우터 : /app/*  (로그인 + 채팅기록 + 멀티턴 + 메시지별 근거 — app_api.py)
 
 왜? Open WebUI 내장 RAG는 청킹/출처표기를 통제 못함. 이 서버가 제N조 검색 + 근거 주입 +
 [규정명 제N조] 출처를 강제한다. 우리 프론트(/)는 /app/* 를, Open WebUI는 /v1/* 를 쓴다.
 
 실행:  uvicorn 04_rag_api:app --host 127.0.0.1 --port 9000   (tools/ 에서, env로 설정)
 환경변수: CHROMA_DIR, RAG_COLLECTION, EMBED_MODEL, VLLM_BASE(=Ollama), LLM_MODEL, RAG_MODEL_ID, RAG_TOPK
-         APP_DB, APP_SECRET_FILE (비서 앱 DB/세션키)
+         APP_DB, APP_SECRET_FILE (LLM 앱 DB/세션키)
 """
 import os
 import threading
@@ -29,7 +29,7 @@ from app_api import router as app_router
 
 MODEL_ID = os.environ.get("RAG_MODEL_ID", "kei-admin-rag")  # OpenAI 호환 모델 목록 이름
 
-app = FastAPI(title="KEI 행정 비서 (RAG + 채팅기록)")
+app = FastAPI(title="KEI 행정 LLM (RAG + 채팅기록)")
 # 내부망 전용. 정적 프론트(다른 포트)에서 직접 호출/디버깅 가능하도록 허용.
 # 운영은 server.js가 같은 오리진으로 프록시하므로 CORS에 의존하지 않는다.
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])

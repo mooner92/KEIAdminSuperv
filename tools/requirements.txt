@@ -21,7 +21,7 @@ openai>=1.40.0
 fastapi>=0.115.0
 uvicorn>=0.30.0
 
-# 5) 비서 앱: 로그인 + 채팅기록 영속화 (SQLite) + 멀티턴 + 메시지별 근거
+# 5) LLM 앱: 로그인 + 채팅기록 영속화 (SQLite) + 멀티턴 + 메시지별 근거
 sqlmodel>=0.0.22   # SQLAlchemy 2.0 + Pydantic 기반 ORM (FastAPI 친화)
 pyjwt>=2.9.0       # 세션 쿠키(JWT, HS256)
 bcrypt>=4.0        # 비밀번호 해시(직접 사용 — passlib은 bcrypt 5 호환 이슈로 미사용)
