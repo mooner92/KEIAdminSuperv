@@ -35,6 +35,18 @@ SYSTEM = (
     "5) 이전 대화 맥락을 참고하되, 사실 근거는 항상 이번 [근거]에서만 가져온다."
 )
 
+# 가드레일(절대 규칙 #4): 모든 답변 끝에 면책 문구. 14B가 종종 누락(평가셋 측정 ~19%)하므로
+# 모델 출력에 없으면 결정적으로 덧붙여 100% 보장한다(약화 아닌 강화).
+DISCLAIMER = "최종 판단은 원문과 담당 부서 확인 바랍니다."
+_DISC_KEY = "최종 판단은"  # 모델이 표현을 살짝 바꿔도 중복 안 붙도록 핵심 어구로 감지
+
+
+def _ensure_disclaimer(text: str) -> str:
+    t = text or ""
+    if _DISC_KEY in t:
+        return t
+    return (t.rstrip() + "\n\n" + DISCLAIMER) if t.strip() else DISCLAIMER
+
 _state: dict = {}
 _lock = threading.Lock()
 
@@ -101,7 +113,7 @@ def answer(question: str, context: str, history=None, temperature: float = 0.1) 
         messages=_build_messages(question, context, history),
         extra_body={"keep_alive": _keep_alive()},  # 매 요청마다 상주 재확인
     )
-    return out.choices[0].message.content or ""
+    return _ensure_disclaimer(out.choices[0].message.content or "")
 
 
 def answer_stream(question: str, context: str, history=None, temperature: float = 0.1):
@@ -112,13 +124,18 @@ def answer_stream(question: str, context: str, history=None, temperature: float 
         messages=_build_messages(question, context, history), stream=True,
         extra_body={"keep_alive": _keep_alive()},  # 매 요청마다 상주 재확인
     )
+    seen = ""
     for chunk in stream:
         try:
             delta = chunk.choices[0].delta.content
         except (AttributeError, IndexError):
             delta = None
         if delta:
+            seen += delta
             yield delta
+    # 가드레일: 스트림 본문에 면책 문구가 없으면 마지막에 덧붙여 보장(중복 방지 감지 포함)
+    if _DISC_KEY not in seen:
+        yield ("\n\n" + DISCLAIMER) if seen.strip() else DISCLAIMER
 
 
 def keepalive_once():
