@@ -1,6 +1,13 @@
 .hero {
   margin-bottom: var(--space-6);
 }
+/* fill 레이아웃용: 제목/안내는 고정 영역에 두고 여백 최소화(아래 목록이 뷰포트를 채움) */
+.heroCompact {
+  flex: 0 0 auto;
+  margin-bottom: var(--space-3);
+}
+.heroCompact .h1 { font-size: 22px; margin-bottom: 4px; }
+.heroCompact .lead { font-size: 13.5px; }
 .h1 {
   margin: 0 0 8px;
   font-size: 28px;

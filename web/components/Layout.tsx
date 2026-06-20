@@ -6,12 +6,15 @@ import styles from "./Layout.module.css";
 export default function Layout({
   children,
   breadcrumb,
+  fill,
 }: {
   children: ReactNode;
   breadcrumb?: ReactNode;
+  /** true면 페이지를 뷰포트 높이에 고정(전체 스크롤 제거) → 내부 영역만 스크롤(둘러보기/그래프) */
+  fill?: boolean;
 }) {
   return (
-    <div className={styles.root}>
+    <div className={styles.root} data-fill={fill ? "" : undefined}>
       <header className={styles.header}>
         <div className={styles.inner}>
           <Link href="/" className={styles.brand}>
@@ -34,8 +37,8 @@ export default function Layout({
           <div className={styles.inner}>{breadcrumb}</div>
         </nav>
       ) : null}
-      <main className={styles.main}>
-        <div className={styles.inner}>{children}</div>
+      <main className={fill ? styles.mainFill : styles.main}>
+        <div className={fill ? styles.innerFill : styles.inner}>{children}</div>
       </main>
       <footer className={styles.footer}>
         <div className={styles.inner}>

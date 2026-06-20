@@ -9,6 +9,7 @@ import styles from "../styles/Graph.module.css";
 export default function GraphPage({ graph }: { graph: GraphData }) {
   return (
     <Layout
+      fill
       breadcrumb={
         <span>
           <Link href="/">전직원 연구행정 가이드</Link>

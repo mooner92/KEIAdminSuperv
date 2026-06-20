@@ -3,6 +3,27 @@
   display: flex;
   flex-direction: column;
 }
+/* fill 모드: 페이지를 뷰포트에 고정(전체 스크롤 제거). 내부 영역만 스크롤(둘러보기/그래프) */
+.root[data-fill] {
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+}
+.mainFill {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.innerFill {
+  width: 100%;
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: var(--space-4) var(--space-5);
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
 .inner {
   width: 100%;
   max-width: var(--maxw);
@@ -81,7 +102,14 @@
 }
 .footer .inner { padding-top: 16px; padding-bottom: 16px; }
 
+@media (max-width: 880px) {
+  /* 모바일: fill 고정 해제 → 일반 스크롤로 폴백(둘러보기/그래프) */
+  .root[data-fill] { height: auto; min-height: 100vh; overflow: visible; }
+  .mainFill { display: block; flex: 1; }
+  .innerFill { display: block; min-height: 0; }
+}
 @media (max-width: 640px) {
   .inner { padding: 0 var(--space-4); }
+  .innerFill { padding: var(--space-3) var(--space-4); }
   .brandText { display: none; }
 }

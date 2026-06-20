@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ColorSchemeArea, SearchField } from "@toss/tds-mobile";
 import type { DocMeta, SectionKey } from "../lib/vault";
 import { useTheme } from "../lib/theme";
@@ -13,6 +13,7 @@ const SECTION_LABEL: Record<string, string> = {
 };
 const SECTIONS: SectionKey[] = ["규정집", "가이드", "용어집", "시스템"];
 const REVIEWED = ["검수완료", "미검수"];
+const PAGE_SIZES = [10, 30, 50];
 
 const reviewedOf = (d: DocMeta) => (d.reviewed === "검수완료" ? "검수완료" : "미검수");
 
@@ -27,6 +28,9 @@ export default function Explorer({ docs }: { docs: DocMeta[] }) {
   const [q, setQ] = useState("");
   const [f, setF] = useState<Filters>({ section: new Set(), category: new Set(), reviewed: new Set() });
   const [openSlug, setOpenSlug] = useState<string | null>(null);
+  const [pageSize, setPageSize] = useState(30);
+  const [page, setPage] = useState(1);
+  const listRef = useRef<HTMLUListElement>(null);
 
   // 분류 목록(데이터에서 도출)
   const categories = useMemo(
@@ -45,6 +49,17 @@ export default function Explorer({ docs }: { docs: DocMeta[] }) {
   };
 
   const filtered = useMemo(() => docs.filter((d) => passes(d)), [docs, q, f]);
+
+  // 페이지네이션: 271건을 다 그리지 않고 pageSize(10/30/50)씩
+  const total = filtered.length;
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  useEffect(() => setPage(1), [q, f, pageSize]); // 필터·검색·페이지크기 바뀌면 1페이지로
+  const cur = Math.min(page, pageCount);
+  const start = (cur - 1) * pageSize;
+  const pageItems = filtered.slice(start, start + pageSize);
+  useEffect(() => {
+    if (listRef.current) listRef.current.scrollTop = 0; // 페이지 이동 시 목록 맨 위로
+  }, [cur]);
 
   // 패싯 카운트(다른 필터를 반영한 각 옵션의 건수)
   const countFor = (group: keyof Filters, value: string) =>
@@ -126,11 +141,38 @@ export default function Explorer({ docs }: { docs: DocMeta[] }) {
           </ColorSchemeArea>
         </div>
         <div className={styles.metaRow}>
-          <span className={styles.count}>{filtered.length}건</span>
+          <span className={styles.count}>
+            {total}건{total > 0 ? <span className={styles.range}> · {start + 1}–{start + pageItems.length}</span> : null}
+          </span>
+          <div className={styles.pager}>
+            <div className={styles.pageSize} role="group" aria-label="페이지당 표시 개수">
+              {PAGE_SIZES.map((n) => (
+                <button
+                  key={n}
+                  className={pageSize === n ? `${styles.psBtn} ${styles.psActive}` : styles.psBtn}
+                  onClick={() => setPageSize(n)}
+                >
+                  {n}
+                </button>
+              ))}
+              <span className={styles.psUnit}>개씩</span>
+            </div>
+            {pageCount > 1 ? (
+              <div className={styles.pageNav}>
+                <button className={styles.navBtn} disabled={cur <= 1} onClick={() => setPage(cur - 1)} aria-label="이전 페이지">
+                  ‹
+                </button>
+                <span className={styles.pageInfo}>{cur} / {pageCount}</span>
+                <button className={styles.navBtn} disabled={cur >= pageCount} onClick={() => setPage(cur + 1)} aria-label="다음 페이지">
+                  ›
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
 
-        <ul className={styles.list}>
-          {filtered.map((d) => (
+        <ul className={styles.list} ref={listRef}>
+          {pageItems.map((d) => (
             <li key={d.slug}>
               <button className={styles.row} onClick={() => setOpenSlug(d.slug)}>
                 <span className={styles.regno}>{d.regNo || "—"}</span>
@@ -157,7 +199,7 @@ export default function Explorer({ docs }: { docs: DocMeta[] }) {
               </button>
             </li>
           ))}
-          {filtered.length === 0 ? <li className={styles.empty}>조건에 맞는 문서가 없어요.</li> : null}
+          {total === 0 ? <li className={styles.empty}>조건에 맞는 문서가 없어요.</li> : null}
         </ul>
       </section>
 

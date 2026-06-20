@@ -1,12 +1,12 @@
-.head { margin-bottom: var(--space-4); }
+.head { flex: 0 0 auto; margin-bottom: var(--space-3); }
 .h1 {
-  margin: 0 0 8px;
-  font-size: 26px;
+  margin: 0 0 6px;
+  font-size: 22px;
   font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--color-text);
 }
-.lead { margin: 0 0 14px; font-size: 14.5px; color: var(--color-text-secondary); }
+.lead { margin: 0 0 10px; font-size: 13.5px; color: var(--color-text-secondary); }
 .lead b { color: var(--color-text); }
 .sep { color: var(--color-text-disabled); margin: 0 8px; }
 
@@ -21,13 +21,17 @@
 }
 
 .canvas {
-  height: 72vh;
-  min-height: 480px;
+  flex: 1; /* 남은 뷰포트를 모두 채움 → 페이지 스크롤 없이 전체 그래프 표시 */
+  min-height: 0;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   overflow: hidden;
   box-shadow: var(--shadow-card);
+}
+/* 모바일(fill 폴백): 고정 높이로 페이지 스크롤 허용 */
+@media (max-width: 880px) {
+  .canvas { height: 70vh; min-height: 420px; }
 }
 .loading {
   display: flex;
