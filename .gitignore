@@ -43,6 +43,11 @@ eval/golden.jsonl
 eval/reports/
 eval/*.local.jsonl
 
+# ── 검수 큐 출력 (내부 규정 목록·경로 열거 → 커밋 금지. 생성 코드 review_queue.py만 추적) ──
+tools/.review_queue.json
+tools/chroma.bak.*
+tools/chroma.test/
+
 # ── 원본 규정/가이드 소스 (내부 전용 — 절대 커밋 금지) ──
 rule_files/
 research_rule_files/
