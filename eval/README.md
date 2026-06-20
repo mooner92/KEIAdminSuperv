@@ -26,6 +26,7 @@ RAG 비서의 **검색 품질을 숫자로** 본다. "좋아졌다"는 주장은
 bash eval/run.sh                 # 검색 지표만(Hit/Recall/MRR) — 빠름(~17s, CPU), LLM 불필요
 bash eval/run.sh --judge         # + LLM-as-judge 충실도(근거충실·출처표기·면책) — Ollama 필요, 느림
 bash eval/run.sh --tag before    # 리포트 파일명 태그 → before/after 비교
+bash eval/run.sh --hybrid        # 하이브리드 검색(밀집+BM25 RRF) 측정 — 현재 이득 없어 기본 off
 bash eval/run_eval.py --ks 1,3,5 --topn 20   # 옵션 직접 지정
 ```
 

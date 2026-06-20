@@ -15,6 +15,11 @@ COLLECTION = os.environ.get("RAG_COLLECTION", "kei_regs")
 VLLM_BASE = os.environ.get("VLLM_BASE", "http://localhost:8000/v1")  # 실제로는 Ollama
 LLM_MODEL = os.environ.get("LLM_MODEL", "Qwen/Qwen2.5-14B-Instruct")
 TOPK = int(os.environ.get("RAG_TOPK", "5"))
+# 하이브리드 검색(밀집 KURE-v1 + 어휘 BM25 → RRF 융합). 기본 off — 평가로 개선 입증 후 켠다.
+HYBRID = os.environ.get("RAG_HYBRID", "0") not in ("0", "", "false", "False")
+FUSION_POOL = int(os.environ.get("RAG_FUSION_POOL", "20"))  # 각 검색기에서 뽑는 후보 수
+# RRF 가중치 [밀집, 어휘]. 강한 밀집을 약한 BM25가 끌어내리지 않게 밀집을 더 신뢰(기본 2:1).
+RRF_WEIGHTS = [float(x) for x in os.environ.get("RAG_RRF_WEIGHTS", "2,1").split(",")]
 # 모델 상주(콜드스타트 방지). -1 = 무한 상주(언로드 안 함). "30m" 등 Ollama keep_alive 값도 가능.
 KEEP_ALIVE = os.environ.get("OLLAMA_KEEP_ALIVE", "-1")
 
@@ -66,27 +71,72 @@ def backend():
     return _state["embed"], _state["col"], _state["llm"]
 
 
-def retrieve(query: str, k: int = TOPK):
-    """질의 → 관련 조문 top-k 회수. (근거 컨텍스트 문자열, 구조화 출처 리스트) 반환."""
+def _ensure_bm25():
+    """첫 하이브리드 사용 시 컬렉션 전체로 BM25 어휘 인덱스 구축(스레드 안전, 1회)."""
+    if "bm25" not in _state:
+        with _lock:
+            if "bm25" not in _state:
+                _, col, _ = backend()
+                got = col.get(include=["documents", "metadatas"])  # 전체 청크
+                ids, docs, metas = got["ids"], got["documents"], got["metadatas"]
+                from bm25_index import BM25
+                _state["allmap"] = {i: (d, m) for i, d, m in zip(ids, docs, metas)}
+                _state["bm25"] = BM25(ids, docs)
+    return _state["bm25"]
+
+
+def _src(doc, m, dist):
+    name = (m.get("규정명") or "").strip()
+    article = (m.get("조") or "").strip()
+    return {
+        "규정명": name, "조": article,
+        "분류": (m.get("분류") or "").strip(),
+        "slug": (m.get("slug") or m.get("파일") or "").strip(),
+        "tag": f"{name} {article}".strip(),
+        "snippet": doc[:240].replace("\n", " ").strip(),
+        "distance": round(float(dist), 4) if dist is not None else None,
+    }
+
+
+def retrieve(query: str, k: int = TOPK, hybrid: bool = None):
+    """질의 → 관련 조문 top-k 회수. (근거 컨텍스트 문자열, 구조화 출처 리스트) 반환.
+
+    hybrid=None이면 환경변수 RAG_HYBRID를 따른다. 하이브리드는 밀집(KURE-v1)과 어휘(BM25)
+    각각의 top-pool을 RRF로 융합한다(점수 정규화 불필요, 순위만 사용).
+    """
     embed, col, _ = backend()
+    use_hybrid = HYBRID if hybrid is None else hybrid
+    pool = max(k, FUSION_POOL) if use_hybrid else k
     qv = embed.encode([query], normalize_embeddings=True)[0].tolist()
-    r = col.query(query_embeddings=[qv], n_results=k,
+    r = col.query(query_embeddings=[qv], n_results=pool,
                   include=["documents", "metadatas", "distances"])
+    dense_ids = r["ids"][0]
+    dense = {i: (doc, m, dist) for i, doc, m, dist
+             in zip(dense_ids, r["documents"][0], r["metadatas"][0], r["distances"][0])}
+
+    if not use_hybrid:
+        chosen = dense_ids[:k]
+
+        def getdoc(i):
+            return dense[i]
+    else:
+        bm = _ensure_bm25()
+        from bm25_index import rrf
+        lex_ids = [i for i, _ in bm.search(query, n=pool)]
+        chosen = [i for i, _ in rrf([dense_ids, lex_ids], top=k, weights=RRF_WEIGHTS)]
+        amap = _state["allmap"]
+
+        def getdoc(i):
+            if i in dense:
+                return dense[i]
+            d, m = amap[i]
+            return d, m, None
+
     blocks, srcs = [], []
-    for doc, m, dist in zip(r["documents"][0], r["metadatas"][0], r["distances"][0]):
-        name = (m.get("규정명") or "").strip()
-        article = (m.get("조") or "").strip()
-        tag = f"{name} {article}".strip()
-        blocks.append(f"[{tag}]\n{doc}")
-        srcs.append({
-            "규정명": name,
-            "조": article,
-            "분류": (m.get("분류") or "").strip(),
-            "slug": (m.get("slug") or m.get("파일") or "").strip(),
-            "tag": tag,
-            "snippet": doc[:240].replace("\n", " ").strip(),
-            "distance": round(float(dist), 4),
-        })
+    for i in chosen:
+        doc, m, dist = getdoc(i)
+        srcs.append(_src(doc, m, dist))
+        blocks.append(f"[{srcs[-1]['tag']}]\n{doc}")
     return "\n\n---\n\n".join(blocks), srcs
 
 
