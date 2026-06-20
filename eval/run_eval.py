@@ -73,7 +73,7 @@ def recall_at(expected, retrieved, matcher) -> float:
     return hit / len(expected)
 
 
-def evaluate(golden, ks, topn, judge=False, hybrid=False):
+def evaluate(golden, ks, topn, judge=False, hybrid=False, rerank=False):
     import rag_core  # 임베딩/벡터DB 로드(첫 호출 시 수 초)
 
     # 적중 케이스(기대출처 있음) vs 부정 케이스(코퍼스 밖 → 거부 기대)
@@ -90,7 +90,7 @@ def evaluate(golden, ks, topn, judge=False, hybrid=False):
     for row in retr_rows:
         q = row["question"]
         expected = row.get("expected_sources", [])
-        _, srcs = rag_core.retrieve(q, k=topn, hybrid=hybrid)  # top-N 회수 후 k별로 슬라이스
+        _, srcs = rag_core.retrieve(q, k=topn, hybrid=hybrid, rerank=rerank)  # top-N 회수 후 k별로 슬라이스
         rec = {"id": row["id"], "category": row.get("category", ""),
                "question": q, "expected": expected,
                "retrieved": [{"규정명": s["규정명"], "조": s["조"], "distance": s["distance"]} for s in srcs]}
@@ -110,7 +110,7 @@ def evaluate(golden, ks, topn, judge=False, hybrid=False):
         per_q.append(rec)
 
         if judge:
-            judged.append(_judge_one(rag_core, row, srcs, hybrid))
+            judged.append(_judge_one(rag_core, row, srcs, hybrid, rerank))
 
     summary = {}
     for k in ks:
@@ -129,7 +129,7 @@ def evaluate(golden, ks, topn, judge=False, hybrid=False):
     # 부정 케이스: 코퍼스 밖 질문에 올바로 거부하는가(생성 필요 → --judge 시에만 측정)
     refusal = None
     if refusal_rows and judge:
-        cases = [_refusal_one(rag_core, r, hybrid) for r in refusal_rows]
+        cases = [_refusal_one(rag_core, r, hybrid, rerank) for r in refusal_rows]
         refused = sum(1 for c in cases if c["refused"])
         fabricated = sum(1 for c in cases if c["fabricated_citation"])
         refusal = {"n": len(cases), "refusal_rate": round(refused / len(cases), 4),
@@ -158,9 +158,9 @@ CITE_PAT = re.compile(r"\[[^\]]*제\d+조[^\]]*\]")
 REFUSAL_PAT = re.compile(r"확인되지\s*않|확인할\s*수\s*없|규정에서\s*확인")
 
 
-def _refusal_one(rag_core, row, hybrid=False):
+def _refusal_one(rag_core, row, hybrid=False, rerank=False):
     """부정 케이스: 코퍼스 밖 질문에 '확인되지 않습니다'로 거부하는가. 거부 없이 조문을 인용하면 위험(fabricated)."""
-    context, _ = rag_core.retrieve(row["question"], hybrid=hybrid)
+    context, _ = rag_core.retrieve(row["question"], hybrid=hybrid, rerank=rerank)
     ans = rag_core.answer(row["question"], context)
     refused = bool(REFUSAL_PAT.search(ans))
     has_cite = bool(CITE_PAT.search(ans))
@@ -168,8 +168,8 @@ def _refusal_one(rag_core, row, hybrid=False):
             "fabricated_citation": (has_cite and not refused), "answer_head": ans[:200]}
 
 
-def _judge_one(rag_core, row, srcs, hybrid=False):
-    context, _ = rag_core.retrieve(row["question"], hybrid=hybrid)  # 생성에 쓰는 것과 동일한 전체 근거로 판정
+def _judge_one(rag_core, row, srcs, hybrid=False, rerank=False):
+    context, _ = rag_core.retrieve(row["question"], hybrid=hybrid, rerank=rerank)  # 생성에 쓰는 것과 동일한 전체 근거로 판정
     ans = rag_core.answer(row["question"], context)
     has_cite = bool(CITE_PAT.search(ans)) or "ERP" in ans
     has_disc = "최종 판단은" in ans
@@ -211,6 +211,7 @@ def main():
     ap.add_argument("--topn", type=int, default=10, help="회수 top-N(>= max k)")
     ap.add_argument("--judge", action="store_true", help="LLM-as-judge 충실도까지(느림, Ollama 필요)")
     ap.add_argument("--hybrid", action="store_true", help="하이브리드 검색(밀집+BM25 RRF) 사용")
+    ap.add_argument("--rerank", action="store_true", help="cross-encoder 리랭커로 재정렬")
     ap.add_argument("--tag", default="", help="리포트 파일명 태그(before/after 비교용)")
     args = ap.parse_args()
 
@@ -223,8 +224,9 @@ def main():
     print(f"평가셋: {len(golden)}문항 (적중 {len(golden) - n_ref} · 부정/거부 {n_ref} · 미검수 {n_unverified})"
           f" · cutoff {ks} · top-N {topn}"
           + (" · 하이브리드(BM25+RRF)" if args.hybrid else " · 밀집(dense)")
+          + (" · +리랭커" if args.rerank else "")
           + (" · +LLM judge" if args.judge else ""))
-    result = evaluate(golden, ks, topn, judge=args.judge, hybrid=args.hybrid)
+    result = evaluate(golden, ks, topn, judge=args.judge, hybrid=args.hybrid, rerank=args.rerank)
 
     # 콘솔 요약
     print("\n=== 검색 지표 (strict = 규정명+조) ===")
@@ -260,7 +262,7 @@ def main():
     fn = reports / (f"{ts}{('-' + args.tag) if args.tag else ''}.json")
     meta = {"timestamp": ts, "golden": os.path.basename(args.golden), "n": len(golden),
             "n_unverified": n_unverified, "ks": ks, "topn": topn, "judge": args.judge,
-            "hybrid": args.hybrid, "tag": args.tag,
+            "hybrid": args.hybrid, "rerank": args.rerank, "tag": args.tag,
             "backend": {"embed": os.environ.get("EMBED_MODEL", "nlpai-lab/KURE-v1"),
                         "chroma": os.environ.get("CHROMA_DIR", "tools/chroma"),
                         "collection": os.environ.get("RAG_COLLECTION", "kei_regs"),

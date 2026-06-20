@@ -20,6 +20,11 @@ HYBRID = os.environ.get("RAG_HYBRID", "0") not in ("0", "", "false", "False")
 FUSION_POOL = int(os.environ.get("RAG_FUSION_POOL", "20"))  # 각 검색기에서 뽑는 후보 수
 # RRF 가중치 [밀집, 어휘]. 강한 밀집을 약한 BM25가 끌어내리지 않게 밀집을 더 신뢰(기본 2:1).
 RRF_WEIGHTS = [float(x) for x in os.environ.get("RAG_RRF_WEIGHTS", "2,1").split(",")]
+# 리랭커(cross-encoder, 온프레미스). 밀집 top-pool을 (질의,청크) 재점수로 재정렬 → top-k.
+RERANK = os.environ.get("RAG_RERANK", "0") not in ("0", "", "false", "False")
+RERANK_MODEL = os.environ.get("RAG_RERANK_MODEL", "BAAI/bge-reranker-v2-m3")
+RERANK_POOL = int(os.environ.get("RAG_RERANK_POOL", "20"))      # 재점수 후보 수
+RERANK_DEVICE = os.environ.get("RAG_RERANK_DEVICE", "cpu")      # 운영은 cuda 권장(여유 GPU)
 # 모델 상주(콜드스타트 방지). -1 = 무한 상주(언로드 안 함). "30m" 등 Ollama keep_alive 값도 가능.
 KEEP_ALIVE = os.environ.get("OLLAMA_KEEP_ALIVE", "-1")
 
@@ -98,15 +103,34 @@ def _src(doc, m, dist):
     }
 
 
-def retrieve(query: str, k: int = TOPK, hybrid: bool = None):
+def _reranker():
+    """cross-encoder 리랭커를 첫 사용 시 1회 로드(스레드 안전)."""
+    if "rerank" not in _state:
+        with _lock:
+            if "rerank" not in _state:
+                from sentence_transformers import CrossEncoder
+                print(f"리랭커 로딩... ({RERANK_MODEL}, {RERANK_DEVICE})")
+                _state["rerank"] = CrossEncoder(RERANK_MODEL, max_length=512, device=RERANK_DEVICE)
+    return _state["rerank"]
+
+
+def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None):
     """질의 → 관련 조문 top-k 회수. (근거 컨텍스트 문자열, 구조화 출처 리스트) 반환.
 
-    hybrid=None이면 환경변수 RAG_HYBRID를 따른다. 하이브리드는 밀집(KURE-v1)과 어휘(BM25)
-    각각의 top-pool을 RRF로 융합한다(점수 정규화 불필요, 순위만 사용).
+    hybrid/rerank=None이면 환경변수(RAG_HYBRID/RAG_RERANK)를 따른다.
+      - hybrid: 밀집(KURE-v1)+어휘(BM25)를 RRF로 융합(순위 기반).
+      - rerank: 후보 top-pool을 cross-encoder로 (질의,청크) 재점수해 재정렬 → top-k.
+    둘 다면 융합 결과를 후보로 리랭크한다.
     """
     embed, col, _ = backend()
     use_hybrid = HYBRID if hybrid is None else hybrid
-    pool = max(k, FUSION_POOL) if use_hybrid else k
+    use_rerank = RERANK if rerank is None else rerank
+    pool = k
+    if use_hybrid:
+        pool = max(pool, FUSION_POOL)
+    if use_rerank:
+        pool = max(pool, RERANK_POOL)
+
     qv = embed.encode([query], normalize_embeddings=True)[0].tolist()
     r = col.query(query_embeddings=[qv], n_results=pool,
                   include=["documents", "metadatas", "distances"])
@@ -114,29 +138,41 @@ def retrieve(query: str, k: int = TOPK, hybrid: bool = None):
     dense = {i: (doc, m, dist) for i, doc, m, dist
              in zip(dense_ids, r["documents"][0], r["metadatas"][0], r["distances"][0])}
 
-    if not use_hybrid:
-        chosen = dense_ids[:k]
-
-        def getdoc(i):
+    def getdoc(i):
+        if i in dense:
             return dense[i]
-    else:
+        d, m = _state["allmap"][i]
+        return d, m, None
+
+    if use_hybrid:
         bm = _ensure_bm25()
         from bm25_index import rrf
         lex_ids = [i for i, _ in bm.search(query, n=pool)]
-        chosen = [i for i, _ in rrf([dense_ids, lex_ids], top=k, weights=RRF_WEIGHTS)]
-        amap = _state["allmap"]
+        cand = [i for i, _ in rrf([dense_ids, lex_ids], top=pool, weights=RRF_WEIGHTS)]
+    else:
+        cand = dense_ids[:pool]
 
-        def getdoc(i):
-            if i in dense:
-                return dense[i]
-            d, m = amap[i]
-            return d, m, None
+    rscore = {}
+    if use_rerank and cand:
+        try:
+            scores = _reranker().predict([(query, getdoc(i)[0][:2000]) for i in cand])
+            ranked = sorted(zip(cand, (float(s) for s in scores)), key=lambda x: -x[1])
+            chosen = [i for i, _ in ranked[:k]]
+            rscore = {i: s for i, s in ranked}
+        except Exception as e:  # noqa: BLE001 — 리랭커 실패(예: GPU OOM)는 밀집 순서로 우아하게 강등
+            print(f"⚠ 리랭커 실패 → 밀집 순서로 강등: {e}")
+            chosen = cand[:k]
+    else:
+        chosen = cand[:k]
 
     blocks, srcs = [], []
     for i in chosen:
         doc, m, dist = getdoc(i)
-        srcs.append(_src(doc, m, dist))
-        blocks.append(f"[{srcs[-1]['tag']}]\n{doc}")
+        s = _src(doc, m, dist)
+        if i in rscore:
+            s["rerank"] = round(rscore[i], 4)
+        srcs.append(s)
+        blocks.append(f"[{s['tag']}]\n{doc}")
     return "\n\n---\n\n".join(blocks), srcs
 
 
@@ -202,4 +238,9 @@ def warmup():
     """서버 기동 시 백그라운드로 호출 → 임베딩/벡터DB 로드 + LLM 상주(첫 질문 콜드스타트 제거)."""
     embed, _, _ = backend()
     embed.encode(["워밍업"], normalize_embeddings=True)  # 임베딩 연산 경로까지 예열
+    if RERANK:  # 리랭커 켜져 있으면 미리 로드(첫 질의 콜드스타트 제거)
+        try:
+            _reranker().predict([("워밍업", "워밍업 청크")])
+        except Exception as e:  # noqa: BLE001
+            print(f"⚠ 리랭커 워밍업 실패(런타임에 밀집 강등): {e}")
     keepalive_once()
