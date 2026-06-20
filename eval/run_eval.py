@@ -76,6 +76,10 @@ def recall_at(expected, retrieved, matcher) -> float:
 def evaluate(golden, ks, topn, judge=False):
     import rag_core  # 임베딩/벡터DB 로드(첫 호출 시 수 초)
 
+    # 적중 케이스(기대출처 있음) vs 부정 케이스(코퍼스 밖 → 거부 기대)
+    retr_rows = [r for r in golden if not r.get("expect_refusal")]
+    refusal_rows = [r for r in golden if r.get("expect_refusal")]
+
     ks = sorted(ks)
     per_q = []
     # 누적: metrics[k]['strict'|'relaxed']['hit'|'recall'|'rr'] = [값들]
@@ -83,7 +87,7 @@ def evaluate(golden, ks, topn, judge=False):
     cat_hit = {k: defaultdict(lambda: [0, 0]) for k in ks}  # 카테고리별 [hit, total] (strict, top-max k)
     judged = []
 
-    for row in golden:
+    for row in retr_rows:
         q = row["question"]
         expected = row.get("expected_sources", [])
         _, srcs = rag_core.retrieve(q, k=topn)  # top-N 회수 후 k별로 슬라이스
@@ -122,9 +126,20 @@ def evaluate(golden, ks, topn, judge=False):
     for cat, (h, t) in sorted(cat_hit[kmax].items()):
         by_cat[cat] = {"hit": h, "total": t, f"Hit@{kmax}_strict": round(h / t, 4) if t else 0.0}
 
+    # 부정 케이스: 코퍼스 밖 질문에 올바로 거부하는가(생성 필요 → --judge 시에만 측정)
+    refusal = None
+    if refusal_rows and judge:
+        cases = [_refusal_one(rag_core, r) for r in refusal_rows]
+        refused = sum(1 for c in cases if c["refused"])
+        fabricated = sum(1 for c in cases if c["fabricated_citation"])
+        refusal = {"n": len(cases), "refusal_rate": round(refused / len(cases), 4),
+                   "fabricated_citation": fabricated, "cases": cases}
+
     return {"summary": summary, "by_category": by_cat, "per_question": per_q,
+            "n_retrieval": len(retr_rows), "n_refusal": len(refusal_rows),
             "faithfulness": _judge_summary(judged) if judge else None,
-            "judged": judged if judge else None}
+            "judged": judged if judge else None,
+            "refusal": refusal}
 
 
 def _mean(xs):
@@ -139,10 +154,24 @@ JUDGE_SYS = (
 )
 
 
+CITE_PAT = re.compile(r"\[[^\]]*제\d+조[^\]]*\]")
+REFUSAL_PAT = re.compile(r"확인되지\s*않|확인할\s*수\s*없|규정에서\s*확인")
+
+
+def _refusal_one(rag_core, row):
+    """부정 케이스: 코퍼스 밖 질문에 '확인되지 않습니다'로 거부하는가. 거부 없이 조문을 인용하면 위험(fabricated)."""
+    context, _ = rag_core.retrieve(row["question"])
+    ans = rag_core.answer(row["question"], context)
+    refused = bool(REFUSAL_PAT.search(ans))
+    has_cite = bool(CITE_PAT.search(ans))
+    return {"id": row["id"], "question": row["question"], "refused": refused,
+            "fabricated_citation": (has_cite and not refused), "answer_head": ans[:200]}
+
+
 def _judge_one(rag_core, row, srcs):
-    context, _ = "\n\n".join(f"[{s['tag']}]\n{s['snippet']}" for s in srcs), None
-    ans = rag_core.answer(row["question"], rag_core.retrieve(row["question"])[0])
-    has_cite = bool(re.search(r"\[[^\]]+제\d+조[^\]]*\]", ans)) or "ERP" in ans
+    context, _ = rag_core.retrieve(row["question"])  # 생성에 쓰는 것과 동일한 전체 근거로 판정
+    ans = rag_core.answer(row["question"], context)
+    has_cite = bool(CITE_PAT.search(ans)) or "ERP" in ans
     has_disc = "최종 판단은" in ans
     verdict = {"grounded": None, "reason": "judge 호출 실패"}
     try:
@@ -189,8 +218,9 @@ def main():
     topn = max(args.topn, max(ks))
     n_unverified = sum(1 for r in golden if not r.get("verified", False))
 
-    print(f"평가셋: {len(golden)}문항 (미검수 {n_unverified}) · cutoff {ks} · top-N {topn}"
-          + (" · +LLM judge" if args.judge else ""))
+    n_ref = sum(1 for r in golden if r.get("expect_refusal"))
+    print(f"평가셋: {len(golden)}문항 (적중 {len(golden) - n_ref} · 부정/거부 {n_ref} · 미검수 {n_unverified})"
+          f" · cutoff {ks} · top-N {topn}" + (" · +LLM judge" if args.judge else ""))
     result = evaluate(golden, ks, topn, judge=args.judge)
 
     # 콘솔 요약
@@ -208,6 +238,12 @@ def main():
         f = result["faithfulness"]
         print(f"\n=== 충실도(LLM judge, n={f['n']}) ===")
         print(f"  근거충실 {f['grounded_rate']:.3f} · 출처표기 {f['citation_rate']:.3f} · 면책문구 {f['disclaimer_rate']:.3f}")
+    if result.get("refusal"):
+        rf = result["refusal"]
+        print(f"\n=== 거부율(부정 케이스, n={rf['n']}) ===")
+        print(f"  올바른 거부 {rf['refusal_rate']:.3f} · 근거없는 조문인용(위험) {rf['fabricated_citation']}건")
+    elif result.get("n_refusal") and not args.judge:
+        print(f"\n=== 거부율: 부정 {result['n_refusal']}건은 생성 필요 → --judge 로 측정 ===")
 
     # 적중 실패 질문(디버깅용)
     misses = [q["id"] for q in result["per_question"] if not q[f"strict_hit_rank@{topn}"]]
