@@ -3,16 +3,16 @@
 > `docs/`는 이 프로젝트의 **설계·계획 문서 묶음**입니다. "왜 이렇게 만드는가"와 "어떻게 만들고 운영하는가"를 한곳에 모았습니다.
 > 시스템 한 줄 정의: KEI(한국환경연구원) 행정 초보가 "이 업무 어떻게 처리하지?"를 **사내 규정 근거로** 빠르게 해결하도록 돕는, 온프레미스 지식베이스 + 로컬 LLM 비서.
 
-핵심 구조는 **하나의 볼트, 두 개의 화면**입니다. 단일 진실원천(Source of Truth)인 마크다운 볼트 `KEI-행정가이드/`를 두 화면이 공유합니다.
+핵심 구조는 **하나의 볼트, 두 개의 화면**입니다. 단일 진실원천(Source of Truth)인 마크다운 볼트 `KEI-행정가이드/`를 두 화면이 공유합니다. 현재 볼트는 **4개 섹션·271문서**(규정집 111 · 연구행정 가이드 64 · 용어집 84 · ERP 시스템 12)로 구성됩니다.
 
-- **[뇌] Quartz** 정적 사이트 — 노드/링크 그래프 + 전문검색. 사람이 직접 탐색.
-- **[비서] Open WebUI + vLLM** — 질문에 `[규정명 제N조]` 출처를 달아 답변. 행정 초보가 사용.
+- **[뇌] Next.js 14 + Toss Design System** 정적 사이트(`web/`) — 노드/링크 관계 그래프 + 둘러보기(필터·검색). 사람이 직접 탐색. (이전 Quartz를 대체.)
+- **[비서] 멀티턴 RAG 채팅** — 질문에 `[규정명 제N조]` 출처를 달아 답변, 메시지별 근거 패널·스트리밍 응답. 행정 초보가 사용.
 
 ```mermaid
 flowchart LR
-    Vault["📁 KEI-행정가이드/<br/>(단일 진실원천 · 마크다운)"]
-    Vault -->|Quartz build → public/ → nginx| Brain["🧠 [뇌] Quartz<br/>그래프 + 전문검색"]
-    Vault -->|청킹·임베딩 → Chroma| Assistant["💬 [비서] Open WebUI + vLLM<br/>출처 달린 답변"]
+    Vault["📁 KEI-행정가이드/<br/>(단일 진실원천 · 마크다운 · 4섹션 271문서)"]
+    Vault -->|build → out/ → PM2| Brain["🧠 [뇌] Next.js 14 + TDS<br/>관계 그래프 + 둘러보기"]
+    Vault -->|청킹·임베딩 → Chroma| Assistant["💬 [비서] 멀티턴 RAG 채팅<br/>출처 + 근거 패널 · 스트리밍"]
     Brain --- ZeroTrust["🔒 Cloudflare Zero Trust (사내 전용)"]
     Assistant --- ZeroTrust
 ```
@@ -34,8 +34,8 @@ flowchart LR
 2. [02-architecture.md](02-architecture.md) — 하나의 볼트, 두 개의 화면
 3. [03-content-model.md](03-content-model.md) — 볼트 레이어·프론트매터 스키마
 4. [04-pipeline.md](04-pipeline.md) — 변환 → 청킹 → 임베딩 (`01`~`02` 스크립트)
-5. [05-rag-design.md](05-rag-design.md) — 검색·근거주입·가드레일 (`03`~`04` 스크립트)
-6. [06-deployment.md](06-deployment.md) — Quartz / Open WebUI / RAG API 배포
+5. [05-rag-design.md](05-rag-design.md) — 검색·근거주입·가드레일·스트리밍 (`03`~`04` 스크립트)
+6. [06-deployment.md](06-deployment.md) — [뇌] Next.js+TDS / [비서] RAG API 배포
 7. [09-contributing.md](09-contributing.md) — 코드·커밋·검수 규약
 
 > [!tip]
@@ -59,7 +59,7 @@ flowchart LR
 무엇을 어떤 형식으로 쓰는지부터 읽습니다.
 
 1. [01-overview.md](01-overview.md) — 누구를 위해, 무엇을 만드나
-2. [03-content-model.md](03-content-model.md) — `10_업무가이드`/`20_규정원문`/`30_용어집` 레이어와 프론트매터
+2. [03-content-model.md](03-content-model.md) — `10_업무가이드`/`20_규정원문`/`30_용어집`/`40_시스템` 레이어와 프론트매터
 3. [09-contributing.md](09-contributing.md) — 작성·링크·검수 워크플로
 4. [11-glossary.md](11-glossary.md) — 용어 표기 기준
 
@@ -77,10 +77,10 @@ flowchart LR
 |---|------|-----------|------|
 | 01 | 개요 (Overview) | 문제·대상 사용자·목표·전체 그림 | [01-overview.md](01-overview.md) |
 | 02 | 아키텍처 (Architecture) | 하나의 볼트, 두 개의 화면 · 구성요소 · 포트 | [02-architecture.md](02-architecture.md) |
-| 03 | 콘텐츠 모델 (Content Model) | 볼트 레이어 구조 · 분류 체계 · 프론트매터 스키마 | [03-content-model.md](03-content-model.md) |
-| 04 | 파이프라인 (Pipeline) | HWP 변환 → 제N조 청킹 → 임베딩 → Chroma | [04-pipeline.md](04-pipeline.md) |
-| 05 | RAG 설계 (RAG Design) | 검색 → 근거주입 → 가드레일 → `[규정명 제N조]` 출처 | [05-rag-design.md](05-rag-design.md) |
-| 06 | 배포 (Deployment) | Quartz · Open WebUI · RAG API 설치·기동·연결 | [06-deployment.md](06-deployment.md) |
+| 03 | 콘텐츠 모델 (Content Model) | 볼트 4섹션 레이어 구조 · 분류 체계 · 프론트매터 스키마 | [03-content-model.md](03-content-model.md) |
+| 04 | 파이프라인 (Pipeline) | HWP/PDF/PPTX 변환 → 교차링크 → 청킹 → 임베딩 → Chroma | [04-pipeline.md](04-pipeline.md) |
+| 05 | RAG 설계 (RAG Design) | 검색 → 근거주입 → 가드레일 → `[규정명 제N조]` 출처 · 스트리밍 | [05-rag-design.md](05-rag-design.md) |
+| 06 | 배포 (Deployment) | [뇌] Next.js+TDS · [비서] RAG API 설치·기동·연결 | [06-deployment.md](06-deployment.md) |
 | 07 | 보안·거버넌스 (Security & Governance) | Cloudflare Zero Trust · RBAC · 내부 전용 원칙 | [07-security-governance.md](07-security-governance.md) |
 | 08 | 로드맵 (Roadmap) | 단계별 도입 계획과 마일스톤 | [08-roadmap.md](08-roadmap.md) |
 | 09 | 기여 가이드 (Contributing) | 작성·코드·커밋·검수 워크플로 | [09-contributing.md](09-contributing.md) |
@@ -89,6 +89,21 @@ flowchart LR
 
 > [!todo]
 > 확인 필요: 위 본문 파일(01~11)은 FILE MAP에 따라 계획된 경로입니다. 아직 작성되지 않은 문서가 있다면 작성 순서는 [08-roadmap.md](08-roadmap.md)와 [../WORKPLAN.md](../WORKPLAN.md)를 따릅니다.
+
+---
+
+## 📌 현재 진행 상태 (2026-06-20 기준)
+
+| 영역 | 상태 | 요약 |
+|------|------|------|
+| 코퍼스 | ✅ 4섹션·271문서 | 규정집 111 · 연구행정 가이드 64 · 용어집 84 · ERP 시스템 12. 임베딩 청크 약 3,973 |
+| 파이프라인 | ✅ 가동 | 변환(`01`·`01c`·`01d`·`01f`) → 교차링크(`01e`·`01g`·`01b`) → 청킹·임베딩(`02`) |
+| [비서] RAG | ✅ 완성 | 로그인·멀티턴·메시지별 근거·스트리밍(SSE). Ollama+`Qwen2.5-14B-Instruct Q4_K_M`, KURE-v1, Chroma `kei_regs` |
+| [뇌] 웹앱 | ✅ 비서·둘러보기·관계 그래프 | 그래프 271 노드·275 연결(4색), 교차링크로 ERP 모듈이 허브. 다크모드/테마(라이트·다크·시스템) |
+| 검수 | ⏳ 전부 미검수 | 규정 미분류 28 번호 배정, 가이드/용어/ERP 자동초안 확정 대기 |
+
+> [!note]
+> 보안 불변: 원본·볼트·Chroma·`app.db`·`.app_secret`은 전부 gitignore. 커밋은 코드/문서만(public repo=코드만), 외부 노출은 Cloudflare Zero Trust 뒤.
 
 ---
 
@@ -101,7 +116,7 @@ flowchart LR
 | 0001 | 임베딩 모델로 `nlpai-lab/KURE-v1` 채택 | Accepted | [adr/0001-embedding-kure-v1.md](adr/0001-embedding-kure-v1.md) |
 | 0002 | 제N조 단위(조문 1개 = 청크 1개) 청킹 | Accepted | [adr/0002-article-level-chunking.md](adr/0002-article-level-chunking.md) |
 | 0003 | 출처 통제용 자체 RAG API(`04_rag_api.py`) | Accepted | [adr/0003-controlled-rag-api.md](adr/0003-controlled-rag-api.md) |
-| 0004 | [뇌] 그래프 사이트로 Quartz v5 채택 | Accepted | [adr/0004-quartz-graph-site.md](adr/0004-quartz-graph-site.md) |
+| 0004 | [뇌] 그래프 사이트로 Quartz v5 채택 (→ Next.js 14 + TDS로 대체) | Superseded | [adr/0004-quartz-graph-site.md](adr/0004-quartz-graph-site.md) |
 | 0005 | 온프레미스 + Cloudflare Zero Trust 배포 | Accepted | [adr/0005-on-prem-zero-trust.md](adr/0005-on-prem-zero-trust.md) |
 
 > [!todo]
@@ -139,7 +154,7 @@ sequenceDiagram
     participant UI as [비서] Open WebUI
     participant RAG as RAG API (04)
     participant DB as Chroma (kei_regs)
-    participant LLM as vLLM
+    participant LLM as Ollama (Qwen2.5-14B-Instruct Q4_K_M)
     사용자->>UI: 질문
     UI->>RAG: /v1/chat/completions
     RAG->>DB: 제N조 검색 (k=5)
@@ -170,7 +185,7 @@ sequenceDiagram
 
 - **코드블록**에는 언어 힌트를 붙입니다: `bash`, `python`, `yaml`, `ini`.
 - **이모지**는 섹션 강조용으로만 최소한으로 씁니다.
-- **일관 표기:** 두 화면은 항상 **[뇌] Quartz** / **[비서] Open WebUI + vLLM**. 모델명은 정확히(`nlpai-lab/KURE-v1`, `BAAI/bge-m3`, `Qwen/Qwen2.5-14B-Instruct`, `Qwen2.5-VL`), 컬렉션명은 `kei_regs`.
+- **일관 표기:** 두 화면은 항상 **[뇌] Next.js 14 + TDS** / **[비서] 멀티턴 RAG 채팅**. 모델명은 정확히(임베딩 `nlpai-lab/KURE-v1`(대안 `BAAI/bge-m3`), 표 깨짐 폴백 `Qwen2.5-VL`, LLM 서빙 `Ollama` + `Qwen2.5-14B-Instruct Q4_K_M`(vLLM은 대안 표기)), 컬렉션명은 `kei_regs`.
 
 ### ⛔ 절대 규칙 준수
 
@@ -198,4 +213,4 @@ sequenceDiagram
 
 ---
 
-최종 수정: 2026-06-18
+최종 수정: 2026-06-20

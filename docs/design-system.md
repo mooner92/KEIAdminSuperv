@@ -37,7 +37,7 @@
 | `--color-surface` | `#fff` | 카드·리스트 표면 |
 | `--color-border` / `-strong` | `grey200/300` | 구분선 |
 | `--color-success/warning/danger` | `green500/orange500/red500` | 상태(검수완료/미검수/경고) |
-| `--accent-규정집/가이드/용어집` | `blue/green/orange 500` | 섹션 구분 칩 |
+| `--accent-규정집/가이드/용어집/시스템` | `blue/green/orange/violet`(시스템=`#8b5cf6`, 다크 `#a78bfa`) | 섹션 구분 칩(4개 섹션) |
 
 > [!tip] KEI 메인 컬러로 바꾸기
 > `globals.css`의 **시맨틱 토큰 블록만** 교체한다(예: `--color-primary: #<KEI색>`). 컴포넌트는 안 건드린다.
@@ -94,6 +94,7 @@
 - [x] W6 로그인 + 채팅기록 영속화(SQLite/SQLModel) + 멀티턴 기억 + 메시지별 근거 저장 (`/api/app/*`)
 - [x] W7 비서 응답 스트리밍(SSE) — `?stream=1`(`meta`→`delta`→`done`), 근거 먼저·본문 타자치듯
 - [x] W8 다크모드 + 테마 시스템(라이트·다크·시스템) — `[data-theme]` 토큰 분기, FOUC 방지, TDS `ColorSchemeArea` 연동
+- [x] W9 ERP **별도 섹션 '시스템'(보라 `--accent-시스템`)** — 둘러보기 구분 탭·그래프 4번째 색·칩. 코퍼스 4개 섹션 + 교차링크로 그래프 271노드·275연결
 - [ ] KEI 메인 컬러 토큰 교체 (미정 — 사용자가 색을 주면 `globals.css` 토큰 한 블록 교체)
 - [ ] 번들 경량화(현재 first-load `/` ~433KB, TDS+react-markdown)
 - [ ] 관계 그래프를 비서 화면에 임베드(질문↔노드 상호 탐색)

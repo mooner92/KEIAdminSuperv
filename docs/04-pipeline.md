@@ -1,12 +1,12 @@
 # 04 · 데이터 파이프라인
 
-> HWP 규정 원문이 [비서] Open WebUI 답변으로 흐르기까지의 4단계 스크립트.
-> 변환(01) → 청킹·임베딩(02) → 질의(03) / RAG API(04). 각 절은 목적·입출력·CLI·핵심 로직·튜닝·한계로 구성한다.
+> 4개 섹션 코퍼스(규정·가이드·용어·ERP)가 [비서] RAG 채팅 답변으로 흐르기까지의 변환·교차링크·임베딩 스크립트.
+> 변환(01·01c·01d·01f) → 교차링크(01e·01g·01b) → 청킹·임베딩(02) → 질의(03) / RAG API(04). 각 절은 목적·입출력·CLI·핵심 로직·튜닝·한계로 구성한다.
 
 이 문서는 `tools/`의 01~04 스크립트를 실행·운영하는 개발자/운영자를 위한 상세 레퍼런스다. 설계 배경은 [02-architecture.md](02-architecture.md), 콘텐츠 모델은 [03-content-model.md](03-content-model.md), RAG 검색 설계는 [05-rag-design.md](05-rag-design.md)를 참고한다.
 
-> [!note] 현재 상태 (2026-06-19)
-> P1 변환 완료(111/112개), P2 임베딩 완료(3044 청크), P3 검색·API 완료. **답변 생성**만 vLLM 서버(Quadro RTX 6000(24GB) 2장) 대기 중이라 미검증이다(검색·근거 주입·출처는 검증됨). 04의 SSE 스트리밍은 향후 확장. 변환·생성물은 검수 전까지 프론트매터 `검수상태: 미검수`를 유지한다. 실측 수치는 문서 맨 끝 [실측 결과(2026-06-19)](#-실측-결과-2026-06-19) 참고.
+> [!note] 현재 상태 (2026-06-20)
+> 코퍼스는 **4개 섹션 271문서**(규정집 111 · 연구행정 가이드 64 · 용어집 84 · ERP 시스템 12)로 확장됐다. P1 변환 완료(규정 111, 가이드 PDF/PPTX 포함, ERP·용어 자동초안), 교차링크(01e·01g·01b) 완료, P2 임베딩 완료(약 3,973 청크), P3 검색·API 완료. **답변 생성**은 로컬 Ollama(Qwen2.5-14B-Instruct Q4_K_M)로 동작하며 SSE 스트리밍·멀티턴까지 구현됐다. 변환·생성물은 검수 전까지 프론트매터 `검수상태: 미검수`를 유지한다(전부 미검수). 실측 수치는 문서 맨 끝 [실측 결과(2026-06-20)](#-실측-결과-2026-06-20) 참고.
 
 ---
 
@@ -14,25 +14,38 @@
 
 ```mermaid
 flowchart LR
-    HWP["HWP/HWPX 원본\n(.hwp / .hwpx)"] --> S01["01_hwp_to_md.py\n변환"]
-    S01 --> MD["20_규정원문/<분류>/<번호>_<제목>.md\n(frontmatter: 미검수)"]
-    MD --> S02["02_chunk_and_embed.py\n제N조 청킹 + KURE-v1 임베딩"]
+    HWP["HWP/HWPX 규정 원본"] --> S01["01_hwp_to_md.py\n규정 변환"]
+    GSRC["가이드 HWP/HWPX/PDF/PPTX"] --> S01C["01c_guides_to_md.py\n가이드 변환"]
+    ESRC["KEI_ERP_entire_features.md"] --> S01D["01d_erp_to_md.py\nERP 변환"]
+    TSRC["KEI_admin_terms.md"] --> S01F["01f_terms_to_md.py\n용어 변환"]
+    S01 --> MDR["20_규정원문/ (regulation)"]
+    S01C --> MDG["10_업무가이드/ (guide)"]
+    S01D --> MDS["40_시스템/ (system)"]
+    S01F --> MDT["30_용어집/ (term)"]
+    MDR & MDG & MDS & MDT --> XLINK["01e/01g 교차링크 + 01b autolink\n[[ ]] 그래프 엣지"]
+    XLINK --> S02["02_chunk_and_embed.py\n제N조 / 헤딩 청킹 + KURE-v1 임베딩"]
     S02 --> CHROMA[("Chroma\ncollection=kei_regs\nhnsw:space=cosine")]
     CHROMA --> S03["03_rag_query.py\nCLI 질의"]
-    CHROMA --> S04["04_rag_api.py\nOpenAI 호환 RAG API\nMODEL_ID=kei-admin-rag"]
-    S03 --> VLLM["vLLM\nQwen/Qwen2.5-14B-Instruct"]
-    S04 --> VLLM
-    S04 --> OWUI["[비서] Open WebUI\n(UI/멀티유저/권한)"]
+    CHROMA --> S04["04_rag_api.py\nkei-rag-api\nOpenAI호환 /v1/* + /app/*"]
+    S03 --> LLM["Ollama\nQwen2.5-14B-Instruct Q4_K_M"]
+    S04 --> LLM
+    S04 --> WEB["[비서] web/ RAG 채팅\n(멀티턴 + 메시지별 근거)"]
 ```
 
-핵심: [뇌] Quartz 그래프 사이트와 [비서] Open WebUI는 **같은 마크다운 볼트**를 먹는 두 화면이다. 채팅은 그림이 아니라 텍스트 + 임베딩 검색으로 답한다. 이 파이프라인은 그중 **채팅(비서)** 쪽 데이터 경로다.
+핵심: [뇌] 그래프 사이트(`web/`)와 [비서] RAG 채팅은 **같은 마크다운 볼트**를 먹는 두 화면이다. 채팅은 그림이 아니라 텍스트 + 임베딩 검색으로 답한다. 이 파이프라인은 그중 **채팅(비서)** 쪽 데이터 경로다.
 
 | 단계 | 스크립트 | 입력 | 출력 |
 |---|---|---|---|
-| 변환 | `01_hwp_to_md.py` | HWP/HWPX 폴더 | `20_규정원문/` 마크다운 |
+| 규정 변환 | `01_hwp_to_md.py` | HWP/HWPX 규정 폴더 | `20_규정원문/` (regulation) |
+| 가이드 변환 | `01c_guides_to_md.py` | 가이드 HWP/HWPX/PDF/PPTX | `10_업무가이드/` (guide) |
+| ERP 변환 | `01d_erp_to_md.py` | `KEI_ERP_entire_features.md` | `40_시스템/` (system) |
+| 용어 변환 | `01f_terms_to_md.py` | `KEI_admin_terms.md` | `30_용어집/` (term) |
+| ERP 교차링크 | `01e_erp_crosslink.py` | ERP 노트 + 규정 | ERP↔규정 `[[ ]]` |
+| 용어 교차링크 | `01g_terms_crosslink.py` | 용어 노트 + ERP/규정 | 용어↔ERP/규정 `[[ ]]` |
+| 규정 autolink | `01b_autolink.py` | 볼트 전체 | 규정 상호참조 `[[ ]]`(멱등) |
 | 청킹·임베딩 | `02_chunk_and_embed.py` | 볼트(`KEI-행정가이드/`) | Chroma `kei_regs` |
 | 질의(CLI) | `03_rag_query.py` | Chroma + 질문 | 콘솔 답변 + 회수 조문 |
-| RAG API | `04_rag_api.py` | Chroma + HTTP 요청 | OpenAI 호환 응답 |
+| RAG API | `04_rag_api.py` | Chroma + HTTP 요청 | OpenAI 호환 + `/app/*` 응답 |
 
 ---
 
@@ -142,8 +155,103 @@ def reg_num_from_name(stem: str):
 ### 알려진 한계
 > [!warning]
 > - 표/별표(別表) 레이아웃이 깨질 수 있다. 깨질 때는 아래 [HWP 변환 fallback](#-hwp-변환-fallback)으로 재추출한다.
-> - 규정번호가 파일명에 없는 문서는 `0000_미분류`로 떨어진다 → **사람이 번호 배정** 필요(실측 37개, 핵심 규정 다수 포함 — 아래 실측 결과 참고).
+> - 규정번호가 파일명에 없는 문서는 `0000_미분류`로 떨어진다 → **사람이 번호 배정** 필요(실측 28개, 핵심 규정 다수 포함 — 아래 실측 결과 참고).
 > - 파서 무한루프 1건(`여비업무처리기준및QnA개선`)은 타임아웃 격리됐고 fallback으로 별도 처리한다.
+
+---
+
+## 📚 01c · `01c_guides_to_md.py` — 가이드(HWP/HWPX/PDF/PPTX) → Markdown
+
+소스: [`../tools/01c_guides_to_md.py`](../tools/01c_guides_to_md.py)
+
+### 목적
+연구행정 가이드 원본(다양한 포맷)을 `10_업무가이드/`로 적재한다(type:guide). 규정 원문과 달리 가이드는 HWP/HWPX 외에 **PDF·PPTX** 배포본이 섞여 있어 포맷별 추출기를 분기한다.
+
+### 입력 · 출력
+
+| | 내용 |
+|---|---|
+| 입력 | `*.hwp`, `*.hwpx`, `*.pdf`, `*.pptx`(연구행정 가이드 폴더) |
+| 출력 | `<vault>/10_업무가이드/…/<제목>.md` (type:guide) |
+| 추출기 | HWP/HWPX = `hwp-hwpx-parser`, PDF = **PyMuPDF**, PPTX = **python-pptx** |
+
+### 핵심 로직
+- 포맷에 따라 추출기를 선택: PDF는 PyMuPDF로 텍스트 레이어를 뽑고, PPTX는 python-pptx로 슬라이드 텍스트를 순서대로 모은다.
+- **스캔 이미지 PDF**(텍스트 레이어 없음)는 본문 대신 `image-pdf` 플레이스홀더 노트로 남겨 사람이 OCR/대체 처리하도록 표시한다(실측: 예산운용가이드 1건).
+- `guide` 프론트매터(`type, 제목, 분류, 대상, 관련규정[], 관련서식[], 최종검토일, 검토자, 태그, 검수상태: 미검수`)를 생성한다. 헤딩(`##`/`####`) 구조는 보존해 02 청킹 단위로 쓰인다.
+
+### 알려진 한계
+> [!warning]
+> - 스캔 이미지 PDF는 텍스트가 없어 `image-pdf` 플레이스홀더만 남는다(실측 1건, fallback OCR 대상).
+> - 레이아웃 복잡한 PPTX는 표/도형 텍스트 순서가 뒤섞일 수 있다 → 검수 시 확인.
+
+---
+
+## 🖥️ 01d · `01d_erp_to_md.py` — ERP 기능 → 시스템 노트
+
+소스: [`../tools/01d_erp_to_md.py`](../tools/01d_erp_to_md.py)
+
+### 목적
+ERP 전체 기능 정의(`KEI_ERP_entire_features.md`)를 **모듈별 노트**로 쪼개 `40_시스템/`에 적재한다(type:system). 모듈 1개 = 노트 1개이며 기능은 `####` 단위로 정리한다.
+
+### 입력 · 출력
+
+| | 내용 |
+|---|---|
+| 입력 | `KEI_ERP_entire_features.md`(단일 원본, gitignore) |
+| 출력 | `<vault>/40_시스템/<모듈>.md` (type:system, 실측 12개) |
+| 분할 단위 | 모듈 헤딩 → 노트, 기능 `####` → 청킹 단위 |
+
+### 핵심 로직
+- 원본을 모듈 경계로 분할해 모듈마다 `system` 프론트매터 노트를 만든다. 각 기능은 `####` 헤딩으로 남겨 02가 헤딩 단위로 청킹한다.
+- 검수상태는 `미검수`(자동초안).
+
+---
+
+## 🔗 01e · `01e_erp_crosslink.py` — ERP ↔ 규정 교차링크
+
+소스: [`../tools/01e_erp_crosslink.py`](../tools/01e_erp_crosslink.py)
+
+### 목적
+ERP 모듈 노트와 관련 규정을 `[[ ]]`로 잇는다. **키워드 매칭**으로 모듈이 다루는 업무와 관련 규정을 찾아 그래프 엣지를 만든다 → 그래프에서 ERP 모듈이 허브 역할을 하게 된다.
+
+### 핵심 로직
+- ERP 모듈 본문/제목의 키워드를 규정명과 매칭해 관련 규정으로 위키링크를 건다(멱등하게 재실행 가능).
+
+---
+
+## 📖 01f · `01f_terms_to_md.py` — 용어집 → 용어 노트
+
+소스: [`../tools/01f_terms_to_md.py`](../tools/01f_terms_to_md.py)
+
+### 목적
+행정 용어 정의(`KEI_admin_terms.md`)를 **용어 1개 = 노트 1개**로 풀어 `30_용어집/`에 적재한다(type:term, 실측 84개).
+
+### 입력 · 출력
+
+| | 내용 |
+|---|---|
+| 입력 | `KEI_admin_terms.md`(단일 원본, gitignore) |
+| 출력 | `<vault>/30_용어집/<용어>.md` (type:term, 84개) |
+
+### 핵심 로직
+- `term` 프론트매터(`type, 용어, 영문, 관련규정[], 태그`)를 생성하고 용어별 설명을 본문에 남긴다. 검수상태는 `미검수`(자동초안).
+
+---
+
+## 🔗 01g · `01g_terms_crosslink.py` — 용어 ↔ ERP/규정 교차링크
+
+소스: [`../tools/01g_terms_crosslink.py`](../tools/01g_terms_crosslink.py)
+
+### 목적
+용어 노트를 **같은 카테고리의 ERP 모듈**과 잇고, **용어명이 규정명에 포함되면 해당 규정**과도 `[[ ]]`로 연결한다.
+
+### 핵심 로직
+- 용어 카테고리 ↔ ERP 모듈 카테고리를 매칭해 위키링크를 만든다.
+- 용어명이 규정명 문자열에 포함되는 경우 그 규정으로 추가 링크를 건다.
+
+> [!note] 변환·교차링크 실행 순서
+> 변환(`01`·`01c`·`01d`·`01f`)을 먼저 돌려 4섹션 노트를 만든 뒤 교차링크(`01e`·`01g`)를 돌리고, 마지막으로 규정 상호참조 `01b_autolink`를 돌려 나머지 엣지를 채운다. 그다음 `02` 임베딩을 실행한다.
 
 ---
 
@@ -152,16 +260,16 @@ def reg_num_from_name(stem: str):
 소스: [`../tools/02_chunk_and_embed.py`](../tools/02_chunk_and_embed.py)
 
 ### 목적
-규정을 **제N조 단위**(조문 1개 = 청크 1개)로 쪼개 한국어 임베딩으로 변환하고 Chroma에 적재한다. 고정 길이 청킹은 금지 — 검색 결과가 "법적으로 완결된 단위"로 떨어지고 `[규정명 제N조]` 출처 표기가 깔끔해지기 때문이다. **첫 제N조 앞의 머리말**(규정명·제정/개정 이력·표)은 `조=""` 청크로 따로 적재한다(문서당 1개). 근거는 [ADR 0002](adr/0002-article-level-chunking.md), 임베딩 선택은 [ADR 0001](adr/0001-embedding-kure-v1.md) 참고.
+4섹션 볼트를 type에 맞는 단위로 쪼개 한국어 임베딩으로 변환하고 Chroma에 적재한다. **규정은 제N조 단위**(조문 1개 = 청크 1개), **가이드·ERP·용어는 헤딩(`####`·`##`) 단위**(헤딩이 없으면 문단 패킹)로 청킹한다. 고정 길이 청킹은 금지 — 검색 결과가 "완결된 단위"로 떨어지고 `[규정명 제N조]` 출처 표기가 깔끔해지기 때문이다. 규정의 경우 **첫 제N조 앞의 머리말**(규정명·제정/개정 이력·표)은 `조=""` 청크로 따로 적재한다(문서당 1개). 근거는 [ADR 0002](adr/0002-article-level-chunking.md), 임베딩 선택은 [ADR 0001](adr/0001-embedding-kure-v1.md) 참고.
 
 ### 입력 · 출력
 
 | | 내용 |
 |---|---|
-| 입력 | `--vault` 볼트의 `*.md`(단, `_templates` 제외) |
-| 출력 | Chroma `PersistentClient(path=--db)`의 collection `kei_regs` (실측 3044 items) |
+| 입력 | `--vault` 볼트의 `*.md`(단, `_templates` 제외) — 4섹션(regulation·guide·system·term) |
+| 출력 | Chroma `PersistentClient(path=--db)`의 collection `kei_regs` (실측 약 3,973 items) |
 | 메타 | `hnsw:space=cosine` |
-| 산출물 위치 | `tools/chroma/`(약 44MB, `.gitignore`·재생성 가능) |
+| 산출물 위치 | `tools/chroma/`(`.gitignore`·재생성 가능) |
 
 ### CLI 사용법
 
@@ -199,9 +307,10 @@ ARTICLE = re.compile(r"(?=^\s*제\s*\d+\s*조)", re.MULTILINE)  # 제N조 경계
 | type | 청킹 방식 | 메타데이터 |
 |---|---|---|
 | `regulation` | 첫 제N조 앞 **머리말 1청크(`조=""`)** + 제N조마다 1청크 | 아래 메타데이터 키 |
-| `guide` / `term` | 노트 전체 1청크 | `규정명`에 `제목`/`용어`, `조` 빈값 |
+| `guide` / `system` | **헤딩(`####`·`##`) 단위 청크**(헤딩 없으면 문단 패킹) | `규정명`에 `제목`/`모듈명`, `조` 빈값 |
+| `term` | 헤딩 단위(용어 1노트 = 보통 1청크) | `규정명`에 `용어`, `조` 빈값 |
 
-`article_no()`가 청크 머리에서 `제\s*(\d+)\s*조`를 잡아 `조` 메타(`제N조`)를 채운다. `_templates`가 경로에 포함된 파일은 건너뛴다.
+`article_no()`가 규정 청크 머리에서 `제\s*(\d+)\s*조`를 잡아 `조` 메타(`제N조`)를 채운다(가이드·ERP·용어는 `조` 빈값). `_templates`가 경로에 포함된 파일은 건너뛴다.
 
 **메타데이터 키** — 모든 청크는 다음 키를 채운다:
 
@@ -248,7 +357,7 @@ col.upsert(ids, embeddings, documents, metadatas)
 소스: [`../tools/03_rag_query.py`](../tools/03_rag_query.py)
 
 ### 목적
-임베딩 검색으로 관련 조문 top-k를 회수해 근거로 주입하고, 로컬 vLLM으로 답한 뒤 회수 조문을 출력한다. 운영 전 검증·디버깅용 CLI다. `--retrieve-only`로 **LLM 없이 검색만** 돌려 회수 품질을 따로 확인할 수 있다.
+임베딩 검색으로 관련 청크(규정 제N조·가이드/ERP/용어 헤딩) top-k를 회수해 근거로 주입하고, 로컬 LLM(Ollama)으로 답한 뒤 회수 청크를 출력한다. 운영 전 검증·디버깅용 CLI다. `--retrieve-only`로 **LLM 없이 검색만** 돌려 회수 품질을 따로 확인할 수 있다.
 
 ### 입력 · 출력
 
@@ -263,7 +372,7 @@ col.upsert(ids, embeddings, documents, metadatas)
 # 검색만(LLM 불필요) — 회수 품질 확인
 python tools/03_rag_query.py --db tools/chroma --q "출장 여비는 어떻게 정산하나요?" --retrieve-only
 
-# 답변 생성까지(vLLM 필요)
+# 답변 생성까지(Ollama 필요)
 python tools/03_rag_query.py --db tools/chroma --q "<질문>" --k 5
 ```
 
@@ -279,20 +388,20 @@ python tools/03_rag_query.py --db tools/chroma --q "<질문>" --k 5
 ### 핵심 로직
 
 ```python
-EMBED_MODEL = "nlpai-lab/KURE-v1"     # 02와 동일해야 함
-VLLM_BASE   = "http://localhost:8000/v1"   # 환경변수 VLLM_BASE로 오버라이드
-LLM_MODEL   = "Qwen/Qwen2.5-14B-Instruct"  # 환경변수 LLM_MODEL로 오버라이드
+EMBED_MODEL = "nlpai-lab/KURE-v1"            # 02와 동일해야 함
+LLM_BASE    = "http://127.0.0.1:11434/v1"    # Ollama OpenAI 호환 엔드포인트
+LLM_MODEL   = "Qwen2.5-14B-Instruct Q4_K_M"  # Ollama에 올라간 모델 태그
 ```
 
 1. 질문을 `KURE-v1`로 임베딩(`normalize_embeddings=True`) → `col.query(n_results=k)`.
-2. 회수된 각 조문을 `[규정명 제N조]\n본문` 블록으로 만들고 `\n\n---\n\n`로 연결해 컨텍스트 구성.
-3. (`--retrieve-only`가 아니면) `OpenAI(base_url=VLLM_BASE, api_key="EMPTY")`로 `temperature=0.1` chat 호출. **vLLM 연결 실패 시 친절 안내**를 출력하고 회수 결과는 그대로 보여준다.
-4. 답변 출력 후 회수된 조 목록과 **코사인 거리**를 콘솔에 표기.
+2. 회수된 각 청크를 `[규정명 제N조]\n본문` 블록(가이드·ERP·용어는 `[제목/용어]`)으로 만들고 `\n\n---\n\n`로 연결해 컨텍스트 구성.
+3. (`--retrieve-only`가 아니면) Ollama의 OpenAI 호환 엔드포인트로 `temperature=0.1` chat 호출. **LLM 연결 실패 시 친절 안내**를 출력하고 회수 결과는 그대로 보여준다.
+4. 답변 출력 후 회수된 청크 목록과 **코사인 거리**를 콘솔에 표기.
 
 > [!warning] EMBED_MODEL은 02와 반드시 동일
 > 질의 임베딩과 적재 임베딩이 같은 모델이어야 벡터 공간이 일치한다. 02에서 모델을 바꿨다면 03/04의 `EMBED_MODEL`도 똑같이 바꾸고 **Chroma를 재적재**해야 한다. 다르면 검색 품질이 조용히 무너진다.
 
-LLM은 일반 instruct 모델(`Qwen/Qwen2.5-14B-Instruct` 등)을 쓴다 — 코더/VL 아님. 한국어 특화 대안은 EXAONE/Kanana.
+LLM은 일반 instruct 모델을 **로컬 Ollama**로 서빙한다(`Qwen2.5-14B-Instruct Q4_K_M`, 코더/VL 아님). `keep_alive=-1`로 모델을 상주시키고 기동 시 워밍업해 첫 질문 콜드스타트를 없앤다. vLLM은 대안 서빙으로만 둔다. 한국어 특화 대안은 EXAONE/Kanana.
 
 ### 시스템 프롬프트 가드레일(03/04 공통, 약화 금지)
 1. `[근거]`에 없는 내용(특히 금액·한도·기한)은 절대 지어내지 말고 **"규정에서 확인되지 않습니다"**라고 말한다.
@@ -302,13 +411,13 @@ LLM은 일반 instruct 모델(`Qwen/Qwen2.5-14B-Instruct` 등)을 쓴다 — 코
 
 ### 튜닝 포인트
 - `--k`: 회수량. 늘리면 재현율↑·컨텍스트 길이↑.
-- `--retrieve-only`: vLLM 없이 회수 정확도만 빠르게 점검(실측 표는 맨 끝 참고).
+- `--retrieve-only`: LLM 없이 회수 정확도만 빠르게 점검(실측 표는 맨 끝 참고).
 - `temperature=0.1`: 환각 억제 위해 낮게 고정. 더 보수적으로 가려면 0으로.
-- `LLM_MODEL`/`VLLM_BASE`: 환경변수로 오버라이드 — vLLM에 떠 있는 모델명·주소와 일치시킬 것.
+- `LLM_MODEL`/`LLM_BASE`: 환경변수로 오버라이드 — Ollama(또는 대안 vLLM)에 떠 있는 모델명·주소와 일치시킬 것.
 
 ### 알려진 한계
 - 재랭킹/필터(규정번호·분류) 없음 — 순수 벡터 top-k. 정밀 검색 설계는 [05-rag-design.md](05-rag-design.md).
-- 단발성 CLI라 멀티턴/세션 없음(그건 04 + Open WebUI 담당).
+- 단발성 CLI라 멀티턴/세션 없음(그건 04의 `/app/*` + 자체 웹앱 `web/`이 담당).
 
 ---
 
@@ -317,15 +426,18 @@ LLM은 일반 instruct 모델(`Qwen/Qwen2.5-14B-Instruct` 등)을 쓴다 — 코
 소스: [`../tools/04_rag_api.py`](../tools/04_rag_api.py)
 
 ### 목적
-03의 RAG를 **OpenAI 호환 모델**로 노출해 Open WebUI가 그대로 붙게 한다. Open WebUI 내장 RAG는 청킹/출처표기 통제가 약하므로, 제N조 검색·근거 주입·`[규정명 제N조]` 출처 강제는 이 서버가 담당하고 Open WebUI는 UI/멀티유저/권한만 담당한다(설계 근거 [ADR 0003](adr/0003-controlled-rag-api.md)).
+03의 RAG를 한 프로세스 백엔드 **`kei-rag-api`(127.0.0.1:9000)**로 노출한다. 두 표면을 제공한다 — **무상태 OpenAI 호환 `/v1/*`**(Open WebUI 등 외부 클라이언트용)과 **`/app/*`**(자체 웹앱 `web/`의 인증·멀티턴 채팅·메시지별 근거). 제N조/헤딩 검색·근거 주입·`[규정명 제N조]` 출처 강제는 이 서버가 담당한다(설계 근거 [ADR 0003](adr/0003-controlled-rag-api.md)).
+
+> [!note] 백엔드 3분리
+> 진입점 `04_rag_api`는 두 모듈을 합친다. **`rag_core`**(검색·생성 공용: backend/retrieve/answer/answer_stream)와 **`app_api`**(SQLModel+bcrypt/PyJWT 인증 + 채팅 `/app`). `04_rag_api`가 OpenAI 호환 `/v1/*` + `/app/*` include + `init_db`를 묶는다.
 
 ### 입력 · 출력
 
 | | 내용 |
 |---|---|
-| 입력 | HTTP(OpenAI Chat Completions 형식) |
-| 출력 | OpenAI 호환 JSON(+ 디버그용 `x_retrieved`) |
-| 상수 | `MODEL_ID = kei-admin-rag` (Open WebUI 모델 목록 표시명) |
+| 입력 | HTTP — OpenAI Chat Completions(`/v1`) · 자체 채팅(`/app`) |
+| 출력 | OpenAI 호환 JSON / SSE(`meta→delta→done`) + 회수 근거 |
+| 상수 | `MODEL_ID = kei-admin-rag` (모델 목록 표시명) |
 
 ### 엔드포인트
 
@@ -333,74 +445,62 @@ LLM은 일반 instruct 모델(`Qwen/Qwen2.5-14B-Instruct` 등)을 쓴다 — 코
 |---|---|---|
 | GET | `/health` | 헬스 체크 |
 | GET | `/v1/models` | `kei-admin-rag` 단일 모델 반환 |
-| POST | `/v1/chat/completions` | 마지막 user 메시지로 검색 → 근거 주입 → vLLM → 응답 |
+| POST | `/v1/chat/completions` | **무상태**: 마지막 user 메시지로 검색 → 근거 주입 → LLM → 응답(Open WebUI용) |
+| POST | `/app/*` | **인증·멀티턴**: 세션 기반 채팅, 메시지별 근거 저장, SSE 스트리밍 |
 
-백엔드(임베딩 `KURE-v1`·Chroma `kei_regs`·vLLM 클라이언트)는 **지연 로딩**이라 `/v1/models` 같은 모델 등록 요청에는 즉시 응답한다. `retrieve(query, k=5)`가 03과 동일하게 `[규정명 제N조]` 블록 컨텍스트를 만든다. 환경변수 `CHROMA_DIR / RAG_COLLECTION / EMBED_MODEL / VLLM_BASE / LLM_MODEL / RAG_MODEL_ID / RAG_TOPK`로 설정을 오버라이드한다.
+백엔드(임베딩 `KURE-v1`·Chroma `kei_regs`·Ollama 클라이언트)는 **지연 로딩**이라 `/v1/models` 같은 모델 등록 요청에는 즉시 응답한다. `retrieve(query, k=5)`가 03과 동일하게 `[규정명 제N조]`(가이드·ERP·용어는 `[제목/용어]`) 블록 컨텍스트를 만든다. 환경변수 `CHROMA_DIR / RAG_COLLECTION / EMBED_MODEL / LLM_BASE / LLM_MODEL / RAG_MODEL_ID / RAG_TOPK`로 설정을 오버라이드한다.
 
-```python
-@app.post("/v1/chat/completions")
-def chat(req: ChatReq):
-    user_msg = next((m["content"] for m in reversed(req.messages)
-                     if m.get("role") == "user"), "")
-    context, srcs = retrieve(user_msg)
-    out = _llm.chat.completions.create(
-        model=LLM_MODEL, temperature=req.temperature or 0.1,
-        messages=[{"role": "system", "content": SYSTEM},
-                  {"role": "user", "content": f"[질문]\n{user_msg}\n\n[근거]\n{context}"}])
-    return JSONResponse({..., "model": MODEL_ID, "x_retrieved": srcs})
-```
-
-- 응답에 `x_retrieved`(회수된 조문 출처 목록)를 포함. **vLLM 미연결이어도 `x_retrieved`는 반환**해 운영자가 원인을 파악할 수 있게 그레이스풀하게 동작한다.
+- `rag_core`의 `answer`/`answer_stream`이 검색→근거 주입→LLM 호출을 담당한다. **스트리밍은 SSE(`meta`→`delta`→`done`)** 로 구현됐다(`meta`로 회수 근거 먼저 전달, `delta`로 토큰, `done`으로 종료).
+- 응답에 회수 근거(출처 목록)를 포함. **LLM 미연결이어도 근거는 반환**해 운영자가 원인을 파악할 수 있게 그레이스풀하게 동작한다.
 - 시스템 프롬프트는 03과 동일한 4대 가드레일(약화 금지).
-- 현재 **비스트리밍**(`stream` 필드는 있으나 본문은 단발 응답) — SSE는 향후 확장.
+- **멀티턴**: 세션 메시지를 재생하되 **근거는 매 턴 새로 검색**한다(메시지별 근거 저장).
 
 ### 실행 · 등록
 
 ```bash
-uvicorn 04_rag_api:app --host 0.0.0.0 --port 9000
+# 단일 프로세스 백엔드(127.0.0.1:9000)
+uvicorn 04_rag_api:app --host 127.0.0.1 --port 9000
 ```
 
-Open WebUI 등록: **설정 > 연결 > OpenAI API**
+자체 웹앱(`web/`)은 같은 오리진 리버스 프록시(`/api/rag/*`·`/api/app/*` → `127.0.0.1:9000`)로 붙으므로 RAG API를 LAN에 노출하지 않는다. 외부 OpenAI 호환 클라이언트(Open WebUI 등)를 붙일 때만 `/v1`을 노출한다.
 
 | 항목 | 값 |
 |---|---|
-| Base URL | `http://<서버실제IP>:9000/v1` |
+| Base URL(`/v1` 클라이언트) | `http://<서버실제IP>:9000/v1` |
 | API Key | `EMPTY` |
 
-> [!warning] localhost / host.docker.internal 금지
-> Open WebUI가 Docker 컨테이너에서 돌기 때문에 연결 URL에 `localhost`나 `host.docker.internal`을 쓰면 안 된다. **서버의 실제 IP**를 넣는다.
+> [!warning] Docker 클라이언트는 localhost 금지
+> Open WebUI 등 Docker 컨테이너에서 붙을 때는 연결 URL에 `localhost`/`host.docker.internal`을 쓰지 말고 **서버의 실제 IP**를 넣는다.
 
 ### 흐름
 
 ```mermaid
 sequenceDiagram
     participant U as 행정 담당자
-    participant W as [비서] Open WebUI
-    participant A as 04 RAG API (kei-admin-rag)
+    participant W as [비서] web/ RAG 채팅
+    participant A as kei-rag-api (/app)
     participant C as Chroma (kei_regs)
-    participant L as vLLM (Qwen2.5-14B-Instruct)
-    U->>W: 질문
-    W->>A: POST /v1/chat/completions
-    A->>C: retrieve(query, k=5)
-    C-->>A: 제N조 top-k + 메타
-    A->>L: system(가드레일) + [질문]+[근거]
-    L-->>A: 답변 (+ [규정명 제N조] 출처)
-    A-->>W: OpenAI 호환 JSON (x_retrieved 포함)
-    W-->>U: 출처 달린 답변
+    participant L as Ollama (Qwen2.5-14B-Instruct Q4_K_M)
+    U->>W: 질문(멀티턴)
+    W->>A: POST /app (세션)
+    A->>C: retrieve(query, k=5) — 매 턴 새 검색
+    C-->>A: 제N조/헤딩 top-k + 메타
+    A->>L: system(가드레일) + 세션 재생 + [질문]+[근거]
+    L-->>A: SSE delta 토큰 (+ [규정명 제N조] 출처)
+    A-->>W: SSE meta→delta→done (메시지별 근거)
+    W-->>U: 스트리밍 답변 + 우측 근거 패널
 ```
 
 ### 튜닝 포인트
 - `retrieve`의 `k`: 회수량.
 - `temperature`: 요청값 우선, 없으면 0.1.
-- `MODEL_ID`/`LLM_MODEL`: 표시명·실제 서빙 모델명.
+- `MODEL_ID`/`LLM_MODEL`: 표시명·실제 서빙 모델명(Ollama 태그).
 
 ### 알려진 한계
 > [!warning]
-> - **답변 생성은 vLLM 엔드포인트(Quadro RTX 6000 서버)가 있어야 동작**한다. 이 개발 환경엔 vLLM이 미기동이라 **생성 단계는 미검증**이다(검색·근거 주입·출처는 검증됨).
-> - **Qwen2.5-14B-Instruct fp16(약 28GB)은 Quadro RTX 6000 단일 24GB를 초과**한다 → 2장 텐서병렬(`tensor-parallel-size=2`) 또는 더 작은 instruct(7B/3B)·양자화 서빙이 필요하다. 임베딩(KURE-v1)은 1장으로 충분(실측).
-> - 비스트리밍 → 긴 답변은 응답 지연이 체감된다. **SSE 스트리밍은 향후 추가.**
-> - 인증/요청 검증이 얇다(`api_key=EMPTY`). 접근 통제는 Cloudflare Zero Trust + Open WebUI RBAC가 담당([07-security-governance.md](07-security-governance.md)).
-> - `x_retrieved`는 회수 출처 디버그용이며 UI 출처 표기는 답변 본문의 `[규정명 제N조]`에 의존한다.
+> - 답변 생성은 **로컬 Ollama**(`Qwen2.5-14B-Instruct Q4_K_M`, 127.0.0.1:11434/v1)가 떠 있어야 한다. `keep_alive=-1` 상주 + 기동 워밍업으로 첫 질문 콜드스타트를 없앴다. 더 큰 fp16 서빙이 필요하면 대안으로 vLLM 2장 텐서병렬(`tensor-parallel-size=2`)을 쓴다. 임베딩(KURE-v1)은 1장으로 충분(실측).
+> - 외부 `/v1` 표면은 인증이 얇다(`api_key=EMPTY`). 접근 통제는 Cloudflare Zero Trust(이메일 인증)와, 자체 웹앱의 bcrypt+PyJWT httpOnly 쿠키 인증이 담당한다([07-security-governance.md](07-security-governance.md)). `/app/*`은 인증 게이트 뒤에 있다.
+> - 회수 근거는 디버그/패널 표기용이며 답변 본문의 `[규정명 제N조]` 출처와 함께 쓰인다.
 
 ---
 
@@ -453,21 +553,29 @@ source tools/.venv/bin/activate
 pip install -r tools/requirements.txt   # hwp-hwpx-parser, sentence-transformers,
                                          # chromadb, kss(선택), openai, fastapi, uvicorn
 
-# 1) HWP → Markdown (20_규정원문/ 적재) — 먼저 dry-run으로 분류 확인
+# 1) 변환 — 4섹션 노트 생성 (규정 먼저 dry-run으로 분류 확인)
 python tools/01_hwp_to_md.py --src rule_files --vault KEI-행정가이드 --dry-run
-python tools/01_hwp_to_md.py --src rule_files --vault KEI-행정가이드
+python tools/01_hwp_to_md.py  --vault KEI-행정가이드 --src rule_files          # 규정 → 20_규정원문/
+python tools/01c_guides_to_md.py --vault KEI-행정가이드 --src research_rule_files  # 가이드(PDF/PPTX 포함) → 10_업무가이드/
+python tools/01d_erp_to_md.py    --vault KEI-행정가이드                          # ERP → 40_시스템/
+python tools/01f_terms_to_md.py  --vault KEI-행정가이드                          # 용어 → 30_용어집/
 #   → 사람 검수: 표/별표·오타 확인, 0000_미분류 규정번호 배정 후 검수상태: 검수완료
 
-# 2) 제N조 청킹 + KURE-v1 임베딩 → Chroma(kei_regs) — 기본 클린 리빌드
+# 1b) 교차링크 [[ ]] 그래프 엣지 — 변환 후 실행
+python tools/01e_erp_crosslink.py   --vault KEI-행정가이드   # ERP ↔ 규정
+python tools/01g_terms_crosslink.py --vault KEI-행정가이드   # 용어 ↔ ERP/규정
+python tools/01b_autolink.py        --vault KEI-행정가이드   # 규정 상호참조(멱등)
+
+# 2) 청킹(규정 제N조 / 가이드·ERP·용어 헤딩) + KURE-v1 임베딩 → Chroma(kei_regs) — 기본 클린 리빌드
 python tools/02_chunk_and_embed.py --vault KEI-행정가이드 --db tools/chroma
 
 # 3) 검색만 검증(LLM 불필요)
 python tools/03_rag_query.py --db tools/chroma --q "<질문>" --retrieve-only
 
-# 4) RAG API 기동 (Open WebUI가 붙는 OpenAI 호환 모델)
-cd tools && uvicorn 04_rag_api:app --host 0.0.0.0 --port 9000
-#   → Open WebUI 설정 > 연결 > OpenAI API
-#     Base URL = http://<서버실제IP>:9000/v1 , API Key = EMPTY
+# 4) RAG API 기동 (web/ 리버스 프록시 대상 + OpenAI 호환 /v1)
+cd tools && uvicorn 04_rag_api:app --host 127.0.0.1 --port 9000
+#   → 답변 생성: 로컬 Ollama(127.0.0.1:11434, Qwen2.5-14B-Instruct Q4_K_M) 필요
+#   → 외부 OpenAI 호환 클라이언트: Base URL = http://<서버실제IP>:9000/v1 , API Key = EMPTY
 ```
 
 > [!warning] torch CUDA 휠 주의
@@ -477,42 +585,46 @@ cd tools && uvicorn 04_rag_api:app --host 0.0.0.0 --port 9000
 > 02는 기본 **클린 리빌드**라 재실행 시 컬렉션을 비우고 재적재한다(`--no-reset`로 upsert만). 임베딩 모델을 바꿨다면 반드시 재적재한다. 배포/Docker 구성은 [06-deployment.md](06-deployment.md), 운영 절차는 [10-operations.md](10-operations.md) 참고.
 
 > [!warning] 내부 전용
-> [뇌] Quartz와 [비서] Open WebUI 두 화면 모두 Cloudflare Zero Trust 뒤의 사내 전용이다. 온프레미스(사내 GPU Quadro RTX 6000 24GB×2)에서만 구동하며 어느 화면도 인터넷에 공개하지 않는다.
+> [뇌] 그래프 사이트(`web/`)와 [비서] RAG 채팅 두 화면 모두 Cloudflare Zero Trust(이메일 인증) 뒤의 사내 전용이다. 온프레미스(사내 GPU Quadro RTX 6000 24GB×2)에서만 구동하며 어느 화면도 인터넷에 공개하지 않는다.
 
 ---
 
-## 📊 실측 결과 (2026-06-19)
+## 📊 실측 결과 (2026-06-20)
 
 > [!note] 실측 환경
-> 서버(data05lx): GPU Quadro RTX 6000 24GB×2(총 48GB, 단일 통합 메모리 아님), 드라이버 R535 / CUDA 12.2, Python 3.13, torch 2.6.0+cu124. 입력 `rule_files/` 112개(.hwp 53 + .hwpx 59, KEI 내부 규정). 커밋: `6750748`(convert), `9226c42`(embed), `fa18378`(rag).
+> 서버(data05lx): GPU Quadro RTX 6000 24GB×2(총 48GB, 단일 통합 메모리 아님), 드라이버 R535 / CUDA 12.2, Python 3.13, torch 2.6.0+cu124. 코퍼스 **4개 섹션 271문서**(규정집 111 · 연구행정 가이드 64 · 용어집 84 · ERP 시스템 12). 답변 생성은 로컬 Ollama(Qwen2.5-14B-Instruct Q4_K_M).
 
-### 01 변환
+### 01 변환 (4섹션)
 
-- **111개 성공 / 1개 timeout 스킵**. 스킵된 `여비업무처리기준및QnA개선(안)241230(1).hwp`는 파서 무한루프로 격리됐고 [HWP 변환 fallback](#-hwp-변환-fallback) 대상이다.
-- 개정일 **6개 미검출**(빈값). 규정번호는 파일명 4자리만 신뢰 → 4자리 없는 37개는 미분류.
-- 검수상태: **전부 미검수**.
+- **규정 111개 성공 / 1개 timeout 스킵**. 스킵된 `여비업무처리기준및QnA개선(안)241230(1).hwp`는 파서 무한루프로 격리됐고 [HWP 변환 fallback](#-hwp-변환-fallback) 대상이다.
+- **가이드 64개**(01c, HWP/HWPX/PDF/PPTX). 스캔 이미지 PDF 1건(예산운용가이드)은 `image-pdf` 플레이스홀더로 OCR 폴백 대상.
+- **ERP 시스템 12개 모듈**(01d), **용어 84개**(01f). 전부 자동초안.
+- 규정번호는 파일명 4자리만 신뢰 → 4자리 없는 **28개**는 미분류(번호 배정 대상).
+- 검수상태: **전부 미검수**(4섹션 공통).
 
-**분류별 파일 수(변환 성공 111개)**
+**구분별 문서 수(코퍼스 271)**
 
-| 분류 폴더 | 파일 수 |
-|---|--:|
-| `1000_기관` | 3 |
-| `2000_감사·규정` | 5 |
-| `3000_인사` | 23 |
-| `4000_보수·여비` | 8 |
-| `5000_연구·정보` | 12 |
-| `6000_총무·보안·회계` | 23 |
-| `0000_미분류` | 37 |
+| 구분 | 섹션 폴더 | type | 문서 수 |
+|---|---|---|--:|
+| 규정집 | `20_규정원문/` | regulation | 111 |
+| 연구행정 가이드 | `10_업무가이드/` | guide | 64 |
+| 용어집 | `30_용어집/` | term | 84 |
+| ERP 시스템 | `40_시스템/` | system | 12 |
 
-> [!warning] 미분류 37개에 핵심 규정 다수
+> [!warning] 미분류 28개에 핵심 규정 다수
 > 번호 없는 가이드/기준/지침과 함께 **인사규정·직제규정·복무규정·위임전결규정·직원평가규칙·유연근무제운영규칙** 등 핵심 규정이 미분류로 떨어졌다(본문 코드는 stale라 미사용). **사람이 규정번호를 배정**해 재분류해야 한다.
+
+### 교차링크 (01e / 01g / 01b)
+
+- ERP↔규정(01e)·용어↔ERP/규정(01g) 키워드 매칭 + 규정 상호참조(01b) `[[ ]]` 엣지 생성. 그래프(`web/graph`)에서 **271 노드·275 연결**이 되고 교차링크 덕분에 ERP 모듈이 허브가 된다.
 
 ### 02 청킹·임베딩
 
-- **3044 청크 = 조문청크 2933 + 머리말 111**(문서 111개, 문서당 머리말 1개).
-- Chroma `kei_regs`, **3044 items**, `hnsw:space=cosine`. `tools/chroma`는 약 44MB(재생성 가능).
-- 임베딩 KURE-v1, GPU `cuda:0`, **~32초**. `batch_size=8` + `max_seq_len=2048`로 OOM 회피.
-- **2048 토큰 초과 41개 청크는 임베딩 시 잘림**(긴 조문·일부 머리말) → 하위청킹 과제.
+- **약 3,973 청크** = regulation 3,044 · guide 718 · system 127 · term 84.
+- Chroma `kei_regs`, `hnsw:space=cosine`. `tools/chroma`는 재생성 가능(gitignore).
+- 임베딩 KURE-v1, GPU `cuda:0`. `batch_size=8` + `max_seq_len=2048`로 OOM 회피.
+- 청킹 단위: 규정 제N조(+ 문서당 머리말 1청크) / 가이드·ERP·용어는 헤딩(`####`·`##`).
+- **2048 토큰 초과 일부 청크는 임베딩 시 잘림**(긴 조문·일부 머리말) → 하위청킹 과제.
 
 ### 03 검색 (`--retrieve-only`)
 
@@ -531,9 +643,10 @@ cd tools && uvicorn 04_rag_api:app --host 0.0.0.0 --port 9000
 
 ### 04 API · 생성
 
-- `/health`, `/v1/models`, `/v1/chat/completions` 동작. 백엔드 지연 로딩이라 모델 등록 즉시 응답.
-- **검색·근거 주입·출처(`x_retrieved`)는 검증됨.** vLLM 미기동이라 **답변 생성은 미검증**(Quadro RTX 6000 서버 필요).
-- 진행 상태: **P1 변환 완료 · P2 임베딩 완료 · P3 검색/API 완료**(생성은 vLLM 대기).
+- `/health`, `/v1/models`, `/v1/chat/completions`(무상태) + `/app/*`(인증·멀티턴) 동작. 백엔드 지연 로딩이라 모델 등록 즉시 응답.
+- **검색·근거 주입·출처는 검증됨.** 답변 생성은 로컬 **Ollama(Qwen2.5-14B-Instruct Q4_K_M)** 로 동작하며 SSE 스트리밍(`meta→delta→done`)·멀티턴(매 턴 새 검색)까지 구현됐다. `keep_alive=-1` 상주 + 워밍업으로 첫 질문 콜드스타트 제거.
+- 자체 웹앱(`web/`)이 같은 오리진 리버스 프록시로 붙어 RAG API를 LAN에 노출하지 않는다.
+- 진행 상태: **P1 변환(4섹션) 완료 · 교차링크 완료 · P2 임베딩 완료 · P3 검색/API/생성 완료**. 남은 일은 검수(전부 미검수)와 외부 접속 안정화.
 
 ---
 
@@ -550,4 +663,4 @@ cd tools && uvicorn 04_rag_api:app --host 0.0.0.0 --port 9000
 
 ---
 
-최종 수정: 2026-06-19
+최종 수정: 2026-06-20
