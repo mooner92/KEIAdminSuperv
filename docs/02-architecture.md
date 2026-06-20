@@ -1,7 +1,7 @@
 # 02. 아키텍처 — 시스템 구조 · 데이터 흐름 · 토폴로지
 
-> KEI 행정 가이드 / 행정 비서의 시스템 구조를 다룹니다.
-> 핵심은 **하나의 볼트, 두 개의 화면**: 단일 마크다운 볼트를 [뇌] Next.js+TDS 그래프와 [비서] Open WebUI+vLLM 두 화면이 함께 먹습니다.
+> KEI 행정 가이드 / 행정 LLM의 시스템 구조를 다룹니다.
+> 핵심은 **하나의 볼트, 두 개의 화면**: 단일 마크다운 볼트를 [뇌] Next.js+TDS 그래프와 [LLM] Open WebUI+vLLM 두 화면이 함께 먹습니다.
 
 이 문서는 개발자·운영자를 1차 독자로 하며, 일부 절(원칙·데이터 흐름)은 행정 담당자도 읽을 수 있게 풀어 씁니다.
 
@@ -14,10 +14,10 @@
 | 화면 | 정체 | 무엇을 하나 | 누가 쓰나 | 어떻게 답하나 |
 | --- | --- | --- | --- | --- |
 | **[뇌]** | Next.js 14 + TDS 정적 사이트 (`web/`, Node v22+) | 노드/링크 그래프 + 검색으로 규정·가이드를 **탐색** | 구조를 파악하려는 사람 | 사람이 직접 읽고 링크를 따라감 |
-| **[비서]** | Open WebUI + vLLM | 질문에 `[규정명 제N조]` 출처를 달아 **답변** | 행정 초보(신입·전입자) | 텍스트 + 임베딩 검색(RAG) |
+| **[LLM]** | Open WebUI + vLLM | 질문에 `[규정명 제N조]` 출처를 달아 **답변** | 행정 초보(신입·전입자) | 텍스트 + 임베딩 검색(RAG) |
 
 > [!note] 가장 흔한 오해
-> 채팅 비서는 그래프 그림을 보고 답하지 않습니다. 그래프와 채팅은 같은 마크다운을 먹는 **두 개의 독립 화면**입니다. 채팅은 임베딩 검색으로 관련 조문을 회수해 텍스트로 근거를 만들고, 그 위에서 답합니다(상세: [04-pipeline.md](04-pipeline.md), [05-rag-design.md](05-rag-design.md)).
+> 채팅 LLM은 그래프 그림을 보고 답하지 않습니다. 그래프와 채팅은 같은 마크다운을 먹는 **두 개의 독립 화면**입니다. 채팅은 임베딩 검색으로 관련 조문을 회수해 텍스트로 근거를 만들고, 그 위에서 답합니다(상세: [04-pipeline.md](04-pipeline.md), [05-rag-design.md](05-rag-design.md)).
 
 볼트 구조와 콘텐츠 계층(가치층/원문층/용어집/관리)은 [03-content-model.md](03-content-model.md)에서 다룹니다. 여기서는 그 위를 흐르는 데이터와 컴포넌트의 토폴로지에 집중합니다.
 
@@ -39,7 +39,7 @@ flowchart TD
         NEXT --> OUT --> NGINX
     end
 
-    subgraph ASSIST["[비서] 질의응답 화면"]
+    subgraph ASSIST["[LLM] 질의응답 화면"]
         direction TB
         CONV["01 변환<br/>HWP/HWPX → MD"]
         EMBED["02 청킹·임베딩<br/>제N조 단위 · KURE-v1"]
@@ -91,7 +91,7 @@ flowchart TD
 
 같은 볼트가 목적에 따라 두 가지 표현으로 갈라집니다.
 
-| 구분 | A. 탐색용 그래프 ([뇌]) | B. 질의응답 RAG ([비서]) |
+| 구분 | A. 탐색용 그래프 ([뇌]) | B. 질의응답 RAG ([LLM]) |
 | --- | --- | --- |
 | 입력 | 볼트 마크다운 + 위키링크 | 볼트 마크다운(조문) |
 | 변환 | Next.js+TDS 정적 export → 노드/링크/검색 페이지 | 제N조 단위 청킹 → KURE-v1 임베딩 |
@@ -127,7 +127,7 @@ flowchart LR
 
 ## 4. 질문 한 건의 시퀀스
 
-사용자가 질문 하나를 던졌을 때 [비서] 화면 안에서 일어나는 일입니다.
+사용자가 질문 하나를 던졌을 때 [LLM] 화면 안에서 일어나는 일입니다.
 
 ```mermaid
 sequenceDiagram
@@ -245,7 +245,7 @@ flowchart TB
 | 벡터DB | Chroma `PersistentClient(path)`, collection `kei_regs`(3044 items), 컬렉션 메타 `hnsw:space=cosine`. 청크 메타데이터 키: `규정명`·`규정번호`·`조`·`분류`·`개정일`·`검수상태`·`type`·`path`(볼트 상대경로) |
 | LLM 서빙 | vLLM(OpenAI 호환), 모델 `Qwen/Qwen2.5-14B-Instruct`(일반 instruct, 코더/VL 아님). 한국어 특화 대안 EXAONE/Kanana |
 | HWP 변환 | `hwp-hwpx-parser`. 표/별표 깨지면 LibreOffice + H2Orestart → PDF → Qwen2.5-VL로 표만 재추출 |
-| 비서 UI | Open WebUI(Docker), `04_rag_api.py`를 `kei-admin-rag` 모델로 등록 |
+| LLM UI | Open WebUI(Docker), `04_rag_api.py`를 `kei-admin-rag` 모델로 등록 |
 
 > [!note] ADR 인덱스
 > ADR 목록과 작성 규약은 [adr/README.md](adr/README.md)를 참고하세요.

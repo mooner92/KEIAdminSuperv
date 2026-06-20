@@ -17,7 +17,7 @@
 
 ## 1. 맥락 (Context)
 
-KEI 행정 가이드/비서가 다루는 데이터는 **한국환경연구원(KEI)의 사내 규정 원문과 그 가공물**이다. 이 코퍼스에는 두 가지 강한 제약이 따라온다.
+KEI 행정 가이드/LLM이 다루는 데이터는 **한국환경연구원(KEI)의 사내 규정 원문과 그 가공물**이다. 이 코퍼스에는 두 가지 강한 제약이 따라온다.
 
 - **데이터 비유출.** 규정 원문(`20_규정원문/`)과 그 임베딩, 사용자 질의·답변은 모두 내부 규정 데이터다. 이 데이터가 **망 밖(외부 클라우드·외부 API)으로 나가서는 안 된다.**
 - **사내 전용 접근.** 이 시스템은 행정 초보(신입·전입자)가 사내에서 업무 처리를 돕는 내부 도구다. 일반 인터넷 사용자가 접근할 대상이 아니다.
@@ -25,7 +25,7 @@ KEI 행정 가이드/비서가 다루는 데이터는 **한국환경연구원(KE
 여기에 프로젝트 전체를 관통하는 절대 규칙이 겹친다.
 
 > [!warning]
-> ⛔ **어떤 화면도 인터넷에 공개하지 않는다.** [뇌] Quartz 정적 사이트도, [비서] Open WebUI도 공개 URL로 노출하지 않는다. 이는 협상 대상이 아니라 본 시스템의 전제다. 자세한 거버넌스는 [07 — 보안·거버넌스](../07-security-governance.md)를 본다.
+> ⛔ **어떤 화면도 인터넷에 공개하지 않는다.** [뇌] Quartz 정적 사이트도, [LLM] Open WebUI도 공개 URL로 노출하지 않는다. 이는 협상 대상이 아니라 본 시스템의 전제다. 자세한 거버넌스는 [07 — 보안·거버넌스](../07-security-governance.md)를 본다.
 
 즉 "어디서 추론을 돌릴 것인가(모델·임베딩 위치)"와 "누가 접근할 수 있는가(접근 경계)" 두 결정이 데이터 비유출이라는 하나의 요구로 묶인다. 이 ADR은 그 둘을 함께 정한다.
 
@@ -36,7 +36,7 @@ flowchart TB
     subgraph ZT["Cloudflare Zero Trust Access (사내 전용 경계)"]
         subgraph Host["온프레미스 서버 data05lx (Ubuntu) · GPU Quadro RTX 6000 24GB×2"]
             Brain["[뇌] Quartz v5 정적 사이트<br/>(nginx, public/)"]
-            Asst["[비서] Open WebUI<br/>+ WEBUI_AUTH 인증"]
+            Asst["[LLM] Open WebUI<br/>+ WEBUI_AUTH 인증"]
             RAG["통제형 RAG API<br/>04_rag_api.py"]
             LLM["vLLM (OpenAI 호환)"]
             Embed["임베딩 nlpai-lab/KURE-v1<br/>+ Chroma: kei_regs"]
@@ -71,12 +71,12 @@ flowchart TB
 
 ### 2.2 접근 경계 = Cloudflare Zero Trust Access + Open WebUI 인증
 
-두 화면 모두 인터넷에 공개하지 않고 **Cloudflare Zero Trust Access** 뒤에 둔다. 그 안에서 [비서]는 추가로 **Open WebUI 자체 인증(`WEBUI_AUTH=true`)** 으로 한 겹 더 보호한다.
+두 화면 모두 인터넷에 공개하지 않고 **Cloudflare Zero Trust Access** 뒤에 둔다. 그 안에서 [LLM]은 추가로 **Open WebUI 자체 인증(`WEBUI_AUTH=true`)** 으로 한 겹 더 보호한다.
 
 | 화면 | 1차 경계 | 2차 인증 |
 | --- | --- | --- |
 | [뇌] Quartz 정적 사이트 | Cloudflare Zero Trust Access | (정적 사이트, 별도 앱 인증 없음 — 경계가 곧 인증) |
-| [비서] Open WebUI + vLLM | Cloudflare Zero Trust Access | Open WebUI 인증 (`WEBUI_AUTH=true`) + RBAC/멀티유저 |
+| [LLM] Open WebUI + vLLM | Cloudflare Zero Trust Access | Open WebUI 인증 (`WEBUI_AUTH=true`) + RBAC/멀티유저 |
 
 ```mermaid
 sequenceDiagram
@@ -105,7 +105,7 @@ sequenceDiagram
 
 ### 3.2 인터넷 공개 금지(⛔)와 정합
 
-이 시스템은 내부 전용이다. Cloudflare Zero Trust Access를 경계로 두면, 두 화면을 인터넷에 노출하지 않으면서도 사내 사용자가 신원 확인 후 접근하게 만들 수 있다. [비서]는 그 위에 Open WebUI 인증/RBAC를 더해, "조직 경계 통과"와 "앱 사용자 인증"을 분리한 다층 방어를 구성한다.
+이 시스템은 내부 전용이다. Cloudflare Zero Trust Access를 경계로 두면, 두 화면을 인터넷에 노출하지 않으면서도 사내 사용자가 신원 확인 후 접근하게 만들 수 있다. [LLM]은 그 위에 Open WebUI 인증/RBAC를 더해, "조직 경계 통과"와 "앱 사용자 인증"을 분리한 다층 방어를 구성한다.
 
 ### 3.3 통제형 RAG·그래프 결정과의 연결
 

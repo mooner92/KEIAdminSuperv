@@ -1,6 +1,6 @@
 # 04 · 데이터 파이프라인
 
-> 4개 섹션 코퍼스(규정·가이드·용어·ERP)가 [비서] RAG 채팅 답변으로 흐르기까지의 변환·교차링크·임베딩 스크립트.
+> 4개 섹션 코퍼스(규정·가이드·용어·ERP)가 [LLM] RAG 채팅 답변으로 흐르기까지의 변환·교차링크·임베딩 스크립트.
 > 변환(01·01c·01d·01f) → 교차링크(01e·01g·01b) → 청킹·임베딩(02) → 질의(03) / RAG API(04). 각 절은 목적·입출력·CLI·핵심 로직·튜닝·한계로 구성한다.
 
 이 문서는 `tools/`의 01~04 스크립트를 실행·운영하는 개발자/운영자를 위한 상세 레퍼런스다. 설계 배경은 [02-architecture.md](02-architecture.md), 콘텐츠 모델은 [03-content-model.md](03-content-model.md), RAG 검색 설계는 [05-rag-design.md](05-rag-design.md)를 참고한다.
@@ -29,10 +29,10 @@ flowchart LR
     CHROMA --> S04["04_rag_api.py\nkei-rag-api\nOpenAI호환 /v1/* + /app/*"]
     S03 --> LLM["Ollama\nQwen2.5-14B-Instruct Q4_K_M"]
     S04 --> LLM
-    S04 --> WEB["[비서] web/ RAG 채팅\n(멀티턴 + 메시지별 근거)"]
+    S04 --> WEB["[LLM] web/ RAG 채팅\n(멀티턴 + 메시지별 근거)"]
 ```
 
-핵심: [뇌] 그래프 사이트(`web/`)와 [비서] RAG 채팅은 **같은 마크다운 볼트**를 먹는 두 화면이다. 채팅은 그림이 아니라 텍스트 + 임베딩 검색으로 답한다. 이 파이프라인은 그중 **채팅(비서)** 쪽 데이터 경로다.
+핵심: [뇌] 그래프 사이트(`web/`)와 [LLM] RAG 채팅은 **같은 마크다운 볼트**를 먹는 두 화면이다. 채팅은 그림이 아니라 텍스트 + 임베딩 검색으로 답한다. 이 파이프라인은 그중 **채팅(LLM)** 쪽 데이터 경로다.
 
 | 단계 | 스크립트 | 입력 | 출력 |
 |---|---|---|---|
@@ -477,7 +477,7 @@ uvicorn 04_rag_api:app --host 127.0.0.1 --port 9000
 ```mermaid
 sequenceDiagram
     participant U as 행정 담당자
-    participant W as [비서] web/ RAG 채팅
+    participant W as [LLM] web/ RAG 채팅
     participant A as kei-rag-api (/app)
     participant C as Chroma (kei_regs)
     participant L as Ollama (Qwen2.5-14B-Instruct Q4_K_M)
@@ -585,7 +585,7 @@ cd tools && uvicorn 04_rag_api:app --host 127.0.0.1 --port 9000
 > 02는 기본 **클린 리빌드**라 재실행 시 컬렉션을 비우고 재적재한다(`--no-reset`로 upsert만). 임베딩 모델을 바꿨다면 반드시 재적재한다. 배포/Docker 구성은 [06-deployment.md](06-deployment.md), 운영 절차는 [10-operations.md](10-operations.md) 참고.
 
 > [!warning] 내부 전용
-> [뇌] 그래프 사이트(`web/`)와 [비서] RAG 채팅 두 화면 모두 Cloudflare Zero Trust(이메일 인증) 뒤의 사내 전용이다. 온프레미스(사내 GPU Quadro RTX 6000 24GB×2)에서만 구동하며 어느 화면도 인터넷에 공개하지 않는다.
+> [뇌] 그래프 사이트(`web/`)와 [LLM] RAG 채팅 두 화면 모두 Cloudflare Zero Trust(이메일 인증) 뒤의 사내 전용이다. 온프레미스(사내 GPU Quadro RTX 6000 24GB×2)에서만 구동하며 어느 화면도 인터넷에 공개하지 않는다.
 
 ---
 
@@ -639,7 +639,7 @@ cd tools && uvicorn 04_rag_api:app --host 127.0.0.1 --port 9000
 | 내부감사는 누가 어떻게? | 내부감사규정 제17조 | 0.348 |
 | 법인카드 분실하면? | 법인카드관리및사용규칙 제3조 | 0.354 |
 
-> 위 회수 결과는 검색 정확도 확인용이다. **실제 답변(금액·절차·조문 번호)은 규정 원문으로만 확인**하며, 미검수 콘텐츠는 비서 답변 근거로 쓰지 않는다.
+> 위 회수 결과는 검색 정확도 확인용이다. **실제 답변(금액·절차·조문 번호)은 규정 원문으로만 확인**하며, 미검수 콘텐츠는 LLM 답변 근거로 쓰지 않는다.
 
 ### 04 API · 생성
 
