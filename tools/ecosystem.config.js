@@ -40,6 +40,9 @@ module.exports = {
         RAG_RERANK: "1",
         RAG_RERANK_DEVICE: "cuda:1", // 비어있는 GPU1(가득 찬 GPU0과 분리). CPU는 ~14s라 부적합
         RAG_RERANK_POOL: "20",
+        // 기능 플래그 관리자(쉼표 구분 아이디). 여기 등록된 계정만 /admin에서 토글 가능.
+        // 미지정 시 첫 가입자(최소 id)가 관리자(부트스트랩). 운영자 계정으로 바꾸세요.
+        APP_ADMINS: "21963",
         PYTHONUNBUFFERED: "1", // print/로그 즉시 flush(PM2 로그 가시성)
       },
     },

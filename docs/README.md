@@ -87,7 +87,7 @@ flowchart LR
 | 10 | 운영 (Operations) | 일상 운영 · 재색인 · 백업 · 장애 대응 | [10-operations.md](10-operations.md) |
 | 11 | 용어집 (Glossary) | 프로젝트 용어 표기 기준 | [11-glossary.md](11-glossary.md) |
 | 12 | 품질 강화 (Quality) | 평가셋·검수·별표·리랭커 (P1.1~P1.4) · before/after 지표 | [12-품질강화.md](12-품질강화.md) |
-| 13 | 기능 플래그 (Feature Flags) | deploy/release 분리 · 정적export 런타임 플래그 · 자체구축 권장안 (**제안**) | [13-feature-flags.md](13-feature-flags.md) |
+| 13 | 기능 플래그 (Feature Flags) | deploy/release 분리 · 런타임 플래그 + 관리자 토글 + 감사로그 (**구현·매뉴얼**) | [13-feature-flags.md](13-feature-flags.md) |
 
 > [!todo]
 > 확인 필요: 위 본문 파일(01~11)은 FILE MAP에 따라 계획된 경로입니다. 아직 작성되지 않은 문서가 있다면 작성 순서는 [08-roadmap.md](08-roadmap.md)와 [../WORKPLAN.md](../WORKPLAN.md)를 따릅니다.

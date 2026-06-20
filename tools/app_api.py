@@ -21,6 +21,7 @@ import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from sqlalchemy import event
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 
 import rag_core
@@ -49,6 +50,15 @@ SECRET = _load_secret()
 engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})
 
 
+@event.listens_for(engine, "connect")
+def _sqlite_pragmas(dbapi_conn, _rec):
+    """WAL + busy_timeout: 동시 쓰기('database is locked' 500) 완화. 채팅·플래그 쓰기 공용 견고화."""
+    cur = dbapi_conn.cursor()
+    cur.execute("PRAGMA journal_mode=WAL")
+    cur.execute("PRAGMA busy_timeout=5000")
+    cur.close()
+
+
 # ───────────────────────── 모델 ─────────────────────────
 class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -74,8 +84,61 @@ class Message(SQLModel, table=True):
     created_at: float = Field(default_factory=time.time)
 
 
+# ───────────────────────── 기능 플래그 ─────────────────────────
+# 메타데이터(기본값·설명·소유자·만료)는 '코드 레지스트리'에, 현재 값은 DB(Flag)에 둔다.
+# → 프론트가 알 수 있는 플래그 목록·안전 기본값은 코드가 단일 출처. DB는 런타임 오버라이드.
+# ⛔ 클라이언트로 내려가는 값이므로 민감정보(금액·한도·내부로직) 금지. 다 쓴 플래그는 만료일 맞춰 제거(flag debt).
+FLAG_REGISTRY: dict = {
+    "demo_banner": {
+        "default": False,
+        "description": "전 화면 상단에 '미리보기' 배너 표시 (기능 플래그 예시·검증용)",
+        "owner": "platform",
+        "expires": "",  # 예시(장수). 실제 release 플래그는 실제 만료일(YYYY-MM-DD)을 적어 정리 강제
+    },
+}
+
+
+class Flag(SQLModel, table=True):
+    key: str = Field(primary_key=True)
+    enabled: bool = False
+    updated_by: str = ""
+    updated_at: float = Field(default_factory=time.time)
+
+
+class FlagAudit(SQLModel, table=True):  # 누가 언제 무엇을 토글했는지(감사 — 행정/감사 영역 필수)
+    id: Optional[int] = Field(default=None, primary_key=True)
+    key: str = Field(index=True)
+    enabled: bool
+    actor: str
+    at: float = Field(default_factory=time.time)
+
+
+def ensure_flags():
+    """레지스트리에 정의된 플래그가 DB에 없으면 기본값으로 생성(idempotent).
+    필수키 누락 등 잘못된 항목은 건너뛰고 경고만(한 플래그 실수가 API 전체 기동을 막지 않도록 — fail-safe)."""
+    with Session(engine) as s:
+        existing = {f.key for f in s.exec(select(Flag)).all()}
+        for k, meta in FLAG_REGISTRY.items():
+            if not isinstance(meta, dict):
+                print(f"⚠ FLAG_REGISTRY['{k}'] 형식 오류 — 건너뜀")
+                continue
+            if k not in existing:
+                s.add(Flag(key=k, enabled=bool(meta.get("default", False)), updated_by="(default)"))
+        s.commit()
+
+
+def effective_flags() -> dict:
+    """레지스트리 기준 현재 유효값 {key: bool}. DB값 우선, 없으면 기본값(누락 시 안전한 False)."""
+    with Session(engine) as s:
+        db = {f.key: f.enabled for f in s.exec(select(Flag)).all()}
+    return {k: bool(db.get(k, (meta or {}).get("default", False))) for k, meta in FLAG_REGISTRY.items()}
+
+
 def init_db():
     SQLModel.metadata.create_all(engine)
+    ensure_flags()
+    if not {x.strip() for x in os.environ.get("APP_ADMINS", "").split(",") if x.strip()}:
+        print("⚠ APP_ADMINS 미설정 — 기능 플래그 관리자 기능 비활성(아무도 토글 불가). 운영자 아이디를 APP_ADMINS에 설정하세요.")
 
 
 # ───────────────────────── 인증 ─────────────────────────
@@ -114,6 +177,20 @@ def current_user(request: Request) -> User:
     if not u:
         raise HTTPException(401, "사용자를 찾을 수 없습니다.")
     return u
+
+
+def is_admin(u: User) -> bool:
+    """관리자 판별: APP_ADMINS(쉼표 구분 아이디)에 포함되면 관리자.
+    ⚠ fail-closed: APP_ADMINS 미설정이면 '아무도 관리자 아님'(공개 register로 인한 권한상승 방지).
+    부트스트랩은 안 쓴다 — 운영자가 APP_ADMINS를 명시해야 관리자 기능이 켜진다."""
+    names = {x.strip() for x in os.environ.get("APP_ADMINS", "").split(",") if x.strip()}
+    return bool(names) and u.username in names
+
+
+def current_admin(user: User = Depends(current_user)) -> User:
+    if not is_admin(user):
+        raise HTTPException(403, "관리자 권한이 필요합니다.")
+    return user
 
 
 # ───────────────────────── 스키마 ─────────────────────────
@@ -156,7 +233,7 @@ def login(body: AuthIn, response: Response):
     with Session(engine) as s:
         u = s.exec(select(User).where(User.username == body.username.strip())).first()
         ok = bool(u) and check_pw(body.password, u.password_hash)
-        uid, un = (u.id, u.username) if u else (None, None)
+        uid, un = (u.id, u.username) if ok else (None, None)  # 성공 시에만 uid 설정(None 토큰 발급 방지)
     if not ok:
         raise HTTPException(401, "아이디 또는 비밀번호가 올바르지 않습니다.")
     set_cookie(response, make_token(uid))
@@ -171,7 +248,59 @@ def logout(response: Response):
 
 @router.get("/auth/me")
 def me(user: User = Depends(current_user)):
-    return {"id": user.id, "username": user.username}
+    return {"id": user.id, "username": user.username, "is_admin": is_admin(user)}
+
+
+# ───────────────────────── 기능 플래그 엔드포인트 ─────────────────────────
+class FlagIn(BaseModel):
+    enabled: bool
+
+
+@router.get("/flags")
+def get_flags():
+    """현재 유효 플래그 {key: bool}. 인증 불요(둘러보기/그래프도 사용) — UI 토글일 뿐 비민감."""
+    return effective_flags()
+
+
+@router.get("/flags/manage")
+def manage_flags(admin: User = Depends(current_admin)):
+    """관리자 페이지용: 메타데이터 포함 전체 목록."""
+    eff = effective_flags()
+    with Session(engine) as s:
+        rows = {f.key: f for f in s.exec(select(Flag)).all()}
+    flags = []
+    for k, meta in FLAG_REGISTRY.items():
+        r = rows.get(k)
+        flags.append({
+            "key": k, "enabled": eff[k], "description": (meta or {}).get("description", ""),
+            "owner": (meta or {}).get("owner", ""), "expires": (meta or {}).get("expires", ""),
+            "updated_by": r.updated_by if r else "", "updated_at": r.updated_at if r else None,
+        })
+    return {"flags": flags, "admin": admin.username}
+
+
+@router.post("/flags/{key}")
+def set_flag(key: str, body: FlagIn, admin: User = Depends(current_admin)):
+    if key not in FLAG_REGISTRY:
+        raise HTTPException(404, "알 수 없는 플래그입니다.")
+    now = time.time()  # updated_at과 audit.at을 동일 시각으로
+    with Session(engine) as s:
+        f = s.exec(select(Flag).where(Flag.key == key)).first() or Flag(key=key)
+        f.enabled = body.enabled
+        f.updated_by = admin.username
+        f.updated_at = now
+        s.add(f)
+        s.add(FlagAudit(key=key, enabled=body.enabled, actor=admin.username, at=now))
+        s.commit()
+        s.refresh(f)
+    return {"key": key, "enabled": f.enabled, "updated_by": f.updated_by, "updated_at": f.updated_at}
+
+
+@router.get("/flags/audit")
+def flag_audit(admin: User = Depends(current_admin), limit: int = 50):
+    with Session(engine) as s:
+        rows = s.exec(select(FlagAudit).order_by(FlagAudit.at.desc()).limit(limit)).all()
+    return [{"key": r.key, "enabled": r.enabled, "actor": r.actor, "at": r.at} for r in rows]
 
 
 # ───────────────────────── chat 엔드포인트 ─────────────────────────

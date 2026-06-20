@@ -1,8 +1,8 @@
-# 13 · 기능 플래그(Feature Flags) — 설계 검토·권장안 (제안)
+# 13 · 기능 플래그(Feature Flags) — 설계 + 운영 매뉴얼
 
 > "다음 버전마다 포트(3102…)를 새로 열거나 통째로 동결하지 않고, **한 코드베이스에서 기능을 켜고/끄며**
-> 개발·운영을 가르자"는 아이디어의 검토. 이 문서는 **결정 전 제안**이다(구현 전). 채택 시 ADR로 승격.
-> 리서치 출처는 맨 아래. 우리 제약: **온프레미스·사내전용·인터넷 비공개**(CLAUDE.md 절대규칙 #5), 정적 export 프론트.
+> 개발·운영을 가르자"는 방식. **✅ 구현 완료(Phase 0~1)**. 아래 §10이 실제 사용/운영 매뉴얼이다.
+> 우리 제약: **온프레미스·사내전용·인터넷 비공개**(CLAUDE.md 절대규칙 #5), 정적 export 프론트.
 
 ## 1. 한 줄 정의 / 왜
 기능 플래그 = **배포(deploy)와 출시(release)를 분리**하는 스위치. 코드는 미리 내보내되, 사용자에게 보일지는
@@ -83,6 +83,53 @@
 SaaS는 금지(데이터 외부), OSS 서비스(Unleash 등)는 소규모엔 과함. 우리 스택에 이미 있는 것만으로 충분하고,
 정적 export 제약(런타임 fetch·안전 기본값)만 지키면 됨. 채택하면 "버전마다 포트/동결" → "플래그 토글"로 운영이 가벼워진다.
 
+## 10. 운영 매뉴얼 (구현됨)
+구현 구성: 백엔드 `tools/app_api.py`(SQLite `Flag`/`FlagAudit` + 코드 레지스트리 `FLAG_REGISTRY`),
+프론트 `web/lib/flags.tsx`(`useFlag`/`useFlags`), 관리자 페이지 `web/pages/admin.tsx`(`/admin`).
+
+### A. 새 플래그 추가 (코드 1곳 + 프론트 기본값 1곳)
+1. **백엔드 레지스트리** `tools/app_api.py`의 `FLAG_REGISTRY`에 항목 추가(기본값·설명·소유자·만료):
+   ```python
+   "new_feature_x": {"default": False, "description": "X 기능 노출", "owner": "본인", "expires": "2026-09-30"},
+   ```
+   기동 시 `ensure_flags()`가 DB에 없으면 기본값으로 자동 생성. (백엔드 재시작 필요: `pm2 restart kei-rag-api`)
+2. **프론트 안전 기본값** `web/lib/flags.tsx`의 `FLAG_DEFAULTS`에 같은 키 추가(기본은 안전한 쪽=보통 `false`).
+   ⚠️ 두 곳 키가 어긋나면 안 됨(레지스트리=출처, 프론트=fetch 전 안전값).
+
+### B. 코드에서 사용
+- **프론트(UI 노출 토글)**:
+  ```tsx
+  import { useFlag } from "../lib/flags";
+  const on = useFlag("new_feature_x");
+  return on ? <NewThing/> : <OldThing/>;   // fetch 전엔 안전 기본값으로 렌더(깜빡임 없음)
+  ```
+- **백엔드(행동 토글)**: `from app_api import effective_flags; if effective_flags()["new_feature_x"]: ...`
+  (단, 모델 로딩이 걸리는 무거운 파이프라인 토글 `RAG_RERANK` 등은 그대로 env로 — 기동 시 결정.)
+
+### C. 켜고/끄기 (운영)
+- `/admin` 접속(관리자만) → 토글 스위치 클릭 → **즉시 반영**(재배포 X). 변경은 **감사 이력**에 남음.
+- 관리자 지정: `tools/ecosystem.config.js`의 `APP_ADMINS`(쉼표 구분 아이디). 미지정 시 첫 가입자=관리자(부트스트랩).
+  ⚠️ **운영에선 APP_ADMINS를 반드시 명시**(누구나 먼저 가입해 관리자가 되는 일 방지).
+- 사고 시 **해당 플래그 OFF = 즉시 롤백**(kill-switch). 재배포·동결 불필요.
+
+### D. 정리(flag debt) — 필수 규율
+- 다 쓴(100% 출시됐거나 폐기된) 플래그는 **만료일에 맞춰 제거**: `FLAG_REGISTRY`·`FLAG_DEFAULTS`에서 키 삭제 +
+  그 키를 쓰던 `useFlag`/분기 제거. (DB row는 남아도 무해하나 깔끔히 지워도 됨.)
+- 생성 시 **만료일·소유자**를 꼭 적는다. "나중에 정리"는 좀비 플래그를 만든다.
+
+### E. 보안 메모 (적대적 검토 반영)
+- 변경(`POST /flags/{key}`)·관리 조회(`/flags/manage`,`/flags/audit`)는 **관리자 전용**(`current_admin`, 비관리자 403 검증). 알 수 없는 key는 404로 차단(임의 DB 오염 불가).
+- **관리자 게이트 fail-closed**: `APP_ADMINS` 미설정 시 **아무도 관리자 아님**(공개 register로 인한 권한상승 차단) + 기동 경고. 운영자는 `APP_ADMINS`를 반드시 명시.
+- `GET /app/flags`(공개, 비인증)에는 **불리언 UI 토글만** — 클라이언트 공개 전제, **금액/한도/내부로직 금지**. 앱은 Cloudflare ZT 망 게이트 뒤.
+- **CORS**: `allow_origins=["*"]`이되 `allow_credentials`는 끔 → 교차오리진 쿠키 차단(인증은 server.js same-origin 프록시로만). ⛔ 절대 `allow_credentials=True`와 와일드카드를 함께 켜지 말 것(코드 경고 주석 있음).
+- **CSRF**: 세션 쿠키 `httponly+samesite=lax` + 변경은 POST/JSON 바디 + 교차오리진 쿠키 차단의 조합으로 단순 CSRF는 막힘. 내부망+ZT 가정. (더 엄격히 하려면 `X-CSRF` 더블서밋 — Phase 2.)
+- DB 동시쓰기: SQLite **WAL + busy_timeout=5s** 설정으로 'database is locked' 완화(채팅·플래그 공용).
+
+### F. 알려진 한계 (Phase 2 후보)
+- **ON 플래그 1프레임 깜빡임(FOUC)**: 정적 빌드 HTML은 항상 안전 기본값(OFF)이라, 켜진 플래그는 fetch/캐시 반영 전 한 프레임 OFF로 보일 수 있음. 하이드레이션 안전과의 트레이드오프. 해소하려면 `_document` 인라인 부트로 `localStorage` 플래그를 페인트 전 적용(테마와 동일 기법).
+- **레지스트리↔프론트 기본값 동기화**: 두 곳(`FLAG_REGISTRY`/`FLAG_DEFAULTS`) 수동 동기화. 어긋나면 프론트가 `console.warn`으로 경고(드리프트 조기 발견). 기본값은 항상 안전(false)로 두면 드리프트가 fail-safe. (빌드 시 키집합 비교 CI는 Phase 2.)
+- **캐시 staleness**: localStorage 캐시에 TTL 없음 → 롤백(OFF) 직후 `/flags` 실패한 클라이언트는 stale ON 유지 가능. release 성격 플래그는 "실패 시 OFF 폴백"이 안전 기본값. (TTL/버전 — Phase 2.)
+
 ---
 ### 출처(리서치)
 - Martin Fowler, *Feature Toggles* — martinfowler.com/articles/feature-toggles.html
@@ -90,4 +137,5 @@ SaaS는 금지(데이터 외부), OSS 서비스(Unleash 등)는 소규모엔 과
 - OpenFeature(openfeature.dev), Flipt(github.com/flipt-io/flipt), Flagsmith/GrowthBook 비교(flagshark 2026)
 - Next.js `output:export` 런타임 플래그 패턴(클라이언트 fetch·FOUC·쿠키 오버라이드)
 
-> 작성 2026-06-21 · 상태: **제안(미결정)**. 채택 시 ADR 승격 + 본 문서 갱신.
+> 작성 2026-06-21 · 상태: **✅ Phase 0~1 구현·검증 완료**(런타임 플래그 + 관리자 토글 + 감사로그, end-to-end Playwright 검증).
+> Phase 2(환경별 기본값·`?flag=` 오버라이드·OpenFeature 래핑)는 필요 시. 플래그 추가/정리는 §10 매뉴얼 참조.

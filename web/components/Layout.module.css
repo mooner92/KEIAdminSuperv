@@ -100,7 +100,27 @@
   color: var(--color-text-tertiary);
   font-size: 12.5px;
 }
-.footer .inner { padding-top: 16px; padding-bottom: 16px; }
+.footer .inner {
+  padding-top: 16px;
+  padding-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.adminLink { color: var(--color-text-tertiary); font-weight: 600; white-space: nowrap; }
+.adminLink:hover { color: var(--color-primary); }
+
+/* 기능 플래그 예시 배너(demo_banner) */
+.banner {
+  background: var(--color-primary-weak);
+  color: var(--color-primary-strong);
+  border-bottom: 1px solid var(--color-border);
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px var(--space-5);
+}
 
 @media (max-width: 880px) {
   /* 모바일: fill 고정 해제 → 일반 스크롤로 폴백(둘러보기/그래프) */

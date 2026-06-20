@@ -1,6 +1,7 @@
 import type { AppProps } from "next/app";
 import { TDSMobileAITProvider } from "@toss/tds-mobile-ait";
 import { ThemeProvider } from "../lib/theme";
+import { FlagsProvider } from "../lib/flags";
 import "../styles/globals.css";
 
 // ThemeProvider가 <html data-theme>를 관리(KEI 시맨틱 토큰 분기),
@@ -9,9 +10,11 @@ import "../styles/globals.css";
 export default function App({ Component, pageProps }: AppProps) {
   return (
     <ThemeProvider>
-      <TDSMobileAITProvider>
-        <Component {...pageProps} />
-      </TDSMobileAITProvider>
+      <FlagsProvider>
+        <TDSMobileAITProvider>
+          <Component {...pageProps} />
+        </TDSMobileAITProvider>
+      </FlagsProvider>
     </ThemeProvider>
   );
 }

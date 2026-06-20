@@ -1,7 +1,17 @@
 // LLM 앱 API 클라이언트 — 같은 오리진 /api/app/*(server.js가 로컬 RAG API로 프록시).
 // 쿠키(httpOnly 세션)는 같은 오리진이라 자동 전송된다.
 
-export type User = { id: number; username: string };
+export type User = { id: number; username: string; is_admin?: boolean };
+export type FlagMeta = {
+  key: string;
+  enabled: boolean;
+  description: string;
+  owner: string;
+  expires: string;
+  updated_by: string;
+  updated_at: number | null;
+};
+export type FlagAudit = { key: string; enabled: boolean; actor: string; at: number };
 export type ChatMeta = { id: number; title: string; created_at: number; updated_at: number };
 export type Source = {
   규정명: string;
@@ -133,4 +143,11 @@ export const api = {
   renameChat: (id: number, title: string) =>
     j<ChatMeta>(`/chats/${id}`, { method: "PATCH", body: JSON.stringify({ title }) }),
   deleteChat: (id: number) => j<{ ok: boolean }>(`/chats/${id}`, { method: "DELETE" }),
+
+  // 기능 플래그
+  flags: () => j<Record<string, boolean>>("/flags", undefined, 6000), // 공개(UI 토글), 짧은 타임아웃
+  flagsManage: () => j<{ flags: FlagMeta[]; admin: string }>("/flags/manage"),
+  setFlag: (key: string, enabled: boolean) =>
+    j<FlagMeta>(`/flags/${encodeURIComponent(key)}`, { method: "POST", body: JSON.stringify({ enabled }) }),
+  flagsAudit: () => j<FlagAudit[]>("/flags/audit"),
 };
