@@ -29,11 +29,11 @@ export default function Login({ onAuthed }: { onAuthed: (u: User) => void }) {
     <div className={styles.wrap}>
       <div className={styles.card}>
         <div className={styles.brand}>
-          <span className={styles.mark}>KEI</span> 행정 비서
+          <span className={styles.mark}>KEI</span> 행정 LLM
         </div>
         <h1 className={styles.title}>{mode === "login" ? "로그인" : "회원가입"}</h1>
         <p className={styles.lead}>
-          사내 규정을 근거로 답하는 행정 비서입니다. 채팅 기록은 계정별로 안전하게 보관됩니다.
+          사내 규정을 근거로 답하는 행정 LLM입니다. 채팅 기록은 계정별로 안전하게 보관됩니다.
         </p>
 
         <form onSubmit={submit} className={styles.form}>

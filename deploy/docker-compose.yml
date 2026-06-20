@@ -1,4 +1,4 @@
-# KEI 행정 비서 배포 스택 (시작 템플릿)
+# KEI 행정 LLM 배포 스택 (시작 템플릿)
 # 전제: vLLM(LLM)은 이미 data05lx에서 돌고 있다고 가정 → 여기선 UI + 임베딩만.
 # 모두 사내 전용. 반드시 Cloudflare Zero Trust Access 뒤에 두세요(인터넷 공개 금지).
 services:

@@ -1,4 +1,4 @@
-// 비서 앱 API 클라이언트 — 같은 오리진 /api/app/*(server.js가 로컬 RAG API로 프록시).
+// LLM 앱 API 클라이언트 — 같은 오리진 /api/app/*(server.js가 로컬 RAG API로 프록시).
 // 쿠키(httpOnly 세션)는 같은 오리진이라 자동 전송된다.
 
 export type User = { id: number; username: string };

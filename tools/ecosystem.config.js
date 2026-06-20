@@ -1,5 +1,5 @@
 /**
- * PM2 프로세스 정의 — KEI 행정 비서 RAG API (OpenAI 호환).
+ * PM2 프로세스 정의 — KEI 행정 LLM RAG API (OpenAI 호환).
  *
  * 04_rag_api.py 를 uvicorn으로 띄운다. 127.0.0.1 전용(외부 비노출):
  * 정적 프론트(server.js)가 /api/rag/* 를 이 포트로 프록시한다.
