@@ -1,0 +1,2 @@
+{"id": "q001", "category": "<분류코드 예: 4000_보수·여비>", "type": "regulation", "question": "<직원이 실제로 물을 만한 자연어 질문>", "expected_sources": [{"규정명": "<규정명>", "조": "제N조"}], "answer_grounding": "<해당 조문에서 도출한 짧은 근거 요지 — 절대 지어내지 말 것>", "verified": false, "note": "실제 청크 기반 초안 — 사람 검수 전(검수상태:미검수)"}
+{"id": "q024", "category": "ERP시스템", "type": "system", "question": "<ERP 화면/기능에 대한 질문>", "expected_sources": [{"규정명": "ERP 시스템 · <모듈>", "조": "<화면명>"}], "answer_grounding": "<화면ID·모듈 등 노트에서 도출한 요지>", "verified": false, "note": "시스템/용어/가이드 노트는 조가 헤딩 라벨이거나 빈 값(규정명만 매칭)"}

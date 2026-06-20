@@ -37,6 +37,12 @@ tools/.app_secret
 # 동결/실행 방법은 deploy/ecosystem.legacy-v1.config.js · deploy/README.md 참조(설정 파일만 추적).
 .legacy-v1/
 
+# ── 평가셋/리포트 (규정 원문에서 도출한 정답·금액·한도 포함 → 공개 레포 커밋 금지) ──
+# 하베스트 코드(run_eval.py·run.sh)와 스키마 예시(golden.example.jsonl)만 추적한다.
+eval/golden.jsonl
+eval/reports/
+eval/*.local.jsonl
+
 # ── 원본 규정/가이드 소스 (내부 전용 — 절대 커밋 금지) ──
 rule_files/
 research_rule_files/
