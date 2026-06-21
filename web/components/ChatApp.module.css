@@ -124,6 +124,56 @@
 .aiSrcHint { font-size: 12px; color: var(--color-text-tertiary); padding: 2px 0 6px; font-weight: 600; }
 .typing { color: var(--color-text-tertiary); font-size: 14px; }
 
+/* ── 금액·한도 답변: 원문 확인 유도 ── */
+.moneyNote {
+  margin: 2px 0 0;
+  padding: 7px 11px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  background: var(--color-warning-weak, var(--color-bg-subtle));
+  border: 1px solid var(--color-warning, var(--color-border-strong));
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+.moneyNote b { color: var(--color-text); }
+
+/* ── 답변 평가(👍/👎) ── */
+.fbRow { display: flex; align-items: center; gap: 6px; padding: 2px 0 0 2px; }
+.fbBtn {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  line-height: 1;
+  padding: 4px 9px;
+  cursor: pointer;
+  opacity: 0.65;
+  transition: all 0.1s;
+}
+.fbBtn:hover { opacity: 1; border-color: var(--color-border-strong); }
+.fbUp { opacity: 1; border-color: var(--color-primary); background: var(--color-primary-weak); }
+.fbDown { opacity: 1; border-color: var(--color-danger); background: var(--color-surface); }
+.fbReasonShown {
+  font-size: 12px; color: var(--color-text-tertiary); font-style: italic;
+  max-width: 60%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.fbReasonBox { display: flex; align-items: center; gap: 6px; margin-top: 4px; max-width: 94%; }
+.fbReasonInput {
+  flex: 1; min-width: 0;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font: inherit; font-size: 13px;
+  background: var(--color-surface); color: var(--color-text);
+}
+.fbReasonInput:focus { outline: none; border-color: var(--color-primary); }
+.fbReasonSend {
+  flex: 0 0 auto; border: none; background: var(--color-primary); color: var(--color-on-primary);
+  font-weight: 700; font-size: 12.5px; border-radius: var(--radius-sm); padding: 6px 12px; cursor: pointer;
+}
+.fbReasonSkip { flex: 0 0 auto; border: none; background: none; color: var(--color-text-tertiary); font-size: 12.5px; cursor: pointer; }
+
 .composer {
   display: flex;
   gap: var(--space-2);
@@ -199,6 +249,11 @@
 .srcTag { font-size: 13px; color: var(--color-text); }
 .srcCat { font-size: 11.5px; color: var(--color-text-tertiary); }
 .srcSnippet { font-size: 12px; color: var(--color-text-secondary); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+/* 근거 스니펫 안의 금액·한도 수치 강조(생성 텍스트가 아니라 원문에서 확인하도록) */
+.fig { background: var(--color-primary-weak); color: var(--color-primary-strong); font-weight: 700; border-radius: 3px; padding: 0 2px; }
+/* 근거별 검수상태 배지 */
+.stOk { font-size: 10.5px; font-weight: 700; color: var(--color-success); margin-left: 6px; white-space: nowrap; }
+.stWarn { font-size: 10.5px; font-weight: 700; color: var(--color-warning); margin-left: 6px; white-space: nowrap; }
 .graphCta { margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--color-border); font-size: 13px; font-weight: 600; color: var(--color-text-secondary); }
 .graphCta:hover { color: var(--color-primary); }
 

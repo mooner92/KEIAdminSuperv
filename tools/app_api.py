@@ -84,6 +84,20 @@ class Message(SQLModel, table=True):
     created_at: float = Field(default_factory=time.time)
 
 
+class Feedback(SQLModel, table=True):
+    """답변 피드백(👍/👎 + 사유). 사용자당·메시지당 1건(코드 레벨 upsert).
+    ⛔ 가드레일: 이 신호는 '무엇부터 다시 검수할지' 우선순위에만 쓰인다 —
+       검수상태(미검수→검수완료)를 자동으로 바꾸지 않는다(사람만). feedback_export.py가 소비."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    message_id: int = Field(index=True)
+    session_id: int = Field(index=True)
+    user_id: int = Field(index=True)
+    rating: str  # up | down
+    reason: str = ""
+    created_at: float = Field(default_factory=time.time)
+    updated_at: float = Field(default_factory=time.time)
+
+
 # ───────────────────────── 기능 플래그 ─────────────────────────
 # 메타데이터(기본값·설명·소유자·만료)는 '코드 레지스트리'에, 현재 값은 DB(Flag)에 둔다.
 # → 프론트가 알 수 있는 플래그 목록·안전 기본값은 코드가 단일 출처. DB는 런타임 오버라이드.
@@ -207,6 +221,11 @@ class RenameIn(BaseModel):
     title: str
 
 
+class FeedbackIn(BaseModel):
+    rating: str            # up | down
+    reason: str = ""       # 선택(👎일 때 무엇이 부족했는지)
+
+
 router = APIRouter(prefix="/app")
 
 
@@ -308,13 +327,17 @@ def _ses(cs: ChatSession) -> dict:
     return {"id": cs.id, "title": cs.title, "created_at": cs.created_at, "updated_at": cs.updated_at}
 
 
-def _msg(m: Message) -> dict:
+def _msg(m: Message, fb: Optional[dict] = None) -> dict:
+    """fb: {message_id: {"rating","reason"}} — 이 사용자의 피드백 상태(없으면 None)."""
+    f = (fb or {}).get(m.id)
     return {
         "id": m.id,
         "role": m.role,
         "content": m.content,
         "sources": json.loads(m.sources_json) if m.sources_json else [],
         "created_at": m.created_at,
+        "feedback": f["rating"] if f else None,
+        "feedback_reason": (f.get("reason") if f else "") or "",
     }
 
 
@@ -353,7 +376,14 @@ def get_chat(cid: int, user: User = Depends(current_user)):
             select(Message).where(Message.session_id == cid)
             .order_by(Message.created_at, Message.id)
         ).all()
-        return {"session": _ses(cs), "messages": [_msg(m) for m in msgs]}
+        fb = {
+            f.message_id: {"rating": f.rating, "reason": f.reason}
+            for f in s.exec(
+                select(Feedback).where(Feedback.session_id == cid)
+                .where(Feedback.user_id == user.id)
+            ).all()
+        }
+        return {"session": _ses(cs), "messages": [_msg(m, fb) for m in msgs]}
 
 
 @router.patch("/chats/{cid}")
@@ -376,6 +406,89 @@ def delete_chat(cid: int, user: User = Depends(current_user)):
         s.delete(cs)
         s.commit()
     return {"ok": True}
+
+
+# ───────────────────────── 답변 피드백(👍/👎) ─────────────────────────
+def _owned_assistant_msg(s: Session, mid: int, user: User) -> Message:
+    """피드백 대상 메시지: 존재 + 본인 소유 세션 + assistant 역할이어야 한다."""
+    m = s.get(Message, mid)
+    if not m:
+        raise HTTPException(404, "메시지를 찾을 수 없습니다.")
+    cs = s.get(ChatSession, m.session_id)
+    if not cs or cs.user_id != user.id:
+        raise HTTPException(404, "메시지를 찾을 수 없습니다.")
+    if m.role != "assistant":
+        raise HTTPException(400, "답변 메시지에만 피드백할 수 있습니다.")
+    return m
+
+
+@router.post("/messages/{mid}/feedback")
+def set_feedback(mid: int, body: FeedbackIn, user: User = Depends(current_user)):
+    """답변에 👍/👎(+사유) 남기기. 같은 메시지에 다시 보내면 갱신(upsert)."""
+    rating = (body.rating or "").strip().lower()
+    if rating not in ("up", "down"):
+        raise HTTPException(400, "rating은 'up' 또는 'down'이어야 합니다.")
+    reason = (body.reason or "").strip()[:500]
+    now = time.time()
+    with Session(engine) as s:
+        m = _owned_assistant_msg(s, mid, user)
+        f = s.exec(
+            select(Feedback).where(Feedback.message_id == mid).where(Feedback.user_id == user.id)
+        ).first()
+        if f:
+            f.rating, f.reason, f.updated_at = rating, reason, now
+        else:
+            f = Feedback(message_id=mid, session_id=m.session_id, user_id=user.id,
+                         rating=rating, reason=reason, created_at=now, updated_at=now)
+        s.add(f)
+        s.commit()
+    return {"message_id": mid, "feedback": rating, "feedback_reason": reason}
+
+
+@router.delete("/messages/{mid}/feedback")
+def clear_feedback(mid: int, user: User = Depends(current_user)):
+    """피드백 철회(같은 버튼 다시 누름)."""
+    with Session(engine) as s:
+        _owned_assistant_msg(s, mid, user)  # 소유 확인(없는/남의 메시지 404)
+        f = s.exec(
+            select(Feedback).where(Feedback.message_id == mid).where(Feedback.user_id == user.id)
+        ).first()
+        if f:
+            s.delete(f)
+            s.commit()
+    return {"message_id": mid, "feedback": None}
+
+
+@router.get("/feedback")
+def list_feedback(admin: User = Depends(current_admin), rating: str = "", limit: int = 200):
+    """관리자: 피드백 원시 목록(질문·답변·근거 포함). 콘텐츠 갭/오답 검수의 데이터원.
+    rating='down'이면 부정만. app.db는 gitignore(규정 스니펫 포함) — 관리자 전용으로만 노출."""
+    rating = (rating or "").strip().lower()
+    limit = max(1, min(limit, 1000))
+    with Session(engine) as s:
+        stmt = select(Feedback)
+        if rating in ("up", "down"):
+            stmt = stmt.where(Feedback.rating == rating)
+        rows = s.exec(stmt.order_by(Feedback.updated_at.desc()).limit(limit)).all()
+        out = []
+        for f in rows:
+            m = s.get(Message, f.message_id)
+            srcs = json.loads(m.sources_json) if (m and m.sources_json) else []
+            q = ""
+            if m:  # 직전 user 질문(맥락)
+                prev = s.exec(
+                    select(Message).where(Message.session_id == m.session_id)
+                    .where(Message.id < m.id).where(Message.role == "user")
+                    .order_by(Message.id.desc()).limit(1)
+                ).first()
+                q = prev.content if prev else ""
+            out.append({
+                "id": f.id, "rating": f.rating, "reason": f.reason, "at": f.updated_at,
+                "message_id": f.message_id, "question": q,
+                "answer": (m.content[:500] if m else ""),
+                "sources": [{"규정명": x.get("규정명", ""), "조": x.get("조", "")} for x in srcs],
+            })
+    return out
 
 
 def _sse(obj: dict) -> str:

@@ -45,6 +45,8 @@ eval/*.local.jsonl
 
 # ── 검수 큐 출력 (내부 규정 목록·경로 열거 → 커밋 금지. 생성 코드 review_queue.py만 추적) ──
 tools/.review_queue.json
+# 인앱 피드백 신호(규정명·사유 텍스트 포함 → 커밋 금지. 생성 코드 feedback_export.py만 추적)
+tools/.feedback_signals.json
 tools/chroma.bak.*
 tools/chroma.test/
 

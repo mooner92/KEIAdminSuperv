@@ -9,9 +9,12 @@
   - 별표/별지/별첨 포함 +15 (표 깨짐 위험 + P1.3 대상)
   - 미분류/규정번호 없음 +8 (사람이 현행 규정번호 배정 필요)
   - 피인용(그래프 인바운드 [[링크]]) +min(n,10) (많이 참조되는 노트 = 중요)
+  - 👎 인앱 피드백 +min(2·down, 20) (실사용에서 자주 틀린/부족한 규정 — feedback_export.py 신호)
 
+⛔ 가드레일: 읽기 전용. 검수 '완료'는 사람만. 피드백은 순서만 바꾸고 검수상태를 건드리지 않는다.
 출력: 콘솔 요약(상위 N + 유형/분류별 집계) + 전체 큐 JSON(로컬 전용, gitignore).
 실행:  python tools/review_queue.py --vault KEI-행정가이드 [--top 30] [--type regulation]
+       (피드백 신호 있으면 자동 반영. 먼저 `python tools/feedback_export.py` 실행)
 """
 import argparse
 import json
@@ -44,7 +47,19 @@ def main():
     ap.add_argument("--top", type=int, default=30, help="콘솔에 보일 상위 건수")
     ap.add_argument("--type", default="", help="유형 필터(regulation|guide|system|term)")
     ap.add_argument("--out", default="tools/.review_queue.json", help="전체 큐 JSON(로컬 전용)")
+    ap.add_argument("--feedback", default="tools/.feedback_signals.json",
+                    help="인앱 피드백 신호 JSON(있으면 👎 받은 규정 우선순위↑). feedback_export.py가 생성")
     args = ap.parse_args()
+
+    # 인앱 피드백 신호(선택): {규정명: down 수}. 파일 없으면 조용히 건너뜀(opt-in, graceful).
+    fb_down = {}
+    fbp = Path(args.feedback)
+    if fbp.exists():
+        try:
+            sig = json.loads(fbp.read_text(encoding="utf-8"))
+            fb_down = {k: v.get("down", 0) for k, v in sig.get("by_regulation", {}).items() if v.get("down")}
+        except Exception as e:
+            print(f"⚠ 피드백 신호 로드 실패({type(e).__name__}) — 무시하고 계속")
 
     vault = Path(args.vault)
     notes = []  # (meta, body, path, stem)
@@ -72,29 +87,33 @@ def main():
         has_byeolpyo = bool(re.search(r"별표|별지|별첨", body))
         unclassified = (cat in ("", "0000_미분류")) or (typ == "regulation" and not (meta.get("규정번호") or "").strip())
         inb = inbound.get(stem, 0)
+        down = fb_down.get(name, 0)  # 인앱 👎 피드백 수(규정명/제목 일치)
         score = (TYPE_W.get(typ, 5) + (15 if has_byeolpyo else 0)
-                 + (8 if unclassified else 0) + min(inb, 10))
+                 + (8 if unclassified else 0) + min(inb, 10) + min(2 * down, 20))
         rows.append({
             "score": score, "type": typ, "name": name, "분류": cat,
             "검수상태": reviewed or "미검수", "별표": has_byeolpyo,
-            "미분류": unclassified, "인바운드": inb,
+            "미분류": unclassified, "인바운드": inb, "피드백_down": down,
             "path": str(md.relative_to(vault)),
         })
 
     rows.sort(key=lambda r: (-r["score"], r["type"], r["name"]))
 
     # 콘솔 요약
+    n_fb = sum(1 for r in rows if r["피드백_down"])
     print(f"검수 큐: 미검수 {len(rows)}건"
           + (f" (유형={args.type})" if args.type else "")
-          + f" · 별표포함 {sum(r['별표'] for r in rows)} · 미분류 {sum(r['미분류'] for r in rows)}")
+          + f" · 별표포함 {sum(r['별표'] for r in rows)} · 미분류 {sum(r['미분류'] for r in rows)}"
+          + (f" · 👎피드백 {n_fb}" if fb_down else " · 👎피드백 신호 없음(feedback_export.py 먼저 실행)"))
     by_type = Counter(r["type"] for r in rows)
     print("  유형별:", ", ".join(f"{k} {v}" for k, v in sorted(by_type.items())))
     print(f"\n=== 상위 {min(args.top, len(rows))} (점수 내림차순) ===")
-    print(f"{'점수':>4} {'유형':<11} {'별표':^4} {'미분류':^5} {'인바':>4}  제목 / 분류")
+    print(f"{'점수':>4} {'유형':<11} {'별표':^4} {'미분류':^5} {'인바':>4} {'👎':>3}  제목 / 분류")
     for r in rows[:args.top]:
         flag_b = "별표" if r["별표"] else " · "
         flag_u = "미분류" if r["미분류"] else "  · "
-        print(f"{r['score']:>4} {r['type']:<11} {flag_b:^4} {flag_u:^5} {r['인바운드']:>4}  "
+        dn = str(r["피드백_down"]) if r["피드백_down"] else " ·"
+        print(f"{r['score']:>4} {r['type']:<11} {flag_b:^4} {flag_u:^5} {r['인바운드']:>4} {dn:>3}  "
               f"{r['name'][:34]}  ({r['분류'] or '-'})")
 
     out = Path(args.out)

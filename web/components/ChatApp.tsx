@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import Link from "next/link";
 import Markdown from "./Markdown";
 import DocDrawer from "./DocDrawer";
@@ -13,6 +13,33 @@ const EXAMPLES = [
   "초과근무 수당 지급 기준이 궁금해요.",
 ];
 const STREAM_ID = -3; // 스트리밍 중인 assistant 메시지의 임시 id
+
+// 금액·한도 신뢰 강화: 답변에 금액/한도가 있으면 "원문에서 수치 확인" 안내 + 근거 스니펫의 수치 강조.
+// ⛔ 생성 텍스트의 숫자는 검증 대상 — 사용자가 원문 표/조문을 직접 보도록 유도한다(절대 규칙 1).
+const MONEY_RE = /(\d[\d,]*\s*(?:원|만원|천원|억원|퍼센트|%))|한도|상한|지급(?:액|률|기준)/;
+const FIG_SRC =
+  "(\\d[\\d,]*\\s*(?:원|만원|천원|억원|퍼센트|%|일|개월|년|시간|회|배|km|킬로미터|점|명))|한도|상한액|상한|지급액|기준액";
+const hasMoney = (t: string): boolean => MONEY_RE.test(t || "");
+function highlightFigures(text: string, cls: string): ReactNode {
+  if (!text) return text;
+  const re = new RegExp(FIG_SRC, "g");
+  const out: ReactNode[] = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+  let i = 0;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) out.push(text.slice(last, m.index));
+    out.push(
+      <mark key={i++} className={cls}>
+        {m[0]}
+      </mark>
+    );
+    last = m.index + m[0].length;
+    if (m.index === re.lastIndex) re.lastIndex++; // 0-length 매치 방지
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
 
 /** LLM 본체 — 좌측 대화 목록 + 중앙 채팅(멀티턴) + 우측 메시지별 근거 + 문서 드로어. */
 export default function ChatApp({
@@ -32,11 +59,20 @@ export default function ChatApp({
   const [sending, setSending] = useState(false);
   const [openSlug, setOpenSlug] = useState<string | null>(null);
   const [openAnchor, setOpenAnchor] = useState("");
+  const [reasonFor, setReasonFor] = useState<number | null>(null); // 👎 사유 입력창이 열린 메시지 id
+  const [reasonText, setReasonText] = useState("");
   const threadRef = useRef<HTMLDivElement>(null);
 
   const titleToSlug = useMemo(() => {
     const m = new Map<string, string>();
     for (const d of docs) if (!m.has(d.title)) m.set(d.title, d.slug);
+    return m;
+  }, [docs]);
+
+  // 규정명 → 검수상태(근거 카드 배지용). docdata에서 조회 → 백엔드/재임베딩 불필요.
+  const titleToStatus = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const d of docs) if (!m.has(d.title)) m.set(d.title, d.reviewed || "");
     return m;
   }, [docs]);
 
@@ -150,6 +186,46 @@ export default function ChatApp({
     setOpenAnchor(s.조 ? `#${s.조}` : "");
   };
 
+  // 답변 평가(👍/👎). 같은 버튼을 다시 누르면 철회(toggle). 👎는 사유 입력창을 연다.
+  const rate = async (mid: number, rating: "up" | "down") => {
+    const cur = messages.find((m) => m.id === mid)?.feedback ?? null;
+    try {
+      if (cur === rating) {
+        await api.clearFeedback(mid);
+        setMessages((prev) =>
+          prev.map((m) => (m.id === mid ? { ...m, feedback: null, feedback_reason: "" } : m))
+        );
+        if (reasonFor === mid) setReasonFor(null);
+        return;
+      }
+      await api.sendFeedback(mid, rating);
+      setMessages((prev) => prev.map((m) => (m.id === mid ? { ...m, feedback: rating } : m)));
+      if (rating === "down") {
+        setReasonText(messages.find((m) => m.id === mid)?.feedback_reason ?? "");
+        setReasonFor(mid);
+      } else if (reasonFor === mid) {
+        setReasonFor(null);
+      }
+    } catch {
+      /* 게이트/네트워크 오류: 서버 상태가 진실원천이므로 낙관적 변경을 남기지 않는다 */
+      setMessages((prev) => [...prev]);
+    }
+  };
+
+  const submitReason = async (mid: number) => {
+    const t = reasonText.trim();
+    try {
+      await api.sendFeedback(mid, "down", t);
+      setMessages((prev) =>
+        prev.map((m) => (m.id === mid ? { ...m, feedback: "down", feedback_reason: t } : m))
+      );
+    } catch {
+      /* 무시 */
+    }
+    setReasonFor(null);
+    setReasonText("");
+  };
+
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -235,6 +311,65 @@ export default function ChatApp({
                         </div>
                       ) : null}
                     </div>
+                    {/* 금액·한도 답변이면 원문 확인 유도(생성 숫자는 검증 대상) */}
+                    {m.content && hasMoney(m.content) ? (
+                      <div
+                        className={styles.moneyNote}
+                        onClick={() => m.sources.length && setActiveMsgId(m.id)}
+                      >
+                        💰 금액·한도가 포함된 답변입니다. 정확한 수치는 <b>우측 근거 원문</b>에서 확인하세요.
+                      </div>
+                    ) : null}
+                    {/* 답변 평가(👍/👎) — 영속 메시지(id>0)에만. 스트리밍 중 임시 메시지는 제외 */}
+                    {m.id > 0 ? (
+                      <div className={styles.fbRow}>
+                        <button
+                          type="button"
+                          className={`${styles.fbBtn} ${m.feedback === "up" ? styles.fbUp : ""}`}
+                          onClick={() => rate(m.id, "up")}
+                          aria-pressed={m.feedback === "up"}
+                          title="도움이 됐어요"
+                        >
+                          👍
+                        </button>
+                        <button
+                          type="button"
+                          className={`${styles.fbBtn} ${m.feedback === "down" ? styles.fbDown : ""}`}
+                          onClick={() => rate(m.id, "down")}
+                          aria-pressed={m.feedback === "down"}
+                          title="부정확하거나 부족해요"
+                        >
+                          👎
+                        </button>
+                        {m.feedback === "down" && m.feedback_reason && reasonFor !== m.id ? (
+                          <span className={styles.fbReasonShown} title={m.feedback_reason}>
+                            “{m.feedback_reason}”
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {reasonFor === m.id ? (
+                      <div className={styles.fbReasonBox}>
+                        <input
+                          className={styles.fbReasonInput}
+                          value={reasonText}
+                          onChange={(e) => setReasonText(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") submitReason(m.id);
+                            if (e.key === "Escape") setReasonFor(null);
+                          }}
+                          placeholder="무엇이 부정확/부족했나요? (선택)"
+                          maxLength={500}
+                          autoFocus
+                        />
+                        <button type="button" className={styles.fbReasonSend} onClick={() => submitReason(m.id)}>
+                          보내기
+                        </button>
+                        <button type="button" className={styles.fbReasonSkip} onClick={() => setReasonFor(null)}>
+                          건너뛰기
+                        </button>
+                      </div>
+                    ) : null}
                   </li>
                 )
               )}
@@ -275,6 +410,7 @@ export default function ChatApp({
           <ul className={styles.srcList}>
             {activeSources.map((s, i) => {
               const linkable = titleToSlug.has(s.규정명) || !!s.slug;
+              const status = titleToStatus.get(s.규정명); // 검수완료 | 미검수 | undefined
               return (
                 <li key={i}>
                   <button
@@ -284,9 +420,18 @@ export default function ChatApp({
                   >
                     <span className={styles.srcTag}>
                       <b>{s.규정명}</b> {s.조}
+                      {status === "검수완료" ? (
+                        <span className={styles.stOk} title="사람이 검수 완료한 원문">
+                          ✓ 검수완료
+                        </span>
+                      ) : status ? (
+                        <span className={styles.stWarn} title="아직 사람 검수 전입니다. 금액·기한은 원문 확인 필요">
+                          미검수
+                        </span>
+                      ) : null}
                     </span>
                     {s.분류 ? <span className={styles.srcCat}>{s.분류}</span> : null}
-                    <span className={styles.srcSnippet}>{s.snippet}</span>
+                    <span className={styles.srcSnippet}>{highlightFigures(s.snippet, styles.fig)}</span>
                   </button>
                 </li>
               );

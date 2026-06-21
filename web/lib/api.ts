@@ -22,12 +22,26 @@ export type Source = {
   snippet: string;
   distance: number;
 };
+export type Feedback = "up" | "down" | null;
 export type Message = {
   id: number;
   role: "user" | "assistant";
   content: string;
   sources: Source[];
   created_at: number;
+  feedback?: Feedback; // 이 사용자의 답변 평가(👍/👎). 없으면 null
+  feedback_reason?: string; // 👎 사유(선택)
+};
+// 관리자 피드백 목록(콘텐츠 갭/오답 검수용 — /admin 대시보드에서 사용)
+export type FeedbackRow = {
+  id: number;
+  rating: "up" | "down";
+  reason: string;
+  at: number;
+  message_id: number;
+  question: string;
+  answer: string;
+  sources: { 규정명: string; 조: string }[];
 };
 
 const BASE = "/api/app";
@@ -143,6 +157,17 @@ export const api = {
   renameChat: (id: number, title: string) =>
     j<ChatMeta>(`/chats/${id}`, { method: "PATCH", body: JSON.stringify({ title }) }),
   deleteChat: (id: number) => j<{ ok: boolean }>(`/chats/${id}`, { method: "DELETE" }),
+
+  // 답변 피드백(👍/👎). 같은 값을 다시 보내면 clear(철회)로 토글한다.
+  sendFeedback: (mid: number, rating: "up" | "down", reason?: string) =>
+    j<{ message_id: number; feedback: string; feedback_reason: string }>(
+      `/messages/${mid}/feedback`,
+      { method: "POST", body: JSON.stringify({ rating, reason: reason || "" }) }
+    ),
+  clearFeedback: (mid: number) =>
+    j<{ message_id: number; feedback: null }>(`/messages/${mid}/feedback`, { method: "DELETE" }),
+  feedbackList: (rating?: "up" | "down") =>
+    j<FeedbackRow[]>(`/feedback${rating ? `?rating=${rating}` : ""}`), // 관리자 전용
 
   // 기능 플래그
   flags: () => j<Record<string, boolean>>("/flags", undefined, 6000), // 공개(UI 토글), 짧은 타임아웃
