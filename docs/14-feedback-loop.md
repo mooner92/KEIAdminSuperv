@@ -59,7 +59,7 @@ class Feedback(SQLModel, table=True):
 |---|---|---|
 | `POST /app/messages/{mid}/feedback` | 본인 | `{rating, reason?}` upsert. rating∈{up,down} 아니면 400, assistant 아니면 400, 남/없는 메시지 404 |
 | `DELETE /app/messages/{mid}/feedback` | 본인 | 철회(없어도 200) |
-| `GET /app/feedback?rating=&limit=` | **관리자** | 피드백 원시 목록(질문·답변 요약·근거 규정 포함). 콘텐츠 갭/오답 검수 데이터원 |
+| `GET /app/feedback?rating=&limit=` | **관리자** | 피드백 신호(rating·사유·근거 규정만). 🔒 질문·답변 **본문은 미반환**(개인 채팅 보호, P2.5) |
 | `GET /app/chats/{cid}` | 본인 | 메시지마다 `feedback`·`feedback_reason` 포함(재방문 시 상태 복원) |
 
 프론트 클라이언트: `web/lib/api.ts`의 `api.sendFeedback / clearFeedback / feedbackList`.
@@ -114,7 +114,9 @@ cd web && node verify-feedback.mjs        # dev 3100/9000 가동 상태에서
 - **집계 수동 실행.** `feedback_export.py`는 cron/수동 실행. 실시간이 필요하면 `review_queue.py`가 `app.db`를 직접 읽도록 확장 가능(현재는 신호파일 경유로 결합도 최소화).
 - **규정명 매칭.** 신호는 `규정명` 문자열로 검수 큐 노트(`규정명/제목`)와 매칭. 동명이의·표기 변형은 놓칠 수 있음(현 코퍼스에선 충돌 없음).
 - **운영자 대시보드 구현됨.** `GET /app/feedback`(상세) + `GET /app/stats`(집계: 인기질문·거부율·👎율·콘텐츠 갭)을 `/admin` 대시보드가 소비한다([12-품질강화.md](12-품질강화.md) P2.5). 거부/👎 질문이 곧 보강 우선순위.
-- **익명성.** 피드백에 `user_id`가 남는다(소유·중복방지에 필요). 관리자 집계는 사번을 노출하지 않고 질문·답변·규정만 보여준다.
+- **익명성/개인정보.** 피드백에 `user_id`가 남는다(소유·중복방지에 필요). 단 **관리자 화면엔 채팅 본문이 안 나온다** —
+  대시보드는 k-익명 집계(서로 다른 N명 이상)만, 피드백 목록은 규정 메타·사유만. 진짜 E2E 암호화는 서버사이드 RAG라
+  불가(LLM이 평문 필요)하므로 *데이터 최소화 + k-익명성*으로 "관리자도 개인 채팅 못 봄"을 보장한다([12](12-품질강화.md) P2.5).
 
 ---
 

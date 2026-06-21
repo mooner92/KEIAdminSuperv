@@ -85,6 +85,12 @@
 /* ── 운영 대시보드 ── */
 .dash { margin: 0 0 var(--space-6); padding-bottom: var(--space-5); border-bottom: 1px solid var(--color-border); }
 .dashDays { font-size: 12.5px; font-weight: 600; color: var(--color-text-tertiary); }
+.privacy {
+  margin: 0 0 var(--space-4); padding: 9px 12px;
+  font-size: 12.5px; line-height: 1.5; color: var(--color-text-secondary);
+  background: var(--color-bg-subtle); border: 1px solid var(--color-border); border-radius: var(--radius-md);
+}
+.privacy b { color: var(--color-text); }
 .cards { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-5); }
 .card {
   flex: 1 1 120px; min-width: 120px;

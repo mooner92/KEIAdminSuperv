@@ -88,6 +88,10 @@ export default function AdminPage() {
           <h2 className={styles.h2}>
             운영 대시보드 <span className={styles.dashDays}>최근 {stats.days}일</span>
           </h2>
+          <p className={styles.privacy}>
+            🔒 개인정보 보호: 인기 질문·콘텐츠 갭은 서로 다른 <b>{stats.k_anon}명 이상</b>이 물은 항목만
+            집계(숫자=질문한 사용자 수)로 표시됩니다. 개별 채팅 내용·작성자는 관리자도 볼 수 없습니다.
+          </p>
           <div className={styles.cards}>
             <div className={styles.card}>
               <div className={styles.cardN}>{stats.users}</div>
@@ -119,7 +123,9 @@ export default function AdminPage() {
                     <span className={styles.qn}>{q.n}</span> {q.q}
                   </li>
                 ))}
-                {stats.top_questions.length === 0 ? <li className={styles.muted}>데이터 없음</li> : null}
+                {stats.top_questions.length === 0 ? (
+                  <li className={styles.muted}>{stats.k_anon}명 이상이 물은 질문이 아직 없습니다</li>
+                ) : null}
               </ol>
             </div>
             <div>
@@ -132,7 +138,9 @@ export default function AdminPage() {
                     <span className={`${styles.qn} ${styles.qnGap}`}>{q.n}</span> {q.q}
                   </li>
                 ))}
-                {stats.gaps.length === 0 ? <li className={styles.muted}>거부된 질문 없음 👍</li> : null}
+                {stats.gaps.length === 0 ? (
+                  <li className={styles.muted}>반복된 거부 질문 없음 👍</li>
+                ) : null}
               </ol>
             </div>
           </div>

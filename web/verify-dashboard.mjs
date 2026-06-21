@@ -28,6 +28,7 @@ ok((await p.locator("text=피드백").count()) > 0, "3) 피드백 카드");
 ok((await p.locator("text=인기 질문").count()) > 0, "4) 인기 질문 섹션");
 ok((await p.locator("text=콘텐츠 갭").count()) > 0, "5) 콘텐츠 갭 섹션");
 ok((await p.locator("text=기능 플래그 관리").count()) > 0, "6) 기능 플래그 섹션 공존");
+ok((await p.locator("text=개인정보 보호").count()) > 0, "7) 개인정보 보호(k-익명) 안내 노출");
 
 await p.screenshot({ path: "verify-dashboard.png", fullPage: true });
 await b.close();

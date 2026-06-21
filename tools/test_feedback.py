@@ -100,11 +100,11 @@ ok(r.status_code == 404, "6) 없는 메시지 404")
 r = u2.post(f"/app/messages/{ai_mid}/feedback", json={"rating": "up"})
 ok(r.status_code == 404, "7) 타인 메시지 피드백 404(소유 가드)")
 
-# 8) 관리자 집계: down 1건, 질문/근거 포함
+# 8) 관리자 집계: down 1건, 근거 규정 포함 + 개인정보(질문·답변 본문) 미노출
 fl = boss.get("/app/feedback?rating=down").json()
 ok(len(fl) == 1 and fl[0]["rating"] == "down", "8) 관리자 /feedback?rating=down 1건")
-ok(fl[0]["question"].startswith("부모 사망") and fl[0]["sources"][0]["규정명"] == "복무규정",
-   "8b) 집계에 질문·근거 규정 포함")
+ok(fl[0]["sources"][0]["규정명"] == "복무규정", "8b) 근거 규정 포함")
+ok("question" not in fl[0] and "answer" not in fl[0], "8c) 개인정보: 질문·답변 본문 미노출")
 
 # 9) 비관리자는 /feedback 금지 → 403
 r = u1.get("/app/feedback")

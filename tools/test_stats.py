@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""test_stats.py — 운영 대시보드 집계(GET /app/stats) 검증 (LLM/Chroma 불필요).
+"""test_stats.py — 운영 대시보드 집계(GET /app/stats) + k-익명성 검증 (LLM/Chroma 불필요).
 
-임시 DB에 사용자·대화·메시지(정상답변 1 + 거부답변 1)·피드백을 심고 집계가 맞는지 확인한다.
+핵심: 관리자도 개인 채팅을 볼 수 없다 →
+  - 인기질문/콘텐츠 갭은 서로 다른 사용자 K명 이상이 물은 것만 노출(미만은 숨김)
+  - 응답에 질문/답변 '원문' 본문이 통째로 실리지 않는다(집계 q는 K명 이상 공통 질문만)
 실행:  cd tools && .venv/bin/python test_stats.py
 """
 import os
@@ -12,6 +14,7 @@ TMP = tempfile.mkdtemp(prefix="kei_stats_test_")
 os.environ["APP_DB"] = os.path.join(TMP, "app.db")
 os.environ["APP_SECRET_FILE"] = os.path.join(TMP, ".secret")
 os.environ["APP_ADMINS"] = "boss"
+os.environ["STATS_MIN_USERS"] = "2"  # 테스트 편의상 K=2(서로 다른 2명 이상이면 노출)
 
 from fastapi import FastAPI                       # noqa: E402
 from fastapi.testclient import TestClient         # noqa: E402
@@ -39,49 +42,55 @@ def client_for(uname, pw="pass1234"):
     return c
 
 
-alice = client_for("alice")
-boss = client_for("boss")
-cid = alice.post("/app/chats").json()["id"]
-
-# 메시지 시퀀스: 질문1→정상답변, 질문2(=거부 유발)→거부답변
-with Session(app_api.engine) as s:
-    seq = [
-        ("user", "경조사비 얼마예요?", ""),
-        ("assistant", "경조사비는 규정에 따라 지급됩니다.", '[{"규정명":"복무규정","조":"제5조"}]'),
-        ("user", "반려동물 장례비도 지원되나요?", ""),
-        ("assistant", "해당 내용은 규정에서 확인되지 않습니다.", "[]"),
-    ]
-    mids = []
-    for role, content, sj in seq:
-        m = app_api.Message(session_id=cid, role=role, content=content, sources_json=sj)
-        s.add(m)
+def seed(client, turns):
+    """turns: [(role, content, refusal?)]. 한 세션에 메시지 심기."""
+    cid = client.post("/app/chats").json()["id"]
+    with Session(app_api.engine) as s:
+        for role, content in turns:
+            s.add(app_api.Message(session_id=cid, role=role, content=content))
         s.commit()
-        s.refresh(m)
-        mids.append(m.id)
-ai_refusal_mid = mids[3]
-ai_normal_mid = mids[1]
 
-# 정상답변에 👎(피드백 집계 확인용)
-alice.post(f"/app/messages/{ai_normal_mid}/feedback", json={"rating": "down", "reason": "옛 금액"})
+
+COMMON = "공통 질문 이건 무엇인가요?"
+PRIVATE = "개인적이고 민감한 나만의 질문입니다"
+COMMON_GAP = "공통 거부 유발 질문"
+PRIVATE_GAP = "민감한 개인 거부 질문"
+REFUSAL = "해당 내용은 규정에서 확인되지 않습니다."
+
+alice = client_for("alice")
+bob = client_for("bob")
+boss = client_for("boss")
+
+# 공통질문: alice + bob (서로 다른 2명) / 개인질문: alice만 (1명)
+seed(alice, [("user", COMMON), ("assistant", "답"), ("user", PRIVATE), ("assistant", "답")])
+seed(bob, [("user", COMMON), ("assistant", "답")])
+# 공통 거부: alice + bob / 개인 거부: alice만
+seed(alice, [("user", COMMON_GAP), ("assistant", REFUSAL), ("user", PRIVATE_GAP), ("assistant", REFUSAL)])
+seed(bob, [("user", COMMON_GAP), ("assistant", REFUSAL)])
 
 # 1) 비관리자 403
 ok(alice.get("/app/stats").status_code == 403, "1) 비관리자 /stats 403")
 
-# 2) 관리자 집계
 st = boss.get("/app/stats").json()
-ok(st["users"] >= 2, f"2) users>=2 ({st['users']})")
-ok(st["chats"] >= 1, f"2b) chats>=1 ({st['chats']})")
-ok(st["questions"] == 2, f"3) questions==2 ({st['questions']})")
-ok(st["answers"] == 2, f"3b) answers==2 ({st['answers']})")
-ok(st["refusals"] == 1, f"4) refusals==1 ({st['refusals']})")
-ok(abs(st["refusal_rate"] - 0.5) < 1e-6, f"4b) refusal_rate==0.5 ({st['refusal_rate']})")
-ok(st["feedback"]["down"] == 1, f"5) feedback.down==1 ({st['feedback']['down']})")
-ok(len(st["top_questions"]) == 2, f"6) top_questions 2개 ({len(st['top_questions'])})")
-gapqs = [g["q"] for g in st["gaps"]]
-ok(any("반려동물" in q for q in gapqs), f"7) 콘텐츠 갭에 거부 질문 포함 ({gapqs})")
+ok(st.get("k_anon") == 2, f"2) k_anon=2 노출 ({st.get('k_anon')})")
+
+tq = {r["q"]: r["n"] for r in st["top_questions"]}
+ok(COMMON in tq and tq[COMMON] == 2, f"3) 공통질문(2명) 노출 n=2 ({tq.get(COMMON)})")
+ok(PRIVATE not in tq, "4) 🔒 개인질문(1명) 숨김 — k-익명")
+
+gp = {r["q"]: r["n"] for r in st["gaps"]}
+ok(COMMON_GAP in gp and gp[COMMON_GAP] == 2, f"5) 공통 거부질문(2명) 노출 ({gp.get(COMMON_GAP)})")
+ok(PRIVATE_GAP not in gp, "6) 🔒 개인 거부질문(1명) 숨김 — k-익명")
+
+# 7) 응답 어디에도 개인(1명) 질문 원문이 새지 않는다
+blob = str(st)
+ok(PRIVATE not in blob and PRIVATE_GAP not in blob, "7) 🔒 응답에 개인 질문 원문 전혀 없음")
+
+# 8) 집계 수치는 정상(거부율 등)
+ok(st["refusals"] == 3 and st["answers"] == 6, f"8) 집계 수치 정상(거부 {st['refusals']}/답변 {st['answers']})")
 
 print()
 if fails:
     print("❌ 실패:", " / ".join(fails))
     sys.exit(1)
-print("✅ 운영 대시보드 집계 전 항목 통과")
+print("✅ 운영 대시보드 집계 + k-익명성 전 항목 통과")

@@ -463,8 +463,9 @@ def clear_feedback(mid: int, user: User = Depends(current_user)):
 
 @router.get("/feedback")
 def list_feedback(admin: User = Depends(current_admin), rating: str = "", limit: int = 200):
-    """관리자: 피드백 원시 목록(질문·답변·근거 포함). 콘텐츠 갭/오답 검수의 데이터원.
-    rating='down'이면 부정만. app.db는 gitignore(규정 스니펫 포함) — 관리자 전용으로만 노출."""
+    """관리자: 피드백 신호 목록. ⛔ 개인정보: 질문·답변 '원문'은 반환하지 않는다 — 관리자는
+    어떤 규정이 어떤 평가를 받았는지(👍/👎)와 사용자가 남긴 피드백 사유만 본다(채팅 본문 비노출).
+    rating='down'이면 부정만. 규정 단위 집계는 feedback_export.py(검수 큐 연동)도 참고."""
     rating = (rating or "").strip().lower()
     limit = max(1, min(limit, 1000))
     with Session(engine) as s:
@@ -476,18 +477,9 @@ def list_feedback(admin: User = Depends(current_admin), rating: str = "", limit:
         for f in rows:
             m = s.get(Message, f.message_id)
             srcs = json.loads(m.sources_json) if (m and m.sources_json) else []
-            q = ""
-            if m:  # 직전 user 질문(맥락)
-                prev = s.exec(
-                    select(Message).where(Message.session_id == m.session_id)
-                    .where(Message.id < m.id).where(Message.role == "user")
-                    .order_by(Message.id.desc()).limit(1)
-                ).first()
-                q = prev.content if prev else ""
             out.append({
                 "id": f.id, "rating": f.rating, "reason": f.reason, "at": f.updated_at,
-                "message_id": f.message_id, "question": q,
-                "answer": (m.content[:500] if m else ""),
+                # 질문/답변 본문은 의도적으로 제외(개인 채팅 보호). 규정 메타만.
                 "sources": [{"규정명": x.get("규정명", ""), "조": x.get("조", "")} for x in srcs],
             })
     return out
@@ -496,6 +488,9 @@ def list_feedback(admin: User = Depends(current_admin), rating: str = "", limit:
 # ───────────────────────── 운영 대시보드(관리자) ─────────────────────────
 # 거부(가드레일 발동) 답변 감지 — rag_core SYSTEM의 "규정에서 확인되지 않습니다" 계열.
 REFUSAL_RE = re.compile(r"확인되지\s*않|확인할\s*수\s*없|규정에서\s*확인")
+# k-익명성: 질문 텍스트는 서로 다른 사용자 K명 이상이 물었을 때만 노출(개인 채팅 보호).
+# 서버사이드 RAG라 진짜 E2E 암호화는 불가(LLM이 평문을 읽어야 함) → 관리자에겐 '집계'만 보인다.
+K_ANON = max(2, int(os.environ.get("STATS_MIN_USERS", "3")))
 
 
 def _norm_q(t: str) -> str:
@@ -504,16 +499,18 @@ def _norm_q(t: str) -> str:
 
 @router.get("/stats")
 def stats(admin: User = Depends(current_admin), days: int = 30):
-    """운영 대시보드: 활동 요약·거부율·피드백·인기질문·콘텐츠 갭. 관리자 전용(app.db 집계).
-    거부/👎 질문 = 코퍼스가 못 답한 신호 → 다음에 보강할 규정·가이드 우선순위."""
+    """운영 대시보드: 활동 요약·거부율·피드백 + **k-익명** 인기질문·콘텐츠 갭. 관리자 전용.
+    ⛔ 개인정보: 질문·답변 '원문'은 절대 노출하지 않는다. 인기질문/갭은 서로 다른 사용자 K명
+    이상이 물은 것만 보이고(1~2명의 고유·민감 질문은 숨김), 누가 물었는지도 알 수 없다."""
     days = max(1, min(days, 365))
     since = time.time() - days * 86400
     with Session(engine) as s:
         n_users = len(s.exec(select(User)).all())
-        n_chats = len(s.exec(select(ChatSession)).all())
+        chats = s.exec(select(ChatSession)).all()
         msgs = s.exec(select(Message)).all()
         fbs = s.exec(select(Feedback)).all()
 
+    sess_user = {c.id: c.user_id for c in chats}  # 세션→사용자(질문을 사용자에 매핑, k-익명 집계용)
     recent = [m for m in msgs if m.created_at >= since]
     user_msgs = [m for m in recent if m.role == "user" and (m.content or "").strip()]
     ai_msgs = [m for m in recent if m.role == "assistant"]
@@ -536,13 +533,25 @@ def stats(admin: User = Depends(current_admin), days: int = 30):
                 return seq[j].content
         return ""
 
-    qcount = Counter(_norm_q(m.content) for m in user_msgs)
-    gapc = Counter(_norm_q(prev_q(m)) for m in refusals)
+    def k_anon(pairs):
+        """[(정규화질문, session_id)] → 서로 다른 사용자 K명 이상이 물은 질문만 {q, n=사용자수}."""
+        users: dict = {}
+        for q, sid in pairs:
+            if not q:
+                continue
+            users.setdefault(q, set()).add(sess_user.get(sid))
+        rows = [{"q": q, "n": len(u - {None})} for q, u in users.items()]
+        rows = [r for r in rows if r["n"] >= K_ANON]
+        rows.sort(key=lambda r: -r["n"])
+        return rows
+
+    top_questions = k_anon([(_norm_q(m.content), m.session_id) for m in user_msgs])[:10]
+    gaps = k_anon([(_norm_q(prev_q(m)), m.session_id) for m in refusals])[:15]
     fb_recent = [f for f in fbs if f.updated_at >= since]
     n_ai = len(ai_msgs)
     return {
-        "days": days,
-        "users": n_users, "chats": n_chats,
+        "days": days, "k_anon": K_ANON,
+        "users": n_users, "chats": len(chats),
         "questions": len(user_msgs), "answers": n_ai,
         "refusals": len(refusals),
         "refusal_rate": round(len(refusals) / n_ai, 3) if n_ai else 0.0,
@@ -550,8 +559,8 @@ def stats(admin: User = Depends(current_admin), days: int = 30):
             "up": sum(1 for f in fb_recent if f.rating == "up"),
             "down": sum(1 for f in fb_recent if f.rating == "down"),
         },
-        "top_questions": [{"q": q, "n": n} for q, n in qcount.most_common(10)],
-        "gaps": [{"q": q, "n": n} for q, n in gapc.most_common(15) if q],
+        "top_questions": top_questions,  # {q, n=사용자수} — K명 이상만
+        "gaps": gaps,                    # 거부된 질문도 K명 이상만(보강 우선순위)
     }
 
 

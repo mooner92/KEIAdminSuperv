@@ -15,6 +15,7 @@ export type FlagAudit = { key: string; enabled: boolean; actor: string; at: numb
 // 운영 대시보드 집계(관리자 전용)
 export type Stats = {
   days: number;
+  k_anon: number; // 인기질문·갭에 적용된 k-익명 임계(서로 다른 사용자 N명 이상만 노출)
   users: number;
   chats: number;
   questions: number;
@@ -46,15 +47,12 @@ export type Message = {
   feedback?: Feedback; // 이 사용자의 답변 평가(👍/👎). 없으면 null
   feedback_reason?: string; // 👎 사유(선택)
 };
-// 관리자 피드백 목록(콘텐츠 갭/오답 검수용 — /admin 대시보드에서 사용)
+// 관리자 피드백 신호(개인정보 보호: 질문·답변 본문 미포함 — 규정 메타 + 사유만)
 export type FeedbackRow = {
   id: number;
   rating: "up" | "down";
   reason: string;
   at: number;
-  message_id: number;
-  question: string;
-  answer: string;
   sources: { 규정명: string; 조: string }[];
 };
 
