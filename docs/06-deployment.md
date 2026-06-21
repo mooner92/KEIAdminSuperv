@@ -29,7 +29,7 @@ flowchart LR
             RAGAPI["04_rag_api<br/>(kei-rag-api · PM2 · 127.0.0.1:9000)<br/>/v1/* + /app/*"]
             CHROMA[("Chroma<br/>kei_regs · KURE-v1")]
             OLLAMA["Ollama<br/>(OpenAI 호환 · 127.0.0.1:11434)"]
-            APPDB[("SQLite<br/>tools/app.db<br/>user · chatsession · message")]
+            APPDB[("SQLite<br/>tools/app.db<br/>user · chatsession · message<br/>flag · flagaudit · feedback")]
             SECRET["tools/.app_secret<br/>(JWT 서명키 · 0600)"]
             RAGAPI --> CHROMA
             RAGAPI --> OLLAMA
@@ -123,14 +123,17 @@ sequenceDiagram
 
 단일 앱·단일 볼트 안에서 섹션(규정집 / 연구행정 가이드 / 용어집)을 분리한다. 가이드는 볼트의 `10_업무가이드/`에 문서를 추가하면 자동으로 합류한다. 라우트는 다음과 같다.
 
-- **`/` LLM(Assistant):** 로그인 게이트 뒤의 멀티턴 RAG 채팅. 좌측 대화목록 사이드바(새 대화/선택/삭제) · 중앙 채팅 · 우측 '메시지별' 근거 패널(`x_sources` 카드)로 구성된다. 근거 카드를 클릭하면 Notion형 문서 드로어가 해당 조(`제N조` 앵커)로 펼쳐지고, 지난 답변을 클릭하면 그때 저장된 근거가 우측에 다시 뜬다. 미인증이면 로그인/회원가입 화면을 보여준다. 무상태 호출은 같은 오리진 `/api/rag/chat`, 로그인·기록·멀티턴은 `/api/app/*`를 클라이언트 fetch로 호출(정적 export에서 동작). 비스트리밍 v1.
+- **`/` LLM(Assistant):** 로그인 게이트 뒤의 멀티턴 RAG 채팅. 좌측 대화목록 사이드바(새 대화/선택/삭제) · 중앙 채팅 · 우측 '메시지별' 근거 패널(`x_sources` 카드)로 구성된다. 근거 카드를 클릭하면 Notion형 문서 드로어가 해당 조(`제N조` 앵커)로 펼쳐지고, 지난 답변을 클릭하면 그때 저장된 근거가 우측에 다시 뜬다. 미인증이면 로그인/회원가입 화면을 보여준다. 무상태 호출은 같은 오리진 `/api/rag/chat`, 로그인·기록·멀티턴은 `/api/app/*`를 클라이언트 fetch로 호출(정적 export에서 동작). 답변은 `?stream=1`일 때 SSE 토큰 스트리밍(§3.1)으로 흘러온다. 답변마다 👍/👎 피드백 + 사유 입력이 붙는다(P2.1).
 - **`/browse` 둘러보기(Explorer):** 좌측 체크박스 필터(구분=규정집/가이드/용어집, 분류=category, 검수상태) + 검색 + 결과 목록. 행 클릭 시 페이지 이동 없이 우측 Notion형 드로어로 본문이 열린다. 패싯 카운트(다른 필터 반영)를 제공한다.
 - **`/graph` 관계 그래프:** `react-force-graph-2d`(노드 클릭 → 문서 이동, 코드 스플릿).
 - **`/d/[slug]` 전체화면 문서:** 드로어의 '전체화면' 폴백(기존 SSG 페이지 유지). 메타 칩 · 본문 · 백링크 · `제N조` 앵커로 조 단위 점프. 위키링크 `[[ ]]`(규정 상호참조)는 내부 라우트로 연결되고, 이름 변이(공백·가운뎃점 `·`·`.`·`및`)도 정규화로 자동 흡수한다.
 - **DocDrawer:** 우측 슬라이드인. `out/docdata/<slug>.json`(빌드 산출물)을 지연 로드한다. `emit-docdata.mts`가 `lib/vault.ts`를 재사용해 생성하므로 드로어와 전체화면 페이지가 동일 본문/링크를 보장한다.
 
-> [!note] 실측(2026-06-19)
-> `npm run build` 성공, 정적 115페이지(목록·관계 그래프 + 문서 111). 한글 mojibake 0, 위키링크 내부 네비 + `제N조` 앵커 동작, 그래프 111 노드·82 연결, TDS 컬러 적용. `/`의 first-load JS는 약 433KB(TDS + react-markdown)로, 번들 경량화는 기존 로드맵 항목이다. 디자인 원칙·토큰·컴포넌트 규약은 [design-system.md](design-system.md) 참조.
+> [!note] 실측
+> `npm run build` 성공, 문서 271개(규정집 111 · 연구행정 가이드 64 · 용어집 84 · ERP 시스템 12)에 대해 전체화면 페이지 `out/d/<slug>/`와 드로어 데이터 `out/docdata/<slug>.json` 각 271개 생성. 한글 mojibake 0, 위키링크 내부 네비 + `제N조` 앵커 동작, TDS 컬러(라이트/다크 토큰) 적용. 번들 경량화는 기존 로드맵 항목이다. 디자인 원칙·토큰·컴포넌트 규약은 [design-system.md](design-system.md) 참조.
+>
+> [!todo] 확인 필요: `/graph` 노드·연결 수, `/`의 first-load JS 정확값
+> 코퍼스가 4섹션 271문서로 커지면서 그래프 노드/엣지 수와 번들 사이즈는 빌드마다 변한다. 정확값은 최신 빌드 로그에서 확정한다.
 
 > [!tip] 한글 파일
 > 한글 파일명을 쓰므로 git은 `core.quotepath false`가 적용되어 있어야 한다. 볼트는 `VAULT_DIR`로 빌드타임에 read-only로 읽으므로 빌드가 볼트를 수정하지 않는다.
@@ -158,23 +161,26 @@ sequenceDiagram
 > 멀티턴은 세션의 이전 메시지를 LLM에 재생(replay)해 맥락을 잇되, **사실 근거는 매 턴 새로 검색한 `[근거]`에서만** 가져와 가드레일을 유지한다. OpenAI 호환 `/v1` 엔드포인트도 마지막 user 메시지로 검색하고 그 앞 메시지를 맥락으로 전달한다.
 
 > [!note] DB·비밀키 자산
-> SQLite `tools/app.db`(테이블: `user`·`chatsession`·`message`, 답변별 근거는 `message.sources_json` JSON 컬럼)와 JWT 서명키 `tools/.app_secret`(퍼미션 `0600`, 없으면 자동 생성). 둘 다 `.gitignore`로 커밋 금지다 — `app.db`는 사용자·채팅·근거 스니펫을 담고 `.app_secret`은 서명키다. `.app_secret`이 디스크에 남으므로 재시작에도 로그인 세션이 유지된다.
+> SQLite `tools/app.db`(테이블: `user`·`chatsession`·`message`·`flag`·`flagaudit`·`feedback`, 답변별 근거는 `message.sources_json` JSON 컬럼)와 JWT 서명키 `tools/.app_secret`(퍼미션 `0600`, 없으면 자동 생성). 둘 다 `.gitignore`로 커밋 금지다 — `app.db`는 사용자·채팅·근거 스니펫·기능 플래그·피드백을 담고 `.app_secret`은 서명키다. `.app_secret`이 디스크에 남으므로 재시작에도 로그인 세션이 유지된다.
 
 ### 4.1 PM2 서빙
 
-[`../tools/ecosystem.config.js`](../tools/ecosystem.config.js)에 두 프로세스를 정의한다.
+두 프로세스는 **각자의 ecosystem 파일**로 정의한다 — `kei-rag-api`는 [`../tools/ecosystem.config.js`](../tools/ecosystem.config.js), `kei-guide`는 [`../web/ecosystem.config.js`](../web/ecosystem.config.js)다.
 
-| PM2 프로세스 | 실행 | 바인드 | 역할 |
-| --- | --- | --- | --- |
-| `kei-guide` | `web/server.js` (의존성 0 Node 정적 서버) | `0.0.0.0:3100` | `web/out/` 서빙 + `trailingSlash` 라우팅 + `/api/rag/*`·`/api/app/*` → `127.0.0.1:9000` 리버스 프록시(쿠키·`set-cookie` 전달) |
-| `kei-rag-api` | `uvicorn` (`tools/04_rag_api.py`) | `127.0.0.1:9000` | 통제형 RAG(`/v1/*`) + 인증·채팅(`/app/*`). env로 Ollama 연결. SQLite `tools/app.db` + JWT 키 `tools/.app_secret` 사용. **LAN 비노출** |
+| PM2 프로세스 | 정의 파일 | 실행 | 바인드 | 역할 |
+| --- | --- | --- | --- | --- |
+| `kei-guide` | `web/ecosystem.config.js` | `web/server.js` (의존성 0 Node 정적 서버) | `0.0.0.0:3100` | `web/out/` 서빙 + `trailingSlash` 라우팅 + `/api/rag/*`·`/api/app/*` → `127.0.0.1:9000` 리버스 프록시(쿠키·`set-cookie` 전달) |
+| `kei-rag-api` | `tools/ecosystem.config.js` | `.venv/bin/uvicorn` (`tools/04_rag_api.py`) | `127.0.0.1:9000` | 통제형 RAG(`/v1/*`) + 인증·채팅·플래그·피드백·통계(`/app/*`). env로 Ollama 연결(`VLLM_BASE`·`LLM_MODEL`·리랭커·`APP_ADMINS` 등). SQLite `tools/app.db` + JWT 키 `tools/.app_secret` 사용. **LAN 비노출** |
 
 ```bash
-# tools/ 디렉터리 기준
-pm2 start ecosystem.config.js     # kei-guide + kei-rag-api 기동
-pm2 save                          # 현재 프로세스 목록 저장 (완료)
+pm2 start /KEIAdminSuperv/tools/ecosystem.config.js   # kei-rag-api  (127.0.0.1:9000)
+pm2 start /KEIAdminSuperv/web/ecosystem.config.js     # kei-guide    (0.0.0.0:3100)
+pm2 save                          # 현재 프로세스 목록 저장
 pm2 startup                       # 부팅 자동시작(systemd) — 별도 1회 필요(미설정 가능)
 ```
+
+> [!note] 레거시 v1.0.0 병행 운영
+> 현행 dev(`feat/<날짜>`)는 포트 `3100`/`9000`(`kei-guide`·`kei-rag-api`)으로 돌고, 동결된 레거시 `v1.0.0`은 포트 `3101`/`9001`(`kei-guide-legacy`·`kei-rag-api-legacy`)으로 **완전히 격리**해 병행한다. 레거시는 `v1.0.0` 시점을 통째로 구운 동결 사본 `.legacy-v1/`(gitignore)에서 서빙하며 [`../deploy/ecosystem.legacy-v1.config.js`](../deploy/ecosystem.legacy-v1.config.js)로 기동한다. 동결 절차·검증(`curl :9001/health`, `web/verify-legacy.mjs`)은 [`../deploy/README.md`](../deploy/README.md) 참조.
 
 > [!note] 같은 오리진 프록시
 > 채팅 UI가 같은 오리진 `/api/rag/*`·`/api/app/*`만 호출하므로 CORS가 불필요하고, RAG API(`9000`)는 `127.0.0.1`에만 바인드되어 LAN에 직접 노출되지 않는다. `/api/app/*` 프록시는 요청 쿠키와 응답 `set-cookie`를 전달하고 쿼리를 보존하므로 로그인 세션이 같은 오리진에서 유지된다. `kei-guide`가 유일한 외부 진입점이다.
@@ -191,10 +197,17 @@ pm2 startup                       # 부팅 자동시작(systemd) — 별도 1회
 | `POST /app/auth/register` · `POST /app/auth/login` · `POST /app/auth/logout` · `GET /app/auth/me` | 회원가입 · 로그인(httpOnly JWT 쿠키 발급) · 로그아웃 · 세션 확인 |
 | `GET /app/chats` · `POST /app/chats` | 대화 목록 · 새 대화 생성 |
 | `GET /app/chats/{id}` · `PATCH /app/chats/{id}` · `DELETE /app/chats/{id}` | 메시지 포함 조회 · 제목 변경 · 삭제 |
-| `POST /app/chats/{id}/messages` | 검색 + 멀티턴 생성 → user/assistant 메시지 저장(assistant에 근거 동봉) → 반환. 첫 질문으로 대화 제목 자동 설정 |
+| `POST /app/chats/{id}/messages` (`?stream=1`) | 검색 + 멀티턴 생성 → user/assistant 메시지 저장(assistant에 근거 동봉) → 반환. 첫 질문으로 대화 제목 자동 설정. `?stream=1`이면 SSE(`meta`→`delta`…→`done`) |
+| `POST` · `DELETE /app/messages/{id}/feedback` | 메시지별 👍/👎 피드백 upsert·toggle / 철회(소유 격리, P2.1) |
+| `GET /app/flags` | 공개 — 비민감 불리언 기능 플래그 값(프론트 `lib/flags.tsx`가 런타임 fetch) |
+| `GET`·`POST /app/flags`(관리자) · `GET /app/flags/audit`(관리자) | 플래그 관리·토글·감사. `current_admin`(`APP_ADMINS`) |
+| `GET /app/stats`(관리자) · `GET /app/feedback`(관리자) | 운영자 대시보드 집계(활동·거부율·👍/👎·인기질문·갭, k-익명) / 피드백 목록 |
 
 > [!warning] 쿠키 secure 주의 (내부망 HTTP ↔ ZT/HTTPS)
 > 인증 쿠키는 `httponly` + `samesite=lax` + `secure=False`(내부망 HTTP 직접 서빙 기준)로 발급한다. **Cloudflare Zero Trust/HTTPS를 도입하면 `secure=True`로 전환**해야 쿠키가 HTTPS에서만 전송된다. ZT 식별자(`Cf-Access-Authenticated-User-Email`)로 로그인을 대체하는 것은 향후 옵션이며, LAN 직접접속 dev에서는 비밀번호 로그인을 유지한다.
+
+> [!warning] 관리자 지정은 fail-closed (`APP_ADMINS`)
+> `/admin`(기능 플래그·운영자 대시보드)과 `/app/flags`(토글)·`/app/stats`·`/app/feedback`(관리자 전용)은 `APP_ADMINS`(쉼표 구분 username)에 등록된 계정만 접근한다. **미설정이면 아무도 관리자가 아니다**(fail-closed — 공개 register로 인한 권한상승 방지, 첫 가입자 부트스트랩 없음). 운영 시 `tools/ecosystem.config.js`의 `APP_ADMINS`를 실제 운영자 계정으로 설정한다.
 
 ### 4.2 방화벽 (ufw)
 
@@ -217,10 +230,11 @@ sudo ufw allow from 192.168.1.0/24 to any port 3100 proto tcp
 | --- | --- |
 | 답변 모델 | `Qwen2.5-14B-Instruct` Q4_K_M GGUF (`hf.co/bartowski/Qwen2.5-14B-Instruct-GGUF:Q4_K_M`, ~9GB) · 한국어 검증 완료 |
 | 임베딩(검색) | `nlpai-lab/KURE-v1` + Chroma `kei_regs` (변경 없음) |
-| GPU | GPU1에 Ollama(~18GB), GPU0 완전히 비어 있음(전용 인스턴스 여지) |
+| 리랭커 | `BAAI/bge-reranker-v2-m3`, `RAG_RERANK_DEVICE=cuda:1`(여유 GPU), 실패 시 밀집 강등 |
+| GPU | 2×Quadro RTX 6000 24GB. 공유·변동적 — Ollama(~18GB) + 리랭커를 여유 카드(주로 GPU1)에 두되 배치 전 `nvidia-smi`로 확인 |
 
 > [!warning] 공유 GPU 운영 주의
-> Ollama는 다른 사용자와 GPU를 공유한다(현재 GPU1, GPU0 여유). 점유·VRAM 변동을 운영에서 모니터링한다.
+> GPU 2장은 다른 사용자와 공유되고 점유가 변동적이다. CLAUDE.md의 GPU 배치 줄은 시점에 따라 부정확할 수 있으므로, **모델 배치(Ollama·리랭커·재색인) 전 반드시 `nvidia-smi`로 빈 카드를 확인**한다. 점유·VRAM을 운영에서 모니터링한다.
 
 ### (선택) Open WebUI 폴백 — docker compose
 
@@ -307,8 +321,11 @@ flowchart TB
 **(A) 운영 권장 — PM2가 관리하는 uvicorn (`127.0.0.1:9000`)**
 
 ```bash
-# tools/.venv 활성화 후 — ecosystem.config.js로 PM2 기동(§4.1)
-uvicorn 04_rag_api:app --host 127.0.0.1 --port 9000
+# 운영은 PM2(§4.1). 아래는 단발 실행(tools/ 기준):
+cd /KEIAdminSuperv/tools
+VLLM_BASE=http://127.0.0.1:11434/v1 \
+  LLM_MODEL=hf.co/bartowski/Qwen2.5-14B-Instruct-GGUF:Q4_K_M \
+  .venv/bin/uvicorn 04_rag_api:app --host 127.0.0.1 --port 9000
 ```
 
 - `MODEL_ID=kei-admin-rag`로 `/v1/models`, `/v1/chat/completions`(비스트리밍)을 제공하고, `app_api` 라우터(`/app/*`, §4.1.1)를 include하며 기동 시 `init_db()`로 SQLite(`tools/app.db`)를 준비한다. `127.0.0.1`에만 바인드해 `kei-guide` 프록시 뒤에 둔다.
@@ -394,9 +411,10 @@ flowchart LR
 | 2 | 볼트 청킹·임베딩 → Chroma `kei_regs` 생성 | [`../tools/02_chunk_and_embed.py`](../tools/02_chunk_and_embed.py) |
 | 3 | Ollama 구동 확인 (`Qwen2.5-14B-Instruct` Q4_K_M · `:11434/v1`) | §4.3 · [05 RAG 설계](05-rag-design.md) |
 | 4 | `cd web && VAULT_DIR=… npm run build` → `web/out/` + `out/docdata/*.json` | §3 |
-| 5 | PM2 기동: `kei-rag-api`(`127.0.0.1:9000`, `/v1/*`+`/app/*`) + `kei-guide`(`0.0.0.0:3100`) | §4.1 · [`../tools/ecosystem.config.js`](../tools/ecosystem.config.js) |
+| 5 | PM2 기동: `tools/ecosystem.config.js`(`kei-rag-api` `127.0.0.1:9000`, `/v1/*`+`/app/*`) + `web/ecosystem.config.js`(`kei-guide` `0.0.0.0:3100`) | §4.1 · [`../tools/ecosystem.config.js`](../tools/ecosystem.config.js) · [`../web/ecosystem.config.js`](../web/ecosystem.config.js) |
 | 6 | `pm2 save` + `pm2 startup`(부팅 자동시작 1회) | §4.1 |
-| 6b | LLM 의존성 설치(`sqlmodel`·`pyjwt`·`bcrypt`) · `init_db()`로 `tools/app.db` 생성 · `tools/.app_secret`(`0600`) 자동 생성 확인 | §4 · [`../tools/requirements.txt`](../tools/requirements.txt) |
+| 6b | LLM 의존성 설치(`sqlmodel`·`pyjwt`·`bcrypt`) · `init_db()`로 `tools/app.db` 생성 · `tools/.app_secret`(`0600`) 자동 생성 확인 · `APP_ADMINS`에 운영자 계정 설정(fail-closed) | §4 · §4.1.1 · [`../tools/requirements.txt`](../tools/requirements.txt) |
+| 6c | (선택) 레거시 `v1.0.0` 동결·병행: `.legacy-v1/` 굽기 + `deploy/ecosystem.legacy-v1.config.js`(`3101`/`9001`) | §4.1 · [`../deploy/README.md`](../deploy/README.md) |
 | 7 | 운영 정석 nginx(`127.0.0.1`) + Cloudflare Tunnel + Access **또는** 사내망 `sudo ufw allow 3100/tcp`(RAG `9000` 비개방) | §4.2 · §5 · [07 보안·거버넌스](07-security-governance.md) |
 | 8 | (선택) Open WebUI 폴백: `docker compose up -d` + 연결 등록(실제 IP, key=EMPTY) | §4.5 |
 | 9 | 백업 대상에 `tools/app.db`·`tools/.app_secret` 포함(커밋 금지) · ZT/HTTPS 시 쿠키 `secure=True` | §4.1.1 · §6 |
@@ -412,4 +430,4 @@ flowchart LR
 관련: [02 아키텍처](02-architecture.md) · [04 파이프라인](04-pipeline.md) · [10 운영](10-operations.md) · [ADR 0003 통제형 RAG API](adr/0003-controlled-rag-api.md) · [ADR 0004 Quartz 그래프 사이트](adr/0004-quartz-graph-site.md) · [ADR 0005 온프레미스 Zero Trust](adr/0005-on-prem-zero-trust.md)
 루트: [../README.md](../README.md) · [../CLAUDE.md](../CLAUDE.md) · [../WORKPLAN.md](../WORKPLAN.md)
 
-최종 수정: 2026-06-19 (LLM 로그인·채팅기록·멀티턴·메시지별 근거 추가)
+최종 수정: 2026-06-21 (PM2 ecosystem 2파일 분리·레거시 v1.0.0 병행(3101/9001)·DB 6테이블·피드백/플래그/통계 엔드포인트·SSE 스트리밍·APP_ADMINS fail-closed·GPU 공유 주의 반영)

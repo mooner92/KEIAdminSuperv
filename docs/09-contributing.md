@@ -7,11 +7,11 @@
 
 ## 1. 한눈에
 
-이 프로젝트는 **하나의 볼트, 두 개의 화면**이다.
+이 프로젝트는 **하나의 볼트, 두 개의 화면**이다. 두 화면 모두 **한 개의 Next.js 14 + Toss Design System 앱(`web/`)** 에 통합돼 있다.
 
 - 단일 진실원천(Source of Truth) = 마크다운 볼트 `KEI-행정가이드/`
-- **[뇌]** Quartz v5 정적 사이트 — 노드/링크 그래프 + 전문검색 (사람이 탐색)
-- **[LLM]** Open WebUI + vLLM — 질문에 `[규정명 제N조]` 출처를 달아 답변 (행정 초보가 사용)
+- **[뇌]** 둘러보기(`/browse`)·관계 그래프(`/graph`)·문서 드로어 — 노드/링크 그래프 + 필터 + 원문 열람 (사람이 탐색)
+- **[LLM]** RAG 채팅(`/`) — 질문에 `[규정명 제N조]` 출처를 달아 답변 (행정 초보가 사용). 백엔드는 Ollama(OpenAI 호환) 서빙 + Chroma 검색.
 
 기여의 대부분은 **마크다운(콘텐츠)** 이고, 일부는 **파이프라인 코드(`tools/`)** 다. 두 경로 모두 같은 ⛔ 절대 규칙 위에서 움직인다.
 
@@ -20,6 +20,7 @@
 | 규정 원문 추가/교정 | `KEI-행정가이드/20_규정원문/` | **의역 금지**, 조문(제N조) 구조 유지, `검수상태: 미검수`로 시작 |
 | 업무 가이드 작성 | `KEI-행정가이드/10_업무가이드/` | 항상 원문 `[[규정명#제N조]]` 링크, 사람이 작성 |
 | 용어 추가 | `KEI-행정가이드/30_용어집/` | 개념 1개 = 노트 1개 |
+| ERP 시스템 노트 | `KEI-행정가이드/40_시스템/` | `type: system`, 모듈별 노트, `####` 기능 단위 |
 | 템플릿/인덱스 | `KEI-행정가이드/90_관리/` | `_templates/`는 청킹 제외 |
 | 변환·임베딩·RAG 코드 | `tools/` | venv 사용, 주변 코드 일관성, 가드레일 약화 금지 |
 | 배포 설정 | `deploy/` | 내부 전용 — 인터넷 공개 금지 |
@@ -147,10 +148,10 @@ flowchart LR
     S1 --> R{사람 검수}
     R -->|반려| W
     R -->|통과| S2["검수상태: 검수완료"]
-    S2 --> E["재임베딩<br/>02_chunk_and_embed.py"]
+    S2 --> E["재임베딩<br/>02_chunk_and_embed.py<br/>(단건은 reembed_note.py)"]
     E --> KB[(Chroma · kei_regs)]
-    KB --> LLM["[LLM] Open WebUI+vLLM"]
-    S2 --> 뇌["[뇌] Quartz 그래프/검색"]
+    KB --> LLM["[LLM] RAG 채팅 (Ollama+Chroma)"]
+    S2 --> 뇌["[뇌] 둘러보기/그래프/문서 (web/)"]
 ```
 
 ### 4.1 템플릿에서 시작
@@ -180,9 +181,10 @@ flowchart LR
 
 ### 4.3 검수상태: 미검수 → 사람 검수 → 검수완료
 
-- 변환·생성된 노트는 `검수상태: 미검수`로 태어난다. 자동으로 `검수완료`로 바뀌는 일은 없다.
+- 변환·생성된 노트는 `검수상태: 미검수`로 태어난다. 자동으로 `검수완료`로 바뀌는 일은 없다. (현재 전건 미검수 — 사람 검수 전이다.)
 - 사람이 원문과 대조해 표/조문/오타를 확인한 뒤에만 프론트매터를 `검수상태: 검수완료`로 바꾼다.
 - `regulation` 노트의 검수는 "변환이 원문을 충실히 보존했는가"를 본다. 새로운 해석을 더하는 자리가 아니다.
+- 검수는 [`tools/review_tool.py`](../tools/review_tool.py)(검수 CLI)로 돕는다. 우선순위 큐([`review_queue.py`](../tools/review_queue.py), 읽기전용)가 유형·별표·미분류·피인용·👎피드백을 점수로 매겨 검수할 노트를 추린다. ⛔ `검수완료` 확정은 사람이 명시적으로 `approve`를 입력할 때만 기록되고, 그 직후 그 노트만 재임베딩된다. 에이전트·스크립트의 자동 승인은 금지다.
 
 ```diff
   ---
@@ -201,8 +203,9 @@ flowchart LR
 python tools/02_chunk_and_embed.py --vault KEI-행정가이드 --db tools/chroma
 ```
 
-- `02_chunk_and_embed.py`는 `제N조` 단위로 청킹하고(고정 길이 청킹 금지), `nlpai-lab/KURE-v1`로 임베딩해 Chroma 컬렉션 `kei_regs`에 `upsert`한다.
-- `upsert`이므로 같은 노트를 다시 돌려도 중복이 쌓이지 않고 갱신된다.
+- `02_chunk_and_embed.py`는 규정원문을 `제N조` 단위, 가이드/ERP를 헤딩(`####`/`##`) 단위로 청킹하고(고정 길이 청킹 금지), `nlpai-lab/KURE-v1`로 임베딩해 Chroma 컬렉션 `kei_regs`에 적재한다.
+- 노트 한 건만 갱신할 땐 전체 리빌드 대신 [`tools/reembed_note.py`](../tools/reembed_note.py)를 쓴다. 그 노트의 기존 청크를 먼저 지우고 다시 넣어 중복을 막는다.
+- ⛔ 재임베딩 전 **Chroma 백업이 필수**다(`reembed_note.py`는 `<db>.bak.<날짜>`로 자동 백업하고 롤백 경로를 출력한다). 라이브 `kei-rag-api`가 같은 db를 열고 있으면 갱신 후 `pm2 restart kei-rag-api`로 반영한다. 안전 테스트는 `--db tools/chroma.test`처럼 사본에 대고 한다.
 - `tools/chroma/`는 재생성 가능한 산출물이라 `.gitignore`에 들어 있다 — 커밋하지 않는다.
 
 > [!note]
@@ -212,7 +215,15 @@ python tools/02_chunk_and_embed.py --vault KEI-행정가이드 --db tools/chroma
 
 ## 5. 코드 기여 (`tools/`)
 
-파이프라인은 `01 변환 → 02 청킹·임베딩 → 03 질의 / 04 OpenAI호환 RAG API` 순서다. 일부 스크립트는 아직 **스켈레톤**이라 다듬는 작업이 많다.
+파이프라인은 `01 변환 → 01b~01g 상호참조·교차링크 → 02 청킹·임베딩 → 03 질의 / 04 OpenAI호환 RAG API` 순서다. 각 단계 스크립트와 실행 커맨드는 [`CLAUDE.md`](../CLAUDE.md)와 [04-pipeline.md](04-pipeline.md)에 정리돼 있다.
+
+검색·생성 코어는 백엔드 3분리 구조다. 손대기 전에 어느 파일이 책임지는지 확인한다.
+
+| 파일 | 책임 |
+|---|---|
+| [`tools/rag_core.py`](../tools/rag_core.py) | 검색·생성 공용 로직. `retrieve`(밀집+리랭커), `answer`/`answer_stream`(SSE), `condense_query`(멀티턴 재작성), `_ensure_disclaimer`(면책 보장), `warmup`. |
+| [`tools/app_api.py`](../tools/app_api.py) | 인증·채팅·플래그·피드백·통계 라우터(`/app/*`). bcrypt+PyJWT 쿠키, SQLModel/SQLite(`tools/app.db`). |
+| [`tools/04_rag_api.py`](../tools/04_rag_api.py) | 진입점. OpenAI 호환 `/v1/*` + `/app/*` 마운트 + `init_db`. PM2 `kei-rag-api`(uvicorn, 127.0.0.1:9000). |
 
 ### 5.1 개발 환경
 
@@ -224,7 +235,7 @@ source tools/.venv/bin/activate
 pip install -r tools/requirements.txt
 ```
 
-주요 의존성: `hwp-hwpx-parser`, `sentence-transformers`, `chromadb`, `kss`(선택), `openai`, `fastapi`, `uvicorn`.
+주요 의존성: `hwp-hwpx-parser`, `sentence-transformers`, `chromadb`, `kss`(선택), `openai`, `fastapi`, `uvicorn`. 앱(인증·채팅) 쪽은 `sqlmodel`, `bcrypt`, `PyJWT`도 쓴다(passlib/fastapi-users는 쓰지 않는다).
 
 > [!note]
 > `tools/.venv/`와 `models/`(내려받은 모델 가중치)는 `.gitignore` 대상이다. 새 라이브러리를 추가하면 `requirements.txt`에 반영하는 것까지가 한 작업이다.
@@ -233,22 +244,23 @@ pip install -r tools/requirements.txt
 
 - **주변 코드와 일관성**을 최우선으로 한다. 한 파일 안에서 갑자기 다른 포맷·네이밍을 도입하지 않는다.
 - 인자 규약을 따른다: 예) `--vault`, `--db`, `--src`, `--q`, `--k`.
-- 임베딩 모델은 변환·질의 양쪽에서 동일해야 한다. `03`/`04`의 `EMBED_MODEL`은 `02`와 반드시 같은 `nlpai-lab/KURE-v1`이어야 검색이 맞는다(대안 `BAAI/bge-m3`로 바꿀 땐 전 파이프라인을 함께 바꾸고 재임베딩). 양자화하지 않고 `normalize_embeddings=True`를 유지한다.
+- 임베딩 모델은 변환·질의 양쪽에서 동일해야 한다. `rag_core`/`03`의 `EMBED_MODEL`은 `02`와 반드시 같은 `nlpai-lab/KURE-v1`이어야 검색이 맞는다(대안 `BAAI/bge-m3`로 바꿀 땐 전 파이프라인을 함께 바꾸고 재임베딩). 양자화하지 않고 `normalize_embeddings=True`를 유지한다.
 - 벡터DB 규약 유지: 컬렉션명 `kei_regs`, `hnsw:space=cosine`.
 
-### 5.3 스켈레톤 다듬기 주의
+### 5.3 변경 시 영향이 큰 지점
 
-아래는 의도적으로 미완성이거나 변경 시 영향이 큰 지점이다. 손대기 전에 영향 범위를 확인한다.
+아래는 깨지면 검색·답변 품질이나 안전장치가 무너지는 지점이다. 손대기 전에 영향 범위를 확인하고, 평가([§8](#8-테스트검증))로 before/after를 측정한다.
 
-| 스크립트 | 현재 상태 / 주의점 |
+| 스크립트 | 주의점 |
 |---|---|
 | `01_hwp_to_md.py` | 파일명 파싱(`reg_num_from_name`/`parse_date`/`clean_title`)과 표 인라인 처리, `CATEGORY_NAMES` 매핑(첫 자리 → 분류 폴더)·암호화/빈 본문·타임아웃 skip 로직을 깨지 않게. |
-| `02_chunk_and_embed.py` | `제N조` 분할 정규식이 핵심. 고정 길이 청킹으로 바꾸지 말 것. `guide`/`term`은 노트 전체 1청크, `_templates` 제외 규칙 유지. |
-| `03_rag_query.py` | `[근거]` 블록 구성과 시스템 프롬프트 가드레일(5.4) 유지. |
-| `04_rag_api.py` | FastAPI. `/v1/chat/completions`는 비스트리밍 스켈레톤(SSE는 향후). `MODEL_ID=kei-admin-rag`, `x_retrieved` 디버그 필드, `retrieve(query, k=5)` 시그니처를 깨지 않게. |
+| `02_chunk_and_embed.py` | 규정원문은 `제N조` 단위, `guide`/`system`은 헤딩(`####`/`##`) 단위(`chunk_guide`). 고정 길이 청킹으로 바꾸지 말 것. **별표/별지는 1급 청크로 분리**(토글 `CHUNK_BYEOLPYO`), 긴 청크는 하위 분할(`CHUNK_SUBSPLIT`, 조 라벨·메타 유지). `_templates` 제외 규칙 유지. |
+| `rag_core.py` | `[근거]` 블록 구성과 가드레일(5.4) 유지. 리랭커(`RAG_RERANK`)·멀티턴 재작성(`RAG_QUERY_REWRITE`)은 실패 시 안전 강등(밀집/원 질문)이 기본이다 — 이 폴백을 제거하지 말 것. 면책은 `_ensure_disclaimer`로 결정적 보장. |
+| `03_rag_query.py` | `rag_core` 검색을 쓰는 CLI 질의 도구. |
+| `04_rag_api.py` | FastAPI 진입점. `/v1/chat/completions`(비스트리밍) + 앱 채팅 스트리밍 `POST /app/chats/{id}/messages?stream=1`(SSE: `meta`→`delta`…→`done`). `x_sources`(규정명·조·분류·type·snippet) 응답 필드를 깨지 않게 — 근거 패널/문서 드로어가 의존한다. |
 
 > [!warning]
-> `04_rag_api.py`의 Open WebUI 연결 URL에는 `localhost`나 `host.docker.internal`이 아니라 **서버 실제 IP**를 쓴다. 컨테이너 안에서 `localhost`는 자기 자신을 가리킨다. 자세한 배포 연결은 [06-deployment.md](06-deployment.md) 참조.
+> 운영에서 쿠키 인증은 **same-origin(`server.js` 프록시)** 으로만 동작한다. CORS에서 `allow_credentials=True`를 와일드카드 오리진과 함께 켜지 말 것. 외부 노출은 Cloudflare Zero Trust 뒤(사내 전용)다. 자세한 배포 연결은 [06-deployment.md](06-deployment.md) 참조.
 
 ### 5.4 가드레일은 코드다 — 약화 금지
 
@@ -261,6 +273,23 @@ pip install -r tools/requirements.txt
 
 설계 배경은 [05-rag-design.md](05-rag-design.md)와 ADR [adr/0003-controlled-rag-api.md](adr/0003-controlled-rag-api.md) 참조.
 
+### 5.5 웹앱(`web/`) 기여 — 빌드는 반드시 Node 22
+
+프론트는 Next.js 14 Pages Router·React 18 고정, `@toss/tds-mobile` v2.5.0이다. 정적 export(`output: export`)라 빌드 산출물 `out/`을 nginx/`server.js`가 서빙한다.
+
+```bash
+cd web
+nvm use 22                                   # ⚠️ 반드시 Node 22
+VAULT_DIR=<볼트경로> npm run build            # next build + 드로어용 out/docdata/*.json emit
+```
+
+> [!warning]
+> 기본 `node18`로 빌드하면 `docdata` emit이 **조용히 실패**해 문서 드로어가 "문서를 불러오지 못했습니다"로 깨진다. 반드시 nvm Node 22를 쓴다.
+
+- 정적 export라 빌드에 환경값을 박지 않는다. 기능 플래그는 런타임 fetch(`lib/flags.tsx`의 `useFlag`, 안전기본값+폴백)로 읽는다([13-feature-flags.md](13-feature-flags.md)).
+- 컬러는 KEI 시맨틱 토큰(`web/styles/globals.css`)만 쓰고 색을 하드코딩하지 않는다. 다크모드는 `[data-theme="dark"]` 분기. 디자인 규약은 [design-system.md](design-system.md).
+- 개발 서버는 `npm run dev`(`-p 3100`), 정적 서빙은 `npm run serve`(`server.js`, `/api/*`→127.0.0.1:9000 프록시). 운영 PM2 프로세스는 `kei-guide`(0.0.0.0:3100).
+
 ---
 
 ## 6. PR / 리뷰 체크리스트
@@ -272,8 +301,10 @@ pip install -r tools/requirements.txt
 - [ ] 한글 파일명/경로가 깨지지 않았다 (`core.quotepath false` 적용 상태에서 작업).
 - [ ] 새 노트는 `_templates/` 양식의 프론트매터를 따른다 (`type` 등 필수 필드 채움).
 - [ ] 변환·생성물은 `검수상태: 미검수`로 두었다 (자동 `검수완료` 금지).
-- [ ] 코드: venv에서 동작 확인, 새 의존성은 `requirements.txt`에 반영.
-- [ ] `tools/chroma/`, `public/`, `.venv/`, `models/` 등 생성물을 커밋에 넣지 않았다.
+- [ ] 코드: venv에서 동작 확인, 새 의존성은 `requirements.txt`에 반영. 백엔드 변경은 `test_feedback.py`/`test_stats.py`/`test_rag_core.py` 통과(아래 [§8](#8-테스트검증)).
+- [ ] 검색·생성 로직을 건드렸다면 `eval/run.sh`로 before/after 지표를 측정해 PR 본문에 적었다.
+- [ ] `web/` 변경은 **nvm Node 22**로 빌드했고, 바꾼 화면을 `web/verify-*.mjs`(Playwright 실렌더)로 확인했다.
+- [ ] `tools/chroma/`, `web/out/`, `.venv/`, `models/`, `tools/app.db`, `tools/.app_secret` 등 생성물·시크릿을 커밋에 넣지 않았다.
 - [ ] 임베딩 모델/컬렉션명(`kei_regs`)/`normalize_embeddings=True` 규약을 건드렸다면 PR 본문에 명시했다.
 
 ### 6.2 ⛔ 절대 규칙 준수 체크리스트
@@ -299,7 +330,48 @@ pip install -r tools/requirements.txt
 - `regulation`: 변환이 원문을 보존했는가? 표가 살아 있는가? 새 해석이 끼어들지 않았는가? → 통과 시 `검수상태: 검수완료`로 변경.
 - `guide`: 모든 주장에 `[[규정명#제N조]]` 근거가 달렸는가? 구체 수치를 가이드 본문에 박아 넣지 않았는가? `관련규정[]`/`관련서식[]`이 채워졌는가?
 - `term`: 한 노트가 한 개념만 다루는가?
-- 코드: 가드레일(5.4)·청킹 단위(제N조)·임베딩 규약이 보존됐는가?
+- 코드: 가드레일(5.4)·청킹 단위(제N조)·임베딩 규약이 보존됐는가? 검색·생성 변경이면 평가([§8](#8-테스트검증)) 지표가 첨부됐는가?
+
+---
+
+## 8. 테스트/검증
+
+머지 전, 바꾼 영역에 맞는 검증을 돌린다.
+
+### 8.1 백엔드 단위 테스트 (LLM/Chroma 불필요)
+
+FastAPI `TestClient` + 임시 DB로 라우터/순수 함수만 검증한다. Ollama·Chroma 없이 빠르게 돈다.
+
+```bash
+cd tools
+.venv/bin/python test_rag_core.py     # 가드레일: 면책 문구 결정적 보장
+.venv/bin/python test_feedback.py     # 👍/👎 엔드포인트 + 검수신호 내보내기 + 소유격리
+.venv/bin/python test_stats.py        # /app/stats 집계 + k-익명성(타인 채팅 비노출)
+```
+
+### 8.2 RAG 검색 품질 평가 (eval/)
+
+검색·청킹·리랭커·재작성을 바꿨으면 골든셋으로 before/after를 측정한다. 현행 백엔드와 같은 임베딩/벡터DB를 보도록 env가 고정돼 있다.
+
+```bash
+bash eval/run.sh                 # 검색 지표(Hit/Recall/MRR) — 빠름, LLM 불필요
+bash eval/run.sh --judge         # 충실도(LLM-as-judge)·거부율까지 — Ollama 필요
+bash eval/run.sh --tag before    # 리포트 파일명에 태그(before/after 비교)
+```
+
+- 지표는 strict(규정명+조)와 relaxed(규정명) 두 기준. `--rerank`/`--rewrite`/`--hybrid` 토글로 조합을 비교한다.
+- 평가셋 `eval/golden.jsonl`과 리포트는 `.gitignore` 대상이라 커밋하지 않는다.
+
+### 8.3 프론트 실렌더 검증 (web/verify-*.mjs)
+
+UI/UX는 코드·번들이 아니라 **Playwright로 실제 렌더한 화면**으로 확인한다. 정적 서버(`npm run serve`, 3100)를 띄운 뒤 바꾼 화면의 검증 스크립트를 돌린다.
+
+```bash
+cd web && node verify-drawer.mjs        # 예: 문서 드로어 (verify-graph/terms/erp/feedback/dashboard/flags ...)
+```
+
+> [!note]
+> headless 크롬에서 한글이 깨지면, `~/.fonts`에 Noto Sans KR·나눔고딕·Noto Color Emoji를 설치하고 `fc-cache`를 돌린 뒤 다시 실행한다.
 
 ---
 
@@ -307,7 +379,7 @@ pip install -r tools/requirements.txt
 
 - 문서 인덱스: [docs/README.md](README.md)
 - 루트: [README.md](../README.md) · [CLAUDE.md](../CLAUDE.md) · [WORKPLAN.md](../WORKPLAN.md)
-- 함께 보면 좋은: [03-content-model.md](03-content-model.md) · [04-pipeline.md](04-pipeline.md) · [05-rag-design.md](05-rag-design.md) · [10-operations.md](10-operations.md)
+- 함께 보면 좋은: [03-content-model.md](03-content-model.md) · [04-pipeline.md](04-pipeline.md) · [05-rag-design.md](05-rag-design.md) · [10-operations.md](10-operations.md) · [12-품질강화.md](12-품질강화.md) · [13-feature-flags.md](13-feature-flags.md) · [14-feedback-loop.md](14-feedback-loop.md) · [design-system.md](design-system.md)
 
 | 이전 | 다음 |
 |---|---|
@@ -315,4 +387,4 @@ pip install -r tools/requirements.txt
 
 ---
 
-최종 수정: 2026-06-18
+최종 수정: 2026-06-21
