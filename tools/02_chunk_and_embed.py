@@ -31,6 +31,13 @@ ARTICLE = re.compile(r"(?=^\s*제\s*\d+\s*조)", re.MULTILINE)  # 제N조 경계
 BOUNDARY = re.compile(r"(?=^\s*제\s*\d+\s*조)|(?=^\s*\[\s*별표)|(?=^\s*\[\s*별지)", re.MULTILINE)
 WARN_PREFIX = "> [!warning] 자동 변환"
 
+# 긴 조문 하위분할(P3): max_seq_len 초과 조문은 뒷부분(항·호의 금액·조건)이 임베딩에서 잘린다.
+# 항(①②…)→호(1./가.)→문단 순으로 쪼개되 조 라벨('제N조')·메타는 유지(출처·앵커·평가 불변).
+HANG = re.compile(r"(?=[①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳㉑㉒㉓㉔㉕])")
+HO = re.compile(r"(?=^\s*(?:\d{1,2}\.|[가나다라마바사아자차카타파하]\.))", re.MULTILINE)
+ART_HEADER = re.compile(r"^\s*(제\s*\d+\s*조(?:\s*\([^)]*\))?)")
+SUBSPLIT = os.environ.get("CHUNK_SUBSPLIT", "1") not in ("0", "false", "")
+
 
 def split_frontmatter(text: str):
     if text.startswith("---"):
@@ -97,6 +104,85 @@ def find_refs(label: str, kind: str, articles):
     key = "별표" if kind == "byeolpyo" else "별지"
     pat = re.compile(rf"{key}\s*제?\s*{n}(?!\d)")
     return ",".join(a_label for a_label, a_text in articles if pat.search(a_text))
+
+
+def _ntok(tok, s: str) -> int:
+    return len(tok.encode(s, add_special_tokens=True))
+
+
+def _hard_wrap(text: str, tok, max_tokens: int):
+    """최후 수단: 문장/길이 단위 강제 분할(항·호가 없거나 단일 항이 한도 초과일 때)."""
+    units = re.split(r"(?<=[.。!?\n])", text)
+    out, buf = [], ""
+    for u in units:
+        if buf and _ntok(tok, buf + u) > max_tokens:
+            out.append(buf); buf = u
+        else:
+            buf += u
+    if buf:
+        out.append(buf)
+    return out or [text]
+
+
+def _split_long_text(text: str, tok, max_len: int):
+    """max_len 토큰 초과 텍스트를 항(①②…)→호(1./가.)→문단→줄/문장 순으로 분할.
+    조문이면 조 헤더(제N조(…))를 각 조각에 prefix해 자족성 유지. 거대 표는 줄 단위로 폴백."""
+    m = ART_HEADER.match(text)
+    header = m.group(1).strip() if m else ""
+    floor = max(256, max_len - 48)  # 헤더·특수토큰 여유
+
+    def first_split(t):
+        for splitter in (HANG, HO):
+            segs = [s for s in splitter.split(t) if s.strip()]
+            if len(segs) > 1:
+                return segs
+        segs = [s for s in re.split(r"\n{2,}", t) if s.strip()]
+        if len(segs) > 1:
+            return segs
+        return _hard_wrap(t, tok, floor)  # 표/단일 블록: 줄·문장 단위 강제 분할
+
+    def probe(s):
+        return (header + "\n" + s) if header else s
+
+    # 1차 분할 후, 한도 초과 단일 세그먼트는 줄/문장 단위로 재분할
+    fine = []
+    for seg in first_split(text):
+        fine.append(seg) if _ntok(tok, probe(seg)) <= max_len else fine.extend(_hard_wrap(seg, tok, floor))
+    # 헤더 prefix 고려해 max_len 이하로 그리디 패킹
+    pieces, buf = [], ""
+    for seg in fine:
+        cand = (buf + seg) if buf else seg
+        if buf and _ntok(tok, probe(cand)) > max_len:
+            pieces.append(buf); buf = seg
+        else:
+            buf = cand
+    if buf:
+        pieces.append(buf)
+    out = []
+    for p in pieces:
+        p = p.strip()
+        if header and not p.startswith(header):
+            p = f"{header}\n{p}"
+        out.append(p)
+    return out or [text]
+
+
+def subsplit_long_chunks(chunks, tok, max_len: int):
+    """max_len 초과 청크를 하위분할. 조 라벨·메타 유지(출처·앵커·평가 불변), 하위 인덱스는 '부분'(1/3)으로만 기록.
+    ⛔ 별표/별지(표)는 분할하지 않는다 — 표 구조 보존 + 깨진 표는 VLM 복원 트랙(P1.3)에서 처리."""
+    out = []
+    for c in chunks:
+        if c.get("별표") == "Y" or _ntok(tok, c["text"]) <= max_len:
+            out.append(c); continue
+        pieces = _split_long_text(c["text"], tok, max_len)
+        if len(pieces) <= 1:
+            out.append(c); continue
+        for j, ptext in enumerate(pieces):
+            d = dict(c)
+            d["text"] = ptext
+            d["부분"] = f"{j + 1}/{len(pieces)}"
+            out.append(d)
+    return out
 
 
 def chunk_guide(body: str, max_chars: int = 1800, pack: int = 1400):
@@ -199,7 +285,7 @@ def iter_chunks(vault: Path):
                 }
 
 
-META_KEYS = ("규정명", "규정번호", "조", "분류", "개정일", "검수상태", "type", "별표", "refs", "path")
+META_KEYS = ("규정명", "규정번호", "조", "분류", "개정일", "검수상태", "type", "별표", "refs", "부분", "path")
 
 
 def main():
@@ -239,6 +325,13 @@ def main():
     dev = getattr(model, "device", "?")
     max_len = getattr(model, "max_seq_length", None)
     print(f"  device={dev}  max_seq_length={max_len}")
+
+    # 긴 청크 하위분할(P3): 입력 한도 초과 청크를 항/호/줄로 쪼개 뒷부분(금액·조건) 잘림 방지(별표 제외)
+    if SUBSPLIT and max_len:
+        n0 = len(chunks)
+        chunks = subsplit_long_chunks(chunks, model.tokenizer, max_len)
+        if len(chunks) != n0:
+            print(f"  긴 청크 하위분할(P3): {n0} → {len(chunks)} 청크 (+{len(chunks) - n0}; CHUNK_SUBSPLIT=0이면 끔)")
 
     # 과대 청크(모델 입력 한도 초과 → 잘림) 점검
     if max_len:
