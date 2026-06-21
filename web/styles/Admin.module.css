@@ -81,3 +81,26 @@
 .tOn { color: var(--color-success); font-weight: 700; }
 .tOff { color: var(--color-text-tertiary); font-weight: 700; }
 .muted { color: var(--color-text-tertiary); font-size: 13px; }
+
+/* ── 운영 대시보드 ── */
+.dash { margin: 0 0 var(--space-6); padding-bottom: var(--space-5); border-bottom: 1px solid var(--color-border); }
+.dashDays { font-size: 12.5px; font-weight: 600; color: var(--color-text-tertiary); }
+.cards { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-5); }
+.card {
+  flex: 1 1 120px; min-width: 120px;
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius-md); padding: 14px 16px; box-shadow: var(--shadow-card);
+}
+.cardN { font-size: 22px; font-weight: 800; color: var(--color-text); letter-spacing: -0.01em; }
+.cardL { margin-top: 4px; font-size: 12.5px; color: var(--color-text-tertiary); }
+.dashGrid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5); }
+.h3 { font-size: 14px; font-weight: 800; color: var(--color-text); margin: 0 0 var(--space-2); }
+.qlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--color-text-secondary); }
+.qlist li { display: flex; gap: 8px; align-items: baseline; line-height: 1.45; }
+.qn {
+  flex: 0 0 auto; min-width: 22px; text-align: center;
+  font-size: 11.5px; font-weight: 700; color: var(--color-primary-strong);
+  background: var(--color-primary-weak); border-radius: 999px; padding: 1px 7px;
+}
+.qnGap { color: var(--color-warning); background: var(--color-bg-subtle); }
+@media (max-width: 760px) { .dashGrid { grid-template-columns: 1fr; } }

@@ -12,6 +12,19 @@ export type FlagMeta = {
   updated_at: number | null;
 };
 export type FlagAudit = { key: string; enabled: boolean; actor: string; at: number };
+// 운영 대시보드 집계(관리자 전용)
+export type Stats = {
+  days: number;
+  users: number;
+  chats: number;
+  questions: number;
+  answers: number;
+  refusals: number;
+  refusal_rate: number;
+  feedback: { up: number; down: number };
+  top_questions: { q: string; n: number }[];
+  gaps: { q: string; n: number }[];
+};
 export type ChatMeta = { id: number; title: string; created_at: number; updated_at: number };
 export type Source = {
   규정명: string;
@@ -176,4 +189,5 @@ export const api = {
   setFlag: (key: string, enabled: boolean) =>
     j<FlagMeta>(`/flags/${encodeURIComponent(key)}`, { method: "POST", body: JSON.stringify({ enabled }) }),
   flagsAudit: () => j<FlagAudit[]>("/flags/audit"),
+  stats: (days?: number) => j<Stats>(`/stats${days ? `?days=${days}` : ""}`), // 관리자 전용 대시보드
 };

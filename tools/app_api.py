@@ -12,8 +12,10 @@
 import datetime
 import json
 import os
+import re
 import secrets
 import time
+from collections import Counter
 from typing import Optional
 
 import bcrypt
@@ -489,6 +491,68 @@ def list_feedback(admin: User = Depends(current_admin), rating: str = "", limit:
                 "sources": [{"규정명": x.get("규정명", ""), "조": x.get("조", "")} for x in srcs],
             })
     return out
+
+
+# ───────────────────────── 운영 대시보드(관리자) ─────────────────────────
+# 거부(가드레일 발동) 답변 감지 — rag_core SYSTEM의 "규정에서 확인되지 않습니다" 계열.
+REFUSAL_RE = re.compile(r"확인되지\s*않|확인할\s*수\s*없|규정에서\s*확인")
+
+
+def _norm_q(t: str) -> str:
+    return re.sub(r"\s+", " ", (t or "").strip())[:120]
+
+
+@router.get("/stats")
+def stats(admin: User = Depends(current_admin), days: int = 30):
+    """운영 대시보드: 활동 요약·거부율·피드백·인기질문·콘텐츠 갭. 관리자 전용(app.db 집계).
+    거부/👎 질문 = 코퍼스가 못 답한 신호 → 다음에 보강할 규정·가이드 우선순위."""
+    days = max(1, min(days, 365))
+    since = time.time() - days * 86400
+    with Session(engine) as s:
+        n_users = len(s.exec(select(User)).all())
+        n_chats = len(s.exec(select(ChatSession)).all())
+        msgs = s.exec(select(Message)).all()
+        fbs = s.exec(select(Feedback)).all()
+
+    recent = [m for m in msgs if m.created_at >= since]
+    user_msgs = [m for m in recent if m.role == "user" and (m.content or "").strip()]
+    ai_msgs = [m for m in recent if m.role == "assistant"]
+    refusals = [m for m in ai_msgs if REFUSAL_RE.search(m.content or "")]
+
+    # 세션별 시간순 정렬 → 거부 답변의 직전 사용자 질문(콘텐츠 갭) 추적
+    by_session: dict = {}
+    for m in msgs:
+        by_session.setdefault(m.session_id, []).append(m)
+    for v in by_session.values():
+        v.sort(key=lambda x: (x.created_at, x.id or 0))
+
+    def prev_q(m: Message) -> str:
+        seq = by_session.get(m.session_id, [])
+        idx = next((i for i, x in enumerate(seq) if x.id == m.id), None)
+        if idx is None:
+            return ""
+        for j in range(idx - 1, -1, -1):
+            if seq[j].role == "user":
+                return seq[j].content
+        return ""
+
+    qcount = Counter(_norm_q(m.content) for m in user_msgs)
+    gapc = Counter(_norm_q(prev_q(m)) for m in refusals)
+    fb_recent = [f for f in fbs if f.updated_at >= since]
+    n_ai = len(ai_msgs)
+    return {
+        "days": days,
+        "users": n_users, "chats": n_chats,
+        "questions": len(user_msgs), "answers": n_ai,
+        "refusals": len(refusals),
+        "refusal_rate": round(len(refusals) / n_ai, 3) if n_ai else 0.0,
+        "feedback": {
+            "up": sum(1 for f in fb_recent if f.rating == "up"),
+            "down": sum(1 for f in fb_recent if f.rating == "down"),
+        },
+        "top_questions": [{"q": q, "n": n} for q, n in qcount.most_common(10)],
+        "gaps": [{"q": q, "n": n} for q, n in gapc.most_common(15) if q],
+    }
 
 
 def _sse(obj: dict) -> str:
