@@ -18,6 +18,7 @@ export type Source = {
   조: string;
   분류: string;
   slug?: string;
+  type?: string; // regulation|guide|system|term → ERP/서식 칩 표시
   tag: string;
   snippet: string;
   distance: number;

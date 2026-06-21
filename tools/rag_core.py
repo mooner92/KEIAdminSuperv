@@ -28,6 +28,11 @@ RERANK_DEVICE = os.environ.get("RAG_RERANK_DEVICE", "cpu")      # 운영은 cuda
 # 멀티턴 질의 재작성: 후속 질문("몇 퍼센트야?")을 직전 맥락을 복원한 '독립 검색어'로 바꿔 검색 정확도↑.
 # 검색어만 바꾸고 답변 생성은 원 질문/근거 그대로(가드레일 불변). 기본 on, 첫 턴(history 없음)은 미적용.
 REWRITE = os.environ.get("RAG_QUERY_REWRITE", "1") not in ("0", "", "false", "False")
+# 섹션 다양성(P2.4): 절차 질의에서 규정이 top-k를 독점해 ERP(시스템)·가이드가 밀릴까 봐 만든 좌석 보장.
+# ⛔ 평가 결과 이득 없음 → 기본 off(opt-in). 밀집(KURE-v1)이 이미 규정+가이드+시스템+용어를 골고루
+# 회수하므로(측정: off=on 동일) 강제 승격 불필요. 하이브리드(P1.4)와 같은 판단 — 인프라만 보존.
+SECTION_DIVERSITY = os.environ.get("RAG_SECTION_DIVERSITY", "0") not in ("0", "", "false", "False")
+DIVERSITY_GATE = int(os.environ.get("RAG_DIVERSITY_GATE", "8"))  # 이 순위 안에 있어야 좌석 승격(관련성 게이트)
 # 모델 상주(콜드스타트 방지). -1 = 무한 상주(언로드 안 함). "30m" 등 Ollama keep_alive 값도 가능.
 KEEP_ALIVE = os.environ.get("OLLAMA_KEEP_ALIVE", "-1")
 
@@ -45,7 +50,9 @@ SYSTEM = (
     "2) 신입도 이해하게 쉽게, 단계로 설명한다.\n"
     "3) 답변 끝에 사용한 출처를 [규정명 제N조] 형식으로 모두 표기한다.\n"
     "4) 마지막에 '최종 판단은 원문과 담당 부서 확인 바랍니다.'를 덧붙인다.\n"
-    "5) 이전 대화 맥락을 참고하되, 사실 근거는 항상 이번 [근거]에서만 가져온다."
+    "5) 이전 대화 맥락을 참고하되, 사실 근거는 항상 이번 [근거]에서만 가져온다.\n"
+    "6) [근거]에 '(ERP 시스템)' 항목이 있으면, 거기 적힌 메뉴·처리 경로를 답변에 함께 안내한다"
+    " (근거에 없는 경로·서식명은 지어내지 않는다)."
 )
 
 # 가드레일(절대 규칙 #4): 모든 답변 끝에 면책 문구. 14B가 종종 누락(평가셋 측정 ~19%)하므로
@@ -138,10 +145,42 @@ def _src(doc, m, dist):
         "규정명": name, "조": article,
         "분류": (m.get("분류") or "").strip(),
         "slug": (m.get("slug") or m.get("파일") or "").strip(),
+        "type": (m.get("type") or "").strip(),   # regulation|guide|system|term → UI에서 ERP/서식 칩
         "tag": f"{name} {article}".strip(),
         "snippet": doc[:240].replace("\n", " ").strip(),
         "distance": round(float(dist), 4) if dist is not None else None,
     }
+
+
+def _select_diverse(order, k, typeof, gate=None):
+    """섹션 다양성 선택: 규정이 top-k를 독점하지 않게 ERP(시스템)·가이드에 좌석을 보장한다.
+    - 후보 순위(order) 상위 gate 안에 해당 섹션이 있을 때만 승격(무관한 섹션 강제 노출 방지)
+    - 규정은 최소 max(1,k-2)개 유지(법적 근거 보존). 좌석은 가장 낮은 순위 규정과 교체.
+    원래 순위 순서는 보존(삽입으로 흐트러지지 않게 정렬)."""
+    chosen = list(order[:k])
+    if len(order) <= k:
+        return chosen
+    g = gate or DIVERSITY_GATE
+    pool_gate = order[:max(k, g)]
+    keep_reg = max(1, k - 2)
+    for typ in ("system", "guide"):   # ERP 경로 우선, 그다음 가이드
+        if any(typeof(i) == typ for i in chosen):
+            continue
+        avail = [i for i in pool_gate if typeof(i) == typ and i not in chosen]
+        if not avail:
+            continue
+        # 교체 대상: chosen에서 가장 낮은 순위의 규정(단, 규정 최소 수 보존)
+        n_reg = sum(1 for i in chosen if typeof(i) == "regulation")
+        victim = next((i for i in reversed(chosen)
+                       if typeof(i) == "regulation" and n_reg > keep_reg), None)
+        if victim is None:  # 규정 더 못 빼면 reserve 아닌(term 등) 가장 낮은 순위 교체
+            victim = next((i for i in reversed(chosen)
+                           if typeof(i) not in ("system", "guide", "regulation")), None)
+        if victim is None:
+            continue
+        chosen[chosen.index(victim)] = avail[0]
+    chosen.sort(key=order.index)   # 원래 순위 순서 유지
+    return chosen
 
 
 def _reranker():
@@ -155,22 +194,27 @@ def _reranker():
     return _state["rerank"]
 
 
-def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None):
+def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None,
+             section_diversity: bool = None):
     """질의 → 관련 조문 top-k 회수. (근거 컨텍스트 문자열, 구조화 출처 리스트) 반환.
 
     hybrid/rerank=None이면 환경변수(RAG_HYBRID/RAG_RERANK)를 따른다.
       - hybrid: 밀집(KURE-v1)+어휘(BM25)를 RRF로 융합(순위 기반).
       - rerank: 후보 top-pool을 cross-encoder로 (질의,청크) 재점수해 재정렬 → top-k.
+      - section_diversity: 규정 독점 방지(ERP/가이드 좌석 보장, RAG_SECTION_DIVERSITY).
     둘 다면 융합 결과를 후보로 리랭크한다.
     """
     embed, col, _ = backend()
     use_hybrid = HYBRID if hybrid is None else hybrid
     use_rerank = RERANK if rerank is None else rerank
+    use_div = SECTION_DIVERSITY if section_diversity is None else section_diversity
     pool = k
     if use_hybrid:
         pool = max(pool, FUSION_POOL)
     if use_rerank:
         pool = max(pool, RERANK_POOL)
+    if use_div:  # 승격 후보가 top-k 밖에도 있으려면 pool을 gate 이상으로 확장(밀집 단독에서도 작동)
+        pool = max(pool, FUSION_POOL, DIVERSITY_GATE)
 
     qv = embed.encode([query], normalize_embeddings=True)[0].tolist()
     r = col.query(query_embeddings=[qv], n_results=pool,
@@ -198,13 +242,18 @@ def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None
         try:
             scores = _reranker().predict([(query, getdoc(i)[0][:2000]) for i in cand])
             ranked = sorted(zip(cand, (float(s) for s in scores)), key=lambda x: -x[1])
-            chosen = [i for i, _ in ranked[:k]]
+            order = [i for i, _ in ranked]
             rscore = {i: s for i, s in ranked}
         except Exception as e:  # noqa: BLE001 — 리랭커 실패(예: GPU OOM)는 밀집 순서로 우아하게 강등
             print(f"⚠ 리랭커 실패 → 밀집 순서로 강등: {e}")
-            chosen = cand[:k]
+            order = list(cand)
     else:
-        chosen = cand[:k]
+        order = list(cand)
+
+    if use_div and len(order) > k:
+        chosen = _select_diverse(order, k, lambda i: (getdoc(i)[1] or {}).get("type", ""))
+    else:
+        chosen = order[:k]
 
     blocks, srcs = [], []
     for i in chosen:
@@ -213,7 +262,8 @@ def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None
         if i in rscore:
             s["rerank"] = round(rscore[i], 4)
         srcs.append(s)
-        blocks.append(f"[{s['tag']}]\n{doc}")
+        label = s["tag"] + (" (ERP 시스템)" if s.get("type") == "system" else "")
+        blocks.append(f"[{label}]\n{doc}")
     return "\n\n---\n\n".join(blocks), srcs
 
 

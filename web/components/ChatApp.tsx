@@ -420,6 +420,16 @@ export default function ChatApp({
                   >
                     <span className={styles.srcTag}>
                       <b>{s.규정명}</b> {s.조}
+                      {s.type === "system" ? (
+                        <span className={styles.erpChip} title="ERP에서 처리 — 클릭하면 메뉴·기능 안내">
+                          🖥 ERP
+                        </span>
+                      ) : null}
+                      {/별지|별표/.test(s.조) ? (
+                        <span className={styles.formChip} title="서식/별표 — 클릭하면 양식 보기">
+                          📄 서식
+                        </span>
+                      ) : null}
                       {status === "검수완료" ? (
                         <span className={styles.stOk} title="사람이 검수 완료한 원문">
                           ✓ 검수완료

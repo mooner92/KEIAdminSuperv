@@ -254,6 +254,13 @@
 /* 근거별 검수상태 배지 */
 .stOk { font-size: 10.5px; font-weight: 700; color: var(--color-success); margin-left: 6px; white-space: nowrap; }
 .stWarn { font-size: 10.5px; font-weight: 700; color: var(--color-warning); margin-left: 6px; white-space: nowrap; }
+/* ERP/서식 칩(처리 위치 안내) */
+.erpChip, .formChip {
+  font-size: 10.5px; font-weight: 700; margin-left: 6px; white-space: nowrap;
+  border-radius: 999px; padding: 1px 7px;
+}
+.erpChip { color: var(--color-primary-strong); background: var(--color-primary-weak); }
+.formChip { color: var(--color-text-secondary); background: var(--color-bg-subtle); border: 1px solid var(--color-border); }
 .graphCta { margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--color-border); font-size: 13px; font-weight: 600; color: var(--color-text-secondary); }
 .graphCta:hover { color: var(--color-primary); }
 
