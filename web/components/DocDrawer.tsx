@@ -22,12 +22,15 @@ export default function DocDrawer({
   slug,
   anchor: initialAnchor = "",
   highlight = false,
+  highlightText = "",
   onClose,
 }: {
   slug: string | null;
   anchor?: string;
-  /** true면 앵커(인용 조문/별표) 블록을 형광 강조 (cite_highlight 플래그) */
+  /** true면 인용 조문/별표 블록을 형광 강조 (cite_highlight 플래그) */
   highlight?: boolean;
+  /** 앵커(조=='') 없는 출처(가이드·머리말 등)는 이 인용 텍스트로 본문에서 매칭해 강조 */
+  highlightText?: string;
   onClose: () => void;
 }) {
   const [current, setCurrent] = useState<string | null>(slug);
@@ -87,30 +90,54 @@ export default function DocDrawer({
     };
   }, [open, onClose]);
 
-  // 본문 로드 후 앵커(제N조/별표/별지)로 스크롤, 없으면 맨 위로. highlight면 인용 블록 형광 강조.
+  // 본문 로드 후: 앵커(제N조/별표)면 그 블록, 앵커 없으면(조='') 인용 텍스트 매칭으로 블록 강조.
   useEffect(() => {
     if (!doc) return;
     const box = scrollRef.current;
     if (!box) return;
     box.querySelectorAll("." + styles.cited).forEach((e) => e.classList.remove(styles.cited)); // 이전 강조 제거
-    const id = anchor ? decodeURIComponent(anchor.replace(/^#/, "")) : "";
-    const el = id ? box.querySelector(`[id="${CSS.escape(id)}"]`) : null;
-    if (!el) {
-      box.scrollTop = 0;
-      return;
-    }
-    (el as HTMLElement).scrollIntoView({ behavior: "smooth", block: "start" });
-    if (highlight) {
-      // 앵커 요소부터 다음 조/별표(=id 있는 블록) 직전까지 묶어서 강조(여러 단락·표 포함)
-      let cur: Element | null = el;
+
+    const norm = (s: string) => (s || "").replace(/\s+/g, " ").trim();
+    // 시작 블록부터 다음 조/별표(id 블록) 직전까지, 또는 인용 길이만큼 묶어서 강조
+    const markFrom = (start: Element, approxLen = 0) => {
+      let cur: Element | null = start;
+      let covered = 0;
       while (cur) {
         cur.classList.add(styles.cited);
+        covered += norm(cur.textContent || "").length;
         const sib: Element | null = cur.nextElementSibling;
-        if (!sib || (sib as HTMLElement).id) break;
+        if (!sib || (sib as HTMLElement).id || (approxLen && covered >= approxLen * 0.85)) break;
         cur = sib;
       }
+    };
+
+    const id = anchor ? decodeURIComponent(anchor.replace(/^#/, "")) : "";
+    const el = id ? box.querySelector(`[id="${CSS.escape(id)}"]`) : null;
+    if (el) {
+      // 1) 앵커(제N조/별표/별지) — 정확. 그 블록 강조
+      (el as HTMLElement).scrollIntoView({ behavior: "smooth", block: "start" });
+      if (highlight) markFrom(el);
+      return;
     }
-  }, [doc, anchor, highlight]);
+    // 2) 앵커 없음(가이드·머리말 등 조=''): 인용 텍스트로 본문 블록 매칭
+    if (highlight && highlightText) {
+      const n = norm(highlightText);
+      const cands = [n.slice(0, 60), n.slice(45, 105), n.slice(90, 150)].filter((c) => c.length >= 24);
+      if (cands.length) {
+        const blocks = Array.from(box.querySelectorAll("p, li, td, h2, h3, h4, blockquote"));
+        const hit = blocks.find((bl) => {
+          const bt = norm(bl.textContent || "");
+          return cands.some((c) => bt.includes(c));
+        });
+        if (hit) {
+          hit.scrollIntoView({ behavior: "smooth", block: "center" });
+          markFrom(hit, n.length);
+          return;
+        }
+      }
+    }
+    box.scrollTop = 0;
+  }, [doc, anchor, highlight, highlightText]);
 
   const goInternal = (s: string, a: string) => {
     setCurrent(s);

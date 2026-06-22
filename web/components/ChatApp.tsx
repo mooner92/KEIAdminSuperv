@@ -60,6 +60,7 @@ export default function ChatApp({
   const [sending, setSending] = useState(false);
   const [openSlug, setOpenSlug] = useState<string | null>(null);
   const [openAnchor, setOpenAnchor] = useState("");
+  const [openSnippet, setOpenSnippet] = useState(""); // 앵커 없는 출처(조='') 텍스트 매칭 하이라이트용
   const [reasonFor, setReasonFor] = useState<number | null>(null); // 👎 사유 입력창이 열린 메시지 id
   const [reasonText, setReasonText] = useState("");
   const threadRef = useRef<HTMLDivElement>(null);
@@ -188,6 +189,7 @@ export default function ChatApp({
     if (!slug) return;
     setOpenSlug(slug);
     setOpenAnchor(s.조 ? `#${s.조}` : "");
+    setOpenSnippet(s.snippet || ""); // 앵커(조) 없으면 드로어가 이 텍스트로 본문 매칭해 강조
   };
 
   // 답변 평가(👍/👎). 같은 버튼을 다시 누르면 철회(toggle). 👎는 사유 입력창을 연다.
@@ -458,7 +460,13 @@ export default function ChatApp({
         </Link>
       </aside>
 
-      <DocDrawer slug={openSlug} anchor={openAnchor} highlight={highlightOn} onClose={() => setOpenSlug(null)} />
+      <DocDrawer
+        slug={openSlug}
+        anchor={openAnchor}
+        highlight={highlightOn}
+        highlightText={highlightOn ? openSnippet : ""}
+        onClose={() => setOpenSlug(null)}
+      />
     </div>
   );
 }

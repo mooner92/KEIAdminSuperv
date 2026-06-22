@@ -36,7 +36,8 @@ ok(flag === expectOn, `1) cite_highlight=${flag} (기대 ${expectOn})`);
 
 await p.click('button:has-text("새 대화")').catch(() => {});
 await p.waitForTimeout(400);
-await p.fill('textarea[placeholder^="행정 업무"]', "국내 출장 숙박비 한도는 얼마인가요?");
+// ⭐ 핵심 근거가 '가이드'(조='') 인 시나리오로 검증 — 앵커 없는 출처의 텍스트 매칭 하이라이트
+await p.fill('textarea[placeholder^="행정 업무"]', "출장 여비는 어떻게 정산하나요?");
 await p.click('button:has-text("보내기")');
 await p.waitForSelector('button[title="도움이 됐어요"]', { timeout: 90000 }).catch(() => {});
 await p.waitForTimeout(900);
