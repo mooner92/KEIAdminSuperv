@@ -254,6 +254,12 @@
 /* 근거별 검수상태 배지 */
 .stOk { font-size: 10.5px; font-weight: 700; color: var(--color-success); margin-left: 6px; white-space: nowrap; }
 .stWarn { font-size: 10.5px; font-weight: 700; color: var(--color-warning); margin-left: 6px; white-space: nowrap; }
+/* '핵심 근거'(리랭커 1위) 배지 — 여러 근거 중 무엇부터 볼지(cite_highlight) */
+.keyBadge {
+  display: inline-block; font-size: 10.5px; font-weight: 800;
+  color: var(--color-primary-strong); background: var(--color-primary-weak);
+  border-radius: 999px; padding: 1px 7px; margin-right: 6px; white-space: nowrap;
+}
 /* ERP/서식 칩(처리 위치 안내) */
 .erpChip, .formChip {
   font-size: 10.5px; font-weight: 700; margin-left: 6px; white-space: nowrap;

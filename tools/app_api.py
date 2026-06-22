@@ -111,6 +111,12 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "",  # 예시(장수). 실제 release 플래그는 실제 만료일(YYYY-MM-DD)을 적어 정리 강제
     },
+    "cite_highlight": {
+        "default": False,  # release 플래그 — off로 배포, 파일럿 검증 후 on, 안정되면 플래그 제거
+        "description": "근거 조문 클릭 시 문서 드로어에서 인용 조문(별표 포함) 블록 형광 강조 + 근거 패널 '핵심 근거' 표시 (#1 피드백)",
+        "owner": "platform",
+        "expires": "2026-07-20",  # ⛔ 이 날짜까지 검증→상시적용(플래그 제거) 또는 폐기. flag debt 정리
+    },
 }
 
 

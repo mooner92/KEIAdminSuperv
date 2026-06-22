@@ -63,17 +63,20 @@ export default function Markdown({
       );
     },
     p({ node, children }) {
-      const m = nodeText(node).trimStart().match(/^제\s*(\d+)\s*조/);
-      if (m) {
-        const id = `제${m[1]}조`;
-        if (!seen.has(id)) {
-          seen.add(id);
-          return (
-            <p id={id} className={styles.article}>
-              {children}
-            </p>
-          );
-        }
+      // 제N조 + 별표 N + 별지 제N호 단락에 id 부여 → 출처(s.조)로 앵커 스크롤·하이라이트
+      const t = nodeText(node).trimStart();
+      let id = "";
+      let m: RegExpMatchArray | null;
+      if ((m = t.match(/^제\s*(\d+)\s*조/))) id = `제${m[1]}조`;
+      else if ((m = t.match(/^\[?\s*별표\s*(\d+)/))) id = `별표 ${m[1]}`;
+      else if ((m = t.match(/^\[?\s*별지\s*제?\s*(\d+)\s*호/))) id = `별지 제${m[1]}호`;
+      if (id && !seen.has(id)) {
+        seen.add(id);
+        return (
+          <p id={id} className={styles.article}>
+            {children}
+          </p>
+        );
       }
       return <p>{children}</p>;
     },

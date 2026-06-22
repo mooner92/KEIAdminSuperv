@@ -4,6 +4,7 @@ import Markdown from "./Markdown";
 import DocDrawer from "./DocDrawer";
 import { api, type ChatMeta, type Message, type Source, type User } from "../lib/api";
 import type { DocMeta } from "../lib/vault";
+import { useFlag } from "../lib/flags";
 import styles from "./ChatApp.module.css";
 
 const EXAMPLES = [
@@ -75,6 +76,9 @@ export default function ChatApp({
     for (const d of docs) if (!m.has(d.title)) m.set(d.title, d.reviewed || "");
     return m;
   }, [docs]);
+
+  // #1 피드백: 근거 클릭 시 드로어에서 인용 조문 하이라이트 + 패널 '핵심 근거' 표시 (release 플래그)
+  const highlightOn = useFlag("cite_highlight");
 
   // 활성 메시지(없으면 마지막 assistant)의 근거를 우측에 표시
   const activeSources: Source[] = useMemo(() => {
@@ -419,6 +423,7 @@ export default function ChatApp({
                     disabled={!linkable}
                   >
                     <span className={styles.srcTag}>
+                      {highlightOn && i === 0 ? <span className={styles.keyBadge}>⭐ 핵심 근거</span> : null}
                       <b>{s.규정명}</b> {s.조}
                       {s.type === "system" ? (
                         <span className={styles.erpChip} title="ERP에서 처리 — 클릭하면 메뉴·기능 안내">
@@ -453,7 +458,7 @@ export default function ChatApp({
         </Link>
       </aside>
 
-      <DocDrawer slug={openSlug} anchor={openAnchor} onClose={() => setOpenSlug(null)} />
+      <DocDrawer slug={openSlug} anchor={openAnchor} highlight={highlightOn} onClose={() => setOpenSlug(null)} />
     </div>
   );
 }

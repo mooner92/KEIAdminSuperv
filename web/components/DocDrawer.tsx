@@ -21,10 +21,13 @@ type DrawerDoc = Doc & { backlinks: Backlink[] };
 export default function DocDrawer({
   slug,
   anchor: initialAnchor = "",
+  highlight = false,
   onClose,
 }: {
   slug: string | null;
   anchor?: string;
+  /** true면 앵커(인용 조문/별표) 블록을 형광 강조 (cite_highlight 플래그) */
+  highlight?: boolean;
   onClose: () => void;
 }) {
   const [current, setCurrent] = useState<string | null>(slug);
@@ -84,16 +87,30 @@ export default function DocDrawer({
     };
   }, [open, onClose]);
 
-  // 본문 로드 후 앵커(제N조)로 스크롤, 없으면 맨 위로
+  // 본문 로드 후 앵커(제N조/별표/별지)로 스크롤, 없으면 맨 위로. highlight면 인용 블록 형광 강조.
   useEffect(() => {
     if (!doc) return;
     const box = scrollRef.current;
     if (!box) return;
+    box.querySelectorAll("." + styles.cited).forEach((e) => e.classList.remove(styles.cited)); // 이전 강조 제거
     const id = anchor ? decodeURIComponent(anchor.replace(/^#/, "")) : "";
     const el = id ? box.querySelector(`[id="${CSS.escape(id)}"]`) : null;
-    if (el) (el as HTMLElement).scrollIntoView({ behavior: "smooth", block: "start" });
-    else box.scrollTop = 0;
-  }, [doc, anchor]);
+    if (!el) {
+      box.scrollTop = 0;
+      return;
+    }
+    (el as HTMLElement).scrollIntoView({ behavior: "smooth", block: "start" });
+    if (highlight) {
+      // 앵커 요소부터 다음 조/별표(=id 있는 블록) 직전까지 묶어서 강조(여러 단락·표 포함)
+      let cur: Element | null = el;
+      while (cur) {
+        cur.classList.add(styles.cited);
+        const sib: Element | null = cur.nextElementSibling;
+        if (!sib || (sib as HTMLElement).id) break;
+        cur = sib;
+      }
+    }
+  }, [doc, anchor, highlight]);
 
   const goInternal = (s: string, a: string) => {
     setCurrent(s);
