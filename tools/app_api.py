@@ -117,6 +117,12 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-07-20",  # ⛔ 이 날짜까지 검증→상시적용(플래그 제거) 또는 폐기. flag debt 정리
     },
+    "graph_split": {
+        "default": False,  # release 플래그
+        "description": "관계 그래프에서 노드 클릭 시 페이지 이동 대신 옆에 문서 패널을 열어 그래프와 동시에 보기(분할 뷰)",
+        "owner": "platform",
+        "expires": "2026-07-24",
+    },
 }
 
 

@@ -23,6 +23,7 @@
 .canvas {
   flex: 1; /* 남은 뷰포트를 모두 채움 → 페이지 스크롤 없이 전체 그래프 표시 */
   min-height: 0;
+  min-width: 0; /* 분할 뷰(행 배치)에서 가로로 줄어들 수 있게 */
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -40,4 +41,51 @@
   height: 100%;
   color: var(--color-text-tertiary);
   font-size: 14px;
+}
+
+/* ── 분할 뷰(graph_split): 그래프(좌) + 인라인 문서 패널(우) 같은 레이어 ── */
+.split { flex: 1; min-height: 0; display: flex; gap: var(--space-3); }
+.docPanel {
+  flex: 0 0 clamp(360px, 38%, 560px);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+.docBar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-border);
+}
+.docTitle { font-size: 14px; font-weight: 800; color: var(--color-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.docBarRight { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; }
+.docExpand { font-size: 12.5px; color: var(--color-text-secondary); white-space: nowrap; }
+.docExpand:hover { color: var(--color-primary); }
+.docClose { border: none; background: none; color: var(--color-text-tertiary); font-size: 15px; line-height: 1; cursor: pointer; }
+.docClose:hover { color: var(--color-text); }
+.docScroll { flex: 1; min-height: 0; overflow-y: auto; padding: var(--space-4) var(--space-5); }
+.docState { padding: var(--space-5); color: var(--color-text-tertiary); font-size: 14px; }
+.docArticle { font-size: 14px; }
+.docChips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.docChip { font-size: 11.5px; padding: 2px 8px; border-radius: 999px; background: var(--color-bg-subtle); color: var(--color-text-secondary); }
+.docChipOk { color: var(--color-success); }
+.docChipWarn { color: var(--color-warning); }
+.docH1 { margin: 2px 0 14px; font-size: 19px; font-weight: 800; color: var(--color-text); letter-spacing: -0.01em; }
+.docBacklinks { margin-top: var(--space-5); padding-top: var(--space-4); border-top: 1px solid var(--color-border); }
+.docBlTitle { font-size: 13px; font-weight: 700; color: var(--color-text-secondary); margin: 0 0 8px; }
+.docBlList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.docBlList button { border: none; background: none; color: var(--color-primary); font-size: 13px; cursor: pointer; text-align: left; padding: 2px 0; }
+.docBlList button:hover { text-decoration: underline; }
+@media (max-width: 880px) {
+  .split { flex-direction: column; }
+  .split .canvas { height: 52vh; min-height: 360px; }
+  .docPanel { flex: 1 1 auto; max-height: 62vh; }
 }

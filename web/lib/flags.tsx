@@ -7,6 +7,7 @@ import { api } from "./api";
 export const FLAG_DEFAULTS: Record<string, boolean> = {
   demo_banner: false,
   cite_highlight: false, // 근거 조문 클릭 시 드로어 하이라이트 + '핵심 근거' 표시 (release 플래그, 만료 2026-07-20)
+  graph_split: false, // 관계 그래프 노드 클릭 → 옆 문서 패널(분할 뷰), 그래프 계속 조작 (release 플래그, 만료 2026-07-24)
 };
 const CACHE_KEY = "kei-flags";
 
