@@ -33,7 +33,9 @@ module.exports = {
       watch: false,
       env: {
         VLLM_BASE: "http://127.0.0.1:11434/v1",
-        LLM_MODEL: "hf.co/bartowski/Qwen2.5-14B-Instruct-GGUF:Q4_K_M",
+        // Qwen3-14B(GGUF Q4_K_M). Ollama 레지스트리 차단됨 → hf.co/ 로 pull.
+        // rag_core가 /no_think로 사고모드 끄고 <think> 방어 제거(NO_THINK 자동 on: 모델명에 qwen3).
+        LLM_MODEL: "hf.co/Qwen/Qwen3-14B-GGUF:Q4_K_M",
         CHROMA_DIR: "/home/mhchoi/kei-dev-0703/tools/chroma", // 격리 벡터DB(프로덕션 사본)
         RAG_COLLECTION: "kei_regs",
         EMBED_MODEL: "nlpai-lab/KURE-v1",

@@ -7,6 +7,7 @@
 가드레일(절대 규칙): 근거 밖 내용 금지, 출처 [규정명 제N조], 면책 문구. 약화시키지 말 것.
 """
 import os
+import re
 import threading
 
 EMBED_MODEL = os.environ.get("EMBED_MODEL", "nlpai-lab/KURE-v1")   # 02/03과 동일해야 함
@@ -35,6 +36,25 @@ SECTION_DIVERSITY = os.environ.get("RAG_SECTION_DIVERSITY", "0") not in ("0", ""
 DIVERSITY_GATE = int(os.environ.get("RAG_DIVERSITY_GATE", "8"))  # 이 순위 안에 있어야 좌석 승격(관련성 게이트)
 # 모델 상주(콜드스타트 방지). -1 = 무한 상주(언로드 안 함). "30m" 등 Ollama keep_alive 값도 가능.
 KEEP_ALIVE = os.environ.get("OLLAMA_KEEP_ALIVE", "-1")
+
+# 하이브리드 추론 모델(qwen3 등)은 기본적으로 <think> 사고과정을 답 앞에 먼저 출력한다.
+# RAG에선 사고과정을 끄고('/no_think' 지시) 답만 받는다 — 스트리밍/후처리(두괄식·면책·출처) 안정.
+# 강제 토글(RAG_NO_THINK=0/1)도 지원. 미설정이면 모델명에 'qwen3' 있으면 자동 on.
+_env_nt = os.environ.get("RAG_NO_THINK")
+NO_THINK = ("qwen3" in LLM_MODEL.lower()) if _env_nt is None else (_env_nt not in ("0", "", "false", "False"))
+_THINK_RE = re.compile(r"<think>.*?</think>\s*", re.DOTALL)
+
+
+def _strip_think(text: str) -> str:
+    """qwen3 등의 <think>…</think> 사고블록을 제거(방어적). /no_think로 대개 발생하지 않지만
+    혹시 새어나와도 최종 답변엔 노출하지 않는다(스트리밍 중 미완결 블록도 방어)."""
+    t = text or ""
+    if "<think>" not in t:
+        return t
+    t = _THINK_RE.sub("", t)          # 닫힌 사고블록 제거
+    if "<think>" in t:                # 열린 채 아직 안 닫힌 경우(스트리밍 중간)
+        t = t.split("</think>")[-1] if "</think>" in t else t.split("<think>")[0]
+    return t.lstrip()
 
 
 def _keep_alive():
@@ -292,7 +312,8 @@ def _build_messages(question: str, context: str, history=None):
 
     history: [{"role": "user"|"assistant", "content": str}, ...] (원문 질문/답변, 근거 미포함).
     """
-    msgs = [{"role": "system", "content": SYSTEM}]
+    sys_content = SYSTEM + ("\n/no_think" if NO_THINK else "")  # qwen3 사고모드 off(RAG는 답만)
+    msgs = [{"role": "system", "content": sys_content}]
     for h in history or []:
         role = h.get("role")
         content = h.get("content")
@@ -310,7 +331,7 @@ def answer(question: str, context: str, history=None, temperature: float = 0.1) 
         messages=_build_messages(question, context, history),
         extra_body={"keep_alive": _keep_alive()},  # 매 요청마다 상주 재확인
     )
-    return _ensure_disclaimer(out.choices[0].message.content or "")
+    return _ensure_disclaimer(_strip_think(out.choices[0].message.content or ""))
 
 
 def answer_stream(question: str, context: str, history=None, temperature: float = 0.1):
@@ -321,7 +342,8 @@ def answer_stream(question: str, context: str, history=None, temperature: float 
         messages=_build_messages(question, context, history), stream=True,
         extra_body={"keep_alive": _keep_alive()},  # 매 요청마다 상주 재확인
     )
-    seen = ""
+    seen = ""       # 원문(사고블록 포함) 누적
+    emitted = 0     # 사고블록 제거 후 이미 내보낸 글자 수
     for chunk in stream:
         try:
             delta = chunk.choices[0].delta.content
@@ -329,10 +351,14 @@ def answer_stream(question: str, context: str, history=None, temperature: float 
             delta = None
         if delta:
             seen += delta
-            yield delta
+            cleaned = _strip_think(seen)   # 사고블록(<think>…</think>) 제거된 답 본문
+            if len(cleaned) > emitted:      # 새로 확정된 본문만 흘려보냄(사고 중엔 아무것도 안 나감)
+                yield cleaned[emitted:]
+                emitted = len(cleaned)
+    final = _strip_think(seen)
     # 가드레일: 스트림 본문에 면책 문구가 없으면 마지막에 덧붙여 보장(중복 방지 감지 포함)
-    if _DISC_KEY not in seen:
-        yield ("\n\n" + DISCLAIMER) if seen.strip() else DISCLAIMER
+    if _DISC_KEY not in final:
+        yield ("\n\n" + DISCLAIMER) if final.strip() else DISCLAIMER
 
 
 def keepalive_once():
