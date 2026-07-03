@@ -37,16 +37,32 @@ DIVERSITY_GATE = int(os.environ.get("RAG_DIVERSITY_GATE", "8"))  # 이 순위 �
 # 모델 상주(콜드스타트 방지). -1 = 무한 상주(언로드 안 함). "30m" 등 Ollama keep_alive 값도 가능.
 KEEP_ALIVE = os.environ.get("OLLAMA_KEEP_ALIVE", "-1")
 
-# 하이브리드 추론 모델(qwen3 등)은 기본적으로 <think> 사고과정을 답 앞에 먼저 출력한다.
-# RAG에선 사고과정을 끄고('/no_think' 지시) 답만 받는다 — 스트리밍/후처리(두괄식·면책·출처) 안정.
+# 하이브리드 추론 모델(qwen3/3.5)은 기본적으로 사고과정을 답 앞에 먼저 생성한다.
+# RAG에선 사고를 끄고 답만 받는다 — 스트리밍/후처리(두괄식·면책·출처) 안정.
+# ⚠ 세대별 제어가 다르다(실측): qwen3 = 시스템 '/no_think' 지시 / qwen3.5 = 요청 파라미터 think:false
+#   ('/no_think'는 qwen3.5에 무효 — thinking이 그대로 돈다). 모델명으로 자동 분기.
 # 강제 토글(RAG_NO_THINK=0/1)도 지원. 미설정이면 모델명에 'qwen3' 있으면 자동 on.
 _env_nt = os.environ.get("RAG_NO_THINK")
 NO_THINK = ("qwen3" in LLM_MODEL.lower()) if _env_nt is None else (_env_nt not in ("0", "", "false", "False"))
+QWEN35 = "qwen3.5" in LLM_MODEL.lower()  # think:false 파라미터 세대(qwen3.5-*)
 _THINK_RE = re.compile(r"<think>.*?</think>\s*", re.DOTALL)
+
+# qwen3.5-9B GGUF(Q4, Vulkan 경로)가 숫자·조문 토큰 사이에 공백을 삽입하는 표기 결함이 있어
+# (A/B 실측 25건 중 22건: '제 11 조'·'2 년'·'2 분의 1'), 결정적 후처리로 표기만 정규화한다.
+# 목적: 출처 인용(제\d+조)·근거 칩 매칭·가독성 보호. ⛔ 값 자체는 절대 바꾸지 않는다(공백만 제거).
+_SP_JO_RE = re.compile(r"제\s+(\d+)\s*(조|항|호|장|절|편)")
+_SP_NUM_RE = re.compile(r"(\d[\d,\.]*)\s+(원|년|월|일|시간|분|초|개월|회|명|배|건|점|박|퍼센트|%|킬로미터|km)")
+_SP_BUNUI_RE = re.compile(r"(\d+)\s*분의\s*(\d+)")
+
+
+def _tighten_spacing(text: str) -> str:
+    t = _SP_JO_RE.sub(r"제\1\2", text)
+    t = _SP_NUM_RE.sub(r"\1\2", t)
+    return _SP_BUNUI_RE.sub(r"\1분의 \2", t)
 
 
 def _strip_think(text: str) -> str:
-    """qwen3 등의 <think>…</think> 사고블록을 제거(방어적). /no_think로 대개 발생하지 않지만
+    """qwen3 등의 <think>…</think> 사고블록을 제거(방어적). 사고 off로 대개 발생하지 않지만
     혹시 새어나와도 최종 답변엔 노출하지 않는다(스트리밍 중 미완결 블록도 방어)."""
     t = text or ""
     if "<think>" not in t:
@@ -55,6 +71,12 @@ def _strip_think(text: str) -> str:
     if "<think>" in t:                # 열린 채 아직 안 닫힌 경우(스트리밍 중간)
         t = t.split("</think>")[-1] if "</think>" in t else t.split("<think>")[0]
     return t.lstrip()
+
+
+def _postprocess(text: str) -> str:
+    """사고블록 제거 + (qwen3.5) 공백결함 정규화 — 생성 텍스트 공통 후처리."""
+    t = _strip_think(text)
+    return _tighten_spacing(t) if QWEN35 else t
 
 
 def _keep_alive():
@@ -312,7 +334,8 @@ def _build_messages(question: str, context: str, history=None):
 
     history: [{"role": "user"|"assistant", "content": str}, ...] (원문 질문/답변, 근거 미포함).
     """
-    sys_content = SYSTEM + ("\n/no_think" if NO_THINK else "")  # qwen3 사고모드 off(RAG는 답만)
+    # 사고 off: qwen3.5는 요청 파라미터(think:false, _gen_extra), qwen3는 시스템 '/no_think' 지시
+    sys_content = SYSTEM + ("\n/no_think" if (NO_THINK and not QWEN35) else "")
     msgs = [{"role": "system", "content": sys_content}]
     for h in history or []:
         role = h.get("role")
@@ -323,15 +346,34 @@ def _build_messages(question: str, context: str, history=None):
     return msgs
 
 
+def _gen_extra():
+    """Ollama 확장 파라미터(extra_body). keep_alive 상주 + (qwen3.5) 사고 off.
+
+    ⚠ 실측(v0.31.1): OpenAI 호환(/v1) 경로에서 'think:false'는 **무시**되고(사고가 reasoning
+    필드로 계속 돎 → content 빈 답), 'reasoning_effort:none'이 유효하다. 네이티브(/api/chat)는
+    반대로 think:false가 유효 — 두 키를 모두 보내 어느 경로/버전에서도 사고가 꺼지게 한다.
+    """
+    extra = {"keep_alive": _keep_alive()}
+    if NO_THINK and QWEN35:
+        extra["reasoning_effort"] = "none"  # OpenAI 호환(/v1) 경로용 — 실제 효력(실측)
+        extra["think"] = False              # 네이티브 경로/타 버전 대비(무해)
+    return extra
+
+
 def answer(question: str, context: str, history=None, temperature: float = 0.1) -> str:
     """근거 주입 + (선택)이전 대화 맥락으로 답변 생성(비스트리밍)."""
     _, _, llm = backend()
     out = llm.chat.completions.create(
         model=LLM_MODEL, temperature=temperature,
         messages=_build_messages(question, context, history),
-        extra_body={"keep_alive": _keep_alive()},  # 매 요청마다 상주 재확인
+        extra_body=_gen_extra(),  # 매 요청마다 상주 재확인 + 사고 off
     )
-    return _ensure_disclaimer(_strip_think(out.choices[0].message.content or ""))
+    return _ensure_disclaimer(_postprocess(out.choices[0].message.content or ""))
+
+
+# 스트리밍 홀드백: 공백결함 정규화('제 11 조'→'제11조')는 패턴이 완성돼야 합칠 수 있으므로,
+# 꼬리 몇 글자는 다음 청크가 올 때까지 보류했다가 내보낸다(경계에서 미완성 패턴 유출 방지).
+_STREAM_HOLDBACK = 12
 
 
 def answer_stream(question: str, context: str, history=None, temperature: float = 0.1):
@@ -340,10 +382,11 @@ def answer_stream(question: str, context: str, history=None, temperature: float 
     stream = llm.chat.completions.create(
         model=LLM_MODEL, temperature=temperature,
         messages=_build_messages(question, context, history), stream=True,
-        extra_body={"keep_alive": _keep_alive()},  # 매 요청마다 상주 재확인
+        extra_body=_gen_extra(),  # 매 요청마다 상주 재확인 + 사고 off
     )
     seen = ""       # 원문(사고블록 포함) 누적
-    emitted = 0     # 사고블록 제거 후 이미 내보낸 글자 수
+    emitted = 0     # 후처리(사고제거+공백정규화) 후 이미 내보낸 글자 수
+    hold = _STREAM_HOLDBACK if QWEN35 else 0
     for chunk in stream:
         try:
             delta = chunk.choices[0].delta.content
@@ -351,11 +394,14 @@ def answer_stream(question: str, context: str, history=None, temperature: float 
             delta = None
         if delta:
             seen += delta
-            cleaned = _strip_think(seen)   # 사고블록(<think>…</think>) 제거된 답 본문
-            if len(cleaned) > emitted:      # 새로 확정된 본문만 흘려보냄(사고 중엔 아무것도 안 나감)
-                yield cleaned[emitted:]
-                emitted = len(cleaned)
-    final = _strip_think(seen)
+            cleaned = _postprocess(seen)     # 사고블록 제거 + 공백결함 정규화
+            safe = len(cleaned) - hold       # 꼬리 hold 글자는 패턴 완성 대기(홀드백)
+            if safe > emitted:               # 새로 확정된 본문만 흘려보냄
+                yield cleaned[emitted:safe]
+                emitted = safe
+    final = _postprocess(seen)
+    if len(final) > emitted:                 # 홀드백 잔여분 방출
+        yield final[emitted:]
     # 가드레일: 스트림 본문에 면책 문구가 없으면 마지막에 덧붙여 보장(중복 방지 감지 포함)
     if _DISC_KEY not in final:
         yield ("\n\n" + DISCLAIMER) if final.strip() else DISCLAIMER
@@ -367,7 +413,7 @@ def keepalive_once():
     llm.chat.completions.create(
         model=LLM_MODEL, temperature=0, max_tokens=1,
         messages=[{"role": "user", "content": "ping"}],
-        extra_body={"keep_alive": _keep_alive()},
+        extra_body=_gen_extra(),
     )
 
 

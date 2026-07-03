@@ -32,10 +32,9 @@ module.exports = {
       max_restarts: 10,
       watch: false,
       env: {
-        VLLM_BASE: "http://127.0.0.1:11434/v1",
-        // Qwen3-14B(GGUF Q4_K_M). Ollama 레지스트리 차단됨 → hf.co/ 로 pull.
-        // rag_core가 /no_think로 사고모드 끄고 <think> 방어 제거(NO_THINK 자동 on: 모델명에 qwen3).
-        LLM_MODEL: "hf.co/Qwen/Qwen3-14B-GGUF:Q4_K_M",
+        VLLM_BASE: "http://127.0.0.1:11436/v1", // 격리 Ollama v0.31.1(kei-ollama-v031) — 11434(0.24.0)는 qwen3_5 미지원
+        // Qwen3.5-9B(GGUF Q4_K_M, unsloth). rag_core가 reasoning_effort:none(+think:false) 사고 off + 공백결함 정규화(자동).
+        LLM_MODEL: "hf.co/unsloth/Qwen3.5-9B-GGUF:Q4_K_M",
         CHROMA_DIR: "/home/mhchoi/kei-dev-0703/tools/chroma", // 격리 벡터DB(프로덕션 사본)
         RAG_COLLECTION: "kei_regs",
         EMBED_MODEL: "nlpai-lab/KURE-v1",
