@@ -42,9 +42,10 @@ module.exports = {
         HF_HUB_OFFLINE: "1",
         OLLAMA_KEEP_ALIVE: "-1",
         OLLAMA_PING_SECONDS: "240",
-        RAG_RERANK: "1",
-        RAG_RERANK_DEVICE: "cuda:1", // 프로덕션과 같은 GPU1(여유). 실패 시 밀집 강등
-        RAG_RERANK_POOL: "20",
+        // ⚠ 리랭커 off: GPU1이 프로덕션 리랭커+Ollama로 꽉 차 dev 리랭커는 OOM(매 질의 실패→밀집 강등,
+        // 로그 스팸·지연). dev는 '밀집'으로 돈다(프롬프트·콘텐츠 테스트엔 충분). 프로덕션=리랭커라 검색 순위는 다를 수 있음.
+        // GPU 여유 생기면 RAG_RERANK=1 + RAG_RERANK_DEVICE=cuda:1로 프로덕션과 동일하게.
+        RAG_RERANK: "0",
         APP_DB: "/home/mhchoi/kei-dev-0703/tools/app.db", // 격리 채팅DB(신규)
         APP_SECRET_FILE: "/home/mhchoi/kei-dev-0703/tools/.app_secret", // 격리 세션키(신규)
         APP_ADMINS: "21963",
