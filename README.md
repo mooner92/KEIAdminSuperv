@@ -2,14 +2,14 @@
 
 > 행정 초보(신입·전입자)가 "이 업무 어떻게 처리하지?"를 **사내 규정 근거로** 빠르게 해결하도록 돕는 온프레미스 지식베이스 + 로컬 LLM.
 >
-> 단일 진실원천(Source of Truth)인 마크다운 볼트 하나를, 사람이 탐색하는 **[뇌] 그래프·문서**와 신입이 물어보는 **[LLM] RAG 채팅**으로 동시에 서빙합니다. 두 화면 모두 한 개의 **Next.js 14 + TDS 앱(`web/`)**에 통합되어 있습니다 — LLM은 별도 Open WebUI가 아니라 우리 RAG API를 호출하는 앱 내 채팅 화면입니다. LLM에는 **로그인·회원가입, 채팅기록 영속화, 멀티턴 기억, 답변(메시지)별 근거 저장, 응답 스트리밍(SSE)**이 들어 있고, **검색 품질**은 리랭커(P1.4)·멀티턴 쿼리 재작성(P1.5)으로, **신뢰**는 답변 피드백(👍/👎, P2.1)·금액 신뢰 강화(P2.2)·운영자 대시보드(P2.5)로 보강했습니다. 답변 생성은 **Ollama**(Qwen2.5-14B-Instruct Q4_K_M, OpenAI 호환), 검색 임베딩은 **KURE-v1**로 모두 사내 GPU(Quadro RTX 6000 24GB×2)에서 돌고, 화면은 Cloudflare Zero Trust 뒤(사내 전용)에 둡니다.
+> 단일 진실원천(Source of Truth)인 마크다운 볼트 하나를, 사람이 탐색하는 **[뇌] 그래프·문서**와 신입이 물어보는 **[LLM] RAG 채팅**으로 동시에 서빙합니다. 두 화면 모두 한 개의 **Next.js 14 + TDS 앱(`web/`)**에 통합되어 있습니다 — LLM은 별도 Open WebUI가 아니라 우리 RAG API를 호출하는 앱 내 채팅 화면입니다. LLM에는 **로그인·회원가입, 채팅기록 영속화, 멀티턴 기억, 답변(메시지)별 근거 저장, 응답 스트리밍(SSE)**이 들어 있고, **검색 품질**은 리랭커(P1.4)·멀티턴 쿼리 재작성(P1.5)으로, **신뢰**는 답변 피드백(👍/👎, P2.1)·금액 신뢰 강화(P2.2)·운영자 대시보드(P2.5)로 보강했습니다. 답변 생성은 **Ollama v0.31.1**(Qwen3.5-9B Q4_K_M, OpenAI 호환 — 교체 근거는 [docs/15-LLM-교체-Qwen3.5.md](docs/15-LLM-교체-Qwen3.5.md)), 검색 임베딩은 **KURE-v1**로 모두 사내 GPU(Quadro RTX 6000 24GB×2)에서 돌고, 화면은 Cloudflare Zero Trust 뒤(사내 전용)에 둡니다.
 
 | 항목 | 상태 |
 | --- | --- |
 | 상태 | 🟢 파이프라인 + LLM 가동 — 변환·임베딩·검색 검증 완료, RAG API(Ollama)로 한국어 답변 생성 검증 완료. 검색(리랭커·쿼리 재작성)·신뢰(피드백·금액 강화·대시보드) 보강 |
 | 코퍼스 | **271 문서**(규정집 111 · 연구행정 가이드 64 · 용어집 84 · ERP 시스템 12) · 약 **4,400 청크** 임베딩(KURE-v1, 긴 조문 하위분할 반영) · 관계 그래프 271 노드·275 연결 |
 | 배포 | 🔒 사내 전용 (인터넷 공개 금지) · 현행 dev(`feat/0620`) 3100/9000 · 레거시 `v1.0.0` 3101/9001(`.legacy-v1/`, 완전 격리) |
-| 모델 | 🖥️ 온프레미스 GPU (Quadro RTX 6000 24GB×2, 총 48GB) · 답변 Ollama(Qwen2.5-14B-Instruct Q4_K_M) |
+| 모델 | 🖥️ 온프레미스 GPU (Quadro RTX 6000 24GB×2, 총 48GB) · 답변 Ollama v0.31.1(**Qwen3.5-9B** Q4_K_M, 격리 인스턴스 11436) — 487문항 감사·A/B로 선정([docs/15](docs/15-LLM-교체-Qwen3.5.md)) |
 | 조직 | KEI · 한국환경연구원 (Korea Environment Institute) |
 | 레포 | github.com/mooner92/KEIAdminSuperv |
 
@@ -59,7 +59,7 @@ flowchart TD
 > [!warning] 전제 조건
 > - **HWP 원본** 규정 파일(`.hwp` / `.hwpx`)이 한 폴더에 모여 있어야 합니다.
 > - **GPU 서버**(Quadro RTX 6000 24GB×2, 예: `data05lx` / Ubuntu)에서 임베딩·LLM을 구동합니다.
-> - **Ollama**(OpenAI 호환, `http://127.0.0.1:11434/v1`, 모델 `hf.co/bartowski/Qwen2.5-14B-Instruct-GGUF:Q4_K_M` ~9GB)가 이미 떠 있어야 03/04 단계가 동작합니다. (vLLM은 대안 서빙으로 남겨둡니다.)
+> - **Ollama v0.31.1**(OpenAI 호환, `http://127.0.0.1:11436/v1`, PM2 `kei-ollama-v031` — `deploy/ecosystem.ollama-v031.config.js`, 모델 `hf.co/unsloth/Qwen3.5-9B-GGUF:Q4_K_M` ~5.7GB)가 떠 있어야 03/04 단계가 동작합니다. qwen3_5 아키텍처는 구버전 Ollama(≤0.24)에서 로드 불가 — [docs/15](docs/15-LLM-교체-Qwen3.5.md) 참조. (vLLM은 대안 서빙으로 남겨둡니다.)
 > - 웹앱(`web/`, Next.js 14 + TDS) 빌드·실행에는 **Node v22+**가 필요합니다. ⚠️ **반드시 nvm Node 22**로 빌드하세요 — 기본 node18에서는 `out/docdata/*.json` emit이 조용히 실패해 문서 드로어가 깨집니다("문서를 불러오지 못했습니다").
 
 ### 1) 파이프라인 (tools/)

@@ -9,8 +9,10 @@
  *   pm2 save
  *   pm2 logs kei-rag-api
  *
- * 검색=Chroma(KURE-v1), 생성=Ollama(Qwen3-14B). vLLM이 아니라 Ollama다.
- * rag_core가 /no_think로 qwen3 사고모드 off + <think> 방어 제거(NO_THINK 자동: 모델명 qwen3).
+ * 검색=Chroma(KURE-v1), 생성=격리 Ollama v0.31.1(Qwen3.5-9B, 127.0.0.1:11436). vLLM 아님.
+ *  - 공유 Ollama(11434, v0.24.0)는 qwen3_5 아키텍처 미지원 → 전용 v0.31.1 사용(ecosystem.ollama-v031).
+ *  - rag_core가 reasoning_effort:none(+think:false)로 사고 off + 공백결함 정규화(모델명 qwen3.5 자동 감지).
+ *  - 롤백: VLLM_BASE→11434, LLM_MODEL→hf.co/Qwen/Qwen3-14B-GGUF:Q4_K_M 후 config 경로로 pm2 restart.
  */
 module.exports = {
   apps: [
@@ -26,9 +28,10 @@ module.exports = {
       max_restarts: 10,
       watch: false,
       env: {
-        VLLM_BASE: "http://127.0.0.1:11434/v1", // Ollama OpenAI 호환 엔드포인트
-        // Qwen3-14B(GGUF Q4_K_M). Ollama 레지스트리 차단 → hf.co/ 로 pull.
-        LLM_MODEL: "hf.co/Qwen/Qwen3-14B-GGUF:Q4_K_M",
+        VLLM_BASE: "http://127.0.0.1:11436/v1", // 격리 Ollama v0.31.1 (kei-ollama-v031)
+        // Qwen3.5-9B(GGUF Q4_K_M, unsloth). Ollama 레지스트리 차단 → hf.co/ 로 pull.
+        // 선정 근거: 487문항 감사 + 25문항 동일근거 A/B에서 값정확도 우위(57.3% vs 40.8%). docs/15 참조.
+        LLM_MODEL: "hf.co/unsloth/Qwen3.5-9B-GGUF:Q4_K_M",
         CHROMA_DIR: "/KEIAdminSuperv/tools/chroma",
         RAG_COLLECTION: "kei_regs",
         EMBED_MODEL: "nlpai-lab/KURE-v1",

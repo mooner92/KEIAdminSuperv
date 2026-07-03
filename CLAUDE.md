@@ -44,9 +44,13 @@ KEI(한국환경연구원) 행정 초보(신입·전입자)가 "이 업무 어�
 - 임베딩: `nlpai-lab/KURE-v1` (대안 `BAAI/bge-m3`) — 양자화하지 않음
 - 검색: 밀집(KURE-v1)이 기본. **리랭커 적용**(P1.4): 밀집 top-20 → `BAAI/bge-reranker-v2-m3`(온프레미스, GPU1) 재점수 → top-5. `rag_core.retrieve(rerank=)`/`RAG_RERANK`. 평가 strict Hit@1 0.600→0.829, 실패 시 밀집 강등. 하이브리드(BM25+RRF)는 `bm25_index.py`에 opt-in이나 평가상 이득 없어 기본 off. **멀티턴 쿼리 재작성**(P1.5): 후속 질문을 직전 맥락으로 독립 검색어로 재작성(`rag_core.condense_query`/`RAG_QUERY_REWRITE`, 기본 on) — 검색어만 바꾸고 답변·근거는 불변, 실패 시 원 질문 강등. **ERP·서식 연결**(P2.4): 시스템(ERP) 근거 블록에 `(ERP 시스템)` 라벨 + SYSTEM 프롬프트가 메뉴·경로를 답변에 안내(근거에 있을 때만·무환각), 출처 `type`로 UI 🖥 ERP/📄 서식 칩. 섹션 다양성(`_select_diverse`/`RAG_SECTION_DIVERSITY`)은 측정상 무이득(밀집이 이미 섹션 혼합)→기본 off·opt-in. 품질 트랙=`docs/12-품질강화.md`, 평가 하베스트=`eval/`.
 - 벡터DB: Chroma (`tools/chroma/`, gitignore됨)
-- LLM 서빙(실측): **Ollama**(OpenAI 호환, `127.0.0.1:11434/v1`) — vLLM이 아니라 Ollama가 돌고 있다.
-  모델 = `Qwen2.5-14B-Instruct (Q4_K_M, GGUF)`(일반 instruct, ~9GB). 한국어 답변 검증 완료.
-  - GPU 현황(2×Quadro RTX 6000 24GB): **GPU0 비어있음**(전용 인스턴스 여지), GPU1에 Ollama(~18GB, 임베딩 bge-m3 포함). fp16 14B(~28GB)는 단일 24GB 초과 → 양자화(Q4) 또는 2장 텐서병렬 필요. 검색 임베딩(KURE-v1)은 1장으로 충분.
+- LLM 서빙(실측): **격리 Ollama v0.31.1**(OpenAI 호환, `127.0.0.1:11436/v1`, PM2 `kei-ollama-v031`, ctx 8K 제한) — vLLM 아님.
+  모델 = **`Qwen3.5-9B (Q4_K_M, GGUF, unsloth)`**(~5.7GB, apache-2.0). 교체 근거·트러블슈팅 = `docs/15-LLM-교체-Qwen3.5.md`
+  (487문항 정확도 감사 + 동일근거 A/B: 값정확도 57.3% vs 40.8%로 Qwen3-14B 대비 우위).
+  - ⚠ 공유 Ollama(`11434`, v0.24.0, 동료 운용)는 qwen3_5 아키텍처 미지원 — 우리는 미사용, 건드리지 말 것. 모델 pull은 `hf.co/` 프리픽스(Ollama 레지스트리 차단).
+  - ⚠ NVIDIA 드라이버 535라 v0.31.1은 CUDA 대신 Vulkan로 GPU 사용(550+ 업그레이드 시 자동 CUDA 전환·속도 개선).
+  - rag_core가 모델명 자동 감지: qwen3.5=`reasoning_effort:"none"`+`think:false`(⚠ /v1 경로에선 think:false 단독 무효 — 실측)+공백결함 정규화(`_tighten_spacing`), qwen3=`/no_think`. 가드레일 불변.
+  - GPU(2×Quadro RTX 6000 24GB)는 **공유·변동적** — 모델 배치 전 `nvidia-smi`·`/api/ps` 확인. 검색 임베딩(KURE-v1)·리랭커는 1장으로 충분.
 - LLM UI: **Next.js+TDS 앱에 통합된 채팅**(`web/` `/`)이 LLM API를 같은 오리진 `/api/*`로 호출. **로그인 + 채팅기록 영속화 + 멀티턴 기억 + 메시지별 근거 저장 + 응답 스트리밍(SSE)** 지원. Open WebUI는 같은 RAG API를 쓰는 선택적 폴백(브랜딩 라이선스 이슈로 기본 채택 아님).
 - LLM 앱 영속화(조사 확정 스택): **bcrypt(직접)+PyJWT 쿠키 + SQLModel/SQLite**(`tools/app.db`, gitignore). passlib/fastapi-users 미사용. 백엔드 3분리 — `tools/rag_core.py`(검색·생성 공용: retrieve/answer) · `tools/app_api.py`(인증·채팅 라우터 `/app/*`) · `tools/04_rag_api.py`(진입점: OpenAI호환 `/v1/*` + `/app/*` 마운트 + init_db, PM2 1프로세스·모델 1회 로드). 멀티턴=세션 메시지 LLM 재생(근거는 매 턴 새 검색). 근거=assistant 메시지에 JSON 저장. **답변 피드백**=👍/👎(+사유) `Feedback` 테이블(사용자·메시지당 1건·upsert/toggle, 소유격리). `feedback_export.py`→`.feedback_signals.json`→`review_queue.py`가 자주 틀린 규정을 검수 우선순위로 끌어올림(⛔검수상태 자동변경 없음·사람만). 관리자 집계 `GET /app/feedback`(current_admin). 매뉴얼=`docs/14-feedback-loop.md`. JWT 서명키 `tools/.app_secret`(0600, gitignore). 스트리밍: `POST /app/chats/{id}/messages?stream=1` → SSE(`meta`→`delta`…→`done`), `rag_core.answer_stream`. `server.js`는 SSE용 hop-by-hop 헤더 제거 후 파이프.
 - 콜드스타트 제거: 기동 시 `rag_core.warmup`(임베딩 KURE-v1 로드 + LLM `keep_alive=-1` 상주)을 데몬 스레드로 실행, 이후 `OLLAMA_PING_SECONDS`(기본 240s) 주기 keep-alive로 외부 언로드 백스톱. 모든 생성 호출도 `keep_alive=-1` 전달. GPU0가 비어 상주에 여유.
@@ -75,7 +79,7 @@ KEI(한국환경연구원) 행정 초보(신입·전입자)가 "이 업무 어�
 - 임베딩: `python tools/02_chunk_and_embed.py --vault KEI-행정가이드 --db tools/chroma`
 - 질의:   `python tools/03_rag_query.py --db tools/chroma --q "..."`
 - RAG API: `tools/04_rag_api.py` (FastAPI, OpenAI 호환). **PM2 `kei-rag-api`**(uvicorn, 127.0.0.1:9000)로 상시 구동, env로 Ollama 연결(`tools/ecosystem.config.js`). 응답에 `x_sources`(규정명·조·분류·snippet) 포함 → 근거 패널/문서 드로어 연결.
-  - 단발 실행: `cd tools && VLLM_BASE=http://127.0.0.1:11434/v1 LLM_MODEL=hf.co/bartowski/Qwen2.5-14B-Instruct-GGUF:Q4_K_M .venv/bin/uvicorn 04_rag_api:app --host 127.0.0.1 --port 9000`
+  - 단발 실행: `cd tools && VLLM_BASE=http://127.0.0.1:11436/v1 LLM_MODEL=hf.co/unsloth/Qwen3.5-9B-GGUF:Q4_K_M .venv/bin/uvicorn 04_rag_api:app --host 127.0.0.1 --port 9000`
 - 검수 큐:  `python tools/review_queue.py --vault KEI-행정가이드 [--top 30]`  (미검수 우선순위. 읽기 전용·확정은 사람만. 인앱 피드백 신호 있으면 자동 반영)
 - 피드백:  `python tools/feedback_export.py`  (app.db 👍/👎 → `tools/.feedback_signals.json`, 검수 큐가 소비. 매뉴얼 `docs/14-feedback-loop.md`)
 
