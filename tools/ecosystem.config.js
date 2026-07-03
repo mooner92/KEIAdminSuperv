@@ -9,7 +9,8 @@
  *   pm2 save
  *   pm2 logs kei-rag-api
  *
- * 검색=Chroma(KURE-v1), 생성=Ollama(Qwen2.5-14B-Instruct). vLLM이 아니라 Ollama다.
+ * 검색=Chroma(KURE-v1), 생성=Ollama(Qwen3-14B). vLLM이 아니라 Ollama다.
+ * rag_core가 /no_think로 qwen3 사고모드 off + <think> 방어 제거(NO_THINK 자동: 모델명 qwen3).
  */
 module.exports = {
   apps: [
@@ -26,7 +27,8 @@ module.exports = {
       watch: false,
       env: {
         VLLM_BASE: "http://127.0.0.1:11434/v1", // Ollama OpenAI 호환 엔드포인트
-        LLM_MODEL: "hf.co/bartowski/Qwen2.5-14B-Instruct-GGUF:Q4_K_M",
+        // Qwen3-14B(GGUF Q4_K_M). Ollama 레지스트리 차단 → hf.co/ 로 pull.
+        LLM_MODEL: "hf.co/Qwen/Qwen3-14B-GGUF:Q4_K_M",
         CHROMA_DIR: "/KEIAdminSuperv/tools/chroma",
         RAG_COLLECTION: "kei_regs",
         EMBED_MODEL: "nlpai-lab/KURE-v1",
