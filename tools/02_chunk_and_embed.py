@@ -111,6 +111,26 @@ def find_refs(label: str, kind: str, articles):
     return ",".join(a_label for a_label, a_text in articles if pat.search(a_text))
 
 
+def find_reg_refs(text: str, own_name: str, regnames, max_n: int = 4) -> str:
+    """조문이 '다른 규정 제N조'를 준용·참조하면 '규정명#제N조,...'로 색인(그래프 규정↔규정 엣지).
+    규정명(4자+)이 등장하고 그 뒤 ~25자 내 제N조가 있을 때만(강한 참조). 자기 규정·짧은 이름 제외."""
+    out = []
+    for name in regnames:
+        if not name or name == own_name or len(name) < 4 or name not in text:
+            continue
+        for m in re.finditer(re.escape(name), text):
+            j = re.search(r"제\s*(\d+)\s*조(?:\s*의\s*(\d+))?", text[m.end():m.end() + 25])
+            if j:
+                lbl = f"제{j.group(1)}조" + (f"의{j.group(2)}" if j.group(2) else "")
+                ref = f"{name}#{lbl}"
+                if ref not in out:
+                    out.append(ref)
+                break
+        if len(out) >= max_n:
+            break
+    return ",".join(out)
+
+
 def _ntok(tok, s: str) -> int:
     return len(tok.encode(s, add_special_tokens=True))
 
@@ -290,7 +310,7 @@ def iter_chunks(vault: Path):
                 }
 
 
-META_KEYS = ("규정명", "규정번호", "조", "분류", "개정일", "검수상태", "type", "별표", "refs", "부분", "path")
+META_KEYS = ("규정명", "규정번호", "조", "분류", "개정일", "검수상태", "type", "별표", "refs", "reg_refs", "부분", "path")
 
 
 def main():
@@ -314,6 +334,12 @@ def main():
     chunks = list(iter_chunks(Path(args.vault)))
     if args.limit:
         chunks = chunks[: args.limit]
+    # 그래프 규정↔규정 엣지: 조문이 다른 규정 제N조를 준용/참조하면 reg_refs에 색인(런타임 opt-in 확장용).
+    regnames = sorted({c["규정명"] for c in chunks if c.get("type") == "regulation" and c.get("규정명")},
+                      key=len, reverse=True)
+    for c in chunks:
+        c["reg_refs"] = (find_reg_refs(c["text"], c.get("규정명", ""), regnames)
+                         if c.get("type") == "regulation" and (c.get("조") or "").startswith("제") else "")
     by_type: dict[str, int] = {}
     docs = set()
     for c in chunks:

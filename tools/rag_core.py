@@ -40,6 +40,10 @@ DIVERSITY_GATE = int(os.environ.get("RAG_DIVERSITY_GATE", "8"))  # 이 순위 �
 # ⛔ 검색 순위를 바꾸지 않고 별표만 덧붙임 → 출처 보존, LLM 불필요, 재임베딩 불필요.
 GRAPH_EXPAND = os.environ.get("RAG_GRAPH_EXPAND", "1") not in ("0", "", "false", "False")
 GRAPH_EXPAND_MAX = int(os.environ.get("RAG_GRAPH_EXPAND_MAX", "3"))  # 회수당 자동첨부 별표 상한
+# 규정↔규정 1홉 확장: 회수 조문이 다른 규정 제N조를 준용/참조(reg_refs)하면 그 조문도 첨부.
+# "이 지침이 저 규정과 상충?"류에 유효하나 top-k 희석 위험 → ⛔ 기본 off(opt-in), 평가로 이득 입증 후 켠다.
+GRAPH_EXPAND_REGS = os.environ.get("RAG_GRAPH_EXPAND_REGS", "0") not in ("0", "", "false", "False")
+GRAPH_EXPAND_REGS_MAX = int(os.environ.get("RAG_GRAPH_EXPAND_REGS_MAX", "2"))  # 회수당 규정참조 첨부 상한
 # 모델 상주(콜드스타트 방지). -1 = 무한 상주(언로드 안 함). "30m" 등 Ollama keep_alive 값도 가능.
 KEEP_ALIVE = os.environ.get("OLLAMA_KEEP_ALIVE", "-1")
 
@@ -295,6 +299,26 @@ def _ensure_byeol_index():
     return _state["byeol_idx"], _state["byeol_map"]
 
 
+def _ensure_article_index():
+    """(규정명, 제N조) → 조문 청크 id 정방향 인덱스. 규정↔규정 1홉 확장(reg_refs 대상 조회)용. 1회 캐시."""
+    if "art_idx" not in _state:
+        with _lock:
+            if "art_idx" not in _state:
+                _, col, _ = backend()
+                got = col.get(include=["metadatas", "documents"])
+                idx, amap = {}, {}
+                for i, m, d in zip(got["ids"], got["metadatas"], got["documents"]):
+                    if (m.get("type") or "") != "regulation":
+                        continue
+                    jo = _jo_key(m.get("조") or "")
+                    if not jo.startswith("제"):
+                        continue
+                    amap[i] = (d, m)
+                    idx.setdefault(((m.get("규정명") or "").strip(), jo), i)  # 첫 청크만(대표)
+                _state["art_idx"], _state["art_map"] = idx, amap
+    return _state["art_idx"], _state["art_map"]
+
+
 def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None,
              section_diversity: bool = None):
     """질의 → 관련 조문 top-k 회수. (근거 컨텍스트 문자열, 구조화 출처 리스트) 반환.
@@ -390,6 +414,33 @@ def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None
                     blocks.append(f"[{s2['tag']} · 관련 별표(자동첨부)]\n{d2}")
         except Exception as e:  # noqa: BLE001 — 확장 실패는 기본 회수로 우아하게 강등
             print(f"⚠ 그래프 1홉 확장 실패(무시): {e}")
+
+    # 규정↔규정 1홉 확장(opt-in): 회수 조문의 reg_refs(준용/참조한 다른 규정 제N조)를 첨부.
+    if GRAPH_EXPAND_REGS and chosen:
+        try:
+            aidx, amap = _ensure_article_index()
+            have = set(chosen)
+            added = 0
+            for i in list(chosen):
+                if added >= GRAPH_EXPAND_REGS_MAX:
+                    break
+                _, m, _ = getdoc(i)
+                for ref in (m.get("reg_refs") or "").split(","):
+                    ref = ref.strip()
+                    if "#" not in ref:
+                        continue
+                    rname, rjo = ref.split("#", 1)
+                    aid = aidx.get((rname.strip(), _jo_key(rjo)))
+                    if not aid or aid in have or added >= GRAPH_EXPAND_REGS_MAX:
+                        continue
+                    have.add(aid); added += 1
+                    d2, m2 = amap[aid]
+                    s2 = _src(d2, m2, None)
+                    s2["graph_expand_reg"] = True  # '준용/참조 규정 자동첨부' 식별
+                    srcs.append(s2)
+                    blocks.append(f"[{s2['tag']} · 준용/참조 규정(자동첨부)]\n{d2}")
+        except Exception as e:  # noqa: BLE001
+            print(f"⚠ 규정↔규정 확장 실패(무시): {e}")
     return "\n\n---\n\n".join(blocks), srcs
 
 
