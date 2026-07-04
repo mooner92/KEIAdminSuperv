@@ -34,6 +34,12 @@ REWRITE = os.environ.get("RAG_QUERY_REWRITE", "1") not in ("0", "", "false", "Fa
 # 회수하므로(측정: off=on 동일) 강제 승격 불필요. 하이브리드(P1.4)와 같은 판단 — 인프라만 보존.
 SECTION_DIVERSITY = os.environ.get("RAG_SECTION_DIVERSITY", "0") not in ("0", "", "false", "False")
 DIVERSITY_GATE = int(os.environ.get("RAG_DIVERSITY_GATE", "8"))  # 이 순위 안에 있어야 좌석 승격(관련성 게이트)
+# 그래프 1홉 확장(경량 GraphRAG): 조문 회수 시 그 조문을 인용하는 별표(표)를 자동 동반 회수한다.
+# 별표 청크의 refs(=이 별표를 인용하는 조문들)를 역인덱스해, 예: 여비규정 제16조 회수 → 국내여비 별표2
+# (실제 일비·숙박·식비 금액 표)를 자동 첨부. '표 회수 누락'(여비류 금액 오답)을 구조적으로 보완한다.
+# ⛔ 검색 순위를 바꾸지 않고 별표만 덧붙임 → 출처 보존, LLM 불필요, 재임베딩 불필요.
+GRAPH_EXPAND = os.environ.get("RAG_GRAPH_EXPAND", "1") not in ("0", "", "false", "False")
+GRAPH_EXPAND_MAX = int(os.environ.get("RAG_GRAPH_EXPAND_MAX", "3"))  # 회수당 자동첨부 별표 상한
 # 모델 상주(콜드스타트 방지). -1 = 무한 상주(언로드 안 함). "30m" 등 Ollama keep_alive 값도 가능.
 KEEP_ALIVE = os.environ.get("OLLAMA_KEEP_ALIVE", "-1")
 
@@ -259,6 +265,35 @@ def _reranker():
     return _state["rerank"]
 
 
+def _jo_key(s: str) -> str:
+    """'제4조의2'·'제16조 ②' → '제16조'(비교용 정규화). 제N조 없으면 원문 strip."""
+    import re as _re
+    m = _re.match(r"(제\d+조)", (s or "").strip())
+    return m.group(1) if m else (s or "").strip()
+
+
+def _ensure_byeol_index():
+    """별표 청크의 refs(인용 조문)를 역인덱스: (규정명, 제N조) → [별표 청크 id]. 1회 구축·캐시.
+    그래프 1홉 확장(별표 자동첨부)의 골격 — 이미 색인된 refs 엣지만 사용(신규 인프라·재임베딩 불필요)."""
+    if "byeol_idx" not in _state:
+        with _lock:
+            if "byeol_idx" not in _state:
+                _, col, _ = backend()
+                got = col.get(include=["metadatas", "documents"])
+                idx, bmap = {}, {}
+                for i, m, d in zip(got["ids"], got["metadatas"], got["documents"]):
+                    if (m.get("별표") or "") != "Y" or not (m.get("refs") or "").strip():
+                        continue
+                    name = (m.get("규정명") or "").strip()
+                    bmap[i] = (d, m)
+                    for a in (m.get("refs") or "").split(","):
+                        a = _jo_key(a)
+                        if a:
+                            idx.setdefault((name, a), []).append(i)
+                _state["byeol_idx"], _state["byeol_map"] = idx, bmap
+    return _state["byeol_idx"], _state["byeol_map"]
+
+
 def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None,
              section_diversity: bool = None):
     """질의 → 관련 조문 top-k 회수. (근거 컨텍스트 문자열, 구조화 출처 리스트) 반환.
@@ -329,6 +364,31 @@ def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None
         srcs.append(s)
         label = s["tag"] + (" (ERP 시스템)" if s.get("type") == "system" else "")
         blocks.append(f"[{label}]\n{doc}")
+
+    # 그래프 1홉 확장: 회수된 조문을 인용하는 별표(표)를 자동 동반(여비 별표2 등 금액표 회수 누락 보완).
+    if GRAPH_EXPAND and chosen:
+        try:
+            idx, bmap = _ensure_byeol_index()
+            have = set(chosen)
+            added = 0
+            for i in list(chosen):
+                if added >= GRAPH_EXPAND_MAX:
+                    break
+                _, m, _ = getdoc(i)
+                key = ((m.get("규정명") or "").strip(), _jo_key(m.get("조") or ""))
+                if not key[1].startswith("제"):
+                    continue
+                for bid in idx.get(key, []):
+                    if bid in have or added >= GRAPH_EXPAND_MAX:
+                        continue
+                    have.add(bid); added += 1
+                    d2, m2 = bmap[bid]
+                    s2 = _src(d2, m2, None)
+                    s2["graph_expand"] = True  # UI/평가에서 '자동첨부 별표' 식별
+                    srcs.append(s2)
+                    blocks.append(f"[{s2['tag']} · 관련 별표(자동첨부)]\n{d2}")
+        except Exception as e:  # noqa: BLE001 — 확장 실패는 기본 회수로 우아하게 강등
+            print(f"⚠ 그래프 1홉 확장 실패(무시): {e}")
     return "\n\n---\n\n".join(blocks), srcs
 
 
