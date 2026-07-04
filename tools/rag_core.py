@@ -50,14 +50,17 @@ _THINK_RE = re.compile(r"<think>.*?</think>\s*", re.DOTALL)
 # qwen3.5-9B GGUF(Q4, Vulkan 경로)가 숫자·조문 토큰 사이에 공백을 삽입하는 표기 결함이 있어
 # (A/B 실측 25건 중 22건: '제 11 조'·'2 년'·'2 분의 1'), 결정적 후처리로 표기만 정규화한다.
 # 목적: 출처 인용(제\d+조)·근거 칩 매칭·가독성 보호. ⛔ 값 자체는 절대 바꾸지 않는다(공백만 제거).
-_SP_JO_RE = re.compile(r"제\s+(\d+)\s*(조|항|호|장|절|편)")
-_SP_NUM_RE = re.compile(r"(\d[\d,\.]*)\s+(원|년|월|일|시간|분|초|개월|회|명|배|건|점|박|퍼센트|%|킬로미터|km)")
+_SP_JO1_RE = re.compile(r"제\s+(\d+)\s*(조|항|호|장|절|편)")   # '제 11 조' → 제11조
+_SP_JO2_RE = re.compile(r"(제\d+)\s+(조|항|호|장|절|편)")       # '제5 호'·'제18 조' → 제5호
+_SP_NUM_RE = re.compile(
+    r"(\d[\d,\.]*)\s+(만\s*원|만|억|천|원|년|월|일|시간|분|초|개월|주|회|명|배|건|점|박|퍼센트|%|킬로미터|㎞|km|킬로그램|kg)")
 _SP_BUNUI_RE = re.compile(r"(\d+)\s*분의\s*(\d+)")
 
 
 def _tighten_spacing(text: str) -> str:
-    t = _SP_JO_RE.sub(r"제\1\2", text)
-    t = _SP_NUM_RE.sub(r"\1\2", t)
+    t = _SP_JO1_RE.sub(r"제\1\2", text)
+    t = _SP_JO2_RE.sub(r"\1\2", t)
+    t = _SP_NUM_RE.sub(lambda m: m.group(1) + m.group(2).replace(" ", ""), t)  # '2 만 원'→2만원
     return _SP_BUNUI_RE.sub(r"\1분의 \2", t)
 
 
@@ -177,7 +180,7 @@ def condense_query(question: str, history=None, enabled: bool = None) -> str:
             model=LLM_MODEL, temperature=0.0, max_tokens=80,
             messages=[{"role": "system", "content": CONDENSE_SYS},
                       {"role": "user", "content": f"[대화]\n{hist_text}\n\n[후속질문]\n{question}\n\n[독립 질문]"}],
-            extra_body={"keep_alive": _keep_alive()},
+            extra_body=_gen_extra(),  # ⚠ qwen3.5 사고 off 필수 — 없으면 빈 재작성→멀티턴 맥락 유실
         )
         rq = (out.choices[0].message.content or "").strip().strip('"').strip()
         rq = rq.splitlines()[0].strip() if rq else ""
