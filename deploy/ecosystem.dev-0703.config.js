@@ -7,16 +7,20 @@
  *   프로덕션(v1.0.0): 프론트 3100 → RAG API 9000  (/KEIAdminSuperv, tools/·web/)  ← 건드리지 않음
  *   개발(테스트):     프론트 3101 → RAG API 9001  (/home/mhchoi/kei-dev-0703)      ← 이 파일
  *
- * worktree = git worktree(브랜치 feat/0703). 볼트(KEI-행정가이드)는 gitignore라 worktree에 없어
- * 빌드 시 VAULT_DIR로 프로덕션 볼트를 read-only 소비한다. chroma/app.db/.app_secret은 이 dir에 격리.
- * Ollama(127.0.0.1:11434)와 tools/.venv는 공유(모델 1벌 상주 — GPU 추가부담 없음).
+ * worktree = git worktree(브랜치 feat/0703). 볼트(KEI-행정가이드)는 gitignore.
+ * ── 2026-07-04 완전격리 ── dev 전용 볼트 복사본(/home/mhchoi/kei-dev-0703/KEI-행정가이드)을 두고
+ * 빌드·임베딩이 이걸 소비한다 → dev 콘텐츠 편집이 prod 볼트에 절대 영향 없음. chroma/app.db/.app_secret도 격리.
+ * ⚠ 아직 공유(미격리): 생성 LLM(Ollama 11436=kei-ollama-v031, Qwen3.5-9B)과 tools/.venv.
+ *   dev 전용 모델 실험이 필요하면 dev용 Ollama를 별도 포트로 띄워야 함.
  *
  * 사용:
  *   pm2 delete kei-guide-legacy kei-rag-api-legacy   # 옛 레거시 슬롯 회수(선택)
  *   pm2 start /home/mhchoi/kei-dev-0703/deploy/ecosystem.dev-0703.config.js
  *   pm2 save
  * 재빌드(프론트 변경 시): cd /home/mhchoi/kei-dev-0703/web && nvm use 22 &&
- *   VAULT_DIR=/KEIAdminSuperv/KEI-행정가이드 npm run build && pm2 reload kei-guide-dev
+ *   VAULT_DIR=/home/mhchoi/kei-dev-0703/KEI-행정가이드 npm run build && pm2 reload kei-guide-dev   # dev 전용 볼트
+ * 재임베딩(콘텐츠 변경 시): cd tools && python 02_chunk_and_embed.py \
+ *   --vault /home/mhchoi/kei-dev-0703/KEI-행정가이드 --db /home/mhchoi/kei-dev-0703/tools/chroma   # dev 전용 볼트→dev chroma
  */
 module.exports = {
   apps: [
