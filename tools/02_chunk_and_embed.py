@@ -373,7 +373,12 @@ def main():
         documents=[c["text"] for c in chunks],
         metadatas=[{k: (c.get(k) or "") for k in META_KEYS} for c in chunks],
     )
-    print(f"\n적재 완료 → {args.db} (collection={args.collection}, {col.count()} items)")
+    n_items = col.count()
+    print(f"\n적재 완료 → {args.db} (collection={args.collection}, {n_items} items)")
+    # --no-reset 안전가드: id가 '경로#전역순번'이라 파일 추가/삭제 시 순번이 밀려 옛 청크가 안 지워짐(orphan).
+    if args.no_reset and n_items > len(chunks):
+        print(f"\n  ⚠⚠ orphan {n_items - len(chunks)}개 감지 (컬렉션 {n_items} > 새 청크 {len(chunks)}).")
+        print(f"     파일이 추가/삭제됐다면 --no-reset은 옛 청크를 남깁니다 → --reset(클린 리빌드)로 재실행 권장.")
 
 
 if __name__ == "__main__":
