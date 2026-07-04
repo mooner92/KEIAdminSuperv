@@ -8,7 +8,9 @@
 """
 import os
 import re
+import sqlite3
 import threading
+import time
 
 EMBED_MODEL = os.environ.get("EMBED_MODEL", "nlpai-lab/KURE-v1")   # 02/03과 동일해야 함
 CHROMA_DIR = os.environ.get("CHROMA_DIR", "tools/chroma")
@@ -42,8 +44,36 @@ GRAPH_EXPAND = os.environ.get("RAG_GRAPH_EXPAND", "1") not in ("0", "", "false",
 GRAPH_EXPAND_MAX = int(os.environ.get("RAG_GRAPH_EXPAND_MAX", "3"))  # 회수당 자동첨부 별표 상한
 # 규정↔규정 1홉 확장: 회수 조문이 다른 규정 제N조를 준용/참조(reg_refs)하면 그 조문도 첨부.
 # "이 지침이 저 규정과 상충?"류에 유효하나 top-k 희석 위험 → ⛔ 기본 off(opt-in), 평가로 이득 입증 후 켠다.
-GRAPH_EXPAND_REGS = os.environ.get("RAG_GRAPH_EXPAND_REGS", "0") not in ("0", "", "false", "False")
 GRAPH_EXPAND_REGS_MAX = int(os.environ.get("RAG_GRAPH_EXPAND_REGS_MAX", "2"))  # 회수당 규정참조 첨부 상한
+# graph_expand_regs는 관리자 페이지(/admin) feature flag로 런타임 토글한다(app_api FLAG_REGISTRY).
+# 우선순위: env(RAG_GRAPH_EXPAND_REGS 명시 시 운영 강제) > SQLite flag 테이블(admin 토글) > 기본 off.
+_FLAG_TTL = 20.0  # 초 — admin 토글이 이 안에 반영
+_flag_cache = {"t": -1e9, "vals": {}}
+
+
+def _flag(name: str, default: bool = False) -> bool:
+    """app.db의 flag 테이블에서 플래그 값 읽기(20초 TTL 캐시). rag_core가 app_api를 임포트하지 않도록
+    sqlite로 직접 조회(순환의존 회피). DB/행 없으면 default."""
+    db = os.environ.get("APP_DB")
+    if not db or not os.path.exists(db):
+        return default
+    now = time.monotonic()
+    if now - _flag_cache["t"] > _FLAG_TTL:
+        try:
+            con = sqlite3.connect(db, timeout=1)
+            _flag_cache["vals"] = {k: bool(v) for k, v in con.execute("SELECT key, enabled FROM flag").fetchall()}
+            con.close()
+        except Exception:  # noqa: BLE001 — 플래그 조회 실패는 기본값으로 강등
+            pass
+        _flag_cache["t"] = now
+    return _flag_cache["vals"].get(name, default)
+
+
+def _graph_expand_regs_on() -> bool:
+    env = os.environ.get("RAG_GRAPH_EXPAND_REGS")
+    if env is not None:  # env 명시 시 운영 강제(테스트/오버라이드)
+        return env not in ("0", "", "false", "False")
+    return _flag("graph_expand_regs", False)  # 관리자 플래그(/admin), 기본 off
 # 모델 상주(콜드스타트 방지). -1 = 무한 상주(언로드 안 함). "30m" 등 Ollama keep_alive 값도 가능.
 KEEP_ALIVE = os.environ.get("OLLAMA_KEEP_ALIVE", "-1")
 
@@ -415,8 +445,8 @@ def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None
         except Exception as e:  # noqa: BLE001 — 확장 실패는 기본 회수로 우아하게 강등
             print(f"⚠ 그래프 1홉 확장 실패(무시): {e}")
 
-    # 규정↔규정 1홉 확장(opt-in): 회수 조문의 reg_refs(준용/참조한 다른 규정 제N조)를 첨부.
-    if GRAPH_EXPAND_REGS and chosen:
+    # 규정↔규정 1홉 확장(관리자 플래그 graph_expand_regs로 토글): 회수 조문의 reg_refs를 첨부.
+    if _graph_expand_regs_on() and chosen:
         try:
             aidx, amap = _ensure_article_index()
             have = set(chosen)

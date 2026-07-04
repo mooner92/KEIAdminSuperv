@@ -123,6 +123,13 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-07-24",
     },
+    "graph_expand_regs": {
+        "default": False,  # ⛔ off로 배포 — top-k 희석 위험이라 평가로 이득 입증 후 on(하이브리드·다양성과 동일 규율)
+        "description": "검색 시 회수 조문이 준용/참조하는 다른 규정 조문을 근거에 자동 첨부(규정↔규정 1홉 확장). "
+                       "'이 지침이 저 규정과 상충?'류에 유효. 백엔드 검색 동작 — 토글 시 ~20초 내 반영. eval 후 on 판단.",
+        "owner": "rag",
+        "expires": "",  # 실험 플래그 — eval 후 상시적용 또는 제거
+    },
 }
 
 
