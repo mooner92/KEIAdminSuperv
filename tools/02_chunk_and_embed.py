@@ -71,17 +71,22 @@ def strip_wikilinks(text: str) -> str:
     return re.sub(r"\[\[(?:[^\]|]*\|)?([^\]]*)\]\]", r"\1", text)
 
 
+def _article_label(m) -> str:
+    """제N조 매치 → 라벨. 가지번호(의N) 있으면 '제N조의M'까지 보존(라벨 붕괴·충돌 방지)."""
+    return f"제{m.group(1)}조의{m.group(2)}" if m.group(2) else f"제{m.group(1)}조"
+
+
 def article_no(chunk: str) -> str:
-    m = re.match(r"\s*제\s*(\d+)\s*조", chunk)
-    return f"제{m.group(1)}조" if m else ""
+    m = re.match(r"\s*제\s*(\d+)\s*조(?:\s*의\s*(\d+))?", chunk)
+    return _article_label(m) if m else ""
 
 
 def chunk_label(chunk: str):
     """청크 머리로 (kind, 라벨) 판정. kind ∈ article|byeolpyo|byeolji|head."""
     s = chunk.lstrip()
-    m = re.match(r"제\s*(\d+)\s*조", s)
+    m = re.match(r"제\s*(\d+)\s*조(?:\s*의\s*(\d+))?", s)  # 가지번호(제19조의2) 보존
     if m:
-        return "article", f"제{m.group(1)}조"
+        return "article", _article_label(m)
     m = re.match(r"\[\s*별표\s*(\d+)", s)
     if m:
         return "byeolpyo", f"별표 {m.group(1)}"

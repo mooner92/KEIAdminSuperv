@@ -266,9 +266,10 @@ def _reranker():
 
 
 def _jo_key(s: str) -> str:
-    """'제4조의2'·'제16조 ②' → '제16조'(비교용 정규화). 제N조 없으면 원문 strip."""
+    """'제16조 ②' → '제16조', '제4조의2 ①' → '제4조의2'(비교용 정규화).
+    ⛔ 가지번호(의N) 보존 — 제16조와 제16조의2는 서로 다른 조라 별표 오첨부·라벨 충돌 방지."""
     import re as _re
-    m = _re.match(r"(제\d+조)", (s or "").strip())
+    m = _re.match(r"(제\d+조(?:의\d+)?)", (s or "").strip())
     return m.group(1) if m else (s or "").strip()
 
 
