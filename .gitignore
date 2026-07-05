@@ -113,3 +113,4 @@ Thumbs.db
 # Playwright 검증 스크린샷(산출물 — 스크립트만 커밋)
 web/verify*.png
 verify*.png
+web/yeobi-*.png

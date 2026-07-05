@@ -130,6 +130,13 @@ FLAG_REGISTRY: dict = {
         "owner": "rag",
         "expires": "",  # 실험 플래그 — eval 후 상시적용 또는 제거
     },
+    "source_type_badges": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "채팅 근거 패널에 출처 성격 배지 표시 — 📜 규정(공식 원문·진실원천) vs 📘 가이드(우리가 정리한 참고 문서). "
+                       "사용자가 '공식 규정'과 '참고 가이드'를 혼동하지 않게 시각 구분. 프론트 전용(재임베딩 불필요).",
+        "owner": "platform",
+        "expires": "2026-08-15",  # 검증 후 상시적용(플래그 제거) 또는 폐기
+    },
 }
 
 

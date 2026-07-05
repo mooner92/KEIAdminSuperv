@@ -80,6 +80,7 @@ export default function ChatApp({
 
   // #1 피드백: 근거 클릭 시 드로어에서 인용 조문 하이라이트 + 패널 '핵심 근거' 표시 (release 플래그)
   const highlightOn = useFlag("cite_highlight");
+  const typeBadges = useFlag("source_type_badges"); // 📜규정(공식)/📘가이드(참고) 출처 성격 구분
 
   // 활성 메시지(없으면 마지막 assistant)의 근거를 우측에 표시
   const activeSources: Source[] = useMemo(() => {
@@ -427,6 +428,21 @@ export default function ChatApp({
                     <span className={styles.srcTag}>
                       {highlightOn && i === 0 ? <span className={styles.keyBadge}>⭐ 핵심 근거</span> : null}
                       <b>{s.규정명}</b> {s.조}
+                      {typeBadges && s.type === "regulation" ? (
+                        <span className={styles.regChip} title="공식 규정 원문 — KEI 규정집의 진실원천(원문 그대로)">
+                          📜 규정
+                        </span>
+                      ) : null}
+                      {typeBadges && s.type === "guide" ? (
+                        <span className={styles.guideChip} title="참고 가이드 — 규정 원문을 쉽게 정리한 우리 문서(공식 규정 아님). 정확한 값은 원문 확인">
+                          📘 가이드
+                        </span>
+                      ) : null}
+                      {typeBadges && s.type === "term" ? (
+                        <span className={styles.regChip} title="용어집 — 개념 설명">
+                          📖 용어
+                        </span>
+                      ) : null}
                       {s.type === "system" ? (
                         <span className={styles.erpChip} title="ERP에서 처리 — 클릭하면 메뉴·기능 안내">
                           🖥 ERP
