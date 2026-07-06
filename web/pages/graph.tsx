@@ -50,7 +50,7 @@ export default function GraphPage({ graph }: { graph: GraphData }) {
           </span>
           <span>
             <i style={{ background: "#8b5cf6" }} />
-            ERP 시스템
+            사내 시스템
           </span>
         </div>
       </div>
