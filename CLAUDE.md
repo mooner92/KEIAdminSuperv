@@ -69,6 +69,8 @@ KEI(한국환경연구원) 행정 초보(신입·전입자)가 "이 업무 어�
 - 가이드: `python tools/01c_guides_to_md.py --src research_rule_files --vault KEI-행정가이드`  (HWP/HWPX/PDF/PPTX → 10_업무가이드/, type:guide)
 - ERP:    `python tools/01d_erp_to_md.py --src KEI_ERP_entire_features.md --vault KEI-행정가이드`  (ERP 기능분석 → 40_시스템/ 모듈별 노트 type:system(섹션 '시스템', 보라), #### 기능 단위 청킹)
 - ERP링크: `python tools/01e_erp_crosslink.py --vault KEI-행정가이드`  (ERP 모듈↔관련 규정 `[[ ]]` 교차링크 → 그래프 엣지. 01d 다음, 01b 전)
+- 시스템:  `python tools/01d_system_to_md.py --system <eas|external|webdisk> --src <파일.md> --vault KEI-행정가이드`  (01d ERP 일반화 — 전자결재·대외업무·웹디스크 등 사내 시스템을 ERP와 동일 형식으로 40_시스템/ 노트화. `--list`로 등록 시스템 확인. 설계=`docs/17`)
+- 시스템링크: `python tools/01e_system_crosslink.py --vault KEI-행정가이드 --system <key>`  (01e 일반화 — 시스템 노트↔규정 교차링크, 해당 시스템만. 01d_system 다음)
 - 용어집: `python tools/01f_terms_to_md.py --src KEI_admin_terms.md --vault KEI-행정가이드`  (행정 용어집 → 30_용어집/ 용어 1개=노트 1개 type:term)
 - 용어링크: `python tools/01g_terms_crosslink.py --vault KEI-행정가이드`  (용어↔ERP 모듈(카테고리)/관련 규정 `[[ ]]` 교차링크 → 그래프 엣지. 01f 다음)
 - 링크:   `python tools/01b_autolink.py --vault KEI-행정가이드`  (규정 상호참조 → `[[ ]]` 그래프 엣지. 가이드도 규정명 멘션이 링크됨)

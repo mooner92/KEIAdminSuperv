@@ -90,6 +90,7 @@ flowchart LR
 | 13 | 기능 플래그 (Feature Flags) | deploy/release 분리 · 런타임 플래그 + 관리자 토글 + 감사로그 (**구현·매뉴얼**) | [13-feature-flags.md](13-feature-flags.md) |
 | 14 | 답변 피드백 루프 (Feedback Loop) | 👍/👎(+사유) → `app.db` → 검수 큐 우선순위 환류 (**구현·매뉴얼**) | [14-feedback-loop.md](14-feedback-loop.md) |
 | 16 | reasoning_effort A/B | Qwen3.5 사고 none vs low 측정 → `none` 유지 결론 (트러블슛·집계) | [16-reasoning-effort-AB.md](16-reasoning-effort-AB.md) |
+| 17 | 서비스 확장 로드맵 | 시스템 계층 코퍼스 확장(전자결재·대외·웹디스크) 기반 + 다운스트림 기능 로드맵(계획) | [17-service-roadmap.md](17-service-roadmap.md) |
 
 > [!todo]
 > 확인 필요: 위 본문 파일(01~11)은 FILE MAP에 따라 계획된 경로입니다. 아직 작성되지 않은 문서가 있다면 작성 순서는 [08-roadmap.md](08-roadmap.md)와 [../WORKPLAN.md](../WORKPLAN.md)를 따릅니다.

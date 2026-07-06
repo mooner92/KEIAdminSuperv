@@ -138,8 +138,8 @@ SYSTEM = (
     "4) 답변 끝에 사용한 출처를 [규정명 제N조] 형식으로 표기하되, 가장 핵심이 된 조문을 맨 앞에 둔다.\n"
     "5) 마지막에 '최종 판단은 원문과 담당 부서 확인 바랍니다.'를 덧붙인다.\n"
     "6) 이전 대화 맥락을 참고하되, 사실 근거는 항상 이번 [근거]에서만 가져온다.\n"
-    "7) [근거]에 '(ERP 시스템)' 항목이 있으면, 그 메뉴·처리 경로를 '처리 방법'에 함께 안내한다"
-    " (근거에 없는 경로·서식명은 지어내지 않는다).\n"
+    "7) [근거]에 '(… 시스템)' 항목(ERP·전자결재·대외업무·웹디스크 등)이 있으면, 그 시스템명과 메뉴·처리 경로를"
+    " '처리 방법'에 함께 안내한다 (근거에 없는 시스템·경로·서식명은 지어내지 않는다).\n"
     "8) 이전 대화에서 다루던 대상·주제(예: 국내출장)를 사용자가 바꾸지 않았으면 끝까지 같은 대상으로 답한다."
     " [근거]가 다른 대상(예: 국외출장)만 담고 있으면, 그 대상의 내용은 근거에서 확인되지 않는다고 밝히고"
     " 임의로 대상을 바꾸지 않는다.\n"
@@ -417,8 +417,12 @@ def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None
         if i in rscore:
             s["rerank"] = round(rscore[i], 4)
         srcs.append(s)
-        label = s["tag"] + (" (ERP 시스템)" if s.get("type") == "system" else "")
-        blocks.append(f"[{label}]\n{doc}")
+        # 시스템 노트는 실제 시스템명으로 라벨(규정명 '<시스템> · <모듈>'의 접두) — ERP/전자결재/대외업무/웹디스크 등
+        sys_label = ""
+        if s.get("type") == "system":
+            sysname = ((s.get("규정명") or "").split(" · ")[0]).strip()
+            sys_label = f" ({sysname})" if sysname else " (시스템)"
+        blocks.append(f"[{s['tag']}{sys_label}]\n{doc}")
 
     # 그래프 1홉 확장: 회수된 조문을 인용하는 별표(표)를 자동 동반(여비 별표2 등 금액표 회수 누락 보완).
     if GRAPH_EXPAND and chosen:

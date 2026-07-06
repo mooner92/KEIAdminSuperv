@@ -444,8 +444,8 @@ export default function ChatApp({
                         </span>
                       ) : null}
                       {s.type === "system" ? (
-                        <span className={styles.erpChip} title="ERP에서 처리 — 클릭하면 메뉴·기능 안내">
-                          🖥 ERP
+                        <span className={styles.erpChip} title="이 시스템에서 처리 — 클릭하면 메뉴·기능 안내">
+                          🖥 {(s.규정명 || "").split(" · ")[0].replace(/\s*시스템$/, "") || "시스템"}
                         </span>
                       ) : null}
                       {/별지|별표/.test(s.조) ? (
