@@ -58,7 +58,7 @@
 - **벤더 중립(선택)**: 훅을 **OpenFeature** 스타일 API로 감싸두면 나중에 Flipt 등으로 무비용 전환.
 
 ## 6. dev/prod 운영 모델의 변화
-- **지금**: dev(3100/9000, feat/0620) + 운영(3101/9001, 동결 v1.0.0). 새 버전마다 동결+포트.
+- **지금**: prod(web 3100 / RAG API 9000, feat/0620) + dev(web 3101 / RAG API 9001, feat/0703 worktree, 격리 chroma·app.db·세션키). 예전엔 새 버전마다 동결+포트.
 - **플래그 도입 후**: **같은 코드/빌드**를 양쪽에 배포, **플래그 값만 환경별로**. 새 기능은 `env=prod`에선 OFF 기본.
   - 새 기능 개발 → OFF 플래그로 감싸 머지 → dev에서 ON 검증 → 운영에서 ON.
   - 사고 시 **운영 플래그 OFF = 즉시 롤백**(MTTR 분 단위, 재배포·동결 불필요).
@@ -86,6 +86,7 @@ SaaS는 금지(데이터 외부), OSS 서비스(Unleash 등)는 소규모엔 과
 ## 10. 운영 매뉴얼 (구현됨)
 구현 구성: 백엔드 `tools/app_api.py`(SQLite `Flag`/`FlagAudit` + 코드 레지스트리 `FLAG_REGISTRY`),
 프론트 `web/lib/flags.tsx`(`useFlag`/`useFlags`), 관리자 페이지 `web/pages/admin.tsx`(`/admin`).
+현재 등록된 플래그(`FLAG_REGISTRY`): `demo_banner`(미리보기 배너 예시) · `cite_highlight`(근거 조문 드로어 하이라이트) · `graph_split`(그래프 노드→분할 뷰) · `graph_expand_regs`(규정↔규정 1홉 근거 확장) · `source_type_badges`(채팅 근거 출처 성격 배지 📜규정 공식 / 📘가이드 참고) · `content_search`(둘러보기 원문 내용 전문검색 + 검색범위 선택 제목·번호·분류·내용).
 
 ### A. 새 플래그 추가 (코드 1곳 + 프론트 기본값 1곳)
 1. **백엔드 레지스트리** `tools/app_api.py`의 `FLAG_REGISTRY`에 항목 추가(기본값·설명·소유자·만료):
@@ -108,8 +109,8 @@ SaaS는 금지(데이터 외부), OSS 서비스(Unleash 등)는 소규모엔 과
 
 ### C. 켜고/끄기 (운영)
 - `/admin` 접속(관리자만) → 토글 스위치 클릭 → **즉시 반영**(재배포 X). 변경은 **감사 이력**에 남음.
-- 관리자 지정: `tools/ecosystem.config.js`의 `APP_ADMINS`(쉼표 구분 아이디). 미지정 시 첫 가입자=관리자(부트스트랩).
-  ⚠️ **운영에선 APP_ADMINS를 반드시 명시**(누구나 먼저 가입해 관리자가 되는 일 방지).
+- 관리자 지정: `tools/ecosystem.config.js`의 `APP_ADMINS`(쉼표 구분 아이디). **미지정 시 아무도 관리자 아님**(fail-closed — 첫 가입자 부트스트랩 없음, 기동 시 경고).
+  ⚠️ **운영에선 APP_ADMINS를 반드시 명시**(안 하면 아무도 플래그를 토글할 수 없음).
 - 사고 시 **해당 플래그 OFF = 즉시 롤백**(kill-switch). 재배포·동결 불필요.
 
 ### D. 정리(flag debt) — 필수 규율

@@ -20,7 +20,7 @@
 | 규정 원문 추가/교정 | `KEI-행정가이드/20_규정원문/` | **의역 금지**, 조문(제N조) 구조 유지, `검수상태: 미검수`로 시작 |
 | 업무 가이드 작성 | `KEI-행정가이드/10_업무가이드/` | 항상 원문 `[[규정명#제N조]]` 링크, 사람이 작성 |
 | 용어 추가 | `KEI-행정가이드/30_용어집/` | 개념 1개 = 노트 1개 |
-| ERP 시스템 노트 | `KEI-행정가이드/40_시스템/` | `type: system`, 모듈별 노트, `####` 기능 단위 |
+| 사내 시스템 노트 | `KEI-행정가이드/40_시스템/` | `type: system`, 시스템(ERP·EIP·PMS·웹메일·그룹웨어·웹디스크·전자도서관)별 노트, `####` 기능 단위 |
 | 템플릿/인덱스 | `KEI-행정가이드/90_관리/` | `_templates/`는 청킹 제외 |
 | 변환·임베딩·RAG 코드 | `tools/` | venv 사용, 주변 코드 일관성, 가드레일 약화 금지 |
 | 배포 설정 | `deploy/` | 내부 전용 — 인터넷 공개 금지 |
@@ -203,7 +203,7 @@ flowchart LR
 python tools/02_chunk_and_embed.py --vault KEI-행정가이드 --db tools/chroma
 ```
 
-- `02_chunk_and_embed.py`는 규정원문을 `제N조` 단위, 가이드/ERP를 헤딩(`####`/`##`) 단위로 청킹하고(고정 길이 청킹 금지), `nlpai-lab/KURE-v1`로 임베딩해 Chroma 컬렉션 `kei_regs`에 적재한다.
+- `02_chunk_and_embed.py`는 규정원문을 `제N조` 단위, 가이드/시스템을 헤딩(`####`/`##`) 단위로 청킹하고(고정 길이 청킹 금지), `nlpai-lab/KURE-v1`로 임베딩해 Chroma 컬렉션 `kei_regs`에 적재한다.
 - 노트 한 건만 갱신할 땐 전체 리빌드 대신 [`tools/reembed_note.py`](../tools/reembed_note.py)를 쓴다. 그 노트의 기존 청크를 먼저 지우고 다시 넣어 중복을 막는다.
 - ⛔ 재임베딩 전 **Chroma 백업이 필수**다(`reembed_note.py`는 `<db>.bak.<날짜>`로 자동 백업하고 롤백 경로를 출력한다). 라이브 `kei-rag-api`가 같은 db를 열고 있으면 갱신 후 `pm2 restart kei-rag-api`로 반영한다. 안전 테스트는 `--db tools/chroma.test`처럼 사본에 대고 한다.
 - `tools/chroma/`는 재생성 가능한 산출물이라 `.gitignore`에 들어 있다 — 커밋하지 않는다.

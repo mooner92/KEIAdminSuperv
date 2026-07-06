@@ -28,7 +28,7 @@ flowchart LR
         subgraph SECRETARY["LLM 백엔드 — 통제형 RAG + 인증/기록"]
             RAGAPI["04_rag_api<br/>(kei-rag-api · PM2 · 127.0.0.1:9000)<br/>/v1/* + /app/*"]
             CHROMA[("Chroma<br/>kei_regs · KURE-v1")]
-            OLLAMA["Ollama<br/>(OpenAI 호환 · 127.0.0.1:11434)"]
+            OLLAMA["Ollama v0.31.1 (격리)<br/>(OpenAI 호환 · 127.0.0.1:11436)"]
             APPDB[("SQLite<br/>tools/app.db<br/>user · chatsession · message<br/>flag · flagaudit · feedback")]
             SECRET["tools/.app_secret<br/>(JWT 서명키 · 0600)"]
             RAGAPI --> CHROMA
@@ -63,10 +63,9 @@ flowchart LR
 | --- | --- | --- | --- |
 | kei-guide ([뇌]+[LLM]) | `web/server.js` (PM2) | `0.0.0.0:3100` | 정적 `out/` 서빙 + `/api/rag/*`·`/api/app/*` → `127.0.0.1:9000` 리버스 프록시(쿠키 전달). 사용자 진입점 |
 | kei-rag-api | `04_rag_api` (PM2 · uvicorn) | `127.0.0.1:9000` | 통제형 RAG. OpenAI 호환 `/v1` + 인증·채팅 `/app`. **로컬 전용(LAN 비노출)**. 기동 시 워밍업(임베딩 로드 + LLM `keep_alive=-1` 상주) + 주기 keep-alive(`OLLAMA_PING_SECONDS`)로 첫 질문 콜드스타트 제거 |
-| Ollama | 기존 프로세스 (호스트) | `127.0.0.1:11434` | OpenAI 호환 `/v1`. 답변 LLM. 이미 구동 중 가정 |
+| Ollama | `kei-ollama-v031` (PM2 · 격리 v0.31.1) | `127.0.0.1:11436` | OpenAI 호환 `/v1`. 답변 LLM(ctx 8K). 동료 운용 공유 Ollama(`11434`)와 분리 |
 | Open WebUI | `kei-webui` (docker, **선택**) | `3000:8080` | 같은 RAG API를 쓰는 관리자 폴백(§4) |
 | embeddings-tei | `kei-embeddings` (docker, **선택**) | `8080:80` | Open WebUI 내장 RAG를 쓸 때만 |
-| vLLM | 기존 프로세스 (호스트, **대안**) | `8000` | OpenAI 호환 `/v1`. Ollama 대안 서빙 |
 | Next dev ([뇌]) | `cd web && npm run dev` | `127.0.0.1:3100` | 로컬 미리보기 전용 |
 
 > [!note] [뇌]+[LLM] 운영은 정적 export + PM2 정적 서버
@@ -121,19 +120,19 @@ sequenceDiagram
 
 ### 3.3 화면 구성
 
-단일 앱·단일 볼트 안에서 섹션(규정집 / 연구행정 가이드 / 용어집)을 분리한다. 가이드는 볼트의 `10_업무가이드/`에 문서를 추가하면 자동으로 합류한다. 라우트는 다음과 같다.
+단일 앱·단일 볼트 안에서 섹션(규정집 / 연구행정 가이드 / 용어집 / 사내 시스템)을 분리한다. 가이드는 볼트의 `10_업무가이드/`에 문서를 추가하면 자동으로 합류한다. 라우트는 다음과 같다.
 
 - **`/` LLM(Assistant):** 로그인 게이트 뒤의 멀티턴 RAG 채팅. 좌측 대화목록 사이드바(새 대화/선택/삭제) · 중앙 채팅 · 우측 '메시지별' 근거 패널(`x_sources` 카드)로 구성된다. 근거 카드를 클릭하면 Notion형 문서 드로어가 해당 조(`제N조` 앵커)로 펼쳐지고, 지난 답변을 클릭하면 그때 저장된 근거가 우측에 다시 뜬다. 미인증이면 로그인/회원가입 화면을 보여준다. 무상태 호출은 같은 오리진 `/api/rag/chat`, 로그인·기록·멀티턴은 `/api/app/*`를 클라이언트 fetch로 호출(정적 export에서 동작). 답변은 `?stream=1`일 때 SSE 토큰 스트리밍(§3.1)으로 흘러온다. 답변마다 👍/👎 피드백 + 사유 입력이 붙는다(P2.1).
-- **`/browse` 둘러보기(Explorer):** 좌측 체크박스 필터(구분=규정집/가이드/용어집, 분류=category, 검수상태) + 검색 + 결과 목록. 행 클릭 시 페이지 이동 없이 우측 Notion형 드로어로 본문이 열린다. 패싯 카운트(다른 필터 반영)를 제공한다.
+- **`/browse` 둘러보기(Explorer):** 좌측 체크박스 필터(구분=규정집/가이드/용어집/사내 시스템, 분류=category, 검수상태) + 검색 + 결과 목록. 행 클릭 시 페이지 이동 없이 우측 Notion형 드로어로 본문이 열린다. 패싯 카운트(다른 필터 반영)를 제공한다.
 - **`/graph` 관계 그래프:** `react-force-graph-2d`(노드 클릭 → 문서 이동, 코드 스플릿).
 - **`/d/[slug]` 전체화면 문서:** 드로어의 '전체화면' 폴백(기존 SSG 페이지 유지). 메타 칩 · 본문 · 백링크 · `제N조` 앵커로 조 단위 점프. 위키링크 `[[ ]]`(규정 상호참조)는 내부 라우트로 연결되고, 이름 변이(공백·가운뎃점 `·`·`.`·`및`)도 정규화로 자동 흡수한다.
 - **DocDrawer:** 우측 슬라이드인. `out/docdata/<slug>.json`(빌드 산출물)을 지연 로드한다. `emit-docdata.mts`가 `lib/vault.ts`를 재사용해 생성하므로 드로어와 전체화면 페이지가 동일 본문/링크를 보장한다.
 
 > [!note] 실측
-> `npm run build` 성공, 문서 271개(규정집 111 · 연구행정 가이드 64 · 용어집 84 · ERP 시스템 12)에 대해 전체화면 페이지 `out/d/<slug>/`와 드로어 데이터 `out/docdata/<slug>.json` 각 271개 생성. 한글 mojibake 0, 위키링크 내부 네비 + `제N조` 앵커 동작, TDS 컬러(라이트/다크 토큰) 적용. 번들 경량화는 기존 로드맵 항목이다. 디자인 원칙·토큰·컴포넌트 규약은 [design-system.md](design-system.md) 참조.
+> `npm run build` 성공, 문서 293개(규정집 111 · 연구행정 가이드 65 · 용어집 84 · 사내 시스템 33)에 대해 전체화면 페이지 `out/d/<slug>/`와 드로어 데이터 `out/docdata/<slug>.json` 각 293개 생성. 한글 mojibake 0, 위키링크 내부 네비 + `제N조` 앵커 동작, TDS 컬러(라이트/다크 토큰) 적용. 번들 경량화는 기존 로드맵 항목이다. 디자인 원칙·토큰·컴포넌트 규약은 [design-system.md](design-system.md) 참조.
 >
 > [!todo] 확인 필요: `/graph` 노드·연결 수, `/`의 first-load JS 정확값
-> 코퍼스가 4섹션 271문서로 커지면서 그래프 노드/엣지 수와 번들 사이즈는 빌드마다 변한다. 정확값은 최신 빌드 로그에서 확정한다.
+> 코퍼스가 4섹션 293문서로 커지면서 그래프 노드/엣지 수와 번들 사이즈는 빌드마다 변한다. 정확값은 최신 빌드 로그에서 확정한다.
 
 > [!tip] 한글 파일
 > 한글 파일명을 쓰므로 git은 `core.quotepath false`가 적용되어 있어야 한다. 볼트는 `VAULT_DIR`로 빌드타임에 read-only로 읽으므로 빌드가 볼트를 수정하지 않는다.
@@ -179,8 +178,8 @@ pm2 save                          # 현재 프로세스 목록 저장
 pm2 startup                       # 부팅 자동시작(systemd) — 별도 1회 필요(미설정 가능)
 ```
 
-> [!note] 레거시 v1.0.0 병행 운영
-> 현행 dev(`feat/<날짜>`)는 포트 `3100`/`9000`(`kei-guide`·`kei-rag-api`)으로 돌고, 동결된 레거시 `v1.0.0`은 포트 `3101`/`9001`(`kei-guide-legacy`·`kei-rag-api-legacy`)으로 **완전히 격리**해 병행한다. 레거시는 `v1.0.0` 시점을 통째로 구운 동결 사본 `.legacy-v1/`(gitignore)에서 서빙하며 [`../deploy/ecosystem.legacy-v1.config.js`](../deploy/ecosystem.legacy-v1.config.js)로 기동한다. 동결 절차·검증(`curl :9001/health`, `web/verify-legacy.mjs`)은 [`../deploy/README.md`](../deploy/README.md) 참조.
+> [!note] 운영(prod) · 개발(dev) 병행
+> 운영(prod)은 포트 `3100`/`9000`(`kei-guide`·`kei-rag-api`, 레포 본체 `/KEIAdminSuperv`, `feat/0620`)으로 돌고, 개발(dev)은 포트 `3101`/`9001`(`kei-guide-dev`·`kei-rag-api-dev`)으로 **완전히 격리**해 병행한다. 개발은 git worktree `/home/mhchoi/kei-dev-0703`(`feat/0703`, 자체 chroma·app.db·.app_secret·볼트 사본)에서 서빙하며 [`../deploy/ecosystem.dev-0703.config.js`](../deploy/ecosystem.dev-0703.config.js)로 기동한다. ⚠ 운영(3100/9000)은 병합 승인 전까지 동결 — 개발은 dev에서만. 상세는 [`../deploy/README.md`](../deploy/README.md) 참조.
 
 > [!note] 같은 오리진 프록시
 > 채팅 UI가 같은 오리진 `/api/rag/*`·`/api/app/*`만 호출하므로 CORS가 불필요하고, RAG API(`9000`)는 `127.0.0.1`에만 바인드되어 LAN에 직접 노출되지 않는다. `/api/app/*` 프록시는 요청 쿠키와 응답 `set-cookie`를 전달하고 쿼리를 보존하므로 로그인 세션이 같은 오리진에서 유지된다. `kei-guide`가 유일한 외부 진입점이다.
@@ -224,14 +223,14 @@ sudo ufw allow from 192.168.1.0/24 to any port 3100 proto tcp
 
 ### 4.3 Ollama 답변 LLM
 
-답변 생성 LLM은 현재 **Ollama**(OpenAI 호환, `127.0.0.1:11434/v1`)로 구동한다. `04_rag_api.py`가 검색 근거를 주입한 뒤 Ollama로 답변을 생성하고 `[규정명 제N조]` 출처를 강제한다.
+답변 생성 LLM은 현재 **격리 Ollama v0.31.1**(OpenAI 호환, `127.0.0.1:11436/v1`, PM2 `kei-ollama-v031`)로 구동한다. `04_rag_api.py`가 검색 근거를 주입한 뒤 Ollama로 답변을 생성하고 `[규정명 제N조]` 출처를 강제한다.
 
 | 항목 | 값 |
 | --- | --- |
-| 답변 모델 | `Qwen2.5-14B-Instruct` Q4_K_M GGUF (`hf.co/bartowski/Qwen2.5-14B-Instruct-GGUF:Q4_K_M`, ~9GB) · 한국어 검증 완료 |
+| 답변 모델 | `Qwen3.5-9B` Q4_K_M GGUF (`hf.co/unsloth/Qwen3.5-9B-GGUF:Q4_K_M`, ~5.7GB, apache-2.0) · unsloth |
 | 임베딩(검색) | `nlpai-lab/KURE-v1` + Chroma `kei_regs` (변경 없음) |
 | 리랭커 | `BAAI/bge-reranker-v2-m3`, `RAG_RERANK_DEVICE=cuda:1`(여유 GPU), 실패 시 밀집 강등 |
-| GPU | 2×Quadro RTX 6000 24GB. 공유·변동적 — Ollama(~18GB) + 리랭커를 여유 카드(주로 GPU1)에 두되 배치 전 `nvidia-smi`로 확인 |
+| GPU | 2×Quadro RTX 6000 24GB. 공유·변동적 — Ollama(Q4 GGUF ~5.7GB) + 리랭커를 여유 카드(주로 GPU1)에 두되 배치 전 `nvidia-smi`로 확인. 드라이버 535라 CUDA 대신 Vulkan로 GPU 사용(550+ 시 자동 CUDA) |
 
 > [!warning] 공유 GPU 운영 주의
 > GPU 2장은 다른 사용자와 공유되고 점유가 변동적이다. CLAUDE.md의 GPU 배치 줄은 시점에 따라 부정확할 수 있으므로, **모델 배치(Ollama·리랭커·재색인) 전 반드시 `nvidia-smi`로 빈 카드를 확인**한다. 점유·VRAM을 운영에서 모니터링한다.
@@ -296,7 +295,7 @@ flowchart TB
     subgraph CTRL["권장(감사용) — 통제형 RAG"]
         RAG2["04_rag_api.py<br/>MODEL_ID=kei-admin-rag"]
         CH2[("Chroma kei_regs")]
-        OL2["Ollama<br/>Qwen2.5-14B-Instruct Q4_K_M"]
+        OL2["Ollama v0.31.1<br/>Qwen3.5-9B Q4_K_M"]
         RAG2 --> CH2
         RAG2 --> OL2
     end
@@ -308,8 +307,8 @@ flowchart TB
 - **간편(내장 RAG):** 볼트 마크다운을 'Knowledge'로 올리고 임베딩 엔진을 `nlpai-lab/KURE-v1`(대안 `BAAI/bge-m3`)로 지정한다. 청킹/출처 표기 통제가 약하다.
 - **권장(감사용):** [`../tools/04_rag_api.py`](../tools/04_rag_api.py)를 OpenAI 호환 모델로 등록한다. 이 서버가 제N조 검색 + 근거 주입 + `[규정명 제N조]` 출처 강제를 담당하고, Open WebUI는 UI/멀티유저/권한만 담당한다. 설계 이유는 [05 RAG 설계](05-rag-design.md)와 [ADR 0003](adr/0003-controlled-rag-api.md) 참조.
 
-> [!warning] 14B fp16는 단일 카드에 안 올라간다 → 현재는 Ollama Q4
-> `Qwen2.5-14B-Instruct` fp16(약 28GB)은 Quadro RTX 6000 단일 24GB를 초과한다. 그래서 현재는 Ollama로 Q4_K_M 양자화 GGUF(~9GB)를 단일 카드(GPU1, ~18GB)에 올려 구동한다. 대안으로 vLLM 2장 텐서병렬(`--tensor-parallel-size 2`)로 두 카드에 fp16를 분산하거나, 더 작은 instruct(7B/3B) 서빙도 가능하다. 임베딩(`KURE-v1`)은 1장으로 충분하다(실측).
+> [!warning] 서빙은 격리 Ollama v0.31.1 + Q4 GGUF (Vulkan)
+> 답변 모델은 `Qwen3.5-9B` Q4_K_M GGUF(~5.7GB, apache-2.0, unsloth)를 격리 **Ollama v0.31.1**(PM2 `kei-ollama-v031`, ctx 8K)로 단일 카드에 올려 구동한다(vLLM 아님). NVIDIA 드라이버 535라 CUDA 대신 **Vulkan**로 GPU를 쓰며(550+ 업그레이드 시 자동 CUDA 전환), 동료가 운용하는 공유 Ollama(`11434`)와는 포트·프로세스를 완전히 분리한다. 임베딩(`KURE-v1`)·리랭커는 1장으로 충분하다(실측).
 
 > [!warning] 가드레일은 통제형 경로에 산다
 > "근거에 없으면 '규정에서 확인되지 않습니다'", "[규정명 제N조] 출처 표기", "최종 판단은 원문과 담당 부서 확인 바랍니다." 같은 가드레일은 `04_rag_api.py`(권장 경로)가 강제한다. 내장 RAG 경로는 이 통제가 약하므로, 감사/정확성이 중요한 운영에서는 권장 경로를 쓴다.
@@ -323,8 +322,8 @@ flowchart TB
 ```bash
 # 운영은 PM2(§4.1). 아래는 단발 실행(tools/ 기준):
 cd /KEIAdminSuperv/tools
-VLLM_BASE=http://127.0.0.1:11434/v1 \
-  LLM_MODEL=hf.co/bartowski/Qwen2.5-14B-Instruct-GGUF:Q4_K_M \
+VLLM_BASE=http://127.0.0.1:11436/v1 \
+  LLM_MODEL=hf.co/unsloth/Qwen3.5-9B-GGUF:Q4_K_M \
   .venv/bin/uvicorn 04_rag_api:app --host 127.0.0.1 --port 9000
 ```
 
@@ -409,12 +408,12 @@ flowchart LR
 | --- | --- | --- |
 | 1 | HWP/HWPX 변환 툴체인 설치 | [`../deploy/setup_ubuntu_hwp.sh`](../deploy/setup_ubuntu_hwp.sh) · [04 파이프라인](04-pipeline.md) |
 | 2 | 볼트 청킹·임베딩 → Chroma `kei_regs` 생성 | [`../tools/02_chunk_and_embed.py`](../tools/02_chunk_and_embed.py) |
-| 3 | Ollama 구동 확인 (`Qwen2.5-14B-Instruct` Q4_K_M · `:11434/v1`) | §4.3 · [05 RAG 설계](05-rag-design.md) |
+| 3 | 격리 Ollama v0.31.1 구동 확인 (`Qwen3.5-9B` Q4_K_M · `:11436/v1` · PM2 `kei-ollama-v031`) | §4.3 · [05 RAG 설계](05-rag-design.md) |
 | 4 | `cd web && VAULT_DIR=… npm run build` → `web/out/` + `out/docdata/*.json` | §3 |
 | 5 | PM2 기동: `tools/ecosystem.config.js`(`kei-rag-api` `127.0.0.1:9000`, `/v1/*`+`/app/*`) + `web/ecosystem.config.js`(`kei-guide` `0.0.0.0:3100`) | §4.1 · [`../tools/ecosystem.config.js`](../tools/ecosystem.config.js) · [`../web/ecosystem.config.js`](../web/ecosystem.config.js) |
 | 6 | `pm2 save` + `pm2 startup`(부팅 자동시작 1회) | §4.1 |
 | 6b | LLM 의존성 설치(`sqlmodel`·`pyjwt`·`bcrypt`) · `init_db()`로 `tools/app.db` 생성 · `tools/.app_secret`(`0600`) 자동 생성 확인 · `APP_ADMINS`에 운영자 계정 설정(fail-closed) | §4 · §4.1.1 · [`../tools/requirements.txt`](../tools/requirements.txt) |
-| 6c | (선택) 레거시 `v1.0.0` 동결·병행: `.legacy-v1/` 굽기 + `deploy/ecosystem.legacy-v1.config.js`(`3101`/`9001`) | §4.1 · [`../deploy/README.md`](../deploy/README.md) |
+| 6c | (선택) 개발(dev) 병행: git worktree `feat/0703` + `deploy/ecosystem.dev-0703.config.js`(`3101`/`9001`, `kei-*-dev`) | §4.1 · [`../deploy/README.md`](../deploy/README.md) |
 | 7 | 운영 정석 nginx(`127.0.0.1`) + Cloudflare Tunnel + Access **또는** 사내망 `sudo ufw allow 3100/tcp`(RAG `9000` 비개방) | §4.2 · §5 · [07 보안·거버넌스](07-security-governance.md) |
 | 8 | (선택) Open WebUI 폴백: `docker compose up -d` + 연결 등록(실제 IP, key=EMPTY) | §4.5 |
 | 9 | 백업 대상에 `tools/app.db`·`tools/.app_secret` 포함(커밋 금지) · ZT/HTTPS 시 쿠키 `secure=True` | §4.1.1 · §6 |

@@ -19,7 +19,7 @@ flowchart LR
     DB -->|feedback_export.py| SIG[".feedback_signals.json<br/>(규정별 👎 집계)"]
     SIG -->|review_queue.py --feedback| Q["📋 검수 큐<br/>자주 틀린 규정 ↑"]
     Q -->|사람만 검수 확정| Vault["📁 볼트 수정/검수완료"]
-    DB -.->|GET /app/feedback (관리자)| Dash["📊 운영자 대시보드(예정)"]
+    DB -.->|GET /app/feedback (관리자)| Dash["📊 운영자 대시보드(/admin)"]
 ```
 
 ---

@@ -15,7 +15,7 @@
 | `tools/app.db` (SQLite) | 계정·채팅이력·피드백·플래그 | ✅ **그렇다(운영 상태)** | 재생성 불가 — 별도 백업(§10.5) |
 | Chroma 인덱스 (`tools/chroma/`) | 벡터 검색 DB, 컬렉션 `kei_regs` | ❌ 파생물 | `02_chunk_and_embed.py` 재실행 |
 | 정적 사이트 `web/out/` | [뇌]+[LLM] 통합 앱(빌드 산출물) | ❌ 파생물 | `npm run build`(nvm Node 22) |
-| Ollama | [LLM] LLM 서빙(OpenAI 호환, `:11434`) | ❌ 외부/기존 서비스 | 프로세스 재기동 |
+| 격리 Ollama v0.31.1 (`kei-ollama-v031`) | [LLM] LLM 서빙(OpenAI 호환, `:11436`) | ❌ 서빙 프로세스 | `pm2 restart kei-ollama-v031` |
 | `04_rag_api.py` (`kei-rag-api`) | 통제형 RAG API + `/app/*` 마운트 | ❌ 코드 | PM2 재기동 |
 | `web/server.js` (`kei-guide`) | 정적 서빙 + `/api/rag/*` 프록시 | ❌ 코드 | PM2 재기동 |
 | nginx + Cloudflare ZT | 사내 라우팅·노출 통제 | ❌ 설정 | 설정 reload |
@@ -24,7 +24,7 @@
 > 파생물(`chroma/`·`out/`)은 백업하지 않아도 된다 — **재생성 절차가 자동화·문서화돼 있으면** 충분하다(그게 이 문서다). 단 `app.db`는 사용자가 만든 운영 상태(채팅·피드백)라 파생물이 아니다(§10.5).
 
 > [!note]
-> 서빙 실측 스택은 **Ollama**(OpenAI 호환 `127.0.0.1:11434/v1`, 모델 `Qwen2.5-14B-Instruct Q4_K_M` GGUF)다. vLLM은 대안 표기일 뿐 현재 돌고 있는 건 Ollama다. Open WebUI는 같은 RAG API를 쓰는 선택적 폴백이며 기본 채택 화면이 아니다(채팅은 `web/` 앱에 통합).
+> 서빙 실측 스택은 **격리 Ollama v0.31.1**(PM2 `kei-ollama-v031`, OpenAI 호환 `127.0.0.1:11436/v1`, ctx 8K, 모델 `Qwen3.5-9B Q4_K_M` GGUF·unsloth)다. vLLM이 아니다. 공유 Ollama(`:11434`, v0.24.0, 동료 운용)는 qwen3_5 아키텍처를 지원하지 않아 미사용이니 건드리지 않는다. Open WebUI는 같은 RAG API를 쓰는 선택적 폴백이며 기본 채택 화면이 아니다(채팅은 `web/` 앱에 통합).
 
 ### PM2 프로세스 두 개
 
@@ -43,7 +43,7 @@ pm2 reload kei-guide            # 프론트 무중단 재시작(빌드 산출물
 ```
 
 > [!warning]
-> `kei-admin-rag`는 **PM2 프로세스명이 아니라 OpenAI 모델 id**(`RAG_MODEL_ID`)다. 프로세스는 `kei-rag-api`·`kei-guide` 둘뿐이다.
+> `kei-admin-rag`는 **PM2 프로세스명이 아니라 OpenAI 모델 id**(`RAG_MODEL_ID`)다. 앱 프로세스는 `kei-rag-api`·`kei-guide` 둘이고, LLM 서빙은 별도 PM2 프로세스 `kei-ollama-v031`(격리 Ollama v0.31.1)이 맡는다(§10.1).
 
 ---
 
@@ -170,7 +170,7 @@ git push origin <branch>
 | 트리거 | 재임베딩 필요? | 비고 |
 | --- | --- | --- |
 | 규정 원문(`20_규정원문/`) 추가·개정·삭제 | ✅ 필수 | 개정 런북 4단계. 한 건이면 `reembed_note.py` |
-| 업무가이드/용어집/ERP(`10_`·`30_`·`40_`) 내용 변경 | ✅ 필수 | 가이드/ERP는 헤딩 단위, 용어는 노트 단위 청킹 |
+| 업무가이드/용어집/시스템(`10_`·`30_`·`40_`) 내용 변경 | ✅ 필수 | 가이드/시스템은 헤딩 단위, 용어는 노트 단위 청킹 |
 | 프론트매터만 수정(태그·검토일 등) | △ 권장 | 메타데이터가 검색 표시에 쓰이면 반영 |
 | 임베딩 모델 교체(KURE-v1 ↔ bge-m3) | ✅ 전체 재생성 | 클린 리빌드면 자동 처리(§10.7 모델 불일치) |
 | 청킹 토글 변경(`CHUNK_BYEOLPYO`·`CHUNK_SUBSPLIT`) | ✅ 전체 재생성 | 청크 경계가 바뀌므로 02 전체로 |
@@ -203,7 +203,7 @@ python tools/02_chunk_and_embed.py --vault KEI-행정가이드 --db tools/chroma
 
 ### 청킹 단위와 토글
 
-- 규정원문은 **제N조 단위**, 가이드/ERP는 **헤딩(`####`/`##`) 단위**, 용어는 노트 단위로 자른다(고정 길이 청킹 금지).
+- 규정원문은 **제N조 단위**, 가이드/시스템은 **헤딩(`####`/`##`) 단위**, 용어는 노트 단위로 자른다(고정 길이 청킹 금지). (`40_시스템/`은 ERP뿐 아니라 통합정보시스템(EIP)·연구관리시스템(PMS)·웹메일·그룹웨어·웹디스크·전자도서관까지 사내 7개 시스템을 모두 담는다.)
 - **별표/별지 1급 청크**(`CHUNK_BYEOLPYO`, 기본 on): 별표/별지를 독립 청크로 분리(조=`별표 N`, `refs`=인용 조문). 표(별표/별지)는 하위분할하지 않는다.
 - **긴 청크 하위분할**(`CHUNK_SUBSPLIT`, 기본 on): `max_seq_len`(2048) 초과 청크를 항(①②)→호(1./가.)→문단→줄 순으로 쪼개 뒷부분(금액·조건) 잘림을 막는다. 조 라벨·메타는 유지하고 하위 인덱스만 `부분` 메타로 표시. 토글을 바꾸면 청크 경계가 달라지므로 **02 전체 리빌드**가 필요하다.
 
@@ -310,7 +310,7 @@ python tools/review_queue.py --feedback tools/.feedback_signals.json
 
 | 대상 | 무엇을 보나 | 빠른 점검 | 빨간불 신호 |
 | --- | --- | --- | --- |
-| Ollama | OpenAI 호환 엔드포인트 생존 | `curl -s http://127.0.0.1:11434/v1/models` | 연결 거부 / 모델 목록 빔 |
+| 격리 Ollama (`kei-ollama-v031`) | OpenAI 호환 엔드포인트 생존 | `curl -s http://127.0.0.1:11436/v1/models` | 연결 거부 / 모델 목록 빔 |
 | RAG API (`kei-rag-api`) | `/v1/*`·`/app/*` 응답·출처 주입 | `curl -s http://127.0.0.1:9000/v1/models` · `pm2 status` | 500 / `x_sources` 빔 / 프로세스 Down |
 | 프론트 (`kei-guide`) | 정적 서빙·프록시 | `curl -s http://127.0.0.1:3100/api/rag/health` | 502 / 드로어 "문서를 불러오지 못했습니다" |
 | 디스크 | 모델 가중치·Chroma·로그·app.db 여유 | `df -h` | 임베딩/빌드 중 No space |
@@ -326,14 +326,14 @@ df -h
 du -sh tools/chroma KEI-행정가이드 web/out tools/app.db 2>/dev/null
 
 # Ollama 생존 + 서빙 모델 확인
-curl -s http://127.0.0.1:11434/v1/models | head
+curl -s http://127.0.0.1:11436/v1/models | head
 
 # PM2 프로세스 상태
 pm2 status
 ```
 
 > [!note]
-> 모니터링 엔드포인트(`11434`/`9000`/`3100`)는 사내·디버그용이며 인터넷에 열지 않는다. RAG API는 기동 시 워밍업(임베딩 KURE-v1 로드 + LLM `keep_alive=-1` 상주)과 주기 keep-alive(`OLLAMA_PING_SECONDS` 기본 240s)로 콜드스타트를 막는다 — `pm2 restart kei-rag-api` 직후 첫 응답은 워밍업 때문에 잠깐 느릴 수 있다.
+> 모니터링 엔드포인트(`11436`/`9000`/`3100`)는 사내·디버그용이며 인터넷에 열지 않는다. RAG API는 기동 시 워밍업(임베딩 KURE-v1 로드 + LLM `keep_alive=-1` 상주)과 주기 keep-alive(`OLLAMA_PING_SECONDS` 기본 240s)로 콜드스타트를 막는다 — `pm2 restart kei-rag-api` 직후 첫 응답은 워밍업 때문에 잠깐 느릴 수 있다.
 
 > [!todo] 확인 필요: 정식 모니터링 스택·호스트
 > 현재는 대시보드 + 수동 점검(curl/`nvidia-smi`/`df`/`pm2`) 기준이다. Prometheus/Grafana·로그 수집·알림(예: 디스크 80% 경고)을 둘지, 어떤 사내 호스트에서 돌릴지는 [06 배포](06-deployment.md)·[08 로드맵](08-roadmap.md)에서 정한다.
@@ -348,6 +348,9 @@ deploy/release를 코드 한 벌로 분리한다 — 포트를 새로 열지 않
 - 토글·감사는 **관리자 전용**(`current_admin`). 관리자는 `APP_ADMINS`(쉼표 구분 아이디)에 명시한 계정뿐이다. **fail-closed** — `APP_ADMINS` 미설정이면 아무도 관리자가 아니고(공개 register로 인한 권한상승 방지), 첫 가입자 부트스트랩은 없다.
 - 프론트: 정적 export라 빌드에 박지 않고 `lib/flags.tsx`(`useFlag`)가 런타임 fetch(안전 기본값 + localStorage 캐시 + 폴백). 관리자 페이지 `/admin`에서 즉시 토글.
 
+> [!note]
+> 현재 레지스트리 플래그(예): `demo_banner`(예시 배너)·`cite_highlight`(근거 조문 형광 강조)·`graph_split`·`graph_expand_regs`·**`source_type_badges`**(채팅 근거 출처 성격 배지 — 📜 규정 공식 원문 vs 📘 가이드 참고)·**`content_search`**(둘러보기 원문 내용 전문검색 + 검색범위 선택 제목·번호·분류·내용, `search-index.json` lazy-load). 각 플래그는 off로 배포→dev 검증→on→안정 시 제거가 기본이며, 전체 목록·만료일은 [13 기능 플래그](13-feature-flags.md).
+
 ```bash
 # 운영자 계정을 관리자로 지정(미지정이면 아무도 토글 불가) — ecosystem.config.js env로 박는다
 # 예: APP_ADMINS="<운영자아이디>"  → pm2 restart kei-rag-api 로 반영
@@ -359,22 +362,21 @@ pm2 restart kei-rag-api
 
 ---
 
-## 10.8 레거시(v1.0.0) 동시 운영
+## 10.8 운영(prod) · 개발(dev) 병행 + 심층 롤백
 
-새 버전마다 통째로 동결하는 대신 기능 플래그(§10.7)로 가는 게 기본 방향이지만, **플래그가 못 막는 '심층 롤백'(아키텍처 통째 회귀)의 안전망**으로 v1.0.0을 `.legacy-v1/`에 완전 격리해 둔다.
+운영과 개발을 **두 포트 트랙**으로 나란히 굴린다. 개발은 별도 git worktree라 운영 사용자/기록에 영향이 없다.
 
-| 버전 | 위치 | 프론트 포트 | RAG API 포트 |
-| --- | --- | --- | --- |
-| 현행(dev `feat/0620`) | 루트(`web/`·`tools/`) | 3100 | 9000 |
-| 레거시 v1.0.0(동결) | `.legacy-v1/` | 3101 | 9001 |
+| 트랙 | 위치(브랜치) | 프론트 포트 | RAG API 포트 | PM2 |
+| --- | --- | --- | --- | --- |
+| 운영(prod) | 레포 본체 `/KEIAdminSuperv` (`feat/0620`) | 3100 | 9000 | `kei-guide`·`kei-rag-api` |
+| 개발(dev) | git worktree `/home/mhchoi/kei-dev-0703` (`feat/0703`) | 3101 | 9001 | `kei-guide-dev`·`kei-rag-api-dev` |
 
-`.legacy-v1/`은 그 시점의 `app_api.py`·`04_rag_api.py`·`rag_core.py`·`server.js`·`out/`·`chroma/`·`app.db`를 자체 사본으로 갖는다(현행과 db·시크릿이 분리됨). 레거시를 띄울 때는 포트만 달리해 환경변수로 기동한다(`server.js`는 `PORT`/`RAG_PORT`, RAG API는 uvicorn `--port`).
+개발(dev) worktree는 자체 `chroma/`·`app.db`·`.app_secret`·볼트 사본을 가진 **완전 격리** 환경이다(운영과 db·시크릿 분리). 기동은 `pm2 start deploy/ecosystem.dev-0703.config.js`. ⚠ 운영(3100/9000)은 병합 승인 전까지 동결 — 개발은 dev(3101/9001)에서만 한다.
+
+**심층 롤백(아키텍처 통째 회귀)의 안전망**은 이제 **git 태그 스냅샷**이다: 병합 전 운영 시점을 `git tag`(예: `v1.0.0`·`v1.1.0`)로 고정한다. ⚠ 태그는 **코드만** 담으므로, 진짜 스냅샷은 태그 + **볼트·`chroma`·`app.db` 파일 복사**(콘텐츠·데이터는 gitignore)가 함께여야 한다.
 
 > [!warning]
-> 레거시는 **완전 격리**가 원칙이다 — 현행과 `chroma/`·`app.db`·`.app_secret`을 공유하지 않는다. 평소엔 내려두고, 현행에서 심층 결함이 확인됐을 때만 안전망으로 올린다. 새 버전마다 포트(3102…)를 추가로 열지 않는다 — 운영 포트는 3100/3101 둘로 충분하다([13 기능 플래그](13-feature-flags.md)).
-
-> [!todo] 확인 필요: 레거시 기동 스크립트/PM2 등록
-> `.legacy-v1/`을 3101/9001로 올리는 정식 절차(PM2 앱명·env 세트)가 별도 ecosystem 파일로 고정돼 있는지, 수동 기동인지는 [06 배포](06-deployment.md)에서 확정한다.
+> 개발은 **완전 격리**가 원칙 — 운영과 `chroma/`·`app.db`·`.app_secret`을 공유하지 않는다(단, 생성 LLM Ollama 11436과 `tools/.venv`는 공유). 새 버전마다 포트(3102…)를 추가로 열지 않는다 — 운영 포트는 3100/3101 둘로 충분하다([13 기능 플래그](13-feature-flags.md)).
 
 ---
 
@@ -497,4 +499,4 @@ pm2 restart kei-rag-api
 
 ---
 
-최종 수정: 2026-06-21
+최종 수정: 2026-07-06

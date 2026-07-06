@@ -5,7 +5,7 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 상태 | ✅ **채택 (Accepted)** |
+| 상태 | ♻️ **대체됨 (Superseded, 2026-07)** — [뇌] 그래프 사이트를 **Next.js 14 + Toss Design System**(`web/`)으로 교체(LLM 채팅까지 한 앱에 통합). 아래 결정은 초기 채택 당시 기록. |
 | 결정일 | 2026-06-18 |
 | 결정 | **Quartz v5**(Node v22+), 볼트를 `content/`로 심볼릭 링크, `public/` → nginx |
 | 검토 대안 | 다른 SSG(Hugo/Jekyll/Docusaurus 등), Obsidian Publish(외부 호스팅) |

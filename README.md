@@ -2,14 +2,14 @@
 
 > 행정 초보(신입·전입자)가 "이 업무 어떻게 처리하지?"를 **사내 규정 근거로** 빠르게 해결하도록 돕는 온프레미스 지식베이스 + 로컬 LLM.
 >
-> 단일 진실원천(Source of Truth)인 마크다운 볼트 하나를, 사람이 탐색하는 **[뇌] 그래프·문서**와 신입이 물어보는 **[LLM] RAG 채팅**으로 동시에 서빙합니다. 두 화면 모두 한 개의 **Next.js 14 + TDS 앱(`web/`)**에 통합되어 있습니다 — LLM은 별도 Open WebUI가 아니라 우리 RAG API를 호출하는 앱 내 채팅 화면입니다. LLM에는 **로그인·회원가입, 채팅기록 영속화, 멀티턴 기억, 답변(메시지)별 근거 저장, 응답 스트리밍(SSE)**이 들어 있고, **검색 품질**은 리랭커(P1.4)·멀티턴 쿼리 재작성(P1.5)으로, **신뢰**는 답변 피드백(👍/👎, P2.1)·금액 신뢰 강화(P2.2)·운영자 대시보드(P2.5)로 보강했습니다. 답변 생성은 **Ollama**(Qwen2.5-14B-Instruct Q4_K_M, OpenAI 호환), 검색 임베딩은 **KURE-v1**로 모두 사내 GPU(Quadro RTX 6000 24GB×2)에서 돌고, 화면은 Cloudflare Zero Trust 뒤(사내 전용)에 둡니다.
+> 단일 진실원천(Source of Truth)인 마크다운 볼트 하나를, 사람이 탐색하는 **[뇌] 그래프·문서**와 신입이 물어보는 **[LLM] RAG 채팅**으로 동시에 서빙합니다. 두 화면 모두 한 개의 **Next.js 14 + TDS 앱(`web/`)**에 통합되어 있습니다 — LLM은 별도 Open WebUI가 아니라 우리 RAG API를 호출하는 앱 내 채팅 화면입니다. LLM에는 **로그인·회원가입, 채팅기록 영속화, 멀티턴 기억, 답변(메시지)별 근거 저장, 응답 스트리밍(SSE)**이 들어 있고, **검색 품질**은 리랭커(P1.4)·멀티턴 쿼리 재작성(P1.5)으로, **신뢰**는 답변 피드백(👍/👎, P2.1)·금액 신뢰 강화(P2.2)·운영자 대시보드(P2.5)로 보강했습니다. 답변 생성은 **격리 Ollama v0.31.1**(Qwen3.5-9B GGUF Q4_K_M, OpenAI 호환), 검색 임베딩은 **KURE-v1**로 모두 사내 GPU(Quadro RTX 6000 24GB×2)에서 돌고, 화면은 Cloudflare Zero Trust 뒤(사내 전용)에 둡니다.
 
 | 항목 | 상태 |
 | --- | --- |
 | 상태 | 🟢 파이프라인 + LLM 가동 — 변환·임베딩·검색 검증 완료, RAG API(Ollama)로 한국어 답변 생성 검증 완료. 검색(리랭커·쿼리 재작성)·신뢰(피드백·금액 강화·대시보드) 보강 |
-| 코퍼스 | **271 문서**(규정집 111 · 연구행정 가이드 64 · 용어집 84 · ERP 시스템 12) · 약 **4,400 청크** 임베딩(KURE-v1, 긴 조문 하위분할 반영) · 관계 그래프 271 노드·275 연결 |
-| 배포 | 🔒 사내 전용 (인터넷 공개 금지) · 현행 dev(`feat/0620`) 3100/9000 · 레거시 `v1.0.0` 3101/9001(`.legacy-v1/`, 완전 격리) |
-| 모델 | 🖥️ 온프레미스 GPU (Quadro RTX 6000 24GB×2, 총 48GB) · 답변 Ollama(Qwen2.5-14B-Instruct Q4_K_M) |
+| 코퍼스 | **293 문서**(규정집 111 · 연구행정 가이드 65 · 용어집 84 · 사내 시스템 33) · 약 **4,545 청크** 임베딩(KURE-v1, 긴 조문 하위분할 반영) · 관계 그래프 293 노드·357 연결 |
+| 배포 | 🔒 사내 전용 (인터넷 공개 금지) · 운영(prod, `feat/0620`) 3100/9000 · 개발(dev, `feat/0703` worktree) 3101/9001(완전 격리) |
+| 모델 | 🖥️ 온프레미스 GPU (Quadro RTX 6000 24GB×2, 총 48GB) · 답변 격리 Ollama v0.31.1(Qwen3.5-9B GGUF Q4_K_M) |
 | 조직 | KEI · 한국환경연구원 (Korea Environment Institute) |
 | 레포 | github.com/mooner92/KEIAdminSuperv |
 
@@ -30,7 +30,7 @@
 
 단일 진실원천은 레포 안의 마크다운 볼트 `KEI-행정가이드/` 하나뿐입니다. 같은 마크다운을 두 화면이 각자의 방식으로 "먹습니다".
 
-볼트는 **핵심 2-layer**(가치층 `10_업무가이드/` ↔ 진실원천 `20_규정원문/`)에 **보조 폴더**(`30_용어집/`·`40_시스템/`(ERP)·`90_관리/`)가 더해진 구조입니다. 화면의 '구분' 섹션은 **규정집 · 연구행정 가이드 · 용어집 · ERP 시스템** 4개(각각 파랑·초록·주황·보라)이며, 진실원천 2-layer 위에 용어/시스템이 보조로 얹힌 같은 볼트입니다(정본 표현은 [CLAUDE.md](CLAUDE.md)의 "2-layer").
+볼트는 **핵심 2-layer**(가치층 `10_업무가이드/` ↔ 진실원천 `20_규정원문/`)에 **보조 폴더**(`30_용어집/`·`40_시스템/`(사내 시스템)·`90_관리/`)가 더해진 구조입니다. 화면의 '구분' 섹션은 **규정집 · 연구행정 가이드 · 용어집 · 사내 시스템** 4개(각각 파랑·초록·주황·보라)이며, 진실원천 2-layer 위에 용어/시스템이 보조로 얹힌 같은 볼트입니다(정본 표현은 [CLAUDE.md](CLAUDE.md)의 "2-layer").
 
 ```mermaid
 flowchart TD
@@ -59,7 +59,7 @@ flowchart TD
 > [!warning] 전제 조건
 > - **HWP 원본** 규정 파일(`.hwp` / `.hwpx`)이 한 폴더에 모여 있어야 합니다.
 > - **GPU 서버**(Quadro RTX 6000 24GB×2, 예: `data05lx` / Ubuntu)에서 임베딩·LLM을 구동합니다.
-> - **Ollama**(OpenAI 호환, `http://127.0.0.1:11434/v1`, 모델 `hf.co/bartowski/Qwen2.5-14B-Instruct-GGUF:Q4_K_M` ~9GB)가 이미 떠 있어야 03/04 단계가 동작합니다. (vLLM은 대안 서빙으로 남겨둡니다.)
+> - **격리 Ollama v0.31.1**(OpenAI 호환, `http://127.0.0.1:11436/v1`, PM2 `kei-ollama-v031`, ctx 8K, 모델 `hf.co/unsloth/Qwen3.5-9B-GGUF:Q4_K_M` ~5.7GB)가 이미 떠 있어야 03/04 단계가 동작합니다. (모델 pull은 Ollama 레지스트리 차단으로 `hf.co/` 프리픽스 사용.)
 > - 웹앱(`web/`, Next.js 14 + TDS) 빌드·실행에는 **Node v22+**가 필요합니다. ⚠️ **반드시 nvm Node 22**로 빌드하세요 — 기본 node18에서는 `out/docdata/*.json` emit이 조용히 실패해 문서 드로어가 깨집니다("문서를 불러오지 못했습니다").
 
 ### 1) 파이프라인 (tools/)
@@ -101,7 +101,7 @@ pm2 start tools/ecosystem.config.js          # 프로세스 kei-rag-api 기동
 ```
 
 > [!note] 실측 (2026-06-21)
-> 코퍼스 **271 문서**(규정 111 · 가이드 64 · 용어 84 · ERP 12) → **약 4,400 청크** 임베딩(긴 조문 하위분할(P2.3) 반영, 재색인 후 4,418). 검색 정확(예: "출장 여비 정산" → 여비규정 해당 조 · "재직증명서 어느 메뉴" → ERP 인사관리 제증명서신청 `gen_3015M`). **답변 생성**은 Ollama(Qwen2.5-14B-Instruct Q4_K_M)로 한국어까지 검증. 변환 실패 2건(타임아웃 1·이미지PDF 1)은 LibreOffice/OCR 폴백 대상. 파이프라인 상세는 [docs/04-pipeline.md](docs/04-pipeline.md).
+> 코퍼스 **293 문서**(규정 111 · 가이드 65 · 용어 84 · 사내 시스템 33) → **약 4,545 청크** 임베딩(긴 조문 하위분할(P2.3)·전사 시스템 적재 반영). 검색 정확(예: "출장 여비 정산" → 여비규정 해당 조 · "재직증명서 어느 메뉴" → ERP 인사관리 제증명서신청 `gen_3015M`). **답변 생성**은 격리 Ollama v0.31.1(Qwen3.5-9B GGUF Q4_K_M)로 한국어까지 검증. 변환 실패 2건(타임아웃 1·이미지PDF 1)은 LibreOffice/OCR 폴백 대상. 파이프라인 상세는 [docs/04-pipeline.md](docs/04-pipeline.md).
 
 ### 2) 웹앱 — [뇌]와 [LLM]을 한 앱으로 (web/)
 
@@ -109,8 +109,8 @@ pm2 start tools/ecosystem.config.js          # 프로세스 kei-rag-api 기동
 
 페이지·컴포넌트:
 
-- **`/` = LLM(Assistant):** **로그인 게이트** 화면입니다(`Assistant.tsx`가 `/auth/me`를 확인 → `Login.tsx`(로그인·회원가입) 또는 `ChatApp.tsx`를 렌더, 정적 export 유지·게이트는 클라이언트 렌더). 로그인하면 `ChatApp`은 **좌측 대화목록 사이드바**(새 대화·선택·삭제), **중앙 멀티턴 채팅**, 우측 **'메시지별' 근거 패널**, Notion형 **문서 드로어**로 구성됩니다. 지난 답변을 클릭하면 그때 저장된 근거를 우측에 다시 표시하고, 근거 카드를 클릭하면 드로어가 해당 조(제N조 앵커)로 펼쳐집니다. 같은 오리진 `/api/app/*`(로그인·채팅기록)와 `/api/rag/chat`(무상태)을 plain fetch(React hooks, React Query 미도입)로 호출합니다. 답변은 **SSE 스트리밍**(`POST /app/chats/{id}/messages?stream=1` → `meta`→`delta`…→`done`)으로 토큰을 순차 표시하며, 답변마다 **👍/👎 피드백**(+사유)을 남길 수 있습니다(P2.1). 금액·한도가 포함된 답변은 "원문에서 수치 확인" 경고 + 근거 스니펫 수치 강조(`<mark>`) + 근거별 검수상태 배지로 신뢰를 보강합니다(P2.2).
-- **`/browse` = 둘러보기(Explorer):** 좌측 체크박스 **필터**(구분=규정집/가이드/용어집, 분류, 검수상태) + 검색 + 결과 목록. 행을 클릭하면 페이지 이동 없이 우측 Notion형 드로어로 본문이 열립니다. 패싯 카운트(다른 필터 반영) 제공.
+- **`/` = LLM(Assistant):** **로그인 게이트** 화면입니다(`Assistant.tsx`가 `/auth/me`를 확인 → `Login.tsx`(로그인·회원가입) 또는 `ChatApp.tsx`를 렌더, 정적 export 유지·게이트는 클라이언트 렌더). 로그인하면 `ChatApp`은 **좌측 대화목록 사이드바**(새 대화·선택·삭제), **중앙 멀티턴 채팅**, 우측 **'메시지별' 근거 패널**, Notion형 **문서 드로어**로 구성됩니다. 지난 답변을 클릭하면 그때 저장된 근거를 우측에 다시 표시하고, 근거 카드를 클릭하면 드로어가 해당 조(제N조 앵커)로 펼쳐집니다. 근거 카드에는 출처 성격 배지(📜규정 공식 / 📘가이드 참고, `source_type_badges` 플래그)가 붙습니다. 같은 오리진 `/api/app/*`(로그인·채팅기록)와 `/api/rag/chat`(무상태)을 plain fetch(React hooks, React Query 미도입)로 호출합니다. 답변은 **SSE 스트리밍**(`POST /app/chats/{id}/messages?stream=1` → `meta`→`delta`…→`done`)으로 토큰을 순차 표시하며, 답변마다 **👍/👎 피드백**(+사유)을 남길 수 있습니다(P2.1). 금액·한도가 포함된 답변은 "원문에서 수치 확인" 경고 + 근거 스니펫 수치 강조(`<mark>`) + 근거별 검수상태 배지로 신뢰를 보강합니다(P2.2).
+- **`/browse` = 둘러보기(Explorer):** 좌측 체크박스 **필터**(구분=규정집/가이드/용어집/사내 시스템, 분류, 검수상태) + 검색(제목·번호·분류에 더해 **원문 내용 전문검색** — `content_search` 플래그, `search-index.json` lazy-load) + 결과 목록. 행을 클릭하면 페이지 이동 없이 우측 Notion형 드로어로 본문이 열립니다. 패싯 카운트(다른 필터 반영) 제공.
 - **`/graph` = 관계 그래프:** 기존 react-force-graph-2d.
 - **`/d/[slug]` = 전체화면 문서:** 드로어의 '전체화면' 폴백(기존 SSG 페이지 유지).
 - **DocDrawer:** 우측 슬라이드인. `out/docdata/<slug>.json`을 지연 로드합니다(빌드 산출물). 빌드 시 `web/scripts/emit-docdata.mts`가 `lib/vault.ts`를 그대로 재사용(`node --experimental-strip-types`)해 문서별 JSON을 만들어, 드로어와 `/d/[slug]` 페이지가 동일한 본문·링크를 보장합니다.
@@ -127,7 +127,7 @@ VAULT_DIR=/path/to/KEI-행정가이드 npm run build  # → web/out/ 정적 산�
 ```
 
 > [!note] 실측 (2026-06-21)
-> `next build` 성공 — 정적 export(**문서 271** = 규정집 111 · 연구행정 가이드 64 · 용어집 84 · ERP 시스템 12) + `out/docdata/*.json`. 한글 mojibake 0, 위키링크 내부 네비 + 제N조 앵커 동작, 관계 그래프 **271 노드 · 275 연결**(4색 섹션 · ERP↔규정 · 용어↔ERP 교차링크), **다크모드/테마**(라이트·다크·시스템). `/` 첫 first-load JS 약 **440KB**(TDS + react-markdown, 경량화는 로드맵 항목). 임베딩 청크 약 **4,400**(긴 조문 하위분할(P2.3) 반영). ⚠️ 빌드는 반드시 **nvm Node 22**로 — 기본 node18은 `out/docdata/*.json` emit이 조용히 실패해 드로어가 깨집니다("문서를 불러오지 못했습니다"). 디자인 원칙·토큰·컴포넌트 규약은 [docs/design-system.md](docs/design-system.md).
+> `next build` 성공 — 정적 export(**문서 293** = 규정집 111 · 연구행정 가이드 65 · 용어집 84 · 사내 시스템 33) + `out/docdata/*.json`. 한글 mojibake 0, 위키링크 내부 네비 + 제N조 앵커 동작, 관계 그래프 **293 노드 · 357 연결**(4색 섹션 · ERP↔규정 · 용어↔ERP 교차링크), **다크모드/테마**(라이트·다크·시스템). `/` 첫 first-load JS 약 **440KB**(TDS + react-markdown, 경량화는 로드맵 항목). 임베딩 청크 약 **4,545**(긴 조문 하위분할(P2.3) 반영). ⚠️ 빌드는 반드시 **nvm Node 22**로 — 기본 node18은 `out/docdata/*.json` emit이 조용히 실패해 드로어가 깨집니다("문서를 불러오지 못했습니다"). 디자인 원칙·토큰·컴포넌트 규약은 [docs/design-system.md](docs/design-system.md).
 
 ### 3) 서빙 — PM2로 상시 가동
 
@@ -136,9 +136,9 @@ LLM은 별도 앱이 아니라 위 웹앱 `/` 화면입니다. 운영은 PM2가 
 ```bash
 # kei-guide  : web/server.js — out/ 정적 서빙 + /api/rag/*·/api/app/* → 127.0.0.1:9000 리버스 프록시 (0.0.0.0:3100)
 # kei-rag-api: tools/04_rag_api.py(uvicorn) — Chroma 검색 + Ollama 생성 + 인증·채팅기록(SQLite app.db) (127.0.0.1:9000, 로컬 전용)
-pm2 start tools/ecosystem.config.js                   # 현행 dev(3100/9000)
-# 레거시 운영 v1.0.0(3101/9001, .legacy-v1/)을 나란히 굴리려면:
-pm2 start deploy/ecosystem.legacy-v1.config.js        # kei-guide-legacy · kei-rag-api-legacy
+pm2 start tools/ecosystem.config.js                   # 운영(prod, 3100/9000)
+# 개발(dev, feat/0703 worktree, 3101/9001)을 나란히 굴리려면:
+pm2 start deploy/ecosystem.dev-0703.config.js         # kei-guide-dev · kei-rag-api-dev
 pm2 save                                # 현재 프로세스 목록 저장
 # 부팅 자동시작은 'pm2 startup'(systemd) 별도 1회 필요 (아직 미설정일 수 있음)
 # 백업 대상: tools/app.db(사용자·채팅·근거·피드백·플래그) + tools/.app_secret(JWT 키). pm2 restart 해도 디스크 영속 → 사용자/기록 유지
@@ -162,7 +162,7 @@ KEIAdminSuperv/
 │   ├── 10_업무가이드/          #   가치층 — 연구행정 가이드(HWP/PDF/PPTX 변환 + 사람 작성)
 │   ├── 20_규정원문/            #   진실원천(HWP 변환, 의역 금지, 규정번호 1000~7999)
 │   ├── 30_용어집/              #   개념 1개 = 노트 1개 (행정/시스템 용어)
-│   ├── 40_시스템/              #   ERP 메뉴·기능(모듈별 노트, 섹션 '시스템'·보라)
+│   ├── 40_시스템/              #   사내 시스템 7종(ERP·통합정보(EIP)·연구관리(PMS)·웹메일·그룹웨어·웹디스크·전자도서관) 모듈별 노트(섹션 '시스템'·보라)
 │   └── 90_관리/                #   템플릿·개정이력·Dataview 인덱스 (_templates는 청킹 제외)
 ├── tools/                     # 🛠️ 파이프라인
 │   ├── 01_hwp_to_md.py        #   규정 변환: HWP/HWPX → 20_규정원문/
@@ -205,10 +205,10 @@ KEIAdminSuperv/
 ├── eval/                      # 📊 평가 하베스트: run.sh·run_eval.py(Hit/Recall/MRR, --rerank/--rewrite/--hybrid/--judge), golden.jsonl(gitignore)
 ├── deploy/                    # 🚀 배포
 │   ├── setup_ubuntu_hwp.sh    #   HWP 변환 환경(LibreOffice + H2Orestart) 셋업
-│   ├── ecosystem.legacy-v1.config.js  #   레거시 v1.0.0 PM2(kei-*-legacy, 3101/9001 → .legacy-v1/)
+│   ├── ecosystem.dev-0703.config.js   #   개발(dev) PM2(kei-*-dev, 3101/9001 → worktree feat/0703)
 │   ├── docker-compose.yml     #   Open WebUI (선택적 관리자 폴백)
 │   └── README.md
-├── .legacy-v1/                # 🧊 동결된 운영 v1.0.0 사본(완전 격리, 3101/9001, gitignore)
+│                              # (개발 dev는 별도 worktree /home/mhchoi/kei-dev-0703, feat/0703)
 ├── vault-example/             # 🧪 공개용 합성 볼트 예시(실데이터 0) — 구조 시연
 ├── docs/                      # 📚 설계·계획 문서 (+ adr/)
 ├── SECURITY.md                # 🔒 데이터 분류·위협모델·통제
@@ -218,7 +218,7 @@ KEIAdminSuperv/
 └── .gitignore
 ```
 
-위 볼트는 **핵심 2-layer**(`10_업무가이드/` ↔ `20_규정원문/`)에 **보조 3폴더**(`30_용어집/`·`40_시스템/`·`90_관리/`)를 더한 구조입니다. 화면의 '구분' 섹션은 **규정집·연구행정 가이드·용어집·ERP 시스템** 4개입니다.
+위 볼트는 **핵심 2-layer**(`10_업무가이드/` ↔ `20_규정원문/`)에 **보조 3폴더**(`30_용어집/`·`40_시스템/`·`90_관리/`)를 더한 구조입니다. 화면의 '구분' 섹션은 **규정집·연구행정 가이드·용어집·사내 시스템** 4개입니다.
 
 > [!tip]
 > 콘텐츠는 한국어이고 **한글 파일명**을 씁니다. git이 한글 경로를 깨뜨리지 않도록 `git config core.quotepath false`를 적용하세요.
@@ -238,16 +238,16 @@ flowchart LR
     S1D --> XL
     S1F --> XL
     XL --> S02["02 청킹(규정 제N조 / 가이드·ERP·용어 헤딩)<br/>+ KURE-v1 임베딩"]
-    S02 --> Chroma[("Chroma kei_regs<br/>hnsw:space=cosine · 약 4,400청크")]
+    S02 --> Chroma[("Chroma kei_regs<br/>hnsw:space=cosine · 약 4,545청크")]
     Chroma --> S04["04_rag_api.py(진입점)<br/>rag_core 검색·생성 + app_api 인증·채팅(/app)<br/>OpenAI 호환 /v1 :9000"]
-    S04 --> Ollama["Ollama 127.0.0.1:11434/v1<br/>Qwen2.5-14B-Instruct Q4_K_M"]
+    S04 --> Ollama["격리 Ollama v0.31.1 127.0.0.1:11436/v1<br/>Qwen3.5-9B GGUF Q4_K_M"]
     S04 --> DB[("SQLite tools/app.db<br/>user·chatsession·message<br/>(근거 = message.sources_json)")]
     S04 --> Chat["웹앱 / (Assistant)<br/>멀티턴·스트리밍·메시지별 근거·문서 드로어"]
 ```
 
 - **01 변환:** `hwp-hwpx-parser`로 본문 추출, 표는 `extract_text`가 본문에 인라인 마크다운으로 삽입(제N조 청킹과 정합). 가이드는 PDF(PyMuPDF)·PPTX(python-pptx)도 처리(`01c`), 스캔 이미지 PDF는 `image-pdf` 플레이스홀더. 표/별표가 깨지면 LibreOffice + H2Orestart로 PDF를 만들고 그 페이지를 VLM(`Qwen2.5-VL`)에 넘겨 **표만** 재추출.
 - **02 청킹:** 규정은 **조문 1개 = 청크 1개**(`제N조`), 가이드·ERP·용어는 **헤딩(####/##) 단위**(없으면 문단 패킹). 고정 길이 청킹 금지. **별표/별지는 1급 청크로 분리**(P1.3, 조=`별표 N`, `refs`=인용 조문, 토글 `CHUNK_BYEOLPYO`). **긴 청크는 하위청킹**(P2.3, `max_seq_len` 초과 시 항(①②)→호→문단→줄 순으로 분할, 조 라벨·메타 유지, 표는 분할 안 함, 토글 `CHUNK_SUBSPLIT`).
-- **교차링크(01b/01e/01g):** 규정 상호참조 + ERP 모듈↔규정 + 용어↔ERP/규정을 `[[ ]]`로 연결 → 관계 그래프의 엣지(271 노드·275 연결, 4색 섹션).
+- **교차링크(01b/01e/01g):** 규정 상호참조 + ERP 모듈↔규정 + 용어↔ERP/규정을 `[[ ]]`로 연결 → 관계 그래프의 엣지(293 노드·357 연결, 4색 섹션).
 - **03/04 질의:** 검색(Chroma `kei_regs`, KURE-v1, 밀집 top-20) → **리랭커**(P1.4, `BAAI/bge-reranker-v2-m3` cross-encoder, 온프레미스 GPU) 재점수 → top-5 → `[규정명 제N조]` 블록으로 근거 컨텍스트 구성 → Ollama가 답하고 출처를 강제 표기. 후속 질문은 **멀티턴 쿼리 재작성**(P1.5, `condense_query`)으로 독립 검색어로 바꿔 검색합니다(검색어만 바꾸고 답변·근거는 불변). 시스템(ERP) 근거에는 `(ERP 시스템)` 라벨을 붙여 메뉴·경로를 답변에 안내합니다(P2.4, 근거에 있을 때만). 응답에는 구조화 출처 `x_sources`(규정명/조/분류/type/snippet/distance)와 하위호환 `x_retrieved`(태그 문자열)가 포함됩니다. 면책 문구는 `_ensure_disclaimer`로 100% 보장(스트리밍 `answer_stream`도 동일).
 - **멀티턴:** 세션의 이전 메시지를 LLM에 재생(replay)해 맥락을 잇되, **사실 근거는 매 턴 새로 검색한 `[근거]`에서만** 가져옵니다(가드레일 유지). OpenAI 호환 `/v1` 엔드포인트도 마지막 user 메시지로 검색하고 그 앞을 맥락으로 전달합니다.
 - **채팅 API(`/app`, server.js가 `/api/app/*` → `/app/*` 프록시):** 인증 `POST /app/auth/register`·`login`·`logout`·`GET /app/auth/me`, 대화 `GET·POST /app/chats`·`GET·PATCH·DELETE /app/chats/{id}`, 메시지 `POST /app/chats/{id}/messages`(`?stream=1`이면 SSE: `meta`→`delta`…→`done`; 검색+멀티턴 생성 → user/assistant 메시지 저장, assistant에 근거 `sources` 첨부, 첫 질문으로 대화 제목 자동 설정), 피드백 `POST·DELETE /app/messages/{id}/feedback`, 관리자 `GET /app/feedback`·`GET /app/stats`·플래그 토글.
@@ -263,23 +263,23 @@ flowchart LR
 - **금액 신뢰 강화(P2.2):** 금액/한도 답변에 경고 + 근거 스니펫 수치 강조(`<mark>`) + 근거별 검수상태 배지. 모두 `docdata`로 처리(재임베딩 불필요). footer의 **📑 규정집 기준일**은 단일 출처 `web/lib/site.ts` `CORPUS_AS_OF`.
 - **운영자 대시보드(P2.5):** `/admin`에 활동·**거부율**(`REFUSAL_RE` 감지)·👍/👎·인기 질문·콘텐츠 갭. `GET /app/stats`(관리자 전용). 거부/👎/인기 질문이 검수 큐·콘텐츠 로드맵으로 환류되는 **자기개선 루프**.
 - **🔒 개인정보(P2.5):** 서버사이드 RAG라 진짜 E2E 암호화는 불가(LLM이 평문 필요). 대신 ⓐ 관리자도 **타인 채팅을 읽는 엔드포인트가 없고**(`get_chat` 소유자 검증), ⓑ `/stats`·`/feedback`은 질문·답변 **본문을 반환하지 않으며**(규정 메타·집계만), ⓒ 인기 질문/갭은 **서로 다른 사용자 K명 이상**(`STATS_MIN_USERS` 기본 3)인 **k-익명 집계**만 노출합니다.
-- **기능 플래그(P, [docs/13](docs/13-feature-flags.md)):** 코드 레지스트리 `FLAG_REGISTRY` + SQLite `Flag`/`FlagAudit`. 공개 `GET /app/flags`(비민감 불리언만), 관리자 토글/감사(`current_admin`, `APP_ADMINS` **fail-closed** — 미설정 시 아무도 관리자 아님). 프론트는 정적 export라 빌드에 안 박고 `lib/flags.tsx` `useFlag`로 런타임 fetch, `/admin`에서 즉시 토글.
+- **기능 플래그(P, [docs/13](docs/13-feature-flags.md)):** 코드 레지스트리 `FLAG_REGISTRY` + SQLite `Flag`/`FlagAudit`. 공개 `GET /app/flags`(비민감 불리언만), 관리자 토글/감사(`current_admin`, `APP_ADMINS` **fail-closed** — 미설정 시 아무도 관리자 아님). 프론트는 정적 export라 빌드에 안 박고 `lib/flags.tsx` `useFlag`로 런타임 fetch, `/admin`에서 즉시 토글. 현재 플래그 예: `source_type_badges`(채팅 근거 출처 성격 배지 📜규정 공식/📘가이드 참고)·`content_search`(둘러보기 원문 내용 전문검색)·`cite_highlight`(P2.7)·`graph_split`(P2.8).
 
 > [!note] 평가·테스트
 > 평가 하베스트 [eval/](eval/README.md)(`run.sh`·`run_eval.py` — Hit/Recall/MRR strict=규정명+조 / relaxed=규정명, `--rerank`/`--rewrite`/`--hybrid`, `--judge`로 LLM-judge 충실도·거부율). 리랭커 적용 후 strict Hit@1 0.600→0.829·@5 1.000, 면책 보장 0.806→1.000(실패 시 안전 강등). 백엔드 테스트는 [tools/test_feedback.py](tools/test_feedback.py)·[tools/test_stats.py](tools/test_stats.py)(FastAPI TestClient+임시DB, LLM 불필요). 골든셋 `eval/golden.jsonl`은 gitignore.
 
 ---
 
-## 운영 버전 — 현행 dev · 레거시 v1.0.0
+## 운영 버전 — 운영(prod) · 개발(dev)
 
-포트를 새로 열거나 통째로 동결하지 않고, 다음 버전을 안정 운영과 **나란히** 굴립니다(상세 [deploy/README.md](deploy/README.md)).
+포트를 새로 열거나 통째로 동결하지 않고, 운영과 개발을 **나란히** 굴립니다(상세 [deploy/README.md](deploy/README.md)).
 
-| 트랙 | 프론트 | RAG API | 위치 | PM2 |
+| 트랙 | 프론트 | RAG API | 위치(브랜치) | PM2 |
 | --- | --- | --- | --- | --- |
-| **현행 dev** (`feat/0620`) | `3100` | `9000` | 레포 본체 | `kei-guide` · `kei-rag-api` |
-| **레거시 운영** `v1.0.0` | `3101` | `9001` | `.legacy-v1/`(동결 사본, gitignore) | `kei-guide-legacy` · `kei-rag-api-legacy` |
+| **운영(prod)** | `3100` | `9000` | 레포 본체 `/KEIAdminSuperv` (`feat/0620`) | `kei-guide` · `kei-rag-api` |
+| **개발(dev)** | `3101` | `9001` | git worktree `/home/mhchoi/kei-dev-0703` (`feat/0703`) | `kei-guide-dev` · `kei-rag-api-dev` |
 
-레거시는 자체 `app.db`·`.app_secret`·`chroma`·`out`을 가진 **완전 격리** 사본으로, 현행 작업이 운영 사용자/기록에 영향을 주지 않습니다. 레거시 기동은 `pm2 start deploy/ecosystem.legacy-v1.config.js`.
+개발(dev)은 자체 `chroma`·`app.db`·`.app_secret`·볼트 사본을 가진 **완전 격리** worktree로, 개발 작업이 운영 사용자/기록에 영향을 주지 않습니다. 기동은 `pm2 start deploy/ecosystem.dev-0703.config.js`. ⚠ 운영(prod, 3100/9000)은 병합 승인 전까지 동결 — 개발은 dev(3101/9001)에서만. 병합 전 prod 스냅샷은 `git tag`(코드) + 볼트·chroma·app.db 파일 복사(콘텐츠·데이터는 gitignore)로 뜬다.
 
 ---
 
@@ -321,7 +321,7 @@ flowchart LR
 | 변환 | `hwp-hwpx-parser` | `.hwp`/`.hwpx` 모두. 표 깨지면 LibreOffice + H2Orestart + `Qwen2.5-VL` |
 | 임베딩 | `nlpai-lab/KURE-v1` | 대안 `BAAI/bge-m3`. 양자화 안 함, `normalize_embeddings=True` |
 | 벡터DB | Chroma `PersistentClient` | collection `kei_regs`, 메타 `hnsw:space=cosine` |
-| LLM 서빙 | **Ollama** (OpenAI 호환) | **현재 가동** `http://127.0.0.1:11434/v1`, 모델 `hf.co/bartowski/Qwen2.5-14B-Instruct-GGUF:Q4_K_M`(~9GB). 2×RTX 6000은 **공유·변동적**이라 모델·리랭커 배치 전 `nvidia-smi`로 여유를 확인하세요(CLAUDE.md의 고정 GPU 줄은 신뢰하지 말 것). 14B fp16(약 28GB)은 단일 24GB 초과 → 양자화(Q4) 또는 2장 텐서병렬 필요. **대안 서빙: vLLM**(`--tensor-parallel-size 2` 등) |
+| LLM 서빙 | **격리 Ollama v0.31.1** (OpenAI 호환) | **현재 가동** `http://127.0.0.1:11436/v1`(PM2 `kei-ollama-v031`, ctx 8K), 모델 `hf.co/unsloth/Qwen3.5-9B-GGUF:Q4_K_M`(~5.7GB, apache-2.0). NVIDIA 드라이버 535라 CUDA 대신 **Vulkan**로 GPU 사용(550+ 업그레이드 시 자동 CUDA 전환). 사고모드 off(`reasoning_effort=none`, qwen3.5 공백결함 후처리). 2×RTX 6000은 **공유·변동적**이라 모델·리랭커 배치 전 `nvidia-smi`로 여유를 확인하세요(CLAUDE.md의 고정 GPU 줄은 신뢰하지 말 것). Q4 GGUF(~5.7GB)라 단일 24GB 카드에 여유 있게 상주. ⚠ 공유 Ollama(`11434`, v0.24.0)는 qwen3.5 아키텍처 미지원이라 미사용 |
 | 한국어 LLM 대안 | EXAONE / Kanana | 코더·VL 모델 아님 |
 | RAG API | FastAPI + uvicorn | `04_rag_api.py`(진입점), `MODEL_ID=kei-admin-rag`, 포트 9000(127.0.0.1 로컬 전용). 백엔드 3분리: `rag_core.py`(검색·생성 공용 코어) + `app_api.py`(인증·채팅 라우터 `/app`) + `04_rag_api.py`(`/v1` + `/app` include). 한 PM2 프로세스 `kei-rag-api`, 설정 `tools/ecosystem.config.js` |
 | 인증·채팅기록 | bcrypt + PyJWT(HS256) + SQLModel + SQLite | httpOnly 쿠키(samesite=lax, 내부망 HTTP라 secure=False). DB `tools/app.db` 테이블 `User`·`ChatSession`·`Message`(근거는 `message.sources_json`)·`Feedback`·`Flag`·`FlagAudit`, 서명키 `tools/.app_secret`(0600, 자동 생성). passlib 미사용(bcrypt 5 호환), fastapi-users 미사용. 둘 다 gitignore·백업 대상 |
@@ -367,19 +367,19 @@ flowchart LR
 
 ## 상태 & 로드맵
 
-**프로젝트 시작** 2026-06-18 · **현재 단계** 파이프라인 + LLM + 웹앱 가동, 품질·기능 트랙(P1·P2) 적용 완료. 운영은 현행 dev와 레거시 v1.0.0을 나란히 가동.
+**프로젝트 시작** 2026-06-18 · **현재 단계** 파이프라인 + LLM + 웹앱 가동, 품질·기능 트랙(P1·P2) 적용 완료. 운영(prod, feat/0620)과 개발(dev, feat/0703 worktree)을 나란히 가동.
 
 ### 핵심 현황
 
 | 영역 | 상태 | 핵심 |
 |------|:---:|------|
-| 코퍼스 | ✅ | 4섹션 **271문서**(규정 111·가이드 64·용어 84·ERP 12), 임베딩 약 **4,400 청크**. 전건 미검수 |
+| 코퍼스 | ✅ | 4섹션 **293문서**(규정 111·가이드 65·용어 84·사내 시스템 33), 임베딩 약 **4,545 청크**. 전건 미검수 |
 | 파이프라인 | ✅ | HWP/PDF/PPTX 변환 → 교차링크(ERP↔규정·용어↔ERP) → 제N조/별표 청킹 → KURE-v1 임베딩 → Chroma |
-| [LLM] 채팅 | ✅ | 로그인·멀티턴·메시지별 근거·**SSE 스트리밍**. Ollama `Qwen2.5-14B-Instruct Q4_K_M`(한국어 검증) |
+| [LLM] 채팅 | ✅ | 로그인·멀티턴·메시지별 근거·**SSE 스트리밍**. 격리 Ollama v0.31.1 `Qwen3.5-9B GGUF Q4_K_M`(한국어 검증) |
 | [뇌] 웹앱 | ✅ | Next.js 14 + TDS 단일 앱(채팅 `/` · 둘러보기 `/browse` · 관계 그래프 `/graph`), 다크모드/테마 |
 | 백엔드 | ✅ | 3분리(`rag_core`/`app_api`/`04_rag_api`) 한 프로세스 + bcrypt·PyJWT + SQLite. PM2 `kei-rag-api`(9000)·`kei-guide`(3100) |
-| 그래프 | ✅ | **271 노드 · 275 연결**(4색 섹션), ERP 모듈이 허브 |
-| 운영 버전 | ✅ | 현행 dev **3100/9000** · 레거시 v1.0.0 **3101/9001**(`.legacy-v1/` 완전 격리) · Cloudflare Zero Trust 뒤 |
+| 그래프 | ✅ | **293 노드 · 357 연결**(4색 섹션), ERP 모듈이 허브 |
+| 운영 버전 | ✅ | 운영(prod, feat/0620) **3100/9000** · 개발(dev, feat/0703 worktree) **3101/9001**(완전 격리) · Cloudflare Zero Trust 뒤 |
 | 검수 | ⏳ | 전건 미검수 — 규정 미분류 번호 배정·초안 확정 대기 |
 
 ### 품질·기능 트랙 (모두 *측정 후 채택*)
@@ -393,7 +393,7 @@ flowchart LR
 | P1.5 | 멀티턴 쿼리 재작성 | 후속질문 회수 정상화 |
 | P2.1 | 답변 피드백 루프(👍/👎) | 검수 큐로 환류 |
 | P2.2 | 금액·한도 신뢰 강화 + 규정집 기준일 | 경고·수치 강조·검수 배지 |
-| P2.3 | 긴 조문 하위청킹 | 임베딩 잘림 제거(재색인 약 4,400 청크) |
+| P2.3 | 긴 조문 하위청킹 | 임베딩 잘림 제거(재색인 약 4,545 청크) |
 | P2.4 | ERP·서식 연결 | 답변에 메뉴·화면ID 안내 |
 | P2.5 | 운영자 대시보드 + 🔒 개인정보 | 거부율·인기질문·콘텐츠 갭 / k-익명·본문 비노출 |
 | P2.6 | 두괄식 답변 | 결론 먼저 |
@@ -436,7 +436,7 @@ gantt
     대시보드·개인정보 보호(P2.5)      :done, q3, after q2, 1d
     두괄식·하이라이트·분할뷰(P2.6~8)  :done, q4, after q3, 1d
     section 운영
-    현행/레거시 PM2·Cloudflare ZT     :active, c1, after b3, 14d
+    운영/개발 PM2·Cloudflare ZT     :active, c1, after b3, 14d
     외부접속 안정화·부팅 자동시작     :         c2, after c1, 7d
 ```
 
@@ -461,4 +461,4 @@ gantt
 
 ---
 
-최종 수정: 2026-06-21 (품질·신뢰 트랙(P1.2~P2.5: 검수큐·리랭커·쿼리재작성·피드백·금액강화·하위청킹·ERP연결·대시보드·개인정보)·운영 버전(현행 dev / 레거시 v1.0.0)·Node22 빌드 주의 반영, 문서 현행화)
+최종 수정: 2026-06-21 (품질·신뢰 트랙(P1.2~P2.5: 검수큐·리랭커·쿼리재작성·피드백·금액강화·하위청킹·ERP연결·대시보드·개인정보)·운영 버전(prod feat/0620 / dev feat/0703 worktree)·Node22 빌드 주의 반영, 문서 현행화)

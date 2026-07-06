@@ -8,7 +8,7 @@
 ## 0. 기술 스택 (확정)
 - **Next.js 14 (Pages Router)** + TypeScript. 전사 방침: 원내 서비스는 Next.js로 개발.
 - **정적 export**(`output: "export"`) → `web/server.js`(PM2 `kei-guide`, 0.0.0.0:3100) 또는 `nginx 127.0.0.1` → Cloudflare Zero Trust(사내 전용). 서버 런타임 불필요.
-- **LLM(RAG 채팅)**: 클라이언트가 같은 오리진 `/api/*`(정적 서버가 로컬 LLM API `127.0.0.1:9000`로 리버스 프록시)로 호출 → 정적 export를 유지하면서 동적 답변. 생성=Ollama(Qwen2.5-14B-Instruct), 검색=KURE-v1+Chroma.
+- **LLM(RAG 채팅)**: 클라이언트가 같은 오리진 `/api/*`(정적 서버가 로컬 LLM API `127.0.0.1:9000`로 리버스 프록시)로 호출 → 정적 export를 유지하면서 동적 답변. 생성=격리 Ollama v0.31.1(Qwen3.5-9B, GGUF Q4_K_M), 검색=KURE-v1+Chroma.
 - **로그인·채팅기록·멀티턴·스트리밍**: `/api/app/*`(SQLite/SQLModel + bcrypt·PyJWT httpOnly 쿠키). 답변(메시지)마다 근거 조문을 저장해 지난 답변의 근거를 다시 볼 수 있다. 답변은 **SSE로 타자치듯 스트리밍**(`?stream=1`: `meta`→`delta`→`done`), 근거가 먼저 뜨고 본문이 흐른다.
 - **Toss Design System**: `@toss/tds-mobile` · `@toss/tds-mobile-ait`(Provider) + `@emotion/react`. React 18 고정(TDS peer).
 - 스타일: **CSS 변수 토큰 + CSS Modules**(SSG 안전). 콘텐츠 렌더는 `react-markdown` + `remark-gfm`.
@@ -94,7 +94,7 @@
 - [x] W6 로그인 + 채팅기록 영속화(SQLite/SQLModel) + 멀티턴 기억 + 메시지별 근거 저장 (`/api/app/*`)
 - [x] W7 LLM 응답 스트리밍(SSE) — `?stream=1`(`meta`→`delta`→`done`), 근거 먼저·본문 타자치듯
 - [x] W8 다크모드 + 테마 시스템(라이트·다크·시스템) — `[data-theme]` 토큰 분기, FOUC 방지, TDS `ColorSchemeArea` 연동
-- [x] W9 ERP **별도 섹션 '시스템'(보라 `--accent-시스템`)** — 둘러보기 구분 탭·그래프 4번째 색·칩. 코퍼스 4개 섹션 + 교차링크로 그래프 271노드·275연결
+- [x] W9 **사내 시스템 별도 섹션 '시스템'(보라 `--accent-시스템`)** — 둘러보기 라벨 '사내 시스템'(ERP·EIP·PMS·웹메일·그룹웨어·웹디스크·전자도서관 7개 시스템)·그래프 4번째 색·칩. 코퍼스 4개 섹션 + 교차링크로 그래프 293노드·357연결
 - [ ] KEI 메인 컬러 토큰 교체 (미정 — 사용자가 색을 주면 `globals.css` 토큰 한 블록 교체)
 - [ ] 번들 경량화(현재 first-load `/` ~433KB, TDS+react-markdown)
 - [ ] 관계 그래프를 LLM 화면에 임베드(질문↔노드 상호 탐색)

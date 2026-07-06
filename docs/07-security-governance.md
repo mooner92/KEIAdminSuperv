@@ -77,7 +77,7 @@ flowchart LR
 | --- | --- | --- |
 | 임베딩 모델 `nlpai-lab/KURE-v1` (대안 `BAAI/bge-m3`) | 사내 GPU(Quadro RTX 6000) | 없음 (로컬 추론, 1장으로 충분 — 실측) |
 | 리랭커 `BAAI/bge-reranker-v2-m3` (cross-encoder) | 사내 GPU(주로 cuda:1) | 없음 (로컬 추론, 실패 시 밀집 강등) |
-| LLM 서빙 **Ollama** (`Qwen2.5-14B-Instruct` Q4_K_M GGUF; vLLM은 대안) | 사내 GPU(Quadro RTX 6000) | 없음 (OpenAI 호환 로컬 엔드포인트 `http://127.0.0.1:11434/v1`) |
+| LLM 서빙 **격리 Ollama v0.31.1** (`Qwen3.5-9B` Q4_K_M GGUF, unsloth ~5.7GB; vLLM 아님) | 사내 GPU(Quadro RTX 6000) | 없음 (OpenAI 호환 로컬 엔드포인트 `http://127.0.0.1:11436/v1`) |
 | 벡터DB Chroma (`PersistentClient`, 컬렉션 `kei_regs`) | 로컬 디스크 (`tools/chroma/`, gitignore) | 없음 |
 | 앱 DB SQLite (User·ChatSession·Message·Flag·FlagAudit·Feedback) | 로컬 디스크 (`tools/app.db`, gitignore) | 없음 |
 | RAG API `tools/04_rag_api.py` (`MODEL_ID=kei-admin-rag`) | 사내 호스트 | 없음 (api_key=`EMPTY`, base는 로컬 Ollama) |
@@ -87,7 +87,7 @@ flowchart TB
     subgraph KEI망["KEI 사내망 (Zero Trust 경계)"]
         direction LR
         E["임베딩<br/>KURE-v1"]
-        L["LLM<br/>Ollama/Qwen2.5-14B"]
+        L["LLM<br/>Ollama/Qwen3.5-9B"]
         C["Chroma<br/>kei_regs"]
         E --- C
         L --- C
@@ -96,8 +96,8 @@ flowchart TB
     KEI망 -. "외부 추론 API 호출 없음" .-x INET
 ```
 
-> [!note] GPU 메모리와 14B 서빙
-> 실측 운영은 **Ollama**가 Qwen2.5-14B-Instruct **Q4_K_M GGUF(~9GB)** 를 서빙하므로 단일 24GB 카드에 충분히 들어간다. fp16(약 28GB)을 쓸 경우에만 단일 24GB를 초과하므로 2장 텐서병렬 또는 양자화·더 작은 모델이 필요하다. 임베딩(KURE-v1)은 1장으로 충분하다(실측). 2장은 총 48GB이지만 단일 통합 메모리가 아니라 카드별 24GB이다.
+> [!note] GPU 메모리와 9B 서빙
+> 실측 운영은 **격리 Ollama v0.31.1**이 Qwen3.5-9B **Q4_K_M GGUF(~5.7GB)** 를 서빙하므로 단일 24GB 카드에 넉넉히 들어간다. 임베딩(KURE-v1)은 1장으로 충분하다(실측). 2장은 총 48GB이지만 단일 통합 메모리가 아니라 카드별 24GB이다. NVIDIA 드라이버가 535라 v0.31.1은 CUDA 대신 Vulkan로 GPU를 사용한다(550+ 업그레이드 시 자동 CUDA 전환).
 > 2×Quadro RTX 6000은 **공유·변동적**이라 모델 배치 전 `nvidia-smi`로 실제 점유를 확인한다(CLAUDE.md의 GPU 줄은 불안정). 리랭커/재색인은 여유 GPU(주로 cuda:1)에 올린다.
 
 > [!warning] 외부 추론 API 도입 금지(설계 변경 시 ADR 필요)
