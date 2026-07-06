@@ -264,6 +264,10 @@ python 03_rag_query.py --db tools/chroma --q "출장 여비 정산" --retrieve-o
 
 생성 파라미터는 `temperature=0.1`로 낮춰 결정성을 높이고 추측을 줄인다(멀티턴 재작성 호출은 `temperature=0.0`).
 
+> [!note] 답변 형식(soul)과 표기 후처리 — 두괄식·간결·마크다운/LaTeX 정리
+> 로컬 Qwen의 답변 성격은 **요청마다 주입하는 SYSTEM 프롬프트(`rag_core.SYSTEM`)로 지정**한다(Ollama Modelfile이 아니라 per-request system 메시지 — 우리가 매 호출 제어). 규칙: **두괄식**(첫 줄에 굵은 핵심 결론) · **간결**(핵심 3~6줄, 부가정보·장황한 단계 나열 최소) · 계산식은 한두 줄 · **LaTeX·수식 문법($, 백슬래시 명령) 금지** · 굵게는 `**굵게**`(별표에 붙여 공백 없이).
+> 프롬프트로 억제해도 qwen3.5 GGUF는 종종 `** 굵게 **`(별표 공백)·`$…\text{원}…$`(LaTeX)를 뱉는데, 프론트(react-markdown, KaTeX 미도입)가 이를 raw로 노출한다. 그래서 `_postprocess()`가 **표기만 결정적으로 정리(값 불변)**한다: `_strip_latex`(LaTeX→평문) → `_tighten_spacing`('제 18 조'→제18조) → `_fix_markdown`(`** 굵게 **`→`**굵게**`, 짝 단위 안쪽 공백 trim). 비스트리밍·스트리밍 공통 적용. 실렌더 검증 `web/verify-answer-format.mjs`.
+
 ---
 
 ## 6. 출처 표기
