@@ -9,6 +9,7 @@ export const FLAG_DEFAULTS: Record<string, boolean> = {
   cite_highlight: false, // 근거 조문 클릭 시 드로어 하이라이트 + '핵심 근거' 표시 (release 플래그, 만료 2026-07-20)
   graph_split: false, // 관계 그래프 노드 클릭 → 옆 문서 패널(분할 뷰), 그래프 계속 조작 (release 플래그, 만료 2026-07-24)
   source_type_badges: false, // 근거 패널 출처 성격 배지 📜규정(공식)/📘가이드(참고) 구분 (release 플래그, 만료 2026-08-15)
+  content_search: false, // 둘러보기 검색 범위 선택(제목·번호·분류·내용) + 원문 내용 전문검색 (release 플래그, 만료 2026-08-31)
 };
 const CACHE_KEY = "kei-flags";
 

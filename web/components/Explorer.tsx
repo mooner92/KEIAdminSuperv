@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ColorSchemeArea, SearchField } from "@toss/tds-mobile";
 import type { DocMeta, SectionKey } from "../lib/vault";
 import { useTheme } from "../lib/theme";
+import { useFlag } from "../lib/flags";
 import DocDrawer from "./DocDrawer";
 import styles from "./Explorer.module.css";
 
@@ -14,6 +15,15 @@ const SECTION_LABEL: Record<string, string> = {
 const SECTIONS: SectionKey[] = ["규정집", "가이드", "용어집", "시스템"];
 const REVIEWED = ["검수완료", "미검수"];
 const PAGE_SIZES = [10, 30, 50];
+// 검색 범위 필드(content_search 플래그 on일 때 선택 가능). 기본 = 제목+내용.
+const SCOPE_FIELDS: { key: string; label: string }[] = [
+  { key: "title", label: "제목" },
+  { key: "regNo", label: "규정번호" },
+  { key: "category", label: "분류" },
+  { key: "content", label: "내용" },
+];
+// 플래그 off일 때 적용되는 고정 범위(기존 동작: 제목+번호+분류)
+const OFF_SCOPE = new Set(["title", "regNo", "category"]);
 
 const reviewedOf = (d: DocMeta) => (d.reviewed === "검수완료" ? "검수완료" : "미검수");
 
@@ -25,6 +35,7 @@ type Filters = { section: Set<string>; category: Set<string>; reviewed: Set<stri
  */
 export default function Explorer({ docs }: { docs: DocMeta[] }) {
   const { resolved } = useTheme();
+  const contentSearchOn = useFlag("content_search");
   const [q, setQ] = useState("");
   const [f, setF] = useState<Filters>({ section: new Set(), category: new Set(), reviewed: new Set() });
   const [openSlug, setOpenSlug] = useState<string | null>(null);
@@ -32,28 +43,86 @@ export default function Explorer({ docs }: { docs: DocMeta[] }) {
   const [page, setPage] = useState(1);
   const listRef = useRef<HTMLUListElement>(null);
 
+  // 사용자 선택 검색범위(플래그 on 모드) — 기본 제목+내용. 플래그는 async 로드라 상수로 초기화.
+  const [scope, setScope] = useState<Set<string>>(() => new Set(["title", "content"]));
+  // 실제 적용 범위: 플래그 off면 기존 동작(제목+번호+분류) 고정, on이면 사용자 선택(scope).
+  const activeScope = contentSearchOn ? scope : OFF_SCOPE;
+  // 원문 내용 인덱스: '내용' 범위가 켜졌을 때만 1회 lazy-load(번들 비대화 방지).
+  const [index, setIndex] = useState<Record<string, string> | null>(null);
+  const [indexLoading, setIndexLoading] = useState(false);
+  useEffect(() => {
+    if (!contentSearchOn || !scope.has("content") || index || indexLoading) return;
+    setIndexLoading(true);
+    fetch("/search-index.json")
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((j) => setIndex(j))
+      .catch(() => setIndex({}))
+      .finally(() => setIndexLoading(false));
+  }, [contentSearchOn, scope, index, indexLoading]);
+
+  const toggleScope = (key: string) =>
+    setScope((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      if (next.size === 0) next.add("title"); // 최소 하나는 유지
+      return next;
+    });
+
   // 분류 목록(데이터에서 도출)
   const categories = useMemo(
     () => Array.from(new Set(docs.map((d) => d.category).filter(Boolean))).sort(),
     [docs]
   );
 
+  // 적용 범위(activeScope)로 needle 매칭. '내용'은 lazy-load된 index[slug](소문자 평문) 사용.
+  const matchesQuery = (d: DocMeta, needle: string) => {
+    const meta: string[] = [];
+    if (activeScope.has("title")) meta.push(d.title);
+    if (activeScope.has("regNo")) meta.push(d.regNo);
+    if (activeScope.has("category")) meta.push(d.category);
+    if (meta.join(" ").toLowerCase().includes(needle)) return true;
+    if (activeScope.has("content") && index && (index[d.slug] || "").includes(needle)) return true;
+    return false;
+  };
+
   // 한 그룹을 제외한 나머지 필터 + 검색을 통과하는지(패싯 카운트/결과용)
   const passes = (d: DocMeta, exclude?: keyof Filters) => {
     const needle = q.trim().toLowerCase();
-    if (needle && !`${d.title} ${d.regNo} ${d.category}`.toLowerCase().includes(needle)) return false;
+    if (needle && !matchesQuery(d, needle)) return false;
     if (exclude !== "section" && f.section.size && !f.section.has(d.section)) return false;
     if (exclude !== "category" && f.category.size && !f.category.has(d.category)) return false;
     if (exclude !== "reviewed" && f.reviewed.size && !f.reviewed.has(reviewedOf(d))) return false;
     return true;
   };
 
-  const filtered = useMemo(() => docs.filter((d) => passes(d)), [docs, q, f]);
+  const filtered = useMemo(() => docs.filter((d) => passes(d)), [docs, q, f, scope, index, contentSearchOn]);
+
+  // 내용 매칭 스니펫(제목/번호/분류에 안 걸리고 본문에만 걸릴 때 어디서 걸렸는지 미리보기)
+  const snippetOf = (d: DocMeta): string => {
+    if (!contentSearchOn || !activeScope.has("content") || !index) return "";
+    const needle = q.trim().toLowerCase();
+    if (!needle) return "";
+    const metaHit = [
+      activeScope.has("title") && d.title,
+      activeScope.has("regNo") && d.regNo,
+      activeScope.has("category") && d.category,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+      .includes(needle);
+    if (metaHit) return ""; // 메타에 이미 걸리면 스니펫 불필요
+    const text = index[d.slug] || "";
+    const i = text.indexOf(needle);
+    if (i < 0) return "";
+    const start = Math.max(0, i - 36);
+    return (start > 0 ? "…" : "") + text.slice(start, i + needle.length + 72).trim() + "…";
+  };
 
   // 페이지네이션: 271건을 다 그리지 않고 pageSize(10/30/50)씩
   const total = filtered.length;
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
-  useEffect(() => setPage(1), [q, f, pageSize]); // 필터·검색·페이지크기 바뀌면 1페이지로
+  useEffect(() => setPage(1), [q, f, pageSize, scope]); // 필터·검색·범위·페이지크기 바뀌면 1페이지로
   const cur = Math.min(page, pageCount);
   const start = (cur - 1) * pageSize;
   const pageItems = filtered.slice(start, start + pageSize);
@@ -135,10 +204,31 @@ export default function Explorer({ docs }: { docs: DocMeta[] }) {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               onDeleteClick={() => setQ("")}
-              placeholder="제목 · 규정번호 · 분류로 검색"
+              placeholder={
+                contentSearchOn
+                  ? `검색 (${SCOPE_FIELDS.filter((s) => scope.has(s.key)).map((s) => s.label).join("·")})`
+                  : "제목 · 규정번호 · 분류로 검색"
+              }
               aria-label="검색"
             />
           </ColorSchemeArea>
+          {contentSearchOn ? (
+            <div className={styles.scopeRow} role="group" aria-label="검색 범위">
+              <span className={styles.scopeLabel}>검색 범위</span>
+              {SCOPE_FIELDS.map((s) => (
+                <button
+                  key={s.key}
+                  type="button"
+                  className={scope.has(s.key) ? `${styles.scopeChip} ${styles.scopeOn}` : styles.scopeChip}
+                  aria-pressed={scope.has(s.key)}
+                  onClick={() => toggleScope(s.key)}
+                >
+                  {s.label}
+                  {s.key === "content" && scope.has("content") && indexLoading ? " …" : ""}
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
         <div className={styles.metaRow}>
           <span className={styles.count}>
@@ -172,7 +262,9 @@ export default function Explorer({ docs }: { docs: DocMeta[] }) {
         </div>
 
         <ul className={styles.list} ref={listRef}>
-          {pageItems.map((d) => (
+          {pageItems.map((d) => {
+            const snip = snippetOf(d);
+            return (
             <li key={d.slug}>
               <button className={styles.row} onClick={() => setOpenSlug(d.slug)}>
                 <span className={styles.regno}>{d.regNo || "—"}</span>
@@ -185,6 +277,7 @@ export default function Explorer({ docs }: { docs: DocMeta[] }) {
                     {d.category ? <span className={styles.tag}>{d.category}</span> : null}
                     {d.articleCount > 0 ? <span className={styles.tag}>{d.articleCount}개 조문</span> : null}
                   </span>
+                  {snip ? <span className={styles.snippet}>📄 {snip}</span> : null}
                 </span>
                 <span className={styles.right}>
                   <span className={styles.date}>{d.revised || "—"}</span>
@@ -198,7 +291,8 @@ export default function Explorer({ docs }: { docs: DocMeta[] }) {
                 </span>
               </button>
             </li>
-          ))}
+            );
+          })}
           {total === 0 ? <li className={styles.empty}>조건에 맞는 문서가 없어요.</li> : null}
         </ul>
       </section>

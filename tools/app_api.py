@@ -137,6 +137,13 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-08-15",  # 검증 후 상시적용(플래그 제거) 또는 폐기
     },
+    "content_search": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "규정 둘러보기 검색에 범위 선택(제목·규정번호·분류·내용) 추가 + 원문 내용 전문검색. "
+                       "내용검색 켤 때만 search-index.json을 lazy-load(browse 번들 불변). 기본 범위=제목+내용.",
+        "owner": "platform",
+        "expires": "2026-08-31",  # 검증 후 상시적용(플래그 제거) 또는 폐기
+    },
 }
 
 
