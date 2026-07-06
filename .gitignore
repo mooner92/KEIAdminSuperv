@@ -114,3 +114,7 @@ Thumbs.db
 web/verify*.png
 verify*.png
 web/yeobi-*.png
+
+# CoP/사내 발표자료 — 규정 예시 값 포함, 공개 레포 커밋 금지
+발표*.md
+*발표자료*
