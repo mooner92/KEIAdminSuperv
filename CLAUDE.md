@@ -72,6 +72,7 @@ KEI(한국환경연구원) 행정 초보(신입·전입자)가 "이 업무 어�
 - ERP:    `python tools/01d_erp_to_md.py --src KEI_ERP_entire_features.md --vault KEI-행정가이드`  (ERP 기능분석 → 40_시스템/ 모듈별 노트 type:system(섹션 '시스템', 보라), #### 기능 단위 청킹)
 - ERP링크: `python tools/01e_erp_crosslink.py --vault KEI-행정가이드`  (ERP 모듈↔관련 규정 `[[ ]]` 교차링크 → 그래프 엣지. 01d 다음, 01b 전)
 - 시스템:  `python tools/01d_system_to_md.py --bundle --src <전사문서.md> --vault KEI-행정가이드`  (01d ERP 일반화 — 전사 번들(## N.=시스템: EIP·PMS·웹메일·그룹웨어·웹디스크·도서관)을 40_시스템/ 노트화: 허브 '사내 시스템 개요'+시스템별 개요·모듈 노트, PMS식 굵은 기능명→#### 승격. 단일 시스템 파일은 `--system <key>`, `--list`로 확인. 분류=시스템명(행정관리(ERP)·연구관리(PMS)·그룹웨어…)→둘러보기 필터 자동. 설계=`docs/17`)
+- 심화가이드: `python tools/01d_system_to_md.py --deep-guide --src <상세도움말.md> --vault KEI-행정가이드`  (ERP 상세 도움말(G-ProOne 지침서 PDF 판독본, # 모듈>## 화면 신청법>### 상세) → 'ERP 상세가이드 · 회계(ACT)' 등 모듈 노트+개요+공통 패턴. ###→#### 승격으로 상세 팝업도 라벨 청크. **행위 흐름 typed 엣지**: `rag_core.ACTION_FLOWS`(신청→정산·결과보고, 문서 부록 근거 페어만)를 flag `graph_expand_actions`로 검색 시 자동첨부 — 별표 refs와 동형의 유일한 typed 관계 2호)
 - 시스템링크: `python tools/01e_system_crosslink.py --vault KEI-행정가이드 --system all`  (01e 일반화 — 분류 기반 시스템↔규정 교차링크(그래프 엣지), 모듈별 키워드. 01d_system 다음, 01b 전. ERP 포함 일원화)
 - 용어집: `python tools/01f_terms_to_md.py --src KEI_admin_terms.md --vault KEI-행정가이드`  (행정 용어집 → 30_용어집/ 용어 1개=노트 1개 type:term)
 - 용어링크: `python tools/01g_terms_crosslink.py --vault KEI-행정가이드`  (용어↔ERP 모듈(카테고리)/관련 규정 `[[ ]]` 교차링크 → 그래프 엣지. 01f 다음)

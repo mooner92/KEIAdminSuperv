@@ -72,6 +72,18 @@ BUNDLE_SYSTEMS = [
 BUNDLE_HUB = "사내 시스템 개요"           # 문서 머리말 → 전사 허브 노트(그래프 허브)
 MODULE_ALIAS = {"PIMS": "PIMS(자원예약)"}  # 모듈명 정리(괄호 잘림 보정)
 
+# ── 심화가이드 모드(--deep-guide): ERP 상세 도움말(사용자지침서 PDF 판독본) ────────────────
+# 구조: `# <모듈> 모듈`(레벨1) > `## 화면`(신청법 상세) > `### 상세/팝업`.
+# 노트 = 모듈 단위("ERP 상세가이드 · 회계(ACT)"), 머리말(매핑표·출처) = 개요 노트, 부록 = 공통 패턴 노트.
+# `### X` → `#### X` 승격: 02 chunk_guide가 ###은 라벨 없이 자르므로, 상세 팝업도 라벨 있는 청크가 되게.
+DEEPGUIDE = {
+    "prefix": "ERP 상세가이드", "cat": "행정관리(ERP)",
+    "tags": ["ERP", "상세가이드", "신청", "시스템"],
+    "overview": "ERP 상세가이드 개요",
+    "warn": ("> [!warning] 자동 판독 자료(G-ProOne 사용자지침서 PDF·화면 캡처 기준) — 예시 값(금액·건수·날짜)은"
+             " 캡처 시점 테스트 값. 실제 화면·규정과 다를 수 있어 검수 후 `검수상태: 검수완료`로."),
+}
+
 
 def note(title, body, original, sysconf):
     fm = [
@@ -208,10 +220,47 @@ def convert_bundle(text):
     return notes
 
 
+def convert_deepguide(text):
+    """ERP 심화가이드 → [(제목, 본문, conf)]. `# X 모듈` 단위 노트 + 개요(머리말) + 공통 패턴(부록)."""
+    conf = dict(DEEPGUIDE)
+    parts = re.split(r"(?m)^(#\s+.+)$", text)
+    intro = parts[0].strip()
+    notes = []
+    module_titles = []
+    appendix = None
+    i = 1
+    while i < len(parts):
+        name = parts[i].lstrip("#").strip()
+        body = (parts[i + 1] if i + 1 < len(parts) else "").strip()
+        # `### X` → `#### X` 승격(상세 팝업도 라벨 있는 청크로) — 내용 불변, 헤딩 레벨만
+        body = re.sub(r"(?m)^###\s+", "#### ", body)
+        if i == 1 and not name.endswith("모듈") and "부록" not in name:
+            # 첫 `#`은 문서 제목 — 뒤따르는 머리말(매핑표·출처)을 개요로
+            intro = (intro + "\n\n" + body).strip()
+        elif "부록" in name:
+            appendix = body
+        elif name.endswith("모듈"):
+            mod = name[: -len("모듈")].strip()          # '회계(ACT) 모듈' → '회계(ACT)'
+            title = f"{conf['prefix']} · {mod}"
+            module_titles.append(title)
+            notes.append((title, body, conf))
+        else:  # 예상 밖 섹션은 개요로 보존(누락 방지)
+            intro = (intro + f"\n\n## {name}\n\n{body}").strip()
+        i += 2
+    toc = "\n".join(f"- [[{t}]]" for t in module_titles)
+    over = intro + f"\n\n## 모듈 노트\n\n{toc}"
+    if appendix is not None:
+        over += f"\n- [[{conf['prefix']} · 공통 패턴]]"
+        notes.append((f"{conf['prefix']} · 공통 패턴", appendix, conf))
+    notes.insert(0, (conf["overview"], over, conf))
+    return notes
+
+
 def main():
     ap = argparse.ArgumentParser(description="사내 시스템 기능 문서 → 모듈별 시스템 노트(ERP 방식 일반화)")
     ap.add_argument("--system", help="SYSTEMS 레지스트리 키(예: eas, external, webdisk, erp)")
     ap.add_argument("--bundle", action="store_true", help="전사 번들 문서(## N.=시스템) 모드")
+    ap.add_argument("--deep-guide", action="store_true", help="ERP 심화가이드(# 모듈 > ## 화면 신청법) 모드")
     ap.add_argument("--src")
     ap.add_argument("--vault")
     ap.add_argument("--list", action="store_true", help="등록된 시스템 목록")
@@ -226,15 +275,18 @@ def main():
         for kw, name, cat, _ in BUNDLE_SYSTEMS:
             print(f"  {kw:<14} → {name:<22} (분류 {cat})")
         return
-    if not (args.src and args.vault) or (not args.bundle and not args.system):
-        ap.error("--src, --vault 필수 + (--system <key> 또는 --bundle)")
+    if not (args.src and args.vault) or (not args.bundle and not args.system and not args.deep_guide):
+        ap.error("--src, --vault 필수 + (--system <key> | --bundle | --deep-guide)")
 
     src = Path(args.src)
     out_root = Path(args.vault) / "40_시스템"
     text = src.read_text(encoding="utf-8")
     original = src.name
 
-    if args.bundle:
+    if args.deep_guide:
+        triples = convert_deepguide(text)       # (title, body, conf)
+        label = "심화가이드"
+    elif args.bundle:
         triples = convert_bundle(text)          # (title, body, conf)
         label = "번들"
     else:

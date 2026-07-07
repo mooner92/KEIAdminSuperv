@@ -144,6 +144,14 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-08-31",  # 검증 후 상시적용(플래그 제거) 또는 폐기
     },
+    "graph_expand_actions": {
+        "default": False,  # ⛔ off로 배포 — 평가로 이득 입증 후 on(graph_expand_regs와 동일 규율)
+        "description": "행위 흐름 1홉 확장 — 신청 화면(국내출장신청 등)이 근거로 회수되면 의무적 후속 단계"
+                       "(정산·결과보고) 화면 안내를 근거에 자동 첨부하고 답변이 후속 단계를 안내. "
+                       "페어는 문서 근거(ERP 상세가이드 부록·PMS 화면쌍)로 확정된 것만. 백엔드 검색 — 토글 ~20초 반영.",
+        "owner": "rag",
+        "expires": "",  # 실험 플래그 — eval 후 상시적용 또는 제거
+    },
 }
 
 

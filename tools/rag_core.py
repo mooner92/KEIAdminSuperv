@@ -74,6 +74,34 @@ def _graph_expand_regs_on() -> bool:
     if env is not None:  # env 명시 시 운영 강제(테스트/오버라이드)
         return env not in ("0", "", "false", "False")
     return _flag("graph_expand_regs", False)  # 관리자 플래그(/admin), 기본 off
+
+
+# ── 행위(Action) 흐름 1홉 확장 — 신청 화면 회수 시 '의무적 후속 단계'(정산·결과보고) 화면을 자동 첨부 ──
+# 유일한 typed 엣지(별표 refs와 동형): 노드=화면 안내 청크, 엣지="후속 단계" 술어.
+# ⛔ 페어는 근거 문서로 확정된 것만(ERP 상세가이드 부록 '출장 업무 흐름'의 화면ID 체인, PMS 노트의 화면 쌍).
+#    조건부 후속(취소·변경 등 '필요 시')은 오도 위험이라 제외 — 의무적 정산·결과보고만.
+# 매칭: 청크 라벨(조 필드=화면 헤딩)에 from이 포함되면 to 라벨 청크를 첨부(둘 다 색인에 실존할 때만).
+ACTION_FLOWS = [
+    # (from 라벨 포함 문자열, to 라벨 포함 문자열, 관계)
+    ("국내출장신청", "국내출장정산신청", "정산"),          # ERP 상세가이드 부록: gen_0020M → gen_0030M/0031P
+    ("해외출장신청", "해외출장결과보고", "결과보고"),        # 부록: gen_0040M → gen_0042M
+    ("해외출장결과보고", "해외출장정산", "정산"),           # 부록: gen_0042M → gen_0052M
+    ("연장근로신청", "연장근로결과보고", "결과보고"),        # hrm_0340M → hrm_0350M(둘 다 상세가이드 수록)
+    ("연장근로현황", "연장근로결과보고", "결과보고"),
+    ("교육신청", "교육결과보고", "결과보고"),              # 상세가이드 수록 쌍
+    ("회의개최승인신청", "회의결과보고", "결과보고"),        # PMS: prg_0200M → prg_0205M
+    ("행사개최승인신청", "행사개최결과보고", "결과보고"),     # PMS: prg_0500M → prg_0510M
+    ("외부전문가활용계획", "외부전문가활용결과보고", "결과보고"),  # PMS: prg_0410M → prg_0420M
+    ("연구연수계획신청", "연구연수결과보고", "결과보고"),     # PMS: prg_0150M → prg_0170M
+]
+GRAPH_EXPAND_ACTIONS_MAX = int(os.environ.get("RAG_GRAPH_EXPAND_ACTIONS_MAX", "2"))  # 질의당 첨부 상한
+
+
+def _graph_expand_actions_on() -> bool:
+    env = os.environ.get("RAG_GRAPH_EXPAND_ACTIONS")
+    if env is not None:  # env 명시 시 운영 강제(테스트/오버라이드)
+        return env not in ("0", "", "false", "False")
+    return _flag("graph_expand_actions", False)  # 관리자 플래그(/admin), 기본 off
 # 모델 상주(콜드스타트 방지). -1 = 무한 상주(언로드 안 함). "30m" 등 Ollama keep_alive 값도 가능.
 KEEP_ALIVE = os.environ.get("OLLAMA_KEEP_ALIVE", "-1")
 
@@ -170,7 +198,9 @@ SYSTEM = (
     "5) 마지막에 '최종 판단은 원문과 담당 부서 확인 바랍니다.'를 덧붙인다.\n"
     "6) 이전 대화 맥락을 참고하되, 사실 근거는 항상 이번 [근거]에서만 가져온다.\n"
     "7) [근거]에 '(… 시스템)' 항목(ERP·전자결재·대외업무·웹디스크 등)이 있으면, 그 시스템명과 메뉴·처리 경로를"
-    " '처리 방법'에 함께 안내한다 (근거에 없는 시스템·경로·서식명은 지어내지 않는다).\n"
+    " '처리 방법'에 함께 안내한다 (근거에 없는 시스템·경로·서식명은 지어내지 않는다)."
+    " [근거]에 '후속 단계' 항목이 있으면 신청 후 이어서 해야 하는 정산·결과보고를 답변 끝에 한 줄로 반드시 안내한다"
+    "(예: '출장 후 국내출장정산신청에서 정산까지 완료해야 합니다').\n"
     "8) 이전 대화에서 다루던 대상·주제(예: 국내출장)를 사용자가 바꾸지 않았으면 끝까지 같은 대상으로 답한다."
     " [근거]가 다른 대상(예: 국외출장)만 담고 있으면, 그 대상의 내용은 근거에서 확인되지 않는다고 밝히고"
     " 임의로 대상을 바꾸지 않는다.\n"
@@ -378,6 +408,35 @@ def _ensure_article_index():
     return _state["art_idx"], _state["art_map"]
 
 
+def _ensure_action_index():
+    """행위 흐름 인덱스: from 패턴 → [(to 청크 id, 관계)]. 시스템 청크 라벨(조)로 1회 구축·캐시.
+    to 청크가 여럿이면 라벨이 가장 짧은 것(대표 목록 화면) 1개를 대표로 쓴다."""
+    if "action_idx" not in _state:
+        with _lock:
+            if "action_idx" not in _state:
+                _, col, _ = backend()
+                got = col.get(include=["metadatas", "documents"])
+                sys_chunks = []  # (id, 라벨, doc, meta)
+                for i, m, d in zip(got["ids"], got["metadatas"], got["documents"]):
+                    if (m.get("type") or "") != "system":
+                        continue
+                    label = (m.get("조") or "").strip()
+                    if label:
+                        sys_chunks.append((i, label, d, m))
+                idx, amap = {}, {}
+                for frm, to, rel in ACTION_FLOWS:
+                    cands = [(i, label, d, m) for i, label, d, m in sys_chunks
+                             if to in label]
+                    if not cands:
+                        continue  # to 청크가 코퍼스에 없으면 페어 비활성(안전)
+                    cands.sort(key=lambda x: len(x[1]))   # 라벨 최단 = 대표 목록 화면
+                    cid, _, d, m = cands[0]
+                    amap[cid] = (d, m)
+                    idx.setdefault(frm, []).append((cid, rel))
+                _state["action_idx"], _state["action_map"] = idx, amap
+    return _state["action_idx"], _state["action_map"]
+
+
 def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None,
              section_diversity: bool = None):
     """질의 → 관련 조문 top-k 회수. (근거 컨텍스트 문자열, 구조화 출처 리스트) 반환.
@@ -504,6 +563,35 @@ def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None
                     blocks.append(f"[{s2['tag']} · 준용/참조 규정(자동첨부)]\n{d2}")
         except Exception as e:  # noqa: BLE001
             print(f"⚠ 규정↔규정 확장 실패(무시): {e}")
+
+    # 행위 흐름 1홉 확장(플래그 graph_expand_actions): 신청 화면 회수 시 의무적 후속 단계(정산·결과보고) 첨부.
+    if _graph_expand_actions_on() and chosen:
+        try:
+            aidx, amap = _ensure_action_index()
+            have = {s.get("tag") for s in srcs}
+            added = 0
+            for i in list(chosen):
+                if added >= GRAPH_EXPAND_ACTIONS_MAX:
+                    break
+                _, m, _ = getdoc(i)
+                label = (m.get("조") or "").strip()
+                if (m.get("type") or "") != "system" or not label:
+                    continue
+                for frm, targets in aidx.items():
+                    if frm not in label:
+                        continue
+                    for cid, rel in targets:
+                        d2, m2 = amap[cid]
+                        s2 = _src(d2, m2, None)
+                        if s2["tag"] in have or (rel in label) or added >= GRAPH_EXPAND_ACTIONS_MAX:
+                            continue  # 이미 회수됨 / 자기 자신(정산 화면에 정산 첨부) 방지
+                        have.add(s2["tag"]); added += 1
+                        s2["graph_expand_action"] = True   # '후속 단계 자동첨부' 식별(UI/평가)
+                        s2["action_rel"] = rel
+                        srcs.append(s2)
+                        blocks.append(f"[{s2['tag']} · 후속 단계: {rel}(자동첨부)]\n{d2}")
+        except Exception as e:  # noqa: BLE001 — 확장 실패는 기본 회수로 우아하게 강등
+            print(f"⚠ 행위 흐름 확장 실패(무시): {e}")
     return "\n\n---\n\n".join(blocks), srcs
 
 
