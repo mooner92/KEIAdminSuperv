@@ -104,6 +104,24 @@ def _graph_expand_actions_on() -> bool:
     return _flag("graph_expand_actions", False)  # 관리자 플래그(/admin), 기본 off
 # 모델 상주(콜드스타트 방지). -1 = 무한 상주(언로드 안 함). "30m" 등 Ollama keep_alive 값도 가능.
 KEEP_ALIVE = os.environ.get("OLLAMA_KEEP_ALIVE", "-1")
+# 컨텍스트 예산(문자) — 큰 청크(출판편람 표 등)가 top-k에 몰리면 ctx 8K 초과로 Ollama 400(빈답변)이 난다.
+# 순위 높은 블록부터 담다가 예산 초과 시 마지막 블록을 절단하고 이후는 버린다(SYSTEM·멀티턴·답변 여유 확보).
+# 한글 대략 1.2자/토큰 → 6500자 ≈ 5400토큰. SYSTEM(~1300)+답변 여유까지 8K 안에 든다.
+CTX_MAX_CHARS = int(os.environ.get("RAG_CTX_MAX_CHARS", "6500"))
+
+
+def _cap_blocks(blocks):
+    """근거 블록(순위순)을 CTX_MAX_CHARS 예산 안에 담는다. 초과 블록은 절단, 이후는 제외."""
+    out, used = [], 0
+    for b in blocks:
+        if used + len(b) <= CTX_MAX_CHARS:
+            out.append(b); used += len(b)
+        elif CTX_MAX_CHARS - used > 500:      # 남은 예산이 의미 있으면 이 블록만 잘라 담음
+            out.append(b[: CTX_MAX_CHARS - used].rstrip() + "\n…(근거가 길어 일부 생략 — 정확한 값은 원문 확인)")
+            break
+        else:
+            break
+    return out
 
 # 하이브리드 추론 모델(qwen3/3.5)은 기본적으로 사고과정을 답 앞에 먼저 생성한다.
 # RAG에선 사고를 끄고 답만 받는다 — 스트리밍/후처리(두괄식·면책·출처) 안정.
@@ -592,6 +610,8 @@ def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None
                         blocks.append(f"[{s2['tag']} · 후속 단계: {rel}(자동첨부)]\n{d2}")
         except Exception as e:  # noqa: BLE001 — 확장 실패는 기본 회수로 우아하게 강등
             print(f"⚠ 행위 흐름 확장 실패(무시): {e}")
+
+    blocks = _cap_blocks(blocks)  # ctx 8K 초과(→Ollama 400) 방지: 순위순 예산 상한
     return "\n\n---\n\n".join(blocks), srcs
 
 
