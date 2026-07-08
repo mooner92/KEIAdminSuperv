@@ -13,6 +13,7 @@ export const FLAG_DEFAULTS: Record<string, boolean> = {
   graph_expand_actions: false, // 행위 흐름 확장 — 신청 회수 시 후속 단계(정산·결과보고) 자동첨부 (백엔드, 실험 플래그)
   article_integrity: false, // Track A: 근거 카드 조문 효력 배지(삭제됨/개정일) + 문서 준용·정의어 패널 (release 플래그, 만료 2026-09-30)
   graph_impact: false, // Track C: 문서 드로어 '개정 파급(전이폐포)·함께 보는 조문(공동인용)' 패널 (release 플래그, 만료 2026-09-30)
+  deadline_calc: false, // Track B: 문서 드로어 '이 규정의 기한' — 기준일→마감일 계산 + .ics (release 플래그, 만료 2026-10-15)
 };
 const CACHE_KEY = "kei-flags";
 

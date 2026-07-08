@@ -47,8 +47,10 @@ const statusIdx = loadJson("article_status.json");
 const xrefIdx = loadJson("clause_xref.json");
 const defIdx = loadJson("defterms.json");
 const gaIdx = loadJson("graph_analytics.json"); // Track C: 개정 파급·공동인용
+const dlIdx = loadJson("deadlines.json"); // Track B: 상대기한
 let trackACount = 0;
 let trackCCount = 0;
+let deadlineCount = 0;
 
 // 규정명 → slug (드로어는 slug로 로드하므로 참조/파급 칩 목적지를 slug로 해석; 없으면 비클릭)
 const regSlug = new Map<string, string>();
@@ -139,15 +141,23 @@ for (const meta of docs) {
   }));
   const trackA = meta.section === "규정집" ? trackAFor(doc.title) : null;
   const trackC = meta.section === "규정집" ? trackCFor(doc.title) : null;
+  // Track B: 기한 슬라이스 — 계산 가능한 것 우선(마감·anchor 有), 상한 20
+  let deadlines = null;
+  if (meta.section === "규정집" && dlIdx?.deadlines?.[doc.title]) {
+    const rows = dlIdx.deadlines[doc.title];
+    rows.sort((a: any, b: any) => (b.anchor ? 1 : 0) - (a.anchor ? 1 : 0)); // anchor 있는 것 먼저
+    deadlines = rows.slice(0, 20);
+    if (deadlines.length) deadlineCount++;
+  }
   fs.writeFileSync(
     path.join(OUT, `${meta.slug}.json`),
-    JSON.stringify({ ...doc, backlinks, trackA, trackC }),
+    JSON.stringify({ ...doc, backlinks, trackA, trackC, deadlines }),
     "utf-8",
   );
   searchIndex[meta.slug] = searchable(doc.body);
   n++;
 }
-console.log(`Track A: ${trackACount}개 · Track C: ${trackCCount}개 규정에 슬라이스 부착 (index=${INDEX_DIR})`);
+console.log(`Track A: ${trackACount}개 · Track C: ${trackCCount}개 · 기한(B): ${deadlineCount}개 규정 슬라이스 (index=${INDEX_DIR})`);
 const idxPath = path.resolve(process.cwd(), "out", "search-index.json");
 fs.writeFileSync(idxPath, JSON.stringify(searchIndex), "utf-8");
 const kb = Math.round(fs.statSync(idxPath).size / 1024);

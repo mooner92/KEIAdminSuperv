@@ -168,6 +168,14 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-09-30",
     },
+    "deadline_calc": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "기한 역산 계산기(Track B) — 문서 드로어에 '이 규정의 기한' 패널. 규정 원문의 상대기한"
+                       "(‹기준› 로부터 N일 이내 등, deadlines.json/01m)을 목록화하고, 기준일 입력 시 마감일을 "
+                       "순수 산술로 계산·.ics 내보내기. ⛔ 오프셋은 원문 그대로·계산만 자동(추측 없음), 원문 문장 병기.",
+        "owner": "platform",
+        "expires": "2026-10-15",
+    },
 }
 
 

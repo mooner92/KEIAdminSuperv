@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import Markdown from "./Markdown";
 import type { Doc, SectionKey } from "../lib/vault";
 import { useFlag } from "../lib/flags";
+import DeadlineList, { type Deadline } from "./DeadlineCalc";
 import styles from "./DocDrawer.module.css";
 
 // Track A(조문 정제) 슬라이스 — 빌드타임 emit-docdata가 부착
@@ -26,7 +27,12 @@ const SECTION_LABEL: Record<string, string> = {
 };
 
 type Backlink = { slug: string; title: string; section: SectionKey };
-type DrawerDoc = Doc & { backlinks: Backlink[]; trackA?: TrackA | null; trackC?: TrackC | null };
+type DrawerDoc = Doc & {
+  backlinks: Backlink[];
+  trackA?: TrackA | null;
+  trackC?: TrackC | null;
+  deadlines?: Deadline[] | null;
+};
 
 /**
  * Notion형 문서 드로어 — 목록/그래프/근거카드를 클릭하면 페이지 이동 없이
@@ -50,6 +56,7 @@ export default function DocDrawer({
 }) {
   const integrityOn = useFlag("article_integrity"); // Track A: 조문 참조·정의 패널
   const impactOn = useFlag("graph_impact"); // Track C: 개정 파급·함께 보는 조문 패널
+  const deadlineOn = useFlag("deadline_calc"); // Track B: 기한 역산 계산기 패널
   const [current, setCurrent] = useState<string | null>(slug);
   const [anchor, setAnchor] = useState<string>(initialAnchor);
   const [doc, setDoc] = useState<DrawerDoc | null>(null);
@@ -260,6 +267,16 @@ export default function DocDrawer({
                       </ul>
                     </section>
                   ) : null}
+                </aside>
+              ) : null}
+
+              {deadlineOn && doc.deadlines && doc.deadlines.length > 0 ? (
+                <aside className={styles.trackA}>
+                  <h2 className={styles.blTitle}>이 규정의 기한 · {doc.deadlines.length}</h2>
+                  <p className={styles.taHint}>
+                    기준일을 넣으면 마감일이 자동 계산돼요. 오프셋(며칠 이내)은 규정 원문 그대로, 계산은 순수 산술입니다 — 정확한 판단은 원문 확인 권장.
+                  </p>
+                  <DeadlineList deadlines={doc.deadlines} regName={doc.title} regNo={doc.regNo} />
                 </aside>
               ) : null}
 

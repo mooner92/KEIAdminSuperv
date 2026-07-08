@@ -86,7 +86,7 @@ SaaS는 금지(데이터 외부), OSS 서비스(Unleash 등)는 소규모엔 과
 ## 10. 운영 매뉴얼 (구현됨)
 구현 구성: 백엔드 `tools/app_api.py`(SQLite `Flag`/`FlagAudit` + 코드 레지스트리 `FLAG_REGISTRY`),
 프론트 `web/lib/flags.tsx`(`useFlag`/`useFlags`), 관리자 페이지 `web/pages/admin.tsx`(`/admin`).
-현재 등록된 플래그(`FLAG_REGISTRY`): `demo_banner`(미리보기 배너 예시) · `cite_highlight`(근거 조문 드로어 하이라이트) · `graph_split`(그래프 노드→분할 뷰) · `graph_expand_regs`(규정↔규정 1홉 근거 확장) · `graph_expand_actions`(행위 흐름 1홉 — 신청→정산·결과보고·기안 자동첨부) · `source_type_badges`(채팅 근거 출처 성격 배지 📜규정 공식 / 📘가이드 참고) · `content_search`(둘러보기 원문 내용 전문검색 + 검색범위 선택 제목·번호·분류·내용) · `article_integrity`(**Track A**: 근거 카드 조문 효력 배지 ⚠삭제됨/개정일 + 문서 드로어 준용·참조 칩·정의어 패널; 백엔드 삭제-강등은 `RAG_ARTICLE_STATUS`로 상시 on, `docs/18`) · `graph_impact`(**Track C**: 문서 드로어 개정 파급(reverse 전이폐포)·함께 보는 조문(공동인용) 패널; `graph_analytics.json` 소비).
+현재 등록된 플래그(`FLAG_REGISTRY`): `demo_banner`(미리보기 배너 예시) · `cite_highlight`(근거 조문 드로어 하이라이트) · `graph_split`(그래프 노드→분할 뷰) · `graph_expand_regs`(규정↔규정 1홉 근거 확장) · `graph_expand_actions`(행위 흐름 1홉 — 신청→정산·결과보고·기안 자동첨부) · `source_type_badges`(채팅 근거 출처 성격 배지 📜규정 공식 / 📘가이드 참고) · `content_search`(둘러보기 원문 내용 전문검색 + 검색범위 선택 제목·번호·분류·내용) · `article_integrity`(**Track A**: 근거 카드 조문 효력 배지 ⚠삭제됨/개정일 + 문서 드로어 준용·참조 칩·정의어 패널; 백엔드 삭제-강등은 `RAG_ARTICLE_STATUS`로 상시 on, `docs/18`) · `graph_impact`(**Track C**: 문서 드로어 개정 파급(reverse 전이폐포)·함께 보는 조문(공동인용) 패널; `graph_analytics.json` 소비) · `deadline_calc`(**Track B**: 문서 드로어 '이 규정의 기한' — 원문 상대기한 목록 + 기준일→마감일 순수산술 계산 + .ics; `deadlines.json` 소비, 오프셋 원문 그대로·추측 없음).
 
 ### A. 새 플래그 추가 (코드 1곳 + 프론트 기본값 1곳)
 1. **백엔드 레지스트리** `tools/app_api.py`의 `FLAG_REGISTRY`에 항목 추가(기본값·설명·소유자·만료):
