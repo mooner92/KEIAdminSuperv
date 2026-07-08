@@ -37,11 +37,19 @@ export default function ApprovalFinder({
     () => Array.from(new Set(rules.map((r) => r.대상).filter(Boolean))),
     [rules],
   );
+  // 공백·중점 무시 정규화 — 별표 원문은 '국내 출장'·'실･팀장'처럼 표기가 섞여 있어
+  // '국내출장'(채팅 감지 키워드)으로도 잡히게 한다. 다중 단어는 토큰 AND 매칭.
+  const norm = (s: string) => s.replace(/[\s･·,]/g, "");
   const filtered = useMemo(() => {
-    const kw = q.trim();
+    const tokens = q.trim().split(/\s+/).map(norm).filter(Boolean);
     return rules
       // 직급 필터: 해당 직급 행 + 직급 구분이 없는 행(금액구간 등 — 누구에게나 적용)은 유지
-      .filter((r) => (!kw || (r.업무 + r.구분 + r.대상).includes(kw)) && (!role || r.대상 === role || !r.대상))
+      .filter((r) => {
+        if (role && r.대상 && r.대상 !== role) return false;
+        if (!tokens.length) return true;
+        const hay = norm(r.업무 + r.구분 + r.대상);
+        return tokens.every((t) => hay.includes(t));
+      })
       .slice(0, 80);
   }, [rules, q, role]);
 

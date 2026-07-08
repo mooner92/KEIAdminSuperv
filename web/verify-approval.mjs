@@ -48,6 +48,18 @@ body = await p.textContent("body");
 ok(/실･팀장|실·팀장/.test(body), "9) 국내출장·일반직원 → 실·팀장 전결 표시");
 await p.screenshot({ path: "verify-approval-page.png" });
 
+// 공백 무시 검색 — '국내출장'(붙임, 채팅 감지 키워드)도 '국내 출장'(원문 띄움)과 동일 결과
+const countOf = async (kw) => {
+  await p.locator('input[aria-label="업무 검색"]').fill(kw);
+  await p.waitForTimeout(400);
+  const t = await p.locator("main").textContent();
+  const m = t.match(/(\d+)건/);
+  return m ? parseInt(m[1], 10) : -1;
+};
+const spaced = await countOf("국내 출장");
+const joined = await countOf("국내출장");
+ok(joined > 0 && joined === spaced, `11) 공백 무시 검색: '국내출장'=${joined}건 == '국내 출장'=${spaced}건`);
+
 // ⑤ 위임전결규정 드로어 — 판정기 대신 링크 카드
 await p.goto(`${BASE}/browse`, { waitUntil: "networkidle" });
 await p.waitForTimeout(1000);
