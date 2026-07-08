@@ -91,6 +91,7 @@ python tools/01j_defterms.py --vault KEI-행정가이드        # 정의어 사�
 python tools/01k_article_status.py --vault KEI-행정가이드  # 삭제 조문·개정 시계열(삭제 근거 강등)
 python tools/01l_graph_analytics.py                       # (Track C) 개정 파급·함께 보는 조문·고립노드
 python tools/01m_deadlines.py --vault KEI-행정가이드       # (Track B) 상대기한 → 기준일→마감일 계산+.ics
+python tools/01n_approval.py --vault KEI-행정가이드        # (Track B) 위임전결 별표 → 업무·직급→전결권자
 
 # 02) 청킹(규정 제N조 / 가이드·ERP·용어 헤딩) + KURE-v1 임베딩 + Chroma 적재 (GPU 권장)
 python tools/02_chunk_and_embed.py --vault KEI-행정가이드 --db tools/chroma
@@ -270,7 +271,7 @@ flowchart LR
 - **금액 신뢰 강화(P2.2):** 금액/한도 답변에 경고 + 근거 스니펫 수치 강조(`<mark>`) + 근거별 검수상태 배지. 모두 `docdata`로 처리(재임베딩 불필요). footer의 **📑 규정집 기준일**은 단일 출처 `web/lib/site.ts` `CORPUS_AS_OF`.
 - **운영자 대시보드(P2.5):** `/admin`에 활동·**거부율**(`REFUSAL_RE` 감지)·👍/👎·인기 질문·콘텐츠 갭. `GET /app/stats`(관리자 전용). 거부/👎/인기 질문이 검수 큐·콘텐츠 로드맵으로 환류되는 **자기개선 루프**.
 - **🔒 개인정보(P2.5):** 서버사이드 RAG라 진짜 E2E 암호화는 불가(LLM이 평문 필요). 대신 ⓐ 관리자도 **타인 채팅을 읽는 엔드포인트가 없고**(`get_chat` 소유자 검증), ⓑ `/stats`·`/feedback`은 질문·답변 **본문을 반환하지 않으며**(규정 메타·집계만), ⓒ 인기 질문/갭은 **서로 다른 사용자 K명 이상**(`STATS_MIN_USERS` 기본 3)인 **k-익명 집계**만 노출합니다.
-- **기능 플래그(P, [docs/13](docs/13-feature-flags.md)):** 코드 레지스트리 `FLAG_REGISTRY` + SQLite `Flag`/`FlagAudit`. 공개 `GET /app/flags`(비민감 불리언만), 관리자 토글/감사(`current_admin`, `APP_ADMINS` **fail-closed** — 미설정 시 아무도 관리자 아님). 프론트는 정적 export라 빌드에 안 박고 `lib/flags.tsx` `useFlag`로 런타임 fetch, `/admin`에서 즉시 토글. 현재 플래그 예: `source_type_badges`(채팅 근거 출처 성격 배지 📜규정 공식/📘가이드 참고)·`content_search`(둘러보기 원문 내용 전문검색)·`article_integrity`(조문 효력 배지 ⚠삭제됨/개정일 + 준용·정의어 패널, Track A)·`graph_impact`(개정 파급·함께 보는 조문 패널, Track C)·`deadline_calc`(기한 역산 계산기+.ics, Track B)·`cite_highlight`(P2.7)·`graph_split`(P2.8).
+- **기능 플래그(P, [docs/13](docs/13-feature-flags.md)):** 코드 레지스트리 `FLAG_REGISTRY` + SQLite `Flag`/`FlagAudit`. 공개 `GET /app/flags`(비민감 불리언만), 관리자 토글/감사(`current_admin`, `APP_ADMINS` **fail-closed** — 미설정 시 아무도 관리자 아님). 프론트는 정적 export라 빌드에 안 박고 `lib/flags.tsx` `useFlag`로 런타임 fetch, `/admin`에서 즉시 토글. 현재 플래그 예: `source_type_badges`(채팅 근거 출처 성격 배지 📜규정 공식/📘가이드 참고)·`content_search`(둘러보기 원문 내용 전문검색)·`article_integrity`(조문 효력 배지 ⚠삭제됨/개정일 + 준용·정의어 패널, Track A)·`graph_impact`(개정 파급·함께 보는 조문 패널, Track C)·`deadline_calc`(기한 역산 계산기+.ics, Track B)·`approval_finder`(결재선 판정기 업무·직급→전결권자, Track B)·`cite_highlight`(P2.7)·`graph_split`(P2.8).
 
 > [!note] 평가·테스트
 > 평가 하베스트 [eval/](eval/README.md)(`run.sh`·`run_eval.py` — Hit/Recall/MRR strict=규정명+조 / relaxed=규정명, `--rerank`/`--rewrite`/`--hybrid`, `--judge`로 LLM-judge 충실도·거부율). 리랭커 적용 후 strict Hit@1 0.600→0.829·@5 1.000, 면책 보장 0.806→1.000(실패 시 안전 강등). 백엔드 테스트는 [tools/test_feedback.py](tools/test_feedback.py)·[tools/test_stats.py](tools/test_stats.py)(FastAPI TestClient+임시DB, LLM 불필요). 골든셋 `eval/golden.jsonl`은 gitignore.

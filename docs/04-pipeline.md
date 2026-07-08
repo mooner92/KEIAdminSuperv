@@ -48,6 +48,7 @@ flowchart LR
 | 조문 효력 (Track A) | `01k_article_status.py` | 규정 원문 | `tools/index/article_status.json`(삭제·개정 시계열) |
 | 그래프 분석 (Track C) | `01l_graph_analytics.py` | `clause_xref.json` | `tools/index/graph_analytics.json`(개정 파급·공동인용·고립) |
 | 기한 (Track B) | `01m_deadlines.py` | 규정 원문 | `tools/index/deadlines.json`(상대기한: 기준·오프셋·방향·의무) |
+| 결재선 (Track B) | `01n_approval.py` | 위임전결규정 별표 | `tools/index/approval.json`(업무·직급→전결권자 335) |
 | 청킹·임베딩 | `02_chunk_and_embed.py` | 볼트(`KEI-행정가이드/`) | Chroma `kei_regs` |
 | 질의(CLI) | `03_rag_query.py` | Chroma + 질문 | 콘솔 답변 + 회수 조문 |
 | RAG API | `04_rag_api.py` | Chroma + HTTP 요청 | OpenAI 호환 + `/app/*` 응답 |

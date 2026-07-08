@@ -176,6 +176,14 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-10-15",
     },
+    "approval_finder": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "결재선 판정기(Track B) — 위임전결규정 문서 드로어에 '업무·직급 → 전결권자' 조회 패널. "
+                       "위임전결 별표(○-매트릭스, approval.json/01n)를 파싱한 공식 전결기준. ⛔ 실무 결재선(중간 "
+                       "검토자 등)은 부서마다 다를 수 있어 '부서 확인' 면책을 함께 노출. 프론트 표시 전용·재임베딩 불필요.",
+        "owner": "platform",
+        "expires": "2026-10-15",
+    },
 }
 
 
