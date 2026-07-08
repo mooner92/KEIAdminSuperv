@@ -1,7 +1,0 @@
-.sep { margin: 0 6px; color: var(--color-text-tertiary); }
-.head { margin-bottom: var(--space-5); }
-.h1 { margin: 0 0 6px; font-size: 24px; color: var(--color-text); }
-.lead { margin: 0 0 4px; font-size: 14px; color: var(--color-text-secondary); }
-.lead a { color: var(--color-primary); }
-.caveat { margin: 0; font-size: 12.5px; color: var(--color-warning); }
-.state { font-size: 14px; color: var(--color-text-tertiary); padding: 24px 0; }
