@@ -218,7 +218,9 @@ SYSTEM = (
     "7) [근거]에 '(… 시스템)' 항목(ERP·전자결재·대외업무·웹디스크 등)이 있으면, 그 시스템명과 메뉴·처리 경로를"
     " '처리 방법'에 함께 안내한다 (근거에 없는 시스템·경로·서식명은 지어내지 않는다)."
     " [근거]에 '후속 단계' 항목이 있으면 신청 후 이어서 해야 하는 정산·결과보고를 답변 끝에 한 줄로 반드시 안내한다"
-    "(예: '출장 후 국내출장정산신청에서 정산까지 완료해야 합니다').\n"
+    "(예: '출장 후 국내출장정산신청에서 정산까지 완료해야 합니다')."
+    " 결재상신·결재 올리는 방법을 묻거나 신청 절차를 답할 때 [근거]에 '전자결재 기안'(기안신규·결재정보·결재선·편철·결재올림) 내용이 있으면"
+    " 그 결재 흐름을 안내한다. 지출 기안은 [근거]에 일상감사 기준(일정 금액 초과 시 일상감사신청)이 있으면 그 기준을 안내한다.\n"
     "8) 이전 대화에서 다루던 대상·주제(예: 국내출장)를 사용자가 바꾸지 않았으면 끝까지 같은 대상으로 답한다."
     " [근거]가 다른 대상(예: 국외출장)만 담고 있으면, 그 대상의 내용은 근거에서 확인되지 않는다고 밝히고"
     " 임의로 대상을 바꾸지 않는다.\n"
@@ -455,6 +457,31 @@ def _ensure_action_index():
     return _state["action_idx"], _state["action_map"]
 
 
+def _ensure_gian_hub():
+    """전자결재 '기안' 허브 대표 청크(기안신규 사용흐름) 1회 캐시. 신청/결재 화면 회수 시 자동첨부용.
+    모든 [결재상신]이 이 공통 레이어를 거치므로, 신청 절차 답변에 결재 흐름을 붙인다."""
+    if "gian_hub" not in _state:
+        with _lock:
+            if "gian_hub" not in _state:
+                _, col, _ = backend()
+                got = col.get(include=["metadatas", "documents"])
+                best = None
+                for i, m, d in zip(got["ids"], got["metadatas"], got["documents"]):
+                    if (m.get("type") or "") != "system":
+                        continue
+                    name = m.get("규정명") or ""
+                    label = m.get("조") or ""
+                    if "전자결재 기안" in name and "기안신규" in label:
+                        best = (d, m); break
+                    if "전자결재 기안" in name and "결재상신" in name and best is None:
+                        best = (d, m)   # 폴백: 결재상신 공통 노트 첫 청크
+                _state["gian_hub"] = best
+    return _state["gian_hub"]
+
+
+_GIAN_TRIGGER = re.compile(r"신청|상신|결재올림|보고|정산")   # 이 라벨의 시스템 화면이 회수되면 기안 첨부
+
+
 def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None,
              section_diversity: bool = None):
     """질의 → 관련 조문 top-k 회수. (근거 컨텍스트 문자열, 구조화 출처 리스트) 반환.
@@ -610,6 +637,22 @@ def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None
                         blocks.append(f"[{s2['tag']} · 후속 단계: {rel}(자동첨부)]\n{d2}")
         except Exception as e:  # noqa: BLE001 — 확장 실패는 기본 회수로 우아하게 강등
             print(f"⚠ 행위 흐름 확장 실패(무시): {e}")
+
+        # 기안 허브 자동첨부: 신청/보고/정산 화면이 회수됐고 기안 청크가 아직 없으면 결재상신 흐름을 1개 첨부.
+        try:
+            already_gian = any("전자결재 기안" in (s.get("규정명") or "") for s in srcs)
+            trig = any((s.get("type") == "system" and _GIAN_TRIGGER.search(s.get("조") or "")) for s in srcs)
+            if not already_gian and (trig or _GIAN_TRIGGER.search(query) or "결재" in query or "기안" in query):
+                hub = _ensure_gian_hub()
+                if hub:
+                    d2, m2 = hub
+                    s2 = _src(d2, m2, None)
+                    if not any(s.get("tag") == s2["tag"] for s in srcs):
+                        s2["graph_expand_gian"] = True
+                        srcs.append(s2)
+                        blocks.append(f"[{s2['tag']} · 결재상신(기안, 자동첨부)]\n{d2}")
+        except Exception as e:  # noqa: BLE001
+            print(f"⚠ 기안 허브 첨부 실패(무시): {e}")
 
     blocks = _cap_blocks(blocks)  # ctx 8K 초과(→Ollama 400) 방지: 순위순 예산 상한
     return "\n\n---\n\n".join(blocks), srcs

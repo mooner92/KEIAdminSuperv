@@ -84,6 +84,17 @@ DEEPGUIDE = {
              " 캡처 시점 테스트 값. 실제 화면·규정과 다를 수 있어 검수 후 `검수상태: 검수완료`로."),
 }
 
+# ── 기안 모드(--gian): 전자결재/기안 공통 레이어(모든 [결재상신]에서 마주침) ──────────────
+# 모듈별이 아니라 단일 공통 주제. '# 공통 …모듈'→'결재상신 공통', '# 업무별…가이드'→'업무별 적용' 노트.
+GIAN = {
+    "prefix": "전자결재 기안", "cat": "전자결재(기안)",
+    "tags": ["전자결재", "기안", "결재", "결재상신", "시스템"],
+    "overview": "전자결재 기안 개요",
+    "warn": ("> [!warning] 자동 판독 자료(G-ProOne 전자결재/기안 화면 캡처 기준) — 예시 값(부서·금액·기준)은"
+             " 캡처 시점 값. 실제 화면·규정과 다를 수 있어 검수 후 `검수상태: 검수완료`로."),
+}
+GIAN_MODULE_MAP = [("공통 전자결재", "결재상신 공통"), ("업무별 기안", "업무별 적용")]  # '#' 헤딩 정밀 키워드 → 노트명
+
 
 def note(title, body, original, sysconf):
     fm = [
@@ -256,11 +267,50 @@ def convert_deepguide(text):
     return notes
 
 
+def convert_gian(text):
+    """전자결재/기안 공통 문서 → [(제목, 본문, conf)]. '결재상신 공통'+'업무별 적용' 노트 + 개요."""
+    conf = dict(GIAN)
+    parts = re.split(r"(?m)^(#\s+.+)$", text)
+    intro_parts = [parts[0].strip()] if parts[0].strip() else []
+    secs = {}
+    i, first = 1, True
+    while i < len(parts):
+        name = parts[i].lstrip("#").strip()
+        body = (parts[i + 1] if i + 1 < len(parts) else "").strip()
+        body = re.sub(r"(?m)^###\s+", "#### ", body)   # 상세 소절 → 기능단위 청크(딥가이드와 동형)
+        if first:                                       # 첫 '#' = 문서 제목 섹션(스크린샷 매핑) → 머리말
+            intro_parts.append(body); first = False
+        else:
+            secs[name] = body
+        i += 2
+    intro = "\n\n".join(intro_parts)
+    # crosslink 초안(중복 draft)은 제외 — 실제 crosslink는 01e/01h가 담당
+    for k in [k for k in secs if "crosslink" in k.lower()]:
+        secs.pop(k)
+    notes, module_titles = [], []
+    for kw, short in GIAN_MODULE_MAP:
+        hit = next((k for k in secs if kw in k), None)
+        if hit:
+            t = f"{conf['prefix']} · {short}"
+            module_titles.append(t)
+            notes.append((t, secs.pop(hit), conf))
+    over = intro
+    for k, v in secs.items():   # 남은 섹션(후속 보강 등)은 개요로 보존(누락 방지)
+        over += f"\n\n## {k}\n\n{v}"
+    over += "\n\n## 기안 노트\n\n" + "\n".join(f"- [[{t}]]" for t in module_titles)
+    over += ("\n\n> 결재상신 흐름: 원업무 화면 [결재상신] → 기안신규(본문 확인) → [결재정보]"
+             "(제목·과제선택·결재선·편철·공개/보안) → 결재선 설정(결재/전결/협조/참조, 지출 기안은 일상감사신청 대상 여부 확인)"
+             " → 기록물철(편철) 선택 → [결재올림].")
+    notes.insert(0, (conf["overview"], over, conf))
+    return notes
+
+
 def main():
     ap = argparse.ArgumentParser(description="사내 시스템 기능 문서 → 모듈별 시스템 노트(ERP 방식 일반화)")
     ap.add_argument("--system", help="SYSTEMS 레지스트리 키(예: eas, external, webdisk, erp)")
     ap.add_argument("--bundle", action="store_true", help="전사 번들 문서(## N.=시스템) 모드")
     ap.add_argument("--deep-guide", action="store_true", help="ERP 심화가이드(# 모듈 > ## 화면 신청법) 모드")
+    ap.add_argument("--gian", action="store_true", help="전자결재/기안 공통 레이어 모드")
     ap.add_argument("--src")
     ap.add_argument("--vault")
     ap.add_argument("--list", action="store_true", help="등록된 시스템 목록")
@@ -275,15 +325,18 @@ def main():
         for kw, name, cat, _ in BUNDLE_SYSTEMS:
             print(f"  {kw:<14} → {name:<22} (분류 {cat})")
         return
-    if not (args.src and args.vault) or (not args.bundle and not args.system and not args.deep_guide):
-        ap.error("--src, --vault 필수 + (--system <key> | --bundle | --deep-guide)")
+    if not (args.src and args.vault) or (not args.bundle and not args.system and not args.deep_guide and not args.gian):
+        ap.error("--src, --vault 필수 + (--system <key> | --bundle | --deep-guide | --gian)")
 
     src = Path(args.src)
     out_root = Path(args.vault) / "40_시스템"
     text = src.read_text(encoding="utf-8")
     original = src.name
 
-    if args.deep_guide:
+    if args.gian:
+        triples = convert_gian(text)            # (title, body, conf)
+        label = "기안"
+    elif args.deep_guide:
         triples = convert_deepguide(text)       # (title, body, conf)
         label = "심화가이드"
     elif args.bundle:
