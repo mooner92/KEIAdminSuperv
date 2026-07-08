@@ -31,7 +31,102 @@ function searchable(md: string): string {
     .toLowerCase();
 }
 
+// Track A(조문 정제) 인덱스 — tools/index/{article_status,clause_xref,defterms}.json.
+// 규정명별 슬라이스(삭제·신설 조문 / 준용·참조 / 정의어)를 문서 JSON에 부착 → 드로어가 별도 fetch 없이 렌더.
+// 인덱스가 없으면(미생성) 조용히 건너뜀(빌드 실패 안 함).
+const INDEX_DIR =
+  process.env.INDEX_DIR || path.resolve(process.env.VAULT_DIR || ".", "..", "tools", "index");
+const loadJson = (f: string): any => {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(INDEX_DIR, f), "utf-8"));
+  } catch {
+    return null;
+  }
+};
+const statusIdx = loadJson("article_status.json");
+const xrefIdx = loadJson("clause_xref.json");
+const defIdx = loadJson("defterms.json");
+const gaIdx = loadJson("graph_analytics.json"); // Track C: 개정 파급·공동인용
+let trackACount = 0;
+let trackCCount = 0;
+
+// 규정명 → slug (드로어는 slug로 로드하므로 참조/파급 칩 목적지를 slug로 해석; 없으면 비클릭)
+const regSlug = new Map<string, string>();
+const splitKey = (k: string): [string, string] => {
+  const i = k.lastIndexOf("#");
+  return i < 0 ? [k, ""] : [k.slice(0, i), k.slice(i + 1)];
+};
+
+function trackAFor(regName: string) {
+  if (!regName) return null;
+  const pfx = regName + "#";
+  const deleted: { 조: string; 삭제일: string }[] = [];
+  const added: { 조: string; 신설일: string }[] = [];
+  const crossRefs: { from: string; toName: string; toSlug: string; toJo: string; rel: string }[] = [];
+  const defs: { 조: string; term: string; 정의: string }[] = [];
+  if (statusIdx?.articles) {
+    for (const k of Object.keys(statusIdx.articles)) {
+      if (!k.startsWith(pfx)) continue;
+      const v = statusIdx.articles[k];
+      const 조 = k.slice(pfx.length);
+      if (v.status === "삭제") deleted.push({ 조, 삭제일: v.삭제일 || "" });
+      if (v.신설) added.push({ 조, 신설일: v.신설일 || "" });
+    }
+  }
+  if (xrefIdx?.edges) {
+    for (const k of Object.keys(xrefIdx.edges)) {
+      if (!k.startsWith(pfx)) continue;
+      const from = k.slice(pfx.length);
+      for (const e of xrefIdx.edges[k])
+        if (e.scope === "cross") {
+          const [toName, toJo] = splitKey(e.target);
+          crossRefs.push({ from, toName, toSlug: regSlug.get(toName) || "", toJo, rel: e.rel });
+        }
+    }
+  }
+  if (defIdx?.terms) {
+    for (const term of Object.keys(defIdx.terms)) {
+      for (const d of defIdx.terms[term]) if (d.규정명 === regName) defs.push({ 조: d.조, term, 정의: d.정의 });
+    }
+  }
+  if (!deleted.length && !added.length && !crossRefs.length && !defs.length) return null;
+  trackACount++;
+  return { deleted, added, crossRefs: crossRefs.slice(0, 40), defs: defs.slice(0, 40) };
+}
+
+// Track C(개정 파급·공동인용) 규정별 슬라이스 — graph_analytics.json(01l) 소비
+function trackCFor(regName: string) {
+  if (!regName || !gaIdx) return null;
+  const pfx = regName + "#";
+  const impactedBy = ((gaIdx.impact && gaIdx.impact[regName]) || [])
+    .slice(0, 30)
+    .map(([name, hop]: [string, number]) => ({ name, slug: regSlug.get(name) || "", hop }));
+  // 함께 보는 조문: 이 규정 조문들의 공동인용 이웃(다른 규정 조문만) 누적 → 상위
+  const acc: Record<string, number> = {};
+  if (gaIdx.cocitation) {
+    for (const key of Object.keys(gaIdx.cocitation)) {
+      if (!key.startsWith(pfx)) continue;
+      for (const [nbr, c] of gaIdx.cocitation[key]) {
+        if (nbr.startsWith(pfx)) continue; // 같은 규정 제외 → 규정 간 '함께 보는'만
+        acc[nbr] = (acc[nbr] || 0) + c;
+      }
+    }
+  }
+  const coCited = Object.entries(acc)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([key, count]) => {
+      const [name, jo] = splitKey(key);
+      return { name, slug: regSlug.get(name) || "", jo, count };
+    });
+  const isolated = Array.isArray(gaIdx.isolated) && gaIdx.isolated.includes(regName);
+  if (!impactedBy.length && !coCited.length && !isolated) return null;
+  trackCCount++;
+  return { impactedBy, coCited, isolated };
+}
+
 const docs = getAllDocs();
+for (const m of docs) if (m.section === "규정집" && !regSlug.has(m.title)) regSlug.set(m.title, m.slug);
 const searchIndex: Record<string, string> = {};
 let n = 0;
 for (const meta of docs) {
@@ -42,10 +137,17 @@ for (const meta of docs) {
     title: b.title,
     section: b.section,
   }));
-  fs.writeFileSync(path.join(OUT, `${meta.slug}.json`), JSON.stringify({ ...doc, backlinks }), "utf-8");
+  const trackA = meta.section === "규정집" ? trackAFor(doc.title) : null;
+  const trackC = meta.section === "규정집" ? trackCFor(doc.title) : null;
+  fs.writeFileSync(
+    path.join(OUT, `${meta.slug}.json`),
+    JSON.stringify({ ...doc, backlinks, trackA, trackC }),
+    "utf-8",
+  );
   searchIndex[meta.slug] = searchable(doc.body);
   n++;
 }
+console.log(`Track A: ${trackACount}개 · Track C: ${trackCCount}개 규정에 슬라이스 부착 (index=${INDEX_DIR})`);
 const idxPath = path.resolve(process.cwd(), "out", "search-index.json");
 fs.writeFileSync(idxPath, JSON.stringify(searchIndex), "utf-8");
 const kb = Math.round(fs.statSync(idxPath).size / 1024);

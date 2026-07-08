@@ -85,6 +85,12 @@ python tools/01e_erp_crosslink.py --vault KEI-행정가이드
 python tools/01g_terms_crosslink.py --vault KEI-행정가이드
 python tools/01b_autolink.py --vault KEI-행정가이드
 
+# 01i·01j·01k) 조문 정제(Track A) — 원문 재마이닝 → tools/index/*.json (삭제·개정·준용·정의어, 재임베딩 불필요)
+python tools/01i_clause_xref.py --vault KEI-행정가이드     # 조문↔조문 준용·인용 그래프
+python tools/01j_defterms.py --vault KEI-행정가이드        # 정의어 사전 + 교차 정의충돌
+python tools/01k_article_status.py --vault KEI-행정가이드  # 삭제 조문·개정 시계열(삭제 근거 강등)
+python tools/01l_graph_analytics.py                       # (Track C) 개정 파급·함께 보는 조문·고립노드
+
 # 02) 청킹(규정 제N조 / 가이드·ERP·용어 헤딩) + KURE-v1 임베딩 + Chroma 적재 (GPU 권장)
 python tools/02_chunk_and_embed.py --vault KEI-행정가이드 --db tools/chroma
 
@@ -263,7 +269,7 @@ flowchart LR
 - **금액 신뢰 강화(P2.2):** 금액/한도 답변에 경고 + 근거 스니펫 수치 강조(`<mark>`) + 근거별 검수상태 배지. 모두 `docdata`로 처리(재임베딩 불필요). footer의 **📑 규정집 기준일**은 단일 출처 `web/lib/site.ts` `CORPUS_AS_OF`.
 - **운영자 대시보드(P2.5):** `/admin`에 활동·**거부율**(`REFUSAL_RE` 감지)·👍/👎·인기 질문·콘텐츠 갭. `GET /app/stats`(관리자 전용). 거부/👎/인기 질문이 검수 큐·콘텐츠 로드맵으로 환류되는 **자기개선 루프**.
 - **🔒 개인정보(P2.5):** 서버사이드 RAG라 진짜 E2E 암호화는 불가(LLM이 평문 필요). 대신 ⓐ 관리자도 **타인 채팅을 읽는 엔드포인트가 없고**(`get_chat` 소유자 검증), ⓑ `/stats`·`/feedback`은 질문·답변 **본문을 반환하지 않으며**(규정 메타·집계만), ⓒ 인기 질문/갭은 **서로 다른 사용자 K명 이상**(`STATS_MIN_USERS` 기본 3)인 **k-익명 집계**만 노출합니다.
-- **기능 플래그(P, [docs/13](docs/13-feature-flags.md)):** 코드 레지스트리 `FLAG_REGISTRY` + SQLite `Flag`/`FlagAudit`. 공개 `GET /app/flags`(비민감 불리언만), 관리자 토글/감사(`current_admin`, `APP_ADMINS` **fail-closed** — 미설정 시 아무도 관리자 아님). 프론트는 정적 export라 빌드에 안 박고 `lib/flags.tsx` `useFlag`로 런타임 fetch, `/admin`에서 즉시 토글. 현재 플래그 예: `source_type_badges`(채팅 근거 출처 성격 배지 📜규정 공식/📘가이드 참고)·`content_search`(둘러보기 원문 내용 전문검색)·`cite_highlight`(P2.7)·`graph_split`(P2.8).
+- **기능 플래그(P, [docs/13](docs/13-feature-flags.md)):** 코드 레지스트리 `FLAG_REGISTRY` + SQLite `Flag`/`FlagAudit`. 공개 `GET /app/flags`(비민감 불리언만), 관리자 토글/감사(`current_admin`, `APP_ADMINS` **fail-closed** — 미설정 시 아무도 관리자 아님). 프론트는 정적 export라 빌드에 안 박고 `lib/flags.tsx` `useFlag`로 런타임 fetch, `/admin`에서 즉시 토글. 현재 플래그 예: `source_type_badges`(채팅 근거 출처 성격 배지 📜규정 공식/📘가이드 참고)·`content_search`(둘러보기 원문 내용 전문검색)·`article_integrity`(조문 효력 배지 ⚠삭제됨/개정일 + 준용·정의어 패널, Track A)·`graph_impact`(개정 파급·함께 보는 조문 패널, Track C)·`cite_highlight`(P2.7)·`graph_split`(P2.8).
 
 > [!note] 평가·테스트
 > 평가 하베스트 [eval/](eval/README.md)(`run.sh`·`run_eval.py` — Hit/Recall/MRR strict=규정명+조 / relaxed=규정명, `--rerank`/`--rewrite`/`--hybrid`, `--judge`로 LLM-judge 충실도·거부율). 리랭커 적용 후 strict Hit@1 0.600→0.829·@5 1.000, 면책 보장 0.806→1.000(실패 시 안전 강등). 백엔드 테스트는 [tools/test_feedback.py](tools/test_feedback.py)·[tools/test_stats.py](tools/test_stats.py)(FastAPI TestClient+임시DB, LLM 불필요). 골든셋 `eval/golden.jsonl`은 gitignore.
@@ -303,6 +309,10 @@ flowchart LR
 | 12 | 품질 강화 | 평가·검수·별표·리랭커·쿼리 재작성·하위청킹(P1.1~P2.3) | [12-품질강화.md](docs/12-품질강화.md) |
 | 13 | 기능 플래그 | 한 코드베이스에서 기능 토글(설계 + 운영 매뉴얼) | [13-feature-flags.md](docs/13-feature-flags.md) |
 | 14 | 피드백 루프 | 👍/👎 신호 → 검수 큐 환류(P2.1) | [14-feedback-loop.md](docs/14-feedback-loop.md) |
+| 15 | LLM 교체 | Qwen3.5-9B 채택 근거·트러블슈팅 | [15-LLM-교체-Qwen3.5.md](docs/15-LLM-교체-Qwen3.5.md) |
+| 16 | reasoning A/B | `reasoning_effort` none vs low 측정(none 유지) | [16-reasoning-effort-AB.md](docs/16-reasoning-effort-AB.md) |
+| 17 | 서비스 로드맵 | 시스템 계층 확장 + net-new 5트랙(A~E) | [17-service-roadmap.md](docs/17-service-roadmap.md) |
+| 18 | 조문 정제·무결성 | Track A — 삭제필터·참조그래프·정의어·개정마이닝 | [18-조문정제-무결성.md](docs/18-조문정제-무결성.md) |
 | — | 디자인 시스템 | [뇌] 화면(web/) 디자인 원칙·TDS 토큰·컴포넌트 규약 | [design-system.md](docs/design-system.md) |
 
 **아키텍처 결정 기록(ADR):** [docs/adr/README.md](docs/adr/README.md) — 임베딩 모델, 조문 단위 청킹, 통제형 RAG API, 그래프 사이트(이전 Quartz → 현재 Next.js+TDS), 온프레미스 Zero Trust 등 주요 결정의 근거.

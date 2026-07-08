@@ -6,6 +6,7 @@
 
 가드레일(절대 규칙): 근거 밖 내용 금지, 출처 [규정명 제N조], 면책 문구. 약화시키지 말 것.
 """
+import json
 import os
 import re
 import sqlite3
@@ -49,6 +50,15 @@ GRAPH_EXPAND_REGS_MAX = int(os.environ.get("RAG_GRAPH_EXPAND_REGS_MAX", "2"))  #
 # 우선순위: env(RAG_GRAPH_EXPAND_REGS 명시 시 운영 강제) > SQLite flag 테이블(admin 토글) > 기본 off.
 _FLAG_TTL = 20.0  # 초 — admin 토글이 이 안에 반영
 _flag_cache = {"t": -1e9, "vals": {}}
+
+# ── Track A: 조문 정제 인덱스(01i/01j/01k 산출, tools/index/*.json) ─────────────────
+INDEX_DIR = os.environ.get("RAG_INDEX_DIR",
+                           os.path.join(os.path.dirname(os.path.abspath(__file__)), "index"))
+# 조문 효력 오버레이: 회수된 '삭제 조문'을 근거에서 강등 + 효력/최근개정 메타 부착(재임베딩 불필요).
+# ⛔ 절대 규칙1 방어 — 삭제된 조문을 유효 근거처럼 인용하지 않게 한다. 기본 on.
+ARTICLE_STATUS = os.environ.get("RAG_ARTICLE_STATUS", "1") not in ("0", "", "false", "False")
+# clause_xref: 조문↔조문 준용·인용 그래프. reg 확장(graph_expand_regs)의 더 완전한 근거로 병합. 기본 on.
+CLAUSE_XREF = os.environ.get("RAG_CLAUSE_XREF", "1") not in ("0", "", "false", "False")
 
 
 def _flag(name: str, default: bool = False) -> bool:
@@ -428,6 +438,62 @@ def _ensure_article_index():
     return _state["art_idx"], _state["art_map"]
 
 
+def _load_index(name: str, default):
+    """tools/index/<name> 를 1회 로드·캐시. 없으면 default(오버레이/확장 우아하게 비활성)."""
+    key = f"idx::{name}"
+    if key not in _state:
+        with _lock:
+            if key not in _state:
+                data = default
+                try:
+                    with open(os.path.join(INDEX_DIR, name), encoding="utf-8") as f:
+                        data = json.load(f)
+                except Exception as e:  # noqa: BLE001 — 인덱스 부재 시 조용히 비활성
+                    print(f"⚠ {name} 로드 실패(해당 기능 off): {e}")
+                _state[key] = data
+    return _state[key]
+
+
+def _ensure_article_status():
+    """01k article_status.json → {규정명#제N조: {status,삭제일,최근개정일,신설,개정횟수}}."""
+    return _load_index("article_status.json", {"articles": {}}).get("articles", {})
+
+
+def _ensure_clause_xref():
+    """01i clause_xref.json → {edges:{src:[{target,rel,scope}]}, reverse:{target:[src]}}."""
+    return _load_index("clause_xref.json", {"edges": {}, "reverse": {}})
+
+
+def _overlay_article_status(srcs, blocks):
+    """회수 결과에 조문 효력 메타를 얹고 삭제 조문을 top-k 뒤로 강등(blocks/srcs 정합 유지).
+    삭제 조문은 컨텍스트 블록 머리에 '삭제됨' 경고를 붙여 LLM이 유효 근거로 오인하지 않게 한다."""
+    st = _ensure_article_status()
+    if not st:
+        return
+    keep, demote = [], []
+    for idx, s in enumerate(srcs):
+        if (s.get("type") or "") != "regulation":
+            keep.append(idx); continue
+        rec = st.get(f"{(s.get('규정명') or '').strip()}#{_jo_key(s.get('조') or '')}")
+        if not rec:
+            keep.append(idx); continue
+        if rec.get("최근개정일"):
+            s["최근개정"] = rec["최근개정일"]
+        if rec.get("신설"):
+            s["신설"] = True
+        if rec.get("status") == "삭제":
+            s["효력"] = "삭제"; s["삭제일"] = rec.get("삭제일", "")
+            tag = f" · {rec['삭제일']}" if rec.get("삭제일") else ""
+            blocks[idx] = f"⚠ [이 조문은 삭제되어 효력이 없습니다{tag}]\n{blocks[idx]}"
+            demote.append(idx)
+        else:
+            s["효력"] = "유효"; keep.append(idx)
+    if demote:                                   # 삭제 조문을 뒤로(순서 재배치)
+        order = keep + demote
+        srcs[:] = [srcs[i] for i in order]
+        blocks[:] = [blocks[i] for i in order]
+
+
 def _ensure_action_index():
     """행위 흐름 인덱스: from 패턴 → [(to 청크 id, 관계)]. 시스템 청크 라벨(조)로 1회 구축·캐시.
     to 청크가 여럿이면 라벨이 가장 짧은 것(대표 목록 화면) 1개를 대표로 쓴다."""
@@ -557,6 +623,13 @@ def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None
             sys_label = f" ({sysname})" if sysname else " (시스템)"
         blocks.append(f"[{s['tag']}{sys_label}]\n{doc}")
 
+    # 조문 효력 오버레이(Track A): 삭제 조문을 근거에서 강등 + 효력/최근개정 배지(절대 규칙1 방어, 재임베딩 불필요).
+    if ARTICLE_STATUS and srcs:
+        try:
+            _overlay_article_status(srcs, blocks)
+        except Exception as e:  # noqa: BLE001 — 오버레이 실패는 기본 회수로 우아하게 강등
+            print(f"⚠ 조문 효력 오버레이 실패(무시): {e}")
+
     # 그래프 1홉 확장: 회수된 조문을 인용하는 별표(표)를 자동 동반(여비 별표2 등 금액표 회수 누락 보완).
     if GRAPH_EXPAND and chosen:
         try:
@@ -592,8 +665,13 @@ def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None
                 if added >= GRAPH_EXPAND_REGS_MAX:
                     break
                 _, m, _ = getdoc(i)
-                for ref in (m.get("reg_refs") or "").split(","):
-                    ref = ref.strip()
+                refs = [r.strip() for r in (m.get("reg_refs") or "").split(",")]
+                if CLAUSE_XREF:   # clause_xref cross 엣지로 보강(청크 reg_refs보다 완전한 준용/인용)
+                    ck = f"{(m.get('규정명') or '').strip()}#{_jo_key(m.get('조') or '')}"
+                    for e in _ensure_clause_xref().get("edges", {}).get(ck, []):
+                        if e.get("scope") == "cross" and e.get("target"):
+                            refs.append(e["target"])
+                for ref in refs:
                     if "#" not in ref:
                         continue
                     rname, rjo = ref.split("#", 1)

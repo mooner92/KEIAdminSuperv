@@ -152,6 +152,22 @@ FLAG_REGISTRY: dict = {
         "owner": "rag",
         "expires": "",  # 실험 플래그 — eval 후 상시적용 또는 제거
     },
+    "article_integrity": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "조문 정제·무결성(Track A) UI — 채팅 근거 카드에 조문 효력 배지(⚠삭제됨/최근개정일) + "
+                       "문서 드로어에 '준용·참조 조문' 칩·'원문 정의어' 패널. 프론트 표시 전용(백엔드 삭제-강등은 "
+                       "RAG_ARTICLE_STATUS로 상시 on). 인덱스 tools/index/*.json(01i·01j·01k) 소비, 재임베딩 불필요.",
+        "owner": "platform",
+        "expires": "2026-09-30",  # 검증 후 상시적용(플래그 제거) 또는 폐기
+    },
+    "graph_impact": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "조문 참조 그래프 분석(Track C) UI — 문서 드로어에 '개정 파급(이 규정을 준용/참조하는 규정, "
+                       "역방향 전이폐포)'·'함께 보는 조문(공동인용)' 패널. graph_analytics.json(01l, clause_xref 파생) 소비. "
+                       "프론트 표시 전용·재임베딩 불필요. 고립 노드 진단은 빌드 리포트.",
+        "owner": "platform",
+        "expires": "2026-09-30",
+    },
 }
 
 

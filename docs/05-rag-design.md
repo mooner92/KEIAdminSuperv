@@ -228,6 +228,13 @@ python 03_rag_query.py --db tools/chroma --q "출장 여비 정산" --retrieve-o
 > [!note] 섹션 다양성(`_select_diverse`)은 측정상 무이득 → 기본 off
 > 규정이 top-k를 독점해 시스템·가이드가 밀릴까 봐 좌석 보장 로직(`RAG_SECTION_DIVERSITY`)을 만들었으나, 밀집(KURE-v1)이 이미 규정·가이드·시스템·용어를 골고루 회수해(측정: off=on 동일) **기본 off·opt-in**으로 둔다. 하이브리드(§4.5)와 같은 판단이다. 상세는 [12-품질강화.md](12-품질강화.md)(P2.4).
 
+### 4.8 조문 효력 오버레이 + 참조그래프 (Track A)
+
+회수 직후 `retrieve()`는 `tools/index/article_status.json`(01k)을 오버레이한다(`_overlay_article_status`) — **삭제된 조문을 근거에서 뒤로 강등**하고 컨텍스트 블록에 `⚠ [이 조문은 삭제되어 효력이 없습니다]`를 주입해 LLM이 유효 근거로 오인하지 않게 한다(⛔ 절대 규칙1 방어). 동시에 `효력`/`최근개정`/`신설` 메타를 출처에 실어 UI 배지로 노출한다. 규정↔규정 확장(§4.7의 `graph_expand_regs`)은 청크 `reg_refs`에 더해 `clause_xref.json`(01i)의 **cross 준용/인용 엣지**를 병합해 더 완전한 근거를 동반 로드한다. 모두 **원문 불변·재임베딩 불필요**(런타임 인덱스 로드). 토글 `RAG_ARTICLE_STATUS`·`RAG_CLAUSE_XREF`(둘 다 기본 on). 상세는 [18-조문정제-무결성.md](18-조문정제-무결성.md).
+
+> [!important] 시각 그래프(`/graph`)는 검색에 쓰이지 않는다
+> `/graph`는 `01b/01e/01g/01h`가 만든 **문서레벨 `[[ ]]` 위키링크**를 사람이 탐색하도록 그린 화면이다. `retrieve()`는 이 그래프를 읽지 않는다 — 검색이 소비하는 그래프 신호는 **별표 refs**(기본 on)·**reg_refs/clause_xref**(§4.8·`graph_expand_regs`)·**행위흐름·기안**(`graph_expand_actions`)의 **typed 인덱스**뿐이다. 즉 "큰 문서 그래프는 검색에 안 쓴다"가 맞고, Track A의 `clause_xref`가 조문↔조문 그래프를 검색이 실제로 소비하게 보강한다.
+
 ---
 
 ## 5. 시스템 프롬프트와 가드레일

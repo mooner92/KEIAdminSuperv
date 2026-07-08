@@ -1,7 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import Markdown from "./Markdown";
 import type { Doc, SectionKey } from "../lib/vault";
+import { useFlag } from "../lib/flags";
 import styles from "./DocDrawer.module.css";
+
+// Track A(조문 정제) 슬라이스 — 빌드타임 emit-docdata가 부착
+type TrackA = {
+  deleted: { 조: string; 삭제일: string }[];
+  added: { 조: string; 신설일: string }[];
+  crossRefs: { from: string; toName: string; toSlug: string; toJo: string; rel: string }[];
+  defs: { 조: string; term: string; 정의: string }[];
+};
+// Track C(그래프 분석) 슬라이스
+type TrackC = {
+  impactedBy: { name: string; slug: string; hop: number }[];
+  coCited: { name: string; slug: string; jo: string; count: number }[];
+  isolated: boolean;
+};
 
 const SECTION_LABEL: Record<string, string> = {
   규정집: "규정집",
@@ -11,7 +26,7 @@ const SECTION_LABEL: Record<string, string> = {
 };
 
 type Backlink = { slug: string; title: string; section: SectionKey };
-type DrawerDoc = Doc & { backlinks: Backlink[] };
+type DrawerDoc = Doc & { backlinks: Backlink[]; trackA?: TrackA | null; trackC?: TrackC | null };
 
 /**
  * Notion형 문서 드로어 — 목록/그래프/근거카드를 클릭하면 페이지 이동 없이
@@ -33,6 +48,8 @@ export default function DocDrawer({
   highlightText?: string;
   onClose: () => void;
 }) {
+  const integrityOn = useFlag("article_integrity"); // Track A: 조문 참조·정의 패널
+  const impactOn = useFlag("graph_impact"); // Track C: 개정 파급·함께 보는 조문 패널
   const [current, setCurrent] = useState<string | null>(slug);
   const [anchor, setAnchor] = useState<string>(initialAnchor);
   const [doc, setDoc] = useState<DrawerDoc | null>(null);
@@ -187,6 +204,117 @@ export default function DocDrawer({
               </header>
 
               <Markdown source={doc.body} onNavigate={goInternal} />
+
+              {integrityOn && doc.trackA ? (
+                <aside className={styles.trackA}>
+                  {doc.trackA.crossRefs.length > 0 ? (
+                    <section className={styles.taSec}>
+                      <h2 className={styles.blTitle}>준용·참조하는 다른 규정 조문 · {doc.trackA.crossRefs.length}</h2>
+                      <div className={styles.taChips}>
+                        {doc.trackA.crossRefs.map((r, i) => (
+                          <button
+                            key={i}
+                            className={styles.taChip}
+                            title={`${doc.title} ${r.from} → ${r.toName} ${r.toJo} (${r.rel})`}
+                            disabled={!r.toSlug}
+                            onClick={() => r.toSlug && goInternal(r.toSlug, r.toJo ? `#${r.toJo}` : "")}
+                          >
+                            <span className={styles.taFrom}>{r.from}</span> →{" "}
+                            <b>{r.toName}</b> {r.toJo}
+                            {r.rel === "준용" ? <span className={styles.taRel}>준용</span> : null}
+                          </button>
+                        ))}
+                      </div>
+                    </section>
+                  ) : null}
+
+                  {doc.trackA.deleted.length > 0 || doc.trackA.added.length > 0 ? (
+                    <section className={styles.taSec}>
+                      <h2 className={styles.blTitle}>조문 효력 이력</h2>
+                      <div className={styles.taChips}>
+                        {doc.trackA.deleted.map((d, i) => (
+                          <span key={`d${i}`} className={styles.taDeleted} title={`삭제됨${d.삭제일 ? " · " + d.삭제일 : ""}`}>
+                            ⚠ {d.조} 삭제{d.삭제일 ? ` (${d.삭제일})` : ""}
+                          </span>
+                        ))}
+                        {doc.trackA.added.map((a, i) => (
+                          <span key={`a${i}`} className={styles.taAdded} title={`신설${a.신설일 ? " · " + a.신설일 : ""}`}>
+                            {a.조} 신설{a.신설일 ? ` (${a.신설일})` : ""}
+                          </span>
+                        ))}
+                      </div>
+                    </section>
+                  ) : null}
+
+                  {doc.trackA.defs.length > 0 ? (
+                    <section className={styles.taSec}>
+                      <h2 className={styles.blTitle}>이 규정이 정의한 용어 · {doc.trackA.defs.length}</h2>
+                      <ul className={styles.taDefs}>
+                        {doc.trackA.defs.map((d, i) => (
+                          <li key={i}>
+                            <b>{d.term}</b>
+                            <span className={styles.taDefJo}>{d.조}</span>
+                            <span className={styles.taDefTxt}>{d.정의}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  ) : null}
+                </aside>
+              ) : null}
+
+              {impactOn && doc.trackC ? (
+                <aside className={styles.trackA}>
+                  {doc.trackC.impactedBy.length > 0 ? (
+                    <section className={styles.taSec}>
+                      <h2 className={styles.blTitle}>
+                        개정 파급 — 이 규정을 준용·참조하는 규정 · {doc.trackC.impactedBy.length}
+                      </h2>
+                      <p className={styles.taHint}>이 규정을 개정하면 아래 규정의 근거가 흔들릴 수 있어요(전이 참조 포함).</p>
+                      <div className={styles.taChips}>
+                        {doc.trackC.impactedBy.map((r, i) => (
+                          <button
+                            key={i}
+                            className={styles.taChip}
+                            title={`${r.name} (${r.hop}홉)`}
+                            disabled={!r.slug}
+                            onClick={() => r.slug && goInternal(r.slug, "")}
+                          >
+                            <b>{r.name}</b>
+                            {r.hop > 1 ? <span className={styles.taRel}>{r.hop}홉</span> : null}
+                          </button>
+                        ))}
+                      </div>
+                    </section>
+                  ) : null}
+
+                  {doc.trackC.coCited.length > 0 ? (
+                    <section className={styles.taSec}>
+                      <h2 className={styles.blTitle}>함께 보는 조문 · {doc.trackC.coCited.length}</h2>
+                      <p className={styles.taHint}>이 규정 조문과 같은 맥락에서 자주 함께 인용되는 다른 규정 조문.</p>
+                      <div className={styles.taChips}>
+                        {doc.trackC.coCited.map((r, i) => (
+                          <button
+                            key={i}
+                            className={styles.taChip}
+                            title={`${r.name} ${r.jo} · 공동인용 ${r.count}`}
+                            disabled={!r.slug}
+                            onClick={() => r.slug && goInternal(r.slug, r.jo ? `#${r.jo}` : "")}
+                          >
+                            <b>{r.name}</b> {r.jo}
+                          </button>
+                        ))}
+                      </div>
+                    </section>
+                  ) : null}
+
+                  {doc.trackC.isolated ? (
+                    <p className={styles.taHint}>
+                      🔌 이 규정은 다른 규정과의 조문 참조(준용·인용) 연결이 없습니다 — 교차링크 보강 후보.
+                    </p>
+                  ) : null}
+                </aside>
+              ) : null}
 
               {doc.backlinks?.length > 0 ? (
                 <aside className={styles.backlinks}>

@@ -42,7 +42,7 @@ KEI(한국환경연구원) 행정 초보(신입·전입자)가 "이 업무 어�
 - 연구행정 가이드(`research_rule_files/`, 내부 전용·커밋 금지)는 PDF·PPTX 혼합 → `tools/01c_guides_to_md.py`가 PyMuPDF(PDF)·python-pptx(PPTX)로 변환해 `10_업무가이드/`(type:guide)에 적재. 분류는 제목 키워드로 규정집과 같은 버킷. 스캔 이미지 PDF는 `image-pdf`로 표시 + 「TODO: 원문 확인」 플레이스홀더. 슬러그는 볼트 전체와 충돌 안 나게(규정 원문 미덮어씀).
 - 청킹: 규정원문 **제N조 단위**, 가이드/ERP는 **헤딩(####/##) 단위**(02의 `chunk_guide`) (고정 길이 청킹 금지). **별표/별지는 1급 청크로 분리**(조="별표 N", `refs`=인용 조문; 토글 `CHUNK_BYEOLPYO`) — P1.3. **긴 청크 하위청킹**(P2.3): `max_seq_len`(2048) 초과 청크는 임베딩에서 뒷부분이 잘리므로 항(①②…)→호→문단→줄 순으로 분할(`subsplit_long_chunks`, 토글 `CHUNK_SUBSPLIT`). **조 라벨·메타 유지**(출처·앵커·평가 불변), 하위 인덱스만 `부분`(2/3) 메타. 별표/별지(표)는 분할 안 함(VLM 트랙). 재색인 시 Chroma 백업 필수. A/B 입증: 잘린 꼬리 질의 구 인덱스 미회수→신 인덱스 1위.
 - 임베딩: `nlpai-lab/KURE-v1` (대안 `BAAI/bge-m3`) — 양자화하지 않음
-- 검색: 밀집(KURE-v1)이 기본. **리랭커 적용**(P1.4): 밀집 top-20 → `BAAI/bge-reranker-v2-m3`(온프레미스, GPU1) 재점수 → top-5. `rag_core.retrieve(rerank=)`/`RAG_RERANK`. 평가 strict Hit@1 0.600→0.829, 실패 시 밀집 강등. 하이브리드(BM25+RRF)는 `bm25_index.py`에 opt-in이나 평가상 이득 없어 기본 off. **멀티턴 쿼리 재작성**(P1.5): 후속 질문을 직전 맥락으로 독립 검색어로 재작성(`rag_core.condense_query`/`RAG_QUERY_REWRITE`, 기본 on) — 검색어만 바꾸고 답변·근거는 불변, 실패 시 원 질문 강등. **ERP·서식 연결**(P2.4): 시스템(ERP) 근거 블록에 `(ERP 시스템)` 라벨 + SYSTEM 프롬프트가 메뉴·경로를 답변에 안내(근거에 있을 때만·무환각), 출처 `type`로 UI 🖥 ERP/📄 서식 칩. 섹션 다양성(`_select_diverse`/`RAG_SECTION_DIVERSITY`)은 측정상 무이득(밀집이 이미 섹션 혼합)→기본 off·opt-in. 품질 트랙=`docs/12-품질강화.md`, 평가 하베스트=`eval/`.
+- 검색: 밀집(KURE-v1)이 기본. **리랭커 적용**(P1.4): 밀집 top-20 → `BAAI/bge-reranker-v2-m3`(온프레미스, GPU1) 재점수 → top-5. `rag_core.retrieve(rerank=)`/`RAG_RERANK`. 평가 strict Hit@1 0.600→0.829, 실패 시 밀집 강등. 하이브리드(BM25+RRF)는 `bm25_index.py`에 opt-in이나 평가상 이득 없어 기본 off. **멀티턴 쿼리 재작성**(P1.5): 후속 질문을 직전 맥락으로 독립 검색어로 재작성(`rag_core.condense_query`/`RAG_QUERY_REWRITE`, 기본 on) — 검색어만 바꾸고 답변·근거는 불변, 실패 시 원 질문 강등. **ERP·서식 연결**(P2.4): 시스템(ERP) 근거 블록에 `(ERP 시스템)` 라벨 + SYSTEM 프롬프트가 메뉴·경로를 답변에 안내(근거에 있을 때만·무환각), 출처 `type`로 UI 🖥 ERP/📄 서식 칩. 섹션 다양성(`_select_diverse`/`RAG_SECTION_DIVERSITY`)은 측정상 무이득(밀집이 이미 섹션 혼합)→기본 off·opt-in. **조문 정제·무결성**(Track A, `docs/18`): 회수 결과에 `article_status.json` 오버레이(`_overlay_article_status`)로 **삭제 조문을 근거에서 강등**(⛔절대규칙1 방어)+효력/최근개정 메타 부착(`RAG_ARTICLE_STATUS`, 재임베딩 불필요), `clause_xref.json`으로 reg 확장(준용/인용) 보강(`RAG_CLAUSE_XREF`). ⚠ **시각 그래프(`/graph`, 문서 `[[ ]]`)는 검색에 미사용** — 검색이 쓰는 그래프 신호는 별표 refs·reg_refs(clause_xref)·행위흐름 typed 인덱스뿐. 품질 트랙=`docs/12-품질강화.md`, 평가 하베스트=`eval/`.
 - 벡터DB: Chroma (`tools/chroma/`, gitignore됨)
 - LLM 서빙(실측): **격리 Ollama v0.31.1**(OpenAI 호환, `127.0.0.1:11436/v1`, PM2 `kei-ollama-v031`, ctx 8K) — vLLM 아님. 공유 Ollama(`11434`, v0.24.0)는 qwen3.5 미지원이라 미사용.
   모델 = `Qwen3.5-9B (Q4_K_M, GGUF, unsloth)`(~5.7GB, apache-2.0). 한국어 답변 검증 완료. NVIDIA 드라이버 535라 CUDA 대신 Vulkan로 GPU 사용(550+ 시 자동 CUDA).
@@ -78,6 +78,12 @@ KEI(한국환경연구원) 행정 초보(신입·전입자)가 "이 업무 어�
 - 용어집: `python tools/01f_terms_to_md.py --src KEI_admin_terms.md --vault KEI-행정가이드`  (행정 용어집 → 30_용어집/ 용어 1개=노트 1개 type:term)
 - 용어링크: `python tools/01g_terms_crosslink.py --vault KEI-행정가이드`  (용어↔ERP 모듈(카테고리)/관련 규정 `[[ ]]` 교차링크 → 그래프 엣지. 01f 다음)
 - 링크:   `python tools/01b_autolink.py --vault KEI-행정가이드`  (규정 상호참조 → `[[ ]]` 그래프 엣지. 가이드도 규정명 멘션이 링크됨)
+- 조문정제(Track A, 원문 재마이닝·재임베딩 불필요, 01b 다음·02 전): 공통 파서 `tools/vault_parse.py`.
+  - 참조그래프: `python tools/01i_clause_xref.py --vault KEI-행정가이드`  (조문↔조문 준용·인용·별표 → `tools/index/clause_xref.json`. reg 확장 보강 + 드로어 준용칩 + Track C 기반)
+  - 정의어:   `python tools/01j_defterms.py --vault KEI-행정가이드`  (규정 원문 정의 바인딩 + 교차 정의충돌 → `defterms.json`)
+  - 조문효력: `python tools/01k_article_status.py --vault KEI-행정가이드`  (삭제조문·개정시계열 → `article_status.json`. rag_core 삭제 강등·효력배지)
+  - 그래프분석(Track C, 01i 다음): `python tools/01l_graph_analytics.py`  (clause_xref 소비 → `graph_analytics.json`: 개정 파급(reverse 전이폐포)·함께 보는 조문(공동인용)·고립노드. 드로어 `graph_impact` 플래그)
+  - 상세 = `docs/18-조문정제-무결성.md`(Track A·C). rag_core 토글 `RAG_ARTICLE_STATUS`(삭제강등·기본on)·`RAG_CLAUSE_XREF`(기본on). 웹 플래그 `article_integrity`(A)·`graph_impact`(C). 인덱스 갱신 후 RAG API 재기동 필요.
 - 임베딩: `python tools/02_chunk_and_embed.py --vault KEI-행정가이드 --db tools/chroma`
 - 질의:   `python tools/03_rag_query.py --db tools/chroma --q "..."`
 - RAG API: `tools/04_rag_api.py` (FastAPI, OpenAI 호환). **PM2 `kei-rag-api`**(uvicorn, 127.0.0.1:9000)로 상시 구동, env로 Ollama 연결(`tools/ecosystem.config.js`). 응답에 `x_sources`(규정명·조·분류·snippet) 포함 → 근거 패널/문서 드로어 연결.

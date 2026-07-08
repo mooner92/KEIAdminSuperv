@@ -197,6 +197,46 @@
 }
 .blList button:hover { text-decoration: underline; }
 
+/* Track A: 조문 참조·정의 패널 (article_integrity 플래그) */
+.trackA {
+  margin-top: var(--space-6);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--color-border);
+}
+.taSec { margin-bottom: var(--space-5); }
+.taHint { margin: 0 0 8px; font-size: 12px; color: var(--color-text-tertiary, var(--color-text-secondary)); line-height: 1.5; }
+.taChips { display: flex; flex-wrap: wrap; gap: 6px; }
+/* 칩은 패널(--color-surface)보다 한 단계 밝은 면으로 띄우고, 본문색으로 고대비 텍스트(다크모드 가독성) */
+.taChip {
+  border: 1px solid var(--color-border-strong); background: var(--color-surface-hover);
+  color: var(--color-text); border-radius: 8px; padding: 4px 9px;
+  font-size: 12.5px; cursor: pointer; text-align: left;
+}
+.taChip:hover { border-color: var(--color-primary); background: var(--color-primary-weak); }
+.taChip:disabled { color: var(--color-text-tertiary); cursor: default; opacity: 1; }
+.taChip:disabled:hover { border-color: var(--color-border-strong); background: var(--color-surface-hover); }
+.taChip b { color: var(--color-text); }
+.taFrom { color: var(--color-text-secondary); font-weight: 700; }
+.taRel {
+  margin-left: 5px; font-size: 10.5px; font-weight: 800;
+  color: var(--color-primary-strong); background: var(--color-primary-weak);
+  border-radius: 999px; padding: 0 6px;
+}
+.taDeleted {
+  font-size: 12.5px; font-weight: 700; border-radius: 8px; padding: 4px 9px;
+  color: var(--color-danger, #e5484d); background: var(--color-danger-weak, rgba(229,72,77,0.12));
+  border: 1px solid var(--color-danger, #e5484d);
+}
+.taAdded {
+  font-size: 12.5px; font-weight: 700; border-radius: 8px; padding: 4px 9px;
+  color: var(--color-text); background: var(--color-surface-hover); border: 1px solid var(--color-border-strong);
+}
+.taDefs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.taDefs li { font-size: 13px; line-height: 1.5; color: var(--color-text-secondary); }
+.taDefs b { color: var(--color-text); }
+.taDefJo { margin: 0 6px; font-size: 11px; color: var(--color-primary); }
+.taDefTxt { color: var(--color-text-secondary); }
+
 @media (max-width: 640px) {
   .panel { width: 100vw; }
   .article { padding: var(--space-5) var(--space-4) var(--space-6); }

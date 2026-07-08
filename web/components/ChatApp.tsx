@@ -81,6 +81,7 @@ export default function ChatApp({
   // #1 피드백: 근거 클릭 시 드로어에서 인용 조문 하이라이트 + 패널 '핵심 근거' 표시 (release 플래그)
   const highlightOn = useFlag("cite_highlight");
   const typeBadges = useFlag("source_type_badges"); // 📜규정(공식)/📘가이드(참고) 출처 성격 구분
+  const integrityOn = useFlag("article_integrity"); // Track A: 조문 효력 배지(⚠삭제됨/개정일)
 
   // 활성 메시지(없으면 마지막 assistant)의 근거를 우측에 표시
   const activeSources: Source[] = useMemo(() => {
@@ -460,6 +461,23 @@ export default function ChatApp({
                       ) : status ? (
                         <span className={styles.stWarn} title="아직 사람 검수 전입니다. 금액·기한은 원문 확인 필요">
                           미검수
+                        </span>
+                      ) : null}
+                      {integrityOn && s.효력 === "삭제" ? (
+                        <span
+                          className={styles.stDeleted}
+                          title={`이 조문은 삭제되어 효력이 없습니다${s.삭제일 ? " · " + s.삭제일 : ""}. 유효 근거로 사용하지 마세요`}
+                        >
+                          ⚠ 삭제됨{s.삭제일 ? ` (${s.삭제일})` : ""}
+                        </span>
+                      ) : integrityOn && s.최근개정 ? (
+                        <span className={styles.stRev} title="이 조문의 최근 개정 시점">
+                          개정 {s.최근개정}
+                        </span>
+                      ) : null}
+                      {integrityOn && s.효력 !== "삭제" && s.신설 ? (
+                        <span className={styles.stRev} title="최근 신설된 조문">
+                          신설
                         </span>
                       ) : null}
                     </span>

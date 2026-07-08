@@ -25,6 +25,8 @@ __pycache__/
 tools/chroma/
 chroma/
 *.sqlite3
+# ── 조문 정제 인덱스(Track A) — 규정 원문 파생물(정의문·규정명·삭제일 등). 재생성 가능, 커밋 금지 ──
+tools/index/
 .cache/
 
 # ── LLM 앱 DB / 비밀키 (사용자·채팅 데이터 + 규정 스니펫 포함 → 커밋 금지) ──

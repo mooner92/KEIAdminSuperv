@@ -36,6 +36,10 @@ export type Source = {
   tag: string;
   snippet: string;
   distance: number;
+  효력?: string; // Track A: 조문 효력(삭제|유효). 삭제면 근거 카드에 '삭제됨' 경고 배지
+  삭제일?: string; // 삭제 조문의 삭제 시점(표시용)
+  최근개정?: string; // 이 조문의 최근 개정일(YYYY.M.D) — 개정 배지
+  신설?: boolean; // 신설 조문 여부
 };
 export type Feedback = "up" | "down" | null;
 export type Message = {
