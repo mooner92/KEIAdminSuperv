@@ -84,7 +84,7 @@ KEI(한국환경연구원) 행정 초보(신입·전입자)가 "이 업무 어�
   - 조문효력: `python tools/01k_article_status.py --vault KEI-행정가이드`  (삭제조문·개정시계열 → `article_status.json`. rag_core 삭제 강등·효력배지)
   - 그래프분석(Track C, 01i 다음): `python tools/01l_graph_analytics.py`  (clause_xref 소비 → `graph_analytics.json`: 개정 파급(reverse 전이폐포)·함께 보는 조문(공동인용)·고립노드. 드로어 `graph_impact` 플래그)
   - 기한(Track B): `python tools/01m_deadlines.py --vault KEI-행정가이드`  (원문 상대기한 ‹기준›+N일 이내 → `deadlines.json`. 드로어 '이 규정의 기한' 패널서 기준일→마감일 순수산술 계산+.ics, `deadline_calc` 플래그. 오프셋 원문 그대로·추측 없음)
-  - 결재선(Track B): `python tools/01n_approval.py --vault KEI-행정가이드`  (위임전결규정 별표 ○-매트릭스 → `approval.json` 335규칙: 업무·직급→전결권자. 위임전결규정 드로어 '결재선 판정기' 패널, `approval_finder` 플래그. 공식 전결기준+"부서 확인" 면책)
+  - 결재선(Track B): `python tools/01n_approval.py --vault KEI-행정가이드`  (위임전결규정 별표 ○-매트릭스 → `approval.json` 335규칙. leaf 분류: 직급 7종만 `대상`, 금액구간 등 조건은 업무 경로 편입. UI = 독립 페이지 `/approval`+상단 메뉴 '결재선'+**채팅 연동**(결재/기안 언급 감지→"결재선 알아볼까요?" 카드→우측 드로어·업무 키워드 프리셋)+직급 localStorage 기억, `approval_finder` 플래그. 공식 전결기준+"부서 확인" 면책)
   - 상세 = `docs/18-조문정제-무결성.md`(Track A·C), 기한·결재선 = `docs/17` Track B. rag_core 토글 `RAG_ARTICLE_STATUS`(삭제강등·기본on)·`RAG_CLAUSE_XREF`(기본on). 웹 플래그 `article_integrity`(A)·`graph_impact`(C)·`deadline_calc`·`approval_finder`(B). 인덱스 갱신 후 RAG API 재기동 필요.
 - 임베딩: `python tools/02_chunk_and_embed.py --vault KEI-행정가이드 --db tools/chroma`
 - 질의:   `python tools/03_rag_query.py --db tools/chroma --q "..."`

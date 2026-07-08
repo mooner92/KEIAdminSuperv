@@ -261,6 +261,20 @@
   border: 1px solid var(--color-danger, #e5484d); border-radius: 999px; padding: 1px 7px;
 }
 .stRev { font-size: 10.5px; font-weight: 700; color: var(--color-text-tertiary, var(--color-text-secondary)); margin-left: 6px; white-space: nowrap; }
+/* 결재선 판정기 제안 카드 — 결재/기안 언급 시 근거 패널 상단 */
+.approvalCta {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  border: 1px solid var(--color-primary); border-radius: 10px;
+  background: var(--color-primary-weak); color: var(--color-text);
+  font-size: 12.5px; line-height: 1.5; padding: 9px 11px; margin-bottom: 10px;
+}
+.approvalCta:hover { border-color: var(--color-primary-strong); }
+.approvalCta b { color: var(--color-primary-strong); }
+.approvalKw {
+  margin-left: 6px; font-size: 11px; font-weight: 800;
+  color: var(--color-on-primary, #fff); background: var(--color-primary);
+  border-radius: 999px; padding: 1px 8px; white-space: nowrap;
+}
 /* '핵심 근거'(리랭커 1위) 배지 — 여러 근거 중 무엇부터 볼지(cite_highlight) */
 .keyBadge {
   display: inline-block; font-size: 10.5px; font-weight: 800;

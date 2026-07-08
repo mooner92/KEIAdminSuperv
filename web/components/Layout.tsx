@@ -17,6 +17,7 @@ export default function Layout({
   fill?: boolean;
 }) {
   const demoBanner = useFlag("demo_banner"); // 기능 플래그 예시(관리자 페이지에서 토글)
+  const approvalNav = useFlag("approval_finder"); // 결재선 판정기 — 상단 메뉴 노출도 플래그로
   // 관리자 링크는 관리자에게만 노출(보안은 백엔드 403로 방어되나, 비관리자/로그아웃엔 링크 숨김)
   const [isAdmin, setIsAdmin] = useState(false);
   useEffect(() => {
@@ -40,6 +41,7 @@ export default function Layout({
             <Link href="/">LLM</Link>
             <Link href="/browse/">규정 둘러보기</Link>
             <Link href="/graph/">관계 그래프</Link>
+            {approvalNav ? <Link href="/approval/">결재선</Link> : null}
           </nav>
           <div className={styles.headerRight}>
             <ThemeToggle />

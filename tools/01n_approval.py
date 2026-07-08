@@ -26,6 +26,9 @@ _MARK = re.compile(r"[○●◯]")
 _TOP = re.compile(r"^[가-힣]\.")       # 가.출장
 _SUB = re.compile(r"^\d+\)")           # 1) 국내 출장
 _LEAF = re.compile(r"^-\s*")           # - 부서장/센터장
+# leaf 행 중 '신청자 직급'인 것(정확 일치). 그 외 leaf(금액구간·문서종류·범위 등)는 조건 → 업무 경로에 편입.
+_ROLE = re.compile(r"^(부원장|부서장/센터장|부서장|센터장|실[･·\s]?팀장|실장|팀장|일반직원|"
+                   r"비정규직(\(연구직\))?|정규직|과제책임자|일용직)$")
 
 
 def _cells(line: str):
@@ -96,8 +99,11 @@ def parse(vault: str):
                 elif lvl_idx in consult_col:
                     협의 = "연/경"
                 is_leaf = bool(_LEAF.match(dut))
-                대상 = re.sub(_LEAF, "", dut).strip() if is_leaf else ""
-                업무 = " > ".join(x for x in [업무top, 업무sub] if x) or (dut if not is_leaf else "")
+                leaf_txt = re.sub(_LEAF, "", dut).strip() if is_leaf else ""
+                # leaf가 직급이면 대상, 아니면 조건(금액구간 등) → 업무 경로 끝에 붙여 검색·표시 가능하게
+                대상 = leaf_txt if (is_leaf and _ROLE.match(leaf_txt)) else ""
+                cond = leaf_txt if (is_leaf and not 대상) else ""
+                업무 = " > ".join(x for x in [업무top, 업무sub, cond] if x) or (dut if not is_leaf else "")
                 rules.append({
                     "구분": 구분, "업무": 업무 or dut, "대상": 대상,
                     "전결권자": 권자, "협의": 협의, "원장": 권자 == "원장",

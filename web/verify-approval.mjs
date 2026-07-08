@@ -1,5 +1,6 @@
-// Track B 결재선 판정기 실렌더 검증 — 위임전결규정 드로어 (dev 3101).
-// 전제: approval_finder 플래그 on + 재빌드 out/(위임전결규정 approval 슬라이스).
+// Track B 결재선 판정기 v2 실렌더 검증 (dev 3101):
+// ① 상단 메뉴 '결재선' + 독립 페이지(/approval) ② 직급 드롭다운 정화(진짜 직급 7개만)
+// ③ 조건(금액구간)은 업무 경로에 편입 ④ 직급 localStorage 기억 ⑤ 위임전결규정 드로어→링크 카드.
 import { chromium } from "playwright";
 const BASE = "http://localhost:3101";
 const fails = [];
@@ -11,36 +12,52 @@ const p = await b.newPage({ viewport: { width: 1440, height: 1300 } });
 const flags = await (await p.request.get(`${BASE}/api/app/flags`)).json();
 ok(flags.approval_finder === true, "1) approval_finder 플래그 on");
 
-await p.goto(`${BASE}/browse`, { waitUntil: "networkidle" });
+// ① 독립 페이지 + 상단 메뉴
+await p.goto(`${BASE}/approval/`, { waitUntil: "networkidle" });
 await p.waitForTimeout(1200);
-await p.locator('input[aria-label="검색"]').first().fill("위임전결규정");
-await p.waitForTimeout(1000);
-await p.getByText("위임전결규정", { exact: true }).first().click();
-await p.waitForTimeout(1300);
+let body = await p.textContent("body");
+ok(body.includes("결재선 판정기") && body.includes("부서에서 확인"), "2) /approval 페이지 + 면책 렌더");
+ok((await p.locator('nav >> text=결재선').count()) > 0, "3) 상단 메뉴에 '결재선' 노출");
 
-const drawer = p.locator('[aria-label="문서 보기"]');
-let body = await drawer.textContent();
-ok(body.includes("결재선 판정기"), "2) '결재선 판정기' 패널 렌더");
-ok(body.includes("부서 확인"), "3) '실무는 부서 확인' 면책 노출");
+// ② 직급 드롭다운 정화 — 진짜 직급만 (금액구간·문서종류 없어야)
+const opts = await p.locator('select[aria-label="신청자 직급"] option').allTextContents();
+const badOpts = opts.filter((o) => /만원|평가서|중요한 사항|부서간|부서내|신청$|계획 수립/.test(o));
+ok(badOpts.length === 0, `4) 드롭다운에 비직급 값 없음 (옵션 ${opts.length}개: ${opts.slice(1).join("·")})`);
+ok(opts.length <= 9, "5) 직급 옵션 수 정상(전체+7직급 이내)");
 
-// 업무 검색 '출장' → 전결권자 표시
-const search = drawer.locator('input[aria-label="업무 검색"]');
-ok((await search.count()) > 0, "4) 업무 검색창 존재");
-await search.fill("출장");
+// ③ 조건 편입 — '가지급금' 검색 시 금액구간이 업무 경로에 보임
+await p.locator('input[aria-label="업무 검색"]').fill("가지급금");
 await p.waitForTimeout(500);
-body = await drawer.textContent();
-ok(body.includes("전결") && /출장/.test(body), "5) '출장' 검색 시 전결권자 결과 표시");
+body = await p.textContent("body");
+ok(/200만원 이하/.test(body) && /전결/.test(body), "6) 금액구간이 업무 경로에 편입되어 결과 표시");
 
-// 직급 필터(비정규직) → 과제책임자 전결 확인
-await drawer.locator('select[aria-label="신청자 직급"]').selectOption({ label: "비정규직(연구직)" }).catch(() => {});
-await p.waitForTimeout(500);
-body = await drawer.textContent();
-ok(/과제책임자/.test(body), "6) 직급 필터(비정규직)→과제책임자 전결 반영");
-
-await drawer.getByText("결재선 판정기").scrollIntoViewIfNeeded().catch(() => {});
+// ④ 직급 선택 → localStorage 기억
+await p.locator('select[aria-label="신청자 직급"]').selectOption({ label: "일반직원" });
 await p.waitForTimeout(300);
-await drawer.screenshot({ path: "verify-approval.png" });
+const saved = await p.evaluate(() => localStorage.getItem("kei-approval-role"));
+ok(saved === "일반직원", "7) 직급 선택이 localStorage에 기억됨");
+await p.reload({ waitUntil: "networkidle" });
+await p.waitForTimeout(1200);
+const roleVal = await p.locator('select[aria-label="신청자 직급"]').inputValue();
+ok(roleVal === "일반직원", "8) 새로고침 후에도 직급 유지");
+
+// 출장+일반직원 → 실·팀장 전결 (별표 정합)
+await p.locator('input[aria-label="업무 검색"]').fill("국내 출장");
+await p.waitForTimeout(500);
+body = await p.textContent("body");
+ok(/실･팀장|실·팀장/.test(body), "9) 국내출장·일반직원 → 실·팀장 전결 표시");
+await p.screenshot({ path: "verify-approval-page.png" });
+
+// ⑤ 위임전결규정 드로어 — 판정기 대신 링크 카드
+await p.goto(`${BASE}/browse`, { waitUntil: "networkidle" });
+await p.waitForTimeout(1000);
+await p.locator('input[aria-label="검색"]').first().fill("위임전결규정");
+await p.waitForTimeout(900);
+await p.getByText("위임전결규정", { exact: true }).first().click();
+await p.waitForTimeout(1200);
+body = await p.locator('[aria-label="문서 보기"]').textContent();
+ok(body.includes("결재선 판정기 열기"), "10) 위임전결규정 드로어에 판정기 링크 카드");
 
 await b.close();
-console.log(fails.length ? "\n❌ " + fails.join(" / ") : "\n✅ 결재선 판정기 검증 통과");
+console.log(fails.length ? "\n❌ " + fails.join(" / ") : "\n✅ 결재선 판정기 v2 검증 통과");
 process.exit(fails.length ? 1 : 0);

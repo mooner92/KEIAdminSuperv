@@ -3,7 +3,6 @@ import Markdown from "./Markdown";
 import type { Doc, SectionKey } from "../lib/vault";
 import { useFlag } from "../lib/flags";
 import DeadlineList, { type Deadline } from "./DeadlineCalc";
-import ApprovalFinder, { type ApprovalRule } from "./ApprovalFinder";
 import styles from "./DocDrawer.module.css";
 
 // Track A(조문 정제) 슬라이스 — 빌드타임 emit-docdata가 부착
@@ -33,7 +32,6 @@ type DrawerDoc = Doc & {
   trackA?: TrackA | null;
   trackC?: TrackC | null;
   deadlines?: Deadline[] | null;
-  approval?: ApprovalRule[] | null;
 };
 
 /**
@@ -273,14 +271,13 @@ export default function DocDrawer({
                 </aside>
               ) : null}
 
-              {approvalOn && doc.approval && doc.approval.length > 0 ? (
+              {approvalOn && doc.title === "위임전결규정" ? (
                 <aside className={styles.trackA}>
-                  <h2 className={styles.blTitle}>결재선 판정기 · 전결권한 {doc.approval.length}건</h2>
+                  <h2 className={styles.blTitle}>결재선 판정기</h2>
                   <p className={styles.taHint}>
-                    업무·직급을 고르면 <b>전결권자</b>(최종 결재)를 별표 그대로 알려줘요. ⚠ 공식 전결기준이며,
-                    실제 결재선(중간 검토자 등)은 부서마다 다를 수 있어요 — 반드시 부서 확인.
+                    이 규정의 별표(전결권한)를 업무·직급으로 조회할 수 있어요 — 상단 메뉴 <b>결재선</b>에서.
                   </p>
-                  <ApprovalFinder rules={doc.approval} />
+                  <a className={styles.taChip} href="/approval/">🖋 결재선 판정기 열기 →</a>
                 </aside>
               ) : null}
 

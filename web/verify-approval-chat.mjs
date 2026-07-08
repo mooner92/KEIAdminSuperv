@@ -1,0 +1,47 @@
+// 결재선 판정기 채팅 연동 검증 (dev 3101):
+// 결재 관련 질문 → 근거 패널에 "결재선을 알아볼까요?" 카드(업무 키워드 감지) → 클릭 시
+// 오른쪽 드로어로 판정기 오픈 + 키워드(휴가) 프리셋 → 결과 표시.
+import { chromium } from "playwright";
+const BASE = "http://localhost:3101";
+const USER = "approvalchat";
+const PW = "test1234";
+const fails = [];
+const ok = (c, m) => { console.log((c ? "✅ " : "❌ ") + m); if (!c) fails.push(m); };
+
+const b = await chromium.launch();
+const ctx = await b.newContext();
+let r = await ctx.request.post(`${BASE}/api/app/auth/register`, { data: { username: USER, password: PW } });
+if (r.status() === 409) r = await ctx.request.post(`${BASE}/api/app/auth/login`, { data: { username: USER, password: PW } });
+ok(r.ok(), `0) 로그인 (${r.status()})`);
+
+const p = await ctx.newPage({ viewport: { width: 1400, height: 1200 } });
+await p.goto(`${BASE}/`, { waitUntil: "load" });
+await p.waitForTimeout(1200);
+await p.click('button:has-text("새 대화")').catch(() => {});
+await p.waitForTimeout(400);
+await p.fill('textarea[placeholder^="행정 업무"]', "휴가 쓰려면 결재 어떻게 올려야 하지?");
+await p.click('button:has-text("보내기")');
+await p.waitForSelector('button[title="도움이 됐어요"]', { timeout: 240000 }).catch(() => {});
+await p.waitForTimeout(1500);
+
+// 제안 카드
+const cta = p.locator("aside button", { hasText: "결재선을 알아볼까요" });
+ok((await cta.count()) > 0, "1) 근거 패널에 '결재선을 알아볼까요?' 제안 카드");
+const ctaText = (await cta.first().textContent()) || "";
+ok(ctaText.includes("휴가"), "2) 질문에서 업무 키워드 '휴가' 감지·표시");
+
+// 클릭 → 드로어 오픈 + 프리셋
+await cta.first().click();
+await p.waitForTimeout(1200);
+const drawer = p.locator('[aria-label="결재선 판정기"]');
+ok((await drawer.count()) > 0, "3) 오른쪽 드로어로 결재선 판정기 오픈");
+const qVal = await drawer.locator('input[aria-label="업무 검색"]').inputValue();
+ok(qVal === "휴가", `4) 검색어 '휴가' 프리셋 (실제: ${qVal})`);
+const body = (await drawer.textContent()) || "";
+ok(/전결/.test(body) && /휴가/.test(body), "5) 휴가 관련 전결 결과 표시");
+ok(body.includes("부서"), "6) '부서 확인' 면책 노출");
+await drawer.screenshot({ path: "verify-approval-chat.png" });
+
+await b.close();
+console.log(fails.length ? "\n❌ " + fails.join(" / ") : "\n✅ 결재선 채팅 연동 검증 통과");
+process.exit(fails.length ? 1 : 0);

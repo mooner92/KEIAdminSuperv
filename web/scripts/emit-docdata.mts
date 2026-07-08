@@ -142,8 +142,6 @@ for (const meta of docs) {
   }));
   const trackA = meta.section === "규정집" ? trackAFor(doc.title) : null;
   const trackC = meta.section === "규정집" ? trackCFor(doc.title) : null;
-  // Track B: 결재선 — 위임전결규정 문서에만 별표 전결규칙 부착
-  const approval = doc.title === "위임전결규정" && apIdx?.rules?.length ? apIdx.rules : null;
   // Track B: 기한 슬라이스 — 계산 가능한 것 우선(마감·anchor 有), 상한 20
   let deadlines = null;
   if (meta.section === "규정집" && dlIdx?.deadlines?.[doc.title]) {
@@ -154,13 +152,20 @@ for (const meta of docs) {
   }
   fs.writeFileSync(
     path.join(OUT, `${meta.slug}.json`),
-    JSON.stringify({ ...doc, backlinks, trackA, trackC, deadlines, approval }),
+    JSON.stringify({ ...doc, backlinks, trackA, trackC, deadlines }),
     "utf-8",
   );
   searchIndex[meta.slug] = searchable(doc.body);
   n++;
 }
 console.log(`Track A: ${trackACount}개 · Track C: ${trackCCount}개 · 기한(B): ${deadlineCount}개 규정 슬라이스 (index=${INDEX_DIR})`);
+// 결재선 판정기 독립 페이지(/approval)·채팅 드로어용 — 전결규칙 전체를 단일 파일로(lazy fetch)
+if (apIdx?.rules?.length) {
+  const apPath = path.resolve(process.cwd(), "out", "approval.json");
+  fs.writeFileSync(apPath, JSON.stringify({ rules: apIdx.rules }), "utf-8");
+  console.log(`approval: ${apIdx.rules.length}개 전결규칙 → ${apPath}`);
+}
+
 const idxPath = path.resolve(process.cwd(), "out", "search-index.json");
 fs.writeFileSync(idxPath, JSON.stringify(searchIndex), "utf-8");
 const kb = Math.round(fs.statSync(idxPath).size / 1024);

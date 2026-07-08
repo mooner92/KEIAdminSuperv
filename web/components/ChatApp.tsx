@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNod
 import Link from "next/link";
 import Markdown from "./Markdown";
 import DocDrawer from "./DocDrawer";
+import ApprovalDrawer from "./ApprovalDrawer";
 import { api, type ChatMeta, type Message, type Source, type User } from "../lib/api";
 import type { DocMeta } from "../lib/vault";
 import { useFlag } from "../lib/flags";
@@ -82,6 +83,8 @@ export default function ChatApp({
   const highlightOn = useFlag("cite_highlight");
   const typeBadges = useFlag("source_type_badges"); // 📜규정(공식)/📘가이드(참고) 출처 성격 구분
   const integrityOn = useFlag("article_integrity"); // Track A: 조문 효력 배지(⚠삭제됨/개정일)
+  const approvalOn = useFlag("approval_finder"); // Track B: 결재 언급 시 근거 패널에 결재선 판정기 제안
+  const [approvalOpen, setApprovalOpen] = useState(false); // 결재선 드로어(우측 슬라이드인)
 
   // 활성 메시지(없으면 마지막 assistant)의 근거를 우측에 표시
   const activeSources: Source[] = useMemo(() => {
@@ -90,6 +93,27 @@ export default function ChatApp({
       [...messages].reverse().find((x) => x.role === "assistant");
     return m?.sources ?? [];
   }, [messages, activeMsgId]);
+
+  // 결재 관련 감지: 활성 assistant 답변 + 직전 user 질문에 결재/기안/상신/전결 언급 시
+  // "결재선 알아볼까요?" 제안. 질문의 업무 키워드(휴가·출장 등)를 판정기 검색어로 프리셋.
+  const APPROVAL_KW = [
+    "국내출장", "해외출장", "시내출장", "출장", "연차", "휴가", "병가", "휴직", "복직", "퇴직",
+    "파견", "연구연수", "교육연수", "연수", "교육", "채용", "겸직", "자문", "강사", "초청",
+    "출판", "구매", "계약", "예산", "여비", "법인카드", "물품", "행사",
+  ];
+  const approvalHint = useMemo(() => {
+    if (!approvalOn || messages.length === 0) return null;
+    const ai =
+      messages.find((x) => x.id === activeMsgId && x.role === "assistant") ||
+      [...messages].reverse().find((x) => x.role === "assistant");
+    if (!ai) return null;
+    const aiIdx = messages.indexOf(ai);
+    const prevUser = [...messages.slice(0, aiIdx)].reverse().find((x) => x.role === "user");
+    const text = `${prevUser?.content || ""}\n${ai.content || ""}`;
+    if (!/결재|기안|상신|전결|품의/.test(text)) return null;
+    const q = (prevUser?.content || "") + (ai.content || "");
+    return { query: APPROVAL_KW.find((k) => q.includes(k)) || "" };
+  }, [approvalOn, messages, activeMsgId]);
 
   useEffect(() => {
     api.listChats().then((list) => {
@@ -410,6 +434,12 @@ export default function ChatApp({
           <span className={styles.srcTitle}>근거 조문</span>
           {activeSources.length > 0 ? <span className={styles.srcCount}>{activeSources.length}</span> : null}
         </div>
+        {approvalHint ? (
+          <button className={styles.approvalCta} onClick={() => setApprovalOpen(true)}>
+            🖋 결재 관련 내용이 언급됐어요 — <b>결재선을 알아볼까요?</b>
+            {approvalHint.query ? <span className={styles.approvalKw}>{approvalHint.query}</span> : null}
+          </button>
+        ) : null}
         {activeSources.length === 0 ? (
           <div className={styles.srcEmpty}>
             질문하면 답변의 근거가 된 규정 조문이 여기에 표시돼요. 지난 답변을 클릭하면 그때의 근거를 다시 볼 수 있습니다.
@@ -500,6 +530,11 @@ export default function ChatApp({
         highlight={highlightOn}
         highlightText={highlightOn ? openSnippet : ""}
         onClose={() => setOpenSlug(null)}
+      />
+      <ApprovalDrawer
+        open={approvalOpen}
+        initialQuery={approvalHint?.query || ""}
+        onClose={() => setApprovalOpen(false)}
       />
     </div>
   );
