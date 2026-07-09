@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import AsyncState from "./AsyncState";
 import { api, type User } from "../lib/api";
 import Login from "./Login";
 import ChatApp from "./ChatApp";
@@ -18,7 +19,7 @@ export default function Assistant({ docs }: { docs: DocMeta[] }) {
       .finally(() => setReady(true));
   }, []);
 
-  if (!ready) return <div className={styles.loading}>불러오는 중…</div>;
+  if (!ready) return <AsyncState loading loadingText="사용자 확인 중…" />;
   if (!user) return <Login onAuthed={setUser} />;
 
   const logout = async () => {

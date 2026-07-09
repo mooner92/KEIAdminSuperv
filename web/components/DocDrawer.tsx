@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import AsyncState from "./AsyncState";
 import Markdown from "./Markdown";
 import type { Doc, SectionKey } from "../lib/vault";
 import { useFlag } from "../lib/flags";
@@ -61,6 +62,7 @@ export default function DocDrawer({
   const [current, setCurrent] = useState<string | null>(slug);
   const [anchor, setAnchor] = useState<string>(initialAnchor);
   const [doc, setDoc] = useState<DrawerDoc | null>(null);
+  const [tick, setTick] = useState(0); // 재시도 트리거(v1 ⑪)
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -97,7 +99,7 @@ export default function DocDrawer({
     return () => {
       alive = false;
     };
-  }, [current]);
+  }, [current, tick]);
 
   // ESC로 닫기 + 열렸을 때 배경 스크롤 잠금
   const open = current != null;
@@ -188,8 +190,7 @@ export default function DocDrawer({
         </div>
 
         <div className={styles.scroll} ref={scrollRef}>
-          {loading ? <div className={styles.state}>불러오는 중…</div> : null}
-          {err ? <div className={styles.state}>{err}</div> : null}
+          <AsyncState loading={loading} error={err} onRetry={() => setTick((t) => t + 1)} />
           {doc ? (
             <article className={styles.article}>
               <header className={styles.head}>

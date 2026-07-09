@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import AsyncState from "./AsyncState";
 import Markdown from "./Markdown";
 import type { Doc, SectionKey } from "../lib/vault";
 import styles from "../styles/Graph.module.css";
@@ -28,6 +29,7 @@ export default function GraphDocPanel({
 }) {
   const [doc, setDoc] = useState<PanelDoc | null>(null);
   const [loading, setLoading] = useState(false);
+  const [tick, setTick] = useState(0); // 재시도(v1 ⑪)
   const [err, setErr] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -55,7 +57,7 @@ export default function GraphDocPanel({
     return () => {
       alive = false;
     };
-  }, [slug]);
+  }, [slug, tick]);
 
   return (
     <aside className={styles.docPanel} aria-label="문서 보기">
@@ -71,9 +73,9 @@ export default function GraphDocPanel({
         </div>
       </div>
       <div className={styles.docScroll} ref={scrollRef}>
-        {loading ? <div className={styles.docState}>불러오는 중…</div> : null}
-        {err ? <div className={styles.docState}>{err}</div> : null}
-        {doc ? (
+        <AsyncState loading={loading} error={err} onRetry={() => setTick((t) => t + 1)} />
+        {false ? <div className={styles.docState} /> : null}
+                {doc ? (
           <article className={styles.docArticle}>
             <div className={styles.docChips}>
               <span className={styles.docChip} data-section={doc.section}>

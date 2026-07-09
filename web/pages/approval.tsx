@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import AsyncState from "../components/AsyncState";
 import Head from "next/head";
 import { SITE_NAME } from "../lib/site";
 import Link from "next/link";
@@ -18,12 +19,14 @@ export default function ApprovalPage() {
   const on = useFlag("approval_finder");
   const [rules, setRules] = useState<ApprovalRule[] | null>(null);
   const [err, setErr] = useState("");
-  useEffect(() => {
+  const load = () => {
+    setErr("");
     fetch("/approval.json")
       .then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
       .then((d) => setRules(d.rules || []))
       .catch(() => setErr("전결규칙 데이터를 불러오지 못했습니다."));
-  }, []);
+  };
+  useEffect(load, []);
   return (
     <Layout fill>
       <Head>
@@ -40,10 +43,8 @@ export default function ApprovalPage() {
       </section>
       {!on ? (
         <p className={styles.lead}>이 기능은 아직 준비 중이에요. (관리자가 켜면 사용할 수 있습니다)</p>
-      ) : err ? (
-        <p className={styles.lead}>{err}</p>
-      ) : rules === null ? (
-        <p className={styles.lead}>불러오는 중…</p>
+      ) : err || rules === null ? (
+        <AsyncState loading={!err} error={err} onRetry={load} />
       ) : (
         <ApprovalExplorer rules={rules} />
       )}

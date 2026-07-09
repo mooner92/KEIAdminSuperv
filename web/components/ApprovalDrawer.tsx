@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import AsyncState from "./AsyncState";
 import Link from "next/link";
 import ApprovalFinder, { type ApprovalRule } from "./ApprovalFinder";
 import docStyles from "./DocDrawer.module.css";
@@ -59,8 +60,8 @@ export default function ApprovalDrawer({
               위임전결규정 별표 기준 <b>전결권자</b>(최종 결재)입니다. ⚠ 실제 결재선(중간 검토자 등)은
               부서마다 다를 수 있어요 — 반드시 부서 확인.
             </p>
-            {err ? <div className={docStyles.state}>{err}</div> : null}
-            {!err && rules === null ? <div className={docStyles.state}>불러오는 중…</div> : null}
+            <AsyncState loading={!err && rules === null} error={err}
+              onRetry={() => { setErr(""); setRules(null); }} />
             {rules !== null ? <ApprovalFinder rules={rules} initialQuery={initialQuery} /> : null}
           </article>
         </div>
