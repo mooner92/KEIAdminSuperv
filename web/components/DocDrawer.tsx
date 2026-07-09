@@ -63,6 +63,9 @@ export default function DocDrawer({
   const [anchor, setAnchor] = useState<string>(initialAnchor);
   const [doc, setDoc] = useState<DrawerDoc | null>(null);
   const [tick, setTick] = useState(0); // 재시도 트리거(v1 ⑪)
+  const upgrades = useFlag("explore_upgrades"); // v1 ⑬(S7): 뒤로 스택·TOC·앵커 유지
+  const [stack, setStack] = useState<{ slug: string; anchor: string }[]>([]); // 내부 탐색 이력(#31)
+  const [toc, setToc] = useState<string[]>([]); // 조문 목차(#30) — 렌더된 id에서 수집
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -71,6 +74,7 @@ export default function DocDrawer({
   useEffect(() => {
     setCurrent(slug);
     setAnchor(initialAnchor);
+    setStack([]); // 새로 열릴 때 내부 이력 초기화(#31)
   }, [slug, initialAnchor]);
 
   // current 변경 → 본문 JSON 로드
@@ -166,9 +170,26 @@ export default function DocDrawer({
     box.scrollTop = 0;
   }, [doc, anchor, highlight, highlightText]);
 
+  // v1 ⑬(S7-#30): 조문 목차 — 렌더된 본문에서 id(제N조/별표) 수집(규정집만 의미 있음)
+  useEffect(() => {
+    if (!upgrades || !doc || !scrollRef.current) { setToc([]); return; }
+    const ids = Array.from(scrollRef.current.querySelectorAll("[id]"))
+      .map((e) => e.id)
+      .filter((id) => /^제\d+조(의\d+)?$/.test(id) || /^별표/.test(id) || /^별지/.test(id));
+    setToc(ids.slice(0, 80));
+  }, [upgrades, doc]);
+
   const goInternal = (s: string, a: string) => {
+    if (current) setStack((prev) => [...prev, { slug: current, anchor }]); // #31: 이력 push
     setCurrent(s);
     setAnchor(a);
+  };
+  const goBack = () => {
+    setStack((prev) => {
+      const last = prev[prev.length - 1];
+      if (last) { setCurrent(last.slug); setAnchor(last.anchor); }
+      return prev.slice(0, -1);
+    });
   };
 
   return (
@@ -176,10 +197,13 @@ export default function DocDrawer({
       <div className={styles.backdrop} onClick={onClose} />
       <aside className={styles.panel} role="dialog" aria-modal="true" aria-label="문서 보기">
         <div className={styles.bar}>
+          {upgrades && stack.length > 0 ? (
+            <button className={styles.backBtn} onClick={goBack} aria-label="이전 문서로">← 뒤로</button>
+          ) : null}
           <span className={styles.barTitle}>{doc ? doc.title : "문서"}</span>
           <div className={styles.barRight}>
             {current ? (
-              <a className={styles.expand} href={`/d/${encodeURIComponent(current)}/`} title="전체 화면으로 열기">
+              <a className={styles.expand} href={`/d/${encodeURIComponent(current)}/${upgrades ? anchor : ""}`} title="전체 화면으로 열기(조문 위치 유지)">
                 ↗ 전체화면
               </a>
             ) : null}
@@ -189,6 +213,16 @@ export default function DocDrawer({
           </div>
         </div>
 
+        {upgrades && toc.length > 1 ? (
+          <div className={styles.tocBar} role="navigation" aria-label="조문 목차">
+            {toc.map((id) => (
+              <button key={id} className={styles.tocChip}
+                onClick={() => scrollRef.current?.querySelector(`[id="${CSS.escape(id)}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" })}>
+                {id}
+              </button>
+            ))}
+          </div>
+        ) : null}
         <div className={styles.scroll} ref={scrollRef}>
           <AsyncState loading={loading} error={err} onRetry={() => setTick((t) => t + 1)} />
           {doc ? (

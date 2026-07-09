@@ -165,6 +165,14 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-10-15",
     },
+    "explore_upgrades": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "탐색 마감(v1 스펙 ⑬⑭/S7) — ⓐ둘러보기 드로어 URL 딥링크(?doc=슬러그, 뒤로가기 연동) "
+                       "ⓑ드로어 내부 탐색 '← 뒤로' 스택 + 전체화면 전환 시 조문 앵커 유지 ⓒ드로어 조문 목차(TOC) 점프 바 "
+                       "ⓓ(⑭) 그래프 노드 검색·결재선→별표 원문 링크. 프론트 전용.",
+        "owner": "platform",
+        "expires": "2026-11-30",
+    },
     "answer_actions": {
         "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
         "description": "답변 액션(v1 스펙 ⑫/S6) — ⓐ📋 복사(본문+출처 목록+기준일 자동 부착) ⓑ답변에 실제 "

@@ -25,6 +25,9 @@ const SCOPE_FIELDS: { key: string; label: string }[] = [
 // 플래그 off일 때 적용되는 고정 범위(기존 동작: 제목+번호+분류)
 const OFF_SCOPE = new Set(["title", "regNo", "category"]);
 
+// v1 ⑬(S7-#28): 공백·중점 무시 정규화 — 결재선 판정기와 동일 규칙('복무 규정'=='복무규정')
+const norm = (s: string) => s.toLowerCase().replace(/[\s･·,]/g, "");
+
 const reviewedOf = (d: DocMeta) => (d.reviewed === "검수완료" ? "검수완료" : "미검수");
 
 type Filters = { section: Set<string>; category: Set<string>; reviewed: Set<string> };
@@ -36,9 +39,28 @@ type Filters = { section: Set<string>; category: Set<string>; reviewed: Set<stri
 export default function Explorer({ docs }: { docs: DocMeta[] }) {
   const { resolved } = useTheme();
   const contentSearchOn = useFlag("content_search");
+  const upgrades = useFlag("explore_upgrades"); // v1 ⑬(S7): URL 딥링크 등
   const [q, setQ] = useState("");
   const [f, setF] = useState<Filters>({ section: new Set(), category: new Set(), reviewed: new Set() });
-  const [openSlug, setOpenSlug] = useState<string | null>(null);
+  const [openSlug, setOpenSlugRaw] = useState<string | null>(null);
+  // v1 ⑬(S7-#27): 드로어 상태 URL 동기화(?doc=슬러그) — 딥링크 공유·브라우저 뒤로가기 연동(flag)
+  const setOpenSlug = (slug: string | null) => {
+    setOpenSlugRaw(slug);
+    if (!upgrades || typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (slug) url.searchParams.set("doc", slug);
+    else url.searchParams.delete("doc");
+    window.history.pushState({ doc: slug }, "", url.toString());
+  };
+  useEffect(() => {
+    if (!upgrades || typeof window === "undefined") return;
+    const init = new URL(window.location.href).searchParams.get("doc");
+    if (init) setOpenSlugRaw(init); // 딥링크 진입
+    const onPop = () => setOpenSlugRaw(new URL(window.location.href).searchParams.get("doc"));
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [upgrades]);
   const [pageSize, setPageSize] = useState(30);
   const [page, setPage] = useState(1);
   const listRef = useRef<HTMLUListElement>(null);
@@ -80,7 +102,10 @@ export default function Explorer({ docs }: { docs: DocMeta[] }) {
     if (activeScope.has("title")) meta.push(d.title);
     if (activeScope.has("regNo")) meta.push(d.regNo);
     if (activeScope.has("category")) meta.push(d.category);
-    if (meta.join(" ").toLowerCase().includes(needle)) return true;
+    // 메타 필드는 norm 토큰 AND('복무 규정'→'복무규정' 매칭, #28) — 내용 인덱스는 기존 부분일치 유지
+    const hay = norm(meta.join(" "));
+    const tokens = needle.split(/\s+/).map(norm).filter(Boolean);
+    if (tokens.length && tokens.every((t) => hay.includes(t))) return true;
     if (activeScope.has("content") && index && (index[d.slug] || "").includes(needle)) return true;
     return false;
   };
@@ -148,6 +173,15 @@ export default function Explorer({ docs }: { docs: DocMeta[] }) {
 
   const activeCount = f.section.size + f.category.size + f.reviewed.size;
   const reset = () => setF({ section: new Set(), category: new Set(), reviewed: new Set() });
+
+  // v1 ⑬(S7-#28): 검색어와 겹치는 제목 부분 <mark> 강조(첫 토큰 기준, 공백 무시 근사)
+  const markTitle = (title: string): React.ReactNode => {
+    const t = q.trim().split(/\s+/)[0] || "";
+    if (!t) return title;
+    const i = title.toLowerCase().indexOf(t.toLowerCase());
+    if (i < 0) return title;
+    return (<>{title.slice(0, i)}<mark className={styles.hl}>{title.slice(i, i + t.length)}</mark>{title.slice(i + t.length)}</>);
+  };
 
   const Check = ({ group, value, label }: { group: keyof Filters; value: string; label: string }) => {
     const n = countFor(group, value);
@@ -269,7 +303,7 @@ export default function Explorer({ docs }: { docs: DocMeta[] }) {
               <button className={styles.row} onClick={() => setOpenSlug(d.slug)}>
                 <span className={styles.regno}>{d.regNo || "—"}</span>
                 <span className={styles.main}>
-                  <span className={styles.title}>{d.title}</span>
+                  <span className={styles.title}>{markTitle(d.title)}</span>
                   <span className={styles.sub}>
                     <span className={styles.chip} data-section={d.section}>
                       {SECTION_LABEL[d.section]}
