@@ -110,7 +110,7 @@ def chat(req: ChatReq):
     tags = [s["tag"] for s in srcs]
     try:
         answer = rag_core.answer(user_msg, context, history, temperature=req.temperature or 0.1)
-        note = rag_core.numeric_guard_note(user_msg, answer, context)  # P0-1 수치 게이트(docs/22)
+        note = rag_core.post_answer_notes(user_msg, answer, context, srcs)  # P0-1 수치 + P0-4 귀속(docs/22)
         if note:
             answer = answer.rstrip() + "\n\n" + note
     except Exception as e:

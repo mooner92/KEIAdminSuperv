@@ -684,7 +684,7 @@ export default function ChatApp({
                           신설
                         </span>
                       ) : null}
-                      {integrityOn && s.표깨짐 ? (
+                      {integrityOn && !cardV2 && s.표깨짐 ? (
                         <span
                           className={styles.stDeleted}
                           title="이 문서의 표가 변환 과정에서 손상되어 항목-값 짝이 어긋날 수 있어요. 금액·일수는 반드시 원문 표에서 확인하세요"
@@ -730,7 +730,7 @@ export default function ChatApp({
                           s.graph_expand_action ? "🔗 후속단계 자동첨부" : "",
                           s.graph_expand_gian ? "🔗 기안 자동첨부" : "",
                           s.scope_anchor ? "🔗 적용범위 자동첨부" : "",
-                          s.표깨짐 ? "⚠ 표 확인" : "",
+                          integrityOn && s.표깨짐 ? "⚠ 표 확인" : "",
                         ].filter(Boolean).join(" · ")}
                       </span>
                     ) : s.분류 ? (

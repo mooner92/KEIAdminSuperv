@@ -117,8 +117,9 @@ def _graph_expand_actions_on() -> bool:
 KEEP_ALIVE = os.environ.get("OLLAMA_KEEP_ALIVE", "-1")
 # 컨텍스트 예산(문자) — 큰 청크(출판편람 표 등)가 top-k에 몰리면 ctx 8K 초과로 Ollama 400(빈답변)이 난다.
 # 순위 높은 블록부터 담다가 예산 초과 시 마지막 블록을 절단하고 이후는 버린다(SYSTEM·멀티턴·답변 여유 확보).
-# 한글 대략 1.2자/토큰 → 6500자 ≈ 5400토큰. SYSTEM(~1300)+답변 여유까지 8K 안에 든다.
-CTX_MAX_CHARS = int(os.environ.get("RAG_CTX_MAX_CHARS", "6500"))
+# 한글 대략 1.2자/토큰 → 6000자 ≈ 5000토큰. P0 규칙 추가로 SYSTEM≈2600자(≈2160토큰)까지 커져
+# 예산을 6500→6000으로 하향(멀티턴 재생+생성 여유 ~1000토큰 확보, 적대 리뷰 산술 반영).
+CTX_MAX_CHARS = int(os.environ.get("RAG_CTX_MAX_CHARS", "6000"))
 
 
 def _cap_blocks(blocks):
@@ -320,33 +321,81 @@ SCOPE_ANCHOR_MAX_REGS = int(os.environ.get("RAG_SCOPE_ANCHOR_MAX_REGS", "2"))  #
 
 TABLE_BROKEN_MARK = "⚠표손상"  # P0-3 오버레이가 블록 헤더에 붙이는 마커 — 게이트 허용집합에서 제외
 
-_MULT = {"억": 100_000_000, "만": 10_000, "천": 1_000}
+# 화폐 승수(적대 리뷰 반영: 천만·백만 연쇄 — '2천만원'·'1억 6천만원'·'5백만 원'은 계약 한도류 실코퍼스 표기)
+_MULT = {"억": 100_000_000, "천만": 10_000_000, "백만": 1_000_000, "십만": 100_000,
+         "만": 10_000, "천": 1_000, "백": 100}
 # 게이트 대상 단위(화폐·비율·기간). 회·명·건·개는 서수·개수라 오탐 많아 제외.
-_AMT_RE = re.compile(r"(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)\s*(억|만|천)?\s*(원|퍼센트|%|일|박|개월|주|년|시간)")
-_AMT_COMPOSITE_RE = re.compile(r"(\d+)\s*(억|만)\s*(\d+)\s*(만|천)\s*원")  # 3만5천원, 1억2천만원
+_AMT_RE = re.compile(r"(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)\s*(억|천만|백만|십만|만|천|백)?\s*(원|퍼센트|%|일|박|개월|주|년|시간)")
+# 한글 수사 연쇄 화폐: '1억 2천만원', '3만5천원', '5백만 원' — 승수 토큰 1개 이상 + 꼬리 무승수 숫자 허용('1만 2000원')
+_KO_MONEY_RE = re.compile(r"((?:\d+(?:,\d{3})*\s*(?:억|천만|백만|십만|만|천|백)\s*)+(?:\d+(?:,\d{3})*\s*)?)원")
+_KO_TOKEN_RE = re.compile(r"(\d+(?:,\d{3})*)\s*(억|천만|백만|십만|만|천|백)?")
 _FRACTION_RE = re.compile(r"(\d+)\s*분의\s*(\d+)")  # 10분의 3 → 30%
 _MD_RE = re.compile(r"(\d{1,2})\s*월\s*(\d{1,2})\s*일")  # 1월 18일 → 날짜쌍
-# 인용·식별 번호류(수치 검증 대상 아님) — 추출 전에 마스킹
+_MD_DOT_RE = re.compile(r"(?<![\d.])(\d{1,2})\s*\.\s*(\d{1,2})\s*\.(?!\s*\d)")  # 12. 29. (무연도 점표기)
+# 연도 포함 전체 날짜 — 마스킹 대신 (월,일) 쌍으로 '보존' 추출(리뷰: 통마스킹은 조작 날짜의 게이트 우회)
+_FULLDATE_RE = re.compile(r"(?:19|20)\d{2}\s*[.년]\s*(\d{1,2})\s*[.월]\s*(\d{1,2})\s*\.?\s*일?")
+# 범위·괄호 병기 전개: '3~5일' → '3일 5일', '20(25)일' → '20일 25일' (리뷰: 재서술 과차단 방지)
+_RANGE_RE = re.compile(r"(\d+(?:,\d{3})*)\s*[~∼]\s*(\d+(?:,\d{3})*)\s*(원|퍼센트|%|일|박|개월|주|년|시간)")
+_PAREN_RE = re.compile(r"(\d+(?:,\d{3})*)\s*\(\s*(\d+(?:,\d{3})*)\s*\)\s*(원|퍼센트|%|일|박|개월|주|년|시간)")
+# 인용·식별 번호류(수치 검증 대상 아님) — 추출 전에 마스킹.
+# ⚠ 연도는 '년'이 따라오거나, 화폐·기간 단위가 '안' 따라올 때만(리뷰: '2000원'을 연도로 삼키는 결함).
 _NUM_MASK_RE = re.compile(
     r"제\s*\d+\s*조(?:의\s*\d+)?|제\s*\d+\s*항|제\s*\d+\s*호|별\s*표\s*\d+|별\s*지\s*제?\s*\d+\s*호?"
-    r"|\d{4}\s*[.년]\s*\d{1,2}\s*[.월]\s*\d{1,2}\s*\.?\s*일?"  # 연월일(개정 2023. 12. 29. 등)
-    r"|(?:19|20)\d{2}\s*년?"                                     # 연도
+    r"|(?:19|20)\d{2}\s*년|(?:19|20)\d{2}(?![\d,.]|\s*(?:원|억|천만|백만|십만|만|천|백|퍼센트|%|일|개월|주|시간|박))"
     r"|[a-zA-Z]{2,4}_\d{3,5}[A-Za-z]?"                           # ERP 메뉴코드(gen_0020M)
     r"|☎\s*[\d-]+|\d{2,4}-\d{3,4}(?:-\d{4})?"                   # 내선·전화
 )
 
+_DUR_UNITS = ("일", "박", "개월", "주", "년", "시간")
+
+
+def _parse_ko_money(s: str) -> float:
+    """한글 수사 연쇄 파싱: '1억 2천만'→1.2e8, '3만5천'→35000, '1만 2000'→12000."""
+    total = 0.0
+    for m in _KO_TOKEN_RE.finditer(s):
+        if not m.group(1):
+            continue
+        total += float(m.group(1).replace(",", "")) * _MULT.get(m.group(2) or "", 1)
+    return total
+
+
+def _pre_expand(t: str) -> str:
+    """범위(3~5일)·괄호 병기(20(25)일)를 개별 값으로 전개 — 양쪽 값 모두 추출되게."""
+    t = _RANGE_RE.sub(lambda m: f"{m.group(1)}{m.group(3)} {m.group(2)}{m.group(3)}", t)
+    t = _PAREN_RE.sub(lambda m: f"{m.group(1)}{m.group(3)} {m.group(2)}{m.group(3)}", t)
+    return t
+
 
 def _num_values(text: str):
     """텍스트에서 (종류, 정규화값) 집합 추출. 종류: 원|%|일|박|개월|주|년|시간|날짜."""
-    t = _NUM_MASK_RE.sub(" ", text or "")
+    t = _pre_expand(text or "")
     out = set()
-    for m in _AMT_COMPOSITE_RE.finditer(t):  # 복합 화폐 먼저(부분 매칭 방지 위해 마스킹)
-        v = int(m.group(1)) * _MULT[m.group(2)] + int(m.group(3)) * _MULT[m.group(4)]
-        out.add(("원", float(v)))
-    t = _AMT_COMPOSITE_RE.sub(" ", t)
+    # 날짜: 연도 포함 → (월,일) 쌍 보존 후 제거(리뷰: 통마스킹은 조작 날짜의 게이트 우회).
+    # 단 '개정/신설/시행 …' 인접 날짜는 조문 인용 표기라 검증 대상에서 제외(기존 동작 유지).
+    for m in _FULLDATE_RE.finditer(t):
+        lead = t[max(0, m.start() - 8): m.start()]
+        if any(w in lead for w in ("개정", "신설", "제정", "시행", "폐지", "공포", "전문")):
+            continue
+        mo, d = int(m.group(1)), int(m.group(2))
+        if 1 <= mo <= 12 and 1 <= d <= 31:
+            out.add(("날짜", (mo, d)))
+    t = _FULLDATE_RE.sub(" ", t)
+    t = _NUM_MASK_RE.sub(" ", t)
     for m in _MD_RE.finditer(t):
-        out.add(("날짜", (int(m.group(1)), int(m.group(2)))))
+        mo, d = int(m.group(1)), int(m.group(2))
+        if 1 <= mo <= 12 and 1 <= d <= 31:
+            out.add(("날짜", (mo, d)))
     t = _MD_RE.sub(" ", t)
+    for m in _MD_DOT_RE.finditer(t):
+        mo, d = int(m.group(1)), int(m.group(2))
+        if 1 <= mo <= 12 and 1 <= d <= 31:
+            out.add(("날짜", (mo, d)))
+            t = t.replace(m.group(0), " ", 1)
+    # 한글 수사 연쇄 화폐(승수 토큰 필수 — '35,000원'은 아래 _AMT_RE가 담당)
+    def _grab_money(m):
+        out.add(("원", round(_parse_ko_money(m.group(1)), 4)))
+        return " "
+    t = _KO_MONEY_RE.sub(_grab_money, t)
     for m in _FRACTION_RE.finditer(t):
         den, num = int(m.group(1)), int(m.group(2))
         if den:
@@ -360,51 +409,74 @@ def _num_values(text: str):
     return out
 
 
-def _calc_line_results(text: str, allowed: set):
-    """'A × B = C'/'A + B = C' 꼴 라인에서, 피연산자가 전부 검증되고 산술이 맞으면 결과 C를 허용집합에 추가.
+def _seq_values(fragment: str) -> list:
+    """계산식 조각에서 수치 '값'들을 순서대로(집합 아님) — 화폐 연쇄는 합산 1값."""
+    t = _NUM_MASK_RE.sub(" ", _pre_expand(fragment or ""))
+    t = _FULLDATE_RE.sub(" ", t)
+    vals = []
+
+    def _grab(m):
+        vals.append(round(_parse_ko_money(m.group(1)), 4))
+        return " "
+    t = _KO_MONEY_RE.sub(_grab, t)
+    for m in _AMT_RE.finditer(t):
+        vals.append(round(float(m.group(1).replace(",", "")) * _MULT.get(m.group(2) or "", 1), 4))
+    return vals
+
+
+def _calc_line_results(text: str, allowed_vals: set) -> set:
+    """계산식 라인의 결과값 허용(리뷰 반영: '='로 좌우 분할 — 좌변=피연산자·우변 첫 값=결과,
+    연산자 종류(×·+·÷)에 맞는 산술만 인정, 결과 뒤 부연 숫자는 무시).
     (SYSTEM 규칙 10 '계산식을 보여라'와 정합 — 식 없이 던진 합계는 경고 대상으로 남는다.)"""
     import math
-    extra = set()
+    ok = set()
     for line in (text or "").splitlines():
-        if "=" not in line or not any(op in line for op in ("×", "*", "x", "+")):
+        if "=" not in line:
             continue
-        vals = [v for v in _num_values(line) if v[0] != "날짜"]
-        # 등장 순서 근사: 라인 재추출(집합은 순서 상실) — 값 리스트로 다시
-        seq = []
-        masked = _NUM_MASK_RE.sub(" ", line)
-        for m in _AMT_RE.finditer(_MD_RE.sub(" ", masked)):
-            v = float(m.group(1).replace(",", "")) * _MULT.get(m.group(2) or "", 1)
-            seq.append(round(v, 4))
-        if len(seq) < 3:
+        left, _, right = line.partition("=")
+        has_mul = any(op in left for op in ("×", "*", "✕", "ｘ", " x "))
+        has_add = "+" in left
+        has_div = any(op in left for op in ("÷", "/"))
+        if not (has_mul or has_add or has_div):
             continue
-        *ops, result = seq
-        # 피연산자 검증: 단위 무관 값 기준(일비 1만'원' × 3'일')
-        allowed_vals = {v for _, v in allowed if not isinstance(v, tuple)}
+        ops = _seq_values(left)
+        rvals = _seq_values(right)
+        if len(ops) < 2 or not rvals:
+            continue
+        result = rvals[0]
         if not all(any(math.isclose(o, a, rel_tol=1e-9) for a in allowed_vals) for o in ops):
             continue
-        prod = math.prod(ops)
-        tot = sum(ops)
-        if math.isclose(prod, result, rel_tol=1e-9) or math.isclose(tot, result, rel_tol=1e-9):
-            extra.add(("원", result))
-            extra.add(("일", result))  # 단위 불문 결과 허용(합산 일수 등)
-            extra.update({(u, result) for u in ("%", "개월", "주", "년", "시간", "박")})
-    return extra
+        cands = []
+        if has_mul:
+            cands.append(math.prod(ops))
+        if has_add:
+            cands.append(sum(ops))
+        if has_div and len(ops) >= 2 and all(ops[1:]):
+            d = ops[0]
+            for o in ops[1:]:
+                d /= o
+            cands.append(d)
+        if any(math.isclose(c, result, rel_tol=1e-9, abs_tol=0.51) for c in cands):
+            ok.add(result)
+    return ok
 
 
 def _verification_context(context: str) -> str:
-    """허용집합에 쓸 컨텍스트 — 표손상(P0-3) 마커가 붙은 블록은 제외(깨진 표의 값은 오결합 위험)."""
-    segs, skip = [], False
-    for line in (context or "").splitlines():
-        if line.startswith("[") and line.rstrip().endswith("]"):
-            skip = TABLE_BROKEN_MARK in line
-        if not skip:
-            segs.append(line)
-    return "\n".join(segs)
+    """허용집합에 쓸 컨텍스트 — 표손상(P0-3) 마커가 붙은 블록은 제외(깨진 표의 값은 오결합 위험).
+    리뷰 반영: 라인 스캔은 본문의 단독 '[별표 1]'/'[IMAGE]' 라인에 속아 제외가 풀림 —
+    retrieve의 블록 구분자('\\n\\n---\\n\\n')로 분할해 각 블록의 '첫 줄'만 헤더로 판정한다."""
+    keep = []
+    for block in (context or "").split("\n\n---\n\n"):
+        head = block.split("\n", 1)[0]
+        if TABLE_BROKEN_MARK in head:
+            continue
+        keep.append(block)
+    return "\n\n---\n\n".join(keep)
 
 
-# lookahead 주의: 나열 쉼표("100,000, 광역시")는 허용하되 천단위 그룹 중간(",000")·소수점 진행은 차단
 # lookahead 주의: 나열 쉼표("100,000, 광역시")는 허용하되 천단위 그룹 중간(",000")·소수점 진행은 차단
 _BARE_NUM_RE = re.compile(r"(?<![\d.,])(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)(?!\d)(?!,\d{3})(?!\.\d)")
+_SEQ_COL_RE = re.compile(r"번호|순번|연번|No\.?|NO\.?")  # 표의 순번 열 — 수확 제외(리뷰: 1~n 정수 면제 방지)
 
 
 # ── P0-3 표 무결성 격리 (docs/22 §2) ────────────────────────────────────
@@ -474,14 +546,69 @@ def _overlay_table_integrity(srcs, blocks):
 def _bare_table_values(text: str) -> set:
     """표 행(| 셀 |)의 '무단위 숫자'를 허용값으로 수확 — 표는 단위가 헤더에 있고 셀엔 값만 남는
     경우가 흔해(휴가 '5 1', 여비 '100,000'), 단위 필수 추출만으론 정상 인용을 과차단한다.
-    표손상 블록은 _verification_context에서 이미 제외된 뒤에 호출된다."""
+    표손상 블록은 _verification_context에서 이미 제외된 뒤에 호출된다.
+    리뷰 반영: 헤더가 '번호/순번/연번'인 열은 제외 — 순번 1~n이 소수치 조작을 면제해 주는 FN 방지."""
     out = set()
+    skip_cols: set = set()
     for line in (text or "").splitlines():
         if "|" not in line:
+            skip_cols = set()  # 표가 끝나면 열 정보 초기화
             continue
-        for m in _BARE_NUM_RE.finditer(_NUM_MASK_RE.sub(" ", line)):
-            out.add(round(float(m.group(1).replace(",", "")), 4))
+        cells = [c.strip() for c in line.split("|")]
+        seq_cols = {i for i, c in enumerate(cells) if _SEQ_COL_RE.fullmatch(c)}
+        if seq_cols:  # 헤더 행 — 순번 열 위치 기억, 헤더 자체는 수확 없음
+            skip_cols = seq_cols
+            continue
+        for i, c in enumerate(cells):
+            if i in skip_cols:
+                continue
+            for m in _BARE_NUM_RE.finditer(_NUM_MASK_RE.sub(" ", c)):
+                out.add(round(float(m.group(1).replace(",", "")), 4))
     return out
+
+
+# ── P0-4 시스템 귀속 백스톱 (docs/22 §4) ────────────────────────────────
+# 프롬프트 규칙 7(소속 시스템 라벨 준수)은 확률적 — 실측에서 temp 0.1 변동으로 '문서수발'을
+# 전자결재/ERP에 오귀속하는 표본 발생. 근거의 모듈→소속 시스템 맵과 답변을 대조해 결정적으로 교정한다.
+_SYS_NAMES = ("ERP", "행정관리시스템", "그룹웨어", "연구관리시스템", "PMS", "대외업무관리시스템",
+              "대외업무", "웹디스크", "통합포털", "EIP", "웹메일", "전자도서관", "전자결재")
+
+
+def system_attribution_note(answer: str, sources) -> str:
+    """답변 속 '<다른 시스템>의 <모듈>' 오귀속을 감지해 교정 문구 반환("" = 문제 없음)."""
+    try:
+        mod2sys = {}
+        for s in sources or []:
+            if (s.get("type") or "") != "system":
+                continue
+            name = s.get("규정명") or ""
+            if " · " in name:
+                sysname, mod = (p.strip() for p in name.split(" · ", 1))
+                if len(mod) >= 2 and not any(x in mod for x in ("공통", "개요")):
+                    mod2sys[mod] = sysname
+        fixes = []
+        for mod, true_sys in mod2sys.items():
+            # 리뷰 반영: 전 등장 창을 먼저 수집 — 한 곳이라도 올바르게 귀속했으면 경고하지 않는다.
+            wins = [(answer or "")[max(0, m.start() - 40): m.end() + 40]
+                    for m in re.finditer(re.escape(mod), answer or "")]
+            if not wins or any(true_sys in w for w in wins):
+                continue
+            # 리뷰 반영: 모듈명 자체에 포함된 시스템 토큰(예: '전자결재 기안'의 '전자결재')은 오귀속 신호 아님
+            others = [o for o in _SYS_NAMES if o not in mod and o not in true_sys and true_sys not in o]
+            if any(o in w for w in wins for o in others):
+                fixes.append(f"'{mod}'의 소속 시스템은 근거 기준 **{true_sys}**입니다")
+        if not fixes:
+            return ""
+        return "⚠️ **시스템 확인**: " + " · ".join(dict.fromkeys(fixes)) + ". 메뉴 위치는 해당 시스템에서 확인하세요."
+    except Exception:  # noqa: BLE001 — 백스톱 오류가 답변을 막지 않게
+        return ""
+
+
+def post_answer_notes(question: str, answer: str, context: str, sources=None) -> str:
+    """생성 직후 결정적 후검증 노트 묶음(P0-1 수치 + P0-4 귀속). ""면 이상 없음."""
+    notes = [n for n in (numeric_guard_note(question, answer, context),
+                         system_attribution_note(answer, sources)) if n]
+    return "\n\n".join(notes)
 
 
 def numeric_guard_note(question: str, answer: str, context: str) -> str:
@@ -489,19 +616,24 @@ def numeric_guard_note(question: str, answer: str, context: str) -> str:
     if not NUM_GATE or not (answer or "").strip():
         return ""
     try:
+        import math
         vctx = _verification_context(context)
         allowed = _num_values(vctx) | _num_values(question)
-        allowed |= {("무단위", v) for v in _bare_table_values(vctx)}  # 표 셀의 단위 생략 값
-        allowed |= _calc_line_results(answer, allowed)
-        import math
-        allowed_vals = {v for _, v in allowed if not isinstance(v, tuple)}
+        bare_vals = _bare_table_values(vctx)  # 표 셀의 단위 생략 값(종류 불명 → 값 폴백)
+        all_vals = {v for k, v in allowed if k != "날짜"} | bare_vals
+        calc_ok = _calc_line_results(answer, all_vals)
         allowed_dates = {v for k, v in allowed if k == "날짜"}
         bad = []
         for kind, v in sorted(_num_values(answer), key=str):
             if kind == "날짜":
                 ok = v in allowed_dates
             else:
-                ok = any(math.isclose(v, a, rel_tol=1e-9) for a in allowed_vals if not isinstance(a, tuple))
+                # 리뷰 반영(단위 인식): 같은 '종류'끼리만 매칭(근거의 5일이 답변의 5%를 면제하지 않게),
+                # 무단위 표값·검증된 계산 결과는 값 폴백
+                ok = (any(k == kind and math.isclose(v, a, rel_tol=1e-9)
+                          for k, a in allowed if k != "날짜")
+                      or any(math.isclose(v, a, rel_tol=1e-9) for a in bare_vals)
+                      or any(math.isclose(v, a, rel_tol=1e-9) for a in calc_ok))
             if not ok:
                 if kind == "날짜":
                     bad.append(f"{v[0]}월 {v[1]}일")

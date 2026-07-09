@@ -1081,7 +1081,7 @@ def post_message(cid: int, body: MsgIn, stream: bool = False, user: User = Depen
     if not stream:
         try:
             ans = rag_core.answer(q, context, history)
-            note = rag_core.numeric_guard_note(q, ans, context)  # P0-1 수치 게이트(docs/22)
+            note = rag_core.post_answer_notes(q, ans, context, sources)  # P0-1 수치 + P0-4 귀속(docs/22)
             if note:
                 ans = ans.rstrip() + "\n\n" + note
         except Exception as e:
@@ -1125,7 +1125,7 @@ def post_message(cid: int, body: MsgIn, stream: bool = False, user: User = Depen
         full = finalize_stream_text("".join(acc), err)
         # P0-1 수치 게이트(docs/22): 스트림은 이미 방출된 토큰을 회수할 수 없으므로 사후 경고를 델타로 부착
         try:
-            note = rag_core.numeric_guard_note(q, full, context)
+            note = rag_core.post_answer_notes(q, full, context, sources)
         except Exception:  # noqa: BLE001 — 게이트 오류가 답변을 막지 않게
             note = ""
         if note:

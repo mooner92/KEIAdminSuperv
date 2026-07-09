@@ -127,3 +127,4 @@ tools/chroma.bak-*/
 tools/chroma.pre-rollback-*/
 chroma.bak-*/
 chroma.pre-rollback-*/
+tsconfig.tsbuildinfo
