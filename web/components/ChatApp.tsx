@@ -15,7 +15,17 @@ const EXAMPLES = [
   "연차휴가는 어떻게 신청하나요?",
   "초과근무 수당 지급 기준이 궁금해요.",
 ];
-const STREAM_ID = -3; // 스트리밍 중인 assistant 메시지의 임시 id
+const STREAM_ID = -3;
+
+// 간단 타임스탬프: 오늘이면 "오후 2:31", 이전이면 "7/8" (요청: 간단하게만)
+function fmtT(ts?: number): string {
+  if (!ts) return "";
+  const d = new Date(ts * 1000);
+  const now = new Date();
+  if (d.toDateString() === now.toDateString())
+    return d.toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit" });
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+} // 스트리밍 중인 assistant 메시지의 임시 id
 
 // 금액·한도 신뢰 강화: 답변에 금액/한도가 있으면 "원문에서 수치 확인" 안내 + 근거 스니펫의 수치 강조.
 // ⛔ 생성 텍스트의 숫자는 검증 대상 — 사용자가 원문 표/조문을 직접 보도록 유도한다(절대 규칙 1).
@@ -386,6 +396,7 @@ export default function ChatApp({
               onClick={() => selectChat(c.id)}
             >
               <span className={styles.chatTitle}>{c.title}</span>
+              <span className={styles.chatTime}>{fmtT(c.updated_at)}</span>
               <span className={styles.del} onClick={(e) => removeChat(c.id, e)} title="삭제">
                 ✕
               </span>
@@ -424,11 +435,14 @@ export default function ChatApp({
               {messages.map((m) =>
                 m.role === "user" ? (
                   <li key={m.id} className={styles.userRow}>
+                    {fmtT(m.created_at) ? <span className={styles.msgTime}>{fmtT(m.created_at)}</span> : null}
                     <div className={styles.userBubble}>{m.content}</div>
                   </li>
                 ) : (
                   <li key={m.id} className={styles.aiRow}>
-                    <span className={styles.aiTag}>LLM</span>
+                    <span className={styles.aiTag}>
+                      LLM{fmtT(m.created_at) ? <span className={styles.msgTime}> · {fmtT(m.created_at)}</span> : null}
+                    </span>
                     <div
                       className={`${styles.aiBubble} ${m.id === activeMsgId ? styles.aiActive : ""} ${
                         m.sources.length ? styles.aiClickable : ""

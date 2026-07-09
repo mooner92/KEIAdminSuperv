@@ -383,3 +383,8 @@
   margin-top: 6px; font-size: 12px; line-height: 1.5; color: var(--color-text-secondary);
   border-left: 2px solid var(--color-border-strong); padding-left: 8px;
 }
+
+/* 타임스탬프(간단) — 메시지·채팅 목록 */
+.msgTime { flex: 0 0 auto; align-self: flex-end; font-size: 10.5px; color: var(--color-text-tertiary); margin: 0 6px 4px 0; font-weight: 500; white-space: nowrap; }
+.aiTag .msgTime { align-self: auto; margin: 0; }
+.chatTime { flex: 0 0 auto; font-size: 10px; color: var(--color-text-tertiary); white-space: nowrap; }
