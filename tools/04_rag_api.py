@@ -70,9 +70,23 @@ class ChatReq(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "collection": rag_core.COLLECTION, "model_id": MODEL_ID,
-            "embed_model": rag_core.EMBED_MODEL, "llm_base": rag_core.VLLM_BASE,
-            "llm": rag_core.LLM_MODEL}
+    """헬스체크(v1 ⑮/#49 심층화): 컬렉션 카운트 + Ollama 핑 + 조문 인덱스 로드 상태."""
+    out = {"status": "ok", "collection": rag_core.COLLECTION, "model_id": MODEL_ID,
+           "embed_model": rag_core.EMBED_MODEL, "llm": rag_core.LLM_MODEL}
+    try:
+        _, col, _ = rag_core.backend()
+        out["chunks"] = col.count()
+    except Exception as e:  # noqa: BLE001
+        out["status"] = "degraded"; out["chroma_error"] = type(e).__name__
+    try:
+        import httpx
+        r = httpx.get(rag_core.VLLM_BASE.rstrip("/").removesuffix("/v1") + "/api/tags", timeout=2)
+        out["ollama"] = "ok" if r.status_code == 200 else f"http {r.status_code}"
+    except Exception as e:  # noqa: BLE001
+        out["status"] = "degraded"; out["ollama"] = type(e).__name__
+    out["indexes"] = {"article_status": len(rag_core._ensure_article_status()),
+                      "clause_xref": len(rag_core._ensure_clause_xref().get("edges", {}))}
+    return out
 
 
 @app.get("/v1/models")

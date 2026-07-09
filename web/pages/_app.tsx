@@ -1,3 +1,4 @@
+import ErrorBoundary from "../components/ErrorBoundary";
 import type { AppProps } from "next/app";
 import { TDSMobileAITProvider } from "@toss/tds-mobile-ait";
 import { ThemeProvider } from "../lib/theme";
@@ -9,6 +10,7 @@ import "../styles/globals.css";
 // 사용처에서 <ColorSchemeArea theme={resolved}>로 감싼다(현재 Explorer의 SearchField).
 export default function App({ Component, pageProps }: AppProps) {
   return (
+    <ErrorBoundary>
     <ThemeProvider>
       <FlagsProvider>
         <TDSMobileAITProvider>
@@ -16,5 +18,6 @@ export default function App({ Component, pageProps }: AppProps) {
         </TDSMobileAITProvider>
       </FlagsProvider>
     </ThemeProvider>
+  </ErrorBoundary>
   );
 }

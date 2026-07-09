@@ -12,6 +12,7 @@ export default function AdminPage() {
   const [flags, setFlags] = useState<FlagMeta[] | null>(null);
   const [audit, setAudit] = useState<FlagAudit[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [downs, setDowns] = useState<Awaited<ReturnType<typeof api.feedbackList>> | null>(null); // v1 ⑮(#52) 👎 사유
   const [admin, setAdmin] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState("");
@@ -29,6 +30,7 @@ export default function AdminPage() {
         setErr("");
         loadAudit();
         api.stats().then(setStats).catch(() => {});
+        api.feedbackList("down").then(setDowns).catch(() => {});
       })
       .catch((e) => {
         if (e instanceof ApiError) {
@@ -145,6 +147,21 @@ export default function AdminPage() {
               </ol>
             </div>
           </div>
+        </section>
+      ) : null}
+
+      {downs && downs.length > 0 ? (
+        <section className={styles.dash}>
+          <h2 className={styles.h2}>👎 부정 피드백 사유 <span className={styles.dashDays}>최근 {Math.min(downs.length, 20)}건</span></h2>
+          <p className={styles.privacy}>🔒 질문·답변 본문은 표시하지 않습니다 — 근거 규정 메타와 사유만(검수 우선순위 참고용).</p>
+          <ul className={styles.qlist}>
+            {downs.slice(0, 20).map((f, i) => (
+              <li key={i}>
+                <b>{f.sources?.map((s2) => `${s2.규정명} ${s2.조}`.trim()).slice(0, 2).join(", ") || "(근거 메타 없음)"}</b>
+                {f.reason ? <> — “{f.reason}”</> : <span className={styles.muted}> (사유 없음)</span>}
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
 

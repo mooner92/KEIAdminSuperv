@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import ThemeToggle from "./ThemeToggle";
 import { useFlag } from "../lib/flags";
 import { api } from "../lib/api";
-import { CORPUS_AS_OF } from "../lib/site";
+import { BUILD_ID, CORPUS_AS_OF } from "../lib/site";
 import styles from "./Layout.module.css";
 
 export default function Layout({
@@ -67,6 +67,8 @@ export default function Layout({
             <span className={styles.asOf} title="이 날짜 기준의 규정 원문을 근거로 답합니다. 이후 개정은 반영되지 않았을 수 있어요.">
               📑 규정집 기준일 {CORPUS_AS_OF}
             </span>
+            <Link href="/help/" className={styles.adminLink}>도움말</Link>
+            <span className={styles.asOf} title="배포 빌드 식별자">v.{BUILD_ID}</span>
             {isAdmin ? (
               <Link href="/admin/" className={styles.adminLink}>관리자</Link>
             ) : null}

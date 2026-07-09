@@ -35,6 +35,14 @@ const API_ROUTES = {
 // LLM 앱(상태형): /api/app/* → /app/*  (로그인/채팅기록, 쿠키 전달)
 const APP_PREFIX = "/api/app/";
 
+// v1 ⑮(#51): 기본 보안 헤더(사내 전용이지만 최소 방어선). CSP는 Next 인라인 스크립트와 충돌해 보류(문서화).
+function secureHeaders(res) {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "same-origin");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+}
+
 function proxyToRag(req, res, upstreamPath) {
   const opts = {
     host: RAG_HOST,
@@ -114,6 +122,7 @@ function notFound(res) {
 }
 
 const server = http.createServer((req, res) => {
+  secureHeaders(res);
   let pathname;
   try {
     // 쿼리/해시 제거 + 한글 슬러그 디코드

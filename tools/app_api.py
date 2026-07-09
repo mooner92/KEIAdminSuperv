@@ -267,6 +267,20 @@ def init_db():
 
 
 # ───────────────────────── 인증 ─────────────────────────
+# v1 ⑮(#51): 로그인 레이트리밋 — 무차별 대입 방어(인메모리, 프로세스 단일이라 충분)
+_LOGIN_FAILS: dict = {}  # key(user|ip) → [timestamps]
+_RL_MAX, _RL_WINDOW = 8, 300.0
+
+def _rl_check(key: str) -> bool:
+    now = time.time()
+    fails = [t for t in _LOGIN_FAILS.get(key, []) if now - t < _RL_WINDOW]
+    _LOGIN_FAILS[key] = fails
+    return len(fails) < _RL_MAX
+
+def _rl_fail(key: str):
+    _LOGIN_FAILS.setdefault(key, []).append(time.time())
+
+
 def hash_pw(pw: str) -> str:
     return bcrypt.hashpw(pw.encode("utf-8")[:72], bcrypt.gensalt()).decode("utf-8")
 
@@ -359,12 +373,17 @@ def register(body: AuthIn, response: Response):
 
 
 @router.post("/auth/login")
-def login(body: AuthIn, response: Response):
+def login(body: AuthIn, request: Request, response: Response):
+    # v1 ⑮(#51): 사용자+IP 기준 실패 8회/5분 초과 시 429(무차별 대입 방어)
+    rl_key = f"{body.username.strip()}|{request.client.host if request.client else '?'}"
+    if not _rl_check(rl_key):
+        raise HTTPException(429, "로그인 시도가 너무 많습니다. 5분 후 다시 시도해 주세요.")
     with Session(engine) as s:
         u = s.exec(select(User).where(User.username == body.username.strip())).first()
         ok = bool(u) and check_pw(body.password, u.password_hash)
         uid, un = (u.id, u.username) if ok else (None, None)  # 성공 시에만 uid 설정(None 토큰 발급 방지)
     if not ok:
+        _rl_fail(rl_key)
         raise HTTPException(401, "아이디 또는 비밀번호가 올바르지 않습니다.")
     set_cookie(response, make_token(uid))
     return {"id": uid, "username": un}
