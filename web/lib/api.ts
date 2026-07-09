@@ -154,7 +154,8 @@ async function sendMessageStream(id: number, content: string, h: StreamHandlers)
       if (obj.type === "meta") h.onMeta?.(obj.sources || [], obj.user);
       else if (obj.type === "delta") h.onDelta?.(obj.t || "");
       else if (obj.type === "done") h.onDone?.(obj.assistant, obj.session ?? null);
-      else if (obj.type === "error") h.onError?.(obj.message || "오류가 발생했습니다.");
+      // 서버 절단/실패 이벤트(v1 B4): err=예외명, partial=부분 응답 존재 여부. 이후 done(마커 포함 저장본)이 따라옴.
+      else if (obj.type === "error") h.onError?.(obj.err || obj.message || "오류가 발생했습니다.");
     }
   }
 }

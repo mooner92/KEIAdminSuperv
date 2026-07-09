@@ -644,6 +644,23 @@ def _sse(obj: dict) -> str:
     return "data: " + json.dumps(obj, ensure_ascii=False) + "\n\n"
 
 
+# 절단 마커(v1 스펙 B4) — 저장 텍스트와 클라이언트 '다시 시도' 감지가 공유하는 문자열
+STREAM_TRUNCATED_MARK = "응답이 중간에 끊겼습니다"
+
+
+def finalize_stream_text(acc_text: str, err) -> str:
+    """스트림 종료 시 저장할 최종 텍스트 확정(v1 스펙 B4) — 3분기:
+    · 정상: 그대로 저장
+    · 오류 + 부분 응답: **절단 마커 부착** — 반 잘린 답이 '완성된 답'으로 영구 저장되는 것을 방지(절대 규칙1)
+    · 오류 + 빈 응답: 연결 실패 안내(근거는 함께 저장됨을 고지 — 뷰포트 무관 표현)
+    """
+    if not err:
+        return acc_text or "⚠️ 응답이 생성되지 않았습니다. 다시 시도해 주세요."
+    if acc_text:
+        return acc_text + f"\n\n⚠️ ({STREAM_TRUNCATED_MARK} — 아래 '다시 시도'로 재요청하세요 · {err})"
+    return f"⚠️ 생성 모델에 연결하지 못했습니다. 회수된 근거 조문은 답변과 함께 저장돼 있습니다. ({err})"
+
+
 @router.post("/chats/{cid}/messages")
 def post_message(cid: int, body: MsgIn, stream: bool = False, user: User = Depends(current_user)):
     q = body.content.strip()
@@ -666,7 +683,7 @@ def post_message(cid: int, body: MsgIn, stream: bool = False, user: User = Depen
         try:
             ans = rag_core.answer(q, context, history)
         except Exception as e:
-            ans = ("⚠️ 생성 모델에 연결하지 못했습니다. 회수된 근거 조문은 우측에 표시됩니다.\n"
+            ans = ("⚠️ 생성 모델에 연결하지 못했습니다. 회수된 근거 조문은 답변과 함께 저장돼 있습니다.\n"
                    f"(관리자 확인: {rag_core.VLLM_BASE} / {rag_core.LLM_MODEL} · {type(e).__name__})")
         with Session(engine) as s:
             cs = _owned(s, cid, user)
@@ -685,7 +702,7 @@ def post_message(cid: int, body: MsgIn, stream: bool = False, user: User = Depen
             s.refresh(cs)
             return {"user": _msg(um), "assistant": _msg(am), "session": _ses(cs)}
 
-    # 스트리밍(SSE): meta(근거+user) → delta(토큰…) → done(저장된 assistant+session)
+    # 스트리밍(SSE): meta(근거+user) → delta(토큰…) → [error] → done(저장된 assistant+session)
     def gen():
         # user 메시지 먼저 저장(스트림이 끊겨도 질문은 보존)
         with Session(engine) as s:
@@ -703,10 +720,10 @@ def post_message(cid: int, body: MsgIn, stream: bool = False, user: User = Depen
                 yield _sse({"type": "delta", "t": tok})
         except Exception as e:
             err = type(e).__name__
-        full = "".join(acc)
-        if not full:
-            full = ("⚠️ 생성 모델에 연결하지 못했습니다. 회수된 근거 조문은 우측에 표시됩니다."
-                    + (f" ({err})" if err else ""))
+        full = finalize_stream_text("".join(acc), err)
+        if err:
+            # 클라이언트가 절단/실패를 표시하고 '다시 시도'를 제공할 수 있게 명시 이벤트(v1 스펙 B4)
+            yield _sse({"type": "error", "err": err, "partial": bool(acc)})
         # assistant 메시지 저장 + 제목/시각 갱신
         with Session(engine) as s:
             cs = s.get(ChatSession, cid)

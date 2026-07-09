@@ -85,6 +85,7 @@ export default function ChatApp({
   const integrityOn = useFlag("article_integrity"); // Track A: 조문 효력 배지(⚠삭제됨/개정일)
   const approvalOn = useFlag("approval_finder"); // Track B: 결재 언급 시 근거 패널에 결재선 판정기 제안
   const [approvalOpen, setApprovalOpen] = useState(false); // 결재선 드로어(우측 슬라이드인)
+  const [srcOverlay, setSrcOverlay] = useState(false); // v1 B6: ≤1080px 근거 오버레이(넓은 화면에선 무시)
 
   // 활성 메시지(없으면 마지막 assistant)의 근거를 우측에 표시
   const activeSources: Source[] = useMemo(() => {
@@ -196,19 +197,39 @@ export default function ChatApp({
           setActiveMsgId(assistant.id);
           if (session) setChats((prev) => [session, ...prev.filter((c) => c.id !== chatId)]);
         },
+        // v1 B4: 부분 응답이 있어도 에러를 은폐하지 않는다 — 절단 안내를 덧붙임.
+        // (서버 error 이벤트 뒤엔 마커가 부착된 저장본 done이 따라와 최종 상태를 확정)
         onError: (msg) =>
           setMessages((prev) =>
-            prev.map((m) => (m.id === STREAM_ID ? { ...m, content: m.content || `⚠️ ${msg}` } : m))
+            prev.map((m) =>
+              m.id === STREAM_ID
+                ? { ...m, content: m.content ? `${m.content}\n\n⚠️ (응답이 중간에 끊겼습니다 · ${msg})` : `⚠️ ${msg}` }
+                : m
+            )
           ),
       });
-    } catch {
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "연결이 끊겼습니다";
       setMessages((prev) =>
-        prev.map((m) => (m.id === STREAM_ID ? { ...m, content: m.content || "⚠️ 답변을 가져오지 못했습니다." } : m))
+        prev.map((m) =>
+          m.id === STREAM_ID
+            ? { ...m, content: m.content ? `${m.content}\n\n⚠️ (응답이 중간에 끊겼습니다 · ${msg})` : "⚠️ 답변을 가져오지 못했습니다. 다시 시도해 주세요." }
+            : m
+        )
       );
     } finally {
       setSending(false);
     }
   };
+
+  // v1 B4: 절단/실패한 답변의 직전 질문을 다시 전송
+  const retry = (mid: number) => {
+    const idx = messages.findIndex((m) => m.id === mid);
+    const prevUser = [...messages.slice(0, idx)].reverse().find((m) => m.role === "user");
+    if (prevUser?.content && !sending) send(prevUser.content);
+  };
+  const isTruncated = (m: Message) =>
+    m.role === "assistant" && (m.content.includes("응답이 중간에 끊겼습니다") || m.content.includes("답변을 가져오지 못했습니다") || m.content.includes("생성 모델에 연결하지 못했습니다"));
 
   const openSource = (s: Source) => {
     const slug = titleToSlug.get(s.규정명) || s.slug;
@@ -342,18 +363,28 @@ export default function ChatApp({
                       )}
                       {m.sources.length ? (
                         <div className={styles.aiSrcHint}>
-                          📎 근거 {m.sources.length}개 {m.id === activeMsgId ? "· 우측 표시 중" : "· 클릭해서 보기"}
+                          📎 근거 {m.sources.length}개 {m.id === activeMsgId ? "· 표시 중" : "· 클릭해서 보기"}
                         </div>
                       ) : null}
                     </div>
-                    {/* 금액·한도 답변이면 원문 확인 유도(생성 숫자는 검증 대상) */}
+                    {/* 금액·한도 답변이면 원문 확인 유도(생성 숫자는 검증 대상). 클릭 시 근거 패널(좁은 화면=오버레이) */}
                     {m.content && hasMoney(m.content) ? (
                       <div
                         className={styles.moneyNote}
-                        onClick={() => m.sources.length && setActiveMsgId(m.id)}
+                        onClick={() => {
+                          if (!m.sources.length) return;
+                          setActiveMsgId(m.id);
+                          setSrcOverlay(true); // ≤1080px 오버레이(넓은 화면에선 클래스 무효과)
+                        }}
                       >
-                        💰 금액·한도가 포함된 답변입니다. 정확한 수치는 <b>우측 근거 원문</b>에서 확인하세요.
+                        💰 금액·한도가 포함된 답변입니다. 정확한 수치는 <b>근거 원문</b>에서 확인하세요.
                       </div>
+                    ) : null}
+                    {/* v1 B4: 절단/실패 답변엔 다시 시도 버튼(직전 질문 재전송) */}
+                    {isTruncated(m) && !sending ? (
+                      <button type="button" className={styles.retryBtn} onClick={() => retry(m.id)}>
+                        🔄 다시 시도
+                      </button>
                     ) : null}
                     {/* 답변 평가(👍/👎) — 영속 메시지(id>0)에만. 스트리밍 중 임시 메시지는 제외 */}
                     {m.id > 0 ? (
@@ -432,11 +463,12 @@ export default function ChatApp({
         </p>
       </div>
 
-      {/* ── 우측: 근거 조문(메시지별) ── */}
-      <aside className={styles.sources}>
+      {/* ── 우측: 근거 조문(메시지별). ≤1080px에선 srcOverlay로 오버레이 표시(v1 B6) ── */}
+      <aside className={`${styles.sources} ${srcOverlay ? styles.srcOverlayOpen : ""}`}>
         <div className={styles.srcHead}>
           <span className={styles.srcTitle}>근거 조문</span>
           {activeSources.length > 0 ? <span className={styles.srcCount}>{activeSources.length}</span> : null}
+          <button className={styles.srcClose} onClick={() => setSrcOverlay(false)} aria-label="근거 닫기">✕</button>
         </div>
         {approvalHint ? (
           <button className={styles.approvalCta} onClick={() => setApprovalOpen(true)}>
@@ -559,6 +591,13 @@ export default function ChatApp({
         highlightText={highlightOn ? openSnippet : ""}
         onClose={() => setOpenSlug(null)}
       />
+      {/* v1 B6: 좁은 화면 근거 접근 플로팅 버튼(CSS가 ≤1080px에서만 노출) */}
+      {activeSources.length > 0 && !srcOverlay ? (
+        <button className={styles.srcFab} onClick={() => setSrcOverlay(true)}>
+          📎 근거 {activeSources.length}개
+        </button>
+      ) : null}
+
       <ApprovalDrawer
         open={approvalOpen}
         initialQuery={approvalHint?.query || ""}
