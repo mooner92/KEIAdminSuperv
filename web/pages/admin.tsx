@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import Head from "next/head";
+import { SITE_NAME } from "../lib/site";
 import Link from "next/link";
 import Layout from "../components/Layout";
 import { api, ApiError, type FlagMeta, type FlagAudit, type Stats } from "../lib/api";
@@ -70,13 +71,13 @@ export default function AdminPage() {
     <Layout
       breadcrumb={
         <span>
-          <Link href="/">전직원 연구행정 가이드</Link>
+          <Link href="/">{SITE_NAME}</Link>
           <span className={styles.sep}>›</span>관리자
         </span>
       }
     >
       <Head>
-        <title>관리자 · 대시보드</title>
+        <title>{`관리자 · ${SITE_NAME}`}</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
       <h1 className={styles.h1}>관리자</h1>

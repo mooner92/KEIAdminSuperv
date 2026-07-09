@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { useEffect, useState, type ReactNode } from "react";
 import ThemeToggle from "./ThemeToggle";
 import { useFlag } from "../lib/flags";
@@ -16,6 +17,8 @@ export default function Layout({
   /** true면 페이지를 뷰포트 높이에 고정(전체 스크롤 제거) → 내부 영역만 스크롤(둘러보기/그래프) */
   fill?: boolean;
 }) {
+  const { pathname } = useRouter(); // GNB 현재 페이지 표시(v1 ⑩/S5-#15)
+  const nav = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href)) ? styles.navActive : undefined;
   const demoBanner = useFlag("demo_banner"); // 기능 플래그 예시(관리자 페이지에서 토글)
   const approvalNav = useFlag("approval_finder"); // 결재선 판정기 — 상단 메뉴 노출도 플래그로
   // 관리자 링크는 관리자에게만 노출(보안은 백엔드 403로 방어되나, 비관리자/로그아웃엔 링크 숨김)
@@ -38,10 +41,10 @@ export default function Layout({
             <span className={styles.brandText}>행정 가이드</span>
           </Link>
           <nav className={styles.nav}>
-            <Link href="/">LLM</Link>
-            <Link href="/browse/">규정 둘러보기</Link>
-            <Link href="/graph/">관계 그래프</Link>
-            {approvalNav ? <Link href="/approval/">결재선</Link> : null}
+            <Link href="/" className={nav("/")} aria-current={pathname === "/" ? "page" : undefined}>질문하기</Link>
+            <Link href="/browse/" className={nav("/browse")} aria-current={pathname.startsWith("/browse") ? "page" : undefined}>규정 둘러보기</Link>
+            <Link href="/graph/" className={nav("/graph")} aria-current={pathname.startsWith("/graph") ? "page" : undefined}>관계 그래프</Link>
+            {approvalNav ? <Link href="/approval/" className={nav("/approval")} aria-current={pathname.startsWith("/approval") ? "page" : undefined}>결재선</Link> : null}
           </nav>
           <div className={styles.headerRight}>
             <ThemeToggle />

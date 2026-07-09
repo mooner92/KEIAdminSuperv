@@ -1,5 +1,6 @@
 import type { GetStaticProps } from "next";
 import Head from "next/head";
+import { SITE_NAME } from "../lib/site";
 import Layout from "../components/Layout";
 import Explorer from "../components/Explorer";
 import { getAllDocs, type DocMeta } from "../lib/vault";
@@ -9,7 +10,7 @@ export default function Browse({ docs }: { docs: DocMeta[] }) {
   return (
     <Layout fill>
       <Head>
-        <title>규정 둘러보기 · KEI 행정 가이드</title>
+        <title>{`규정 둘러보기 · ${SITE_NAME}`}</title>
         <meta name="description" content="KEI 사내 규정·연구행정 가이드 둘러보기 (내부 전용)" />
         <meta name="robots" content="noindex, nofollow" />
       </Head>

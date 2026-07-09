@@ -1,5 +1,6 @@
 import type { GetStaticPaths, GetStaticProps } from "next";
 import Head from "next/head";
+import { SITE_NAME } from "../../lib/site";
 import Link from "next/link";
 import Layout from "../../components/Layout";
 import Markdown from "../../components/Markdown";
@@ -18,7 +19,7 @@ export default function DocPage({ doc, backlinks }: { doc: Doc; backlinks: DocMe
     <Layout
       breadcrumb={
         <span className={styles.crumb}>
-          <Link href="/">전직원 연구행정 가이드</Link>
+          <Link href="/">{SITE_NAME}</Link>
           <span className={styles.sep}>›</span>
           <span>{SECTION_LABEL[doc.section]}</span>
           <span className={styles.sep}>›</span>
@@ -27,7 +28,7 @@ export default function DocPage({ doc, backlinks }: { doc: Doc; backlinks: DocMe
       }
     >
       <Head>
-        <title>{doc.title} · KEI 행정 가이드</title>
+        <title>{`${doc.title} · ${SITE_NAME}`}</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
 

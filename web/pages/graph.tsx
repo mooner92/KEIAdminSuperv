@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { GetStaticProps } from "next";
 import Head from "next/head";
+import { SITE_NAME } from "../lib/site";
 import Link from "next/link";
 import Layout from "../components/Layout";
 import GraphCanvas from "../components/GraphCanvas";
@@ -17,13 +18,13 @@ export default function GraphPage({ graph }: { graph: GraphData }) {
       fill
       breadcrumb={
         <span>
-          <Link href="/">전직원 연구행정 가이드</Link>
+          <Link href="/">{SITE_NAME}</Link>
           <span className={styles.sep}>›</span>관계 그래프
         </span>
       }
     >
       <Head>
-        <title>관계 그래프 · KEI 행정 가이드</title>
+        <title>{`관계 그래프 · ${SITE_NAME}`}</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
       <div className={styles.head}>

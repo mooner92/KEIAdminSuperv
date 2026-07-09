@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import Head from "next/head";
+import { SITE_NAME } from "../lib/site";
 import Link from "next/link";
 import Layout from "../components/Layout";
 import ApprovalExplorer from "../components/ApprovalExplorer";
@@ -26,7 +27,7 @@ export default function ApprovalPage() {
   return (
     <Layout fill>
       <Head>
-        <title>결재선 판정기 · KEI 행정 가이드</title>
+        <title>{`결재선 판정기 · ${SITE_NAME}`}</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
       <section className={styles.heroCompact}>

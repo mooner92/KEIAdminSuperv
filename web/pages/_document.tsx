@@ -14,6 +14,7 @@ export default function Document() {
   return (
     <Html lang="ko">
       <Head>
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <script dangerouslySetInnerHTML={{ __html: themeInit }} />
       </Head>
       <body>
