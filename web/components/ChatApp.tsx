@@ -84,6 +84,7 @@ export default function ChatApp({
   const typeBadges = useFlag("source_type_badges"); // 📜규정(공식)/📘가이드(참고) 출처 성격 구분
   const integrityOn = useFlag("article_integrity"); // Track A: 조문 효력 배지(⚠삭제됨/개정일)
   const approvalOn = useFlag("approval_finder"); // Track B: 결재 언급 시 근거 패널에 결재선 판정기 제안
+  const cardV2 = useFlag("source_card_v2"); // v1 ⑧·⑨(S3·S4): 배지 3단 위계·미검수 집계·거부 리프레임
   const [approvalOpen, setApprovalOpen] = useState(false); // 결재선 드로어(우측 슬라이드인)
   const [srcOverlay, setSrcOverlay] = useState(false); // v1 B6: ≤1080px 근거 바텀시트(넓은 화면에선 무시)
   useEffect(() => {
@@ -100,6 +101,16 @@ export default function ChatApp({
       [...messages].reverse().find((x) => x.role === "assistant");
     return m?.sources ?? [];
   }, [messages, activeMsgId]);
+
+  // v1 ⑨(S4): 활성 답변이 '거부'인지 — 백엔드 REFUSAL_RE와 동일 계열 패턴. 거부면 근거를 '참고 검색 결과'로 리프레임.
+  const activeIsRefusal = useMemo(() => {
+    const m =
+      messages.find((x) => x.id === activeMsgId && x.role === "assistant") ||
+      [...messages].reverse().find((x) => x.role === "assistant");
+    return !!m && /확인되지\s*않|확인할\s*수\s*없/.test(m.content || "");
+  }, [messages, activeMsgId]);
+  // v1 ⑧(S3-#39): 미검수는 카드마다 반복하지 않고 헤더에서 1회 집계(검수상태 값은 불변)
+  const reviewedCnt = activeSources.filter((s) => titleToStatus.get(s.규정명) === "검수완료").length;
 
   // 결재 관련 감지: 활성 assistant 답변 + 직전 user 질문에 결재/기안/상신/전결 언급 시
   // "결재선 알아볼까요?" 제안. 질문의 업무 키워드(휴가·출장 등)를 판정기 검색어로 프리셋.
@@ -474,10 +485,25 @@ export default function ChatApp({
       <aside className={`${styles.sources} ${srcOverlay ? styles.srcOverlayOpen : ""}`}>
         <div className={styles.srcHandle} aria-hidden="true" />
         <div className={styles.srcHead}>
-          <span className={styles.srcTitle}>근거 조문</span>
+          <span className={styles.srcTitle}>{cardV2 && activeIsRefusal ? "참고 검색 결과" : "근거 조문"}</span>
           {activeSources.length > 0 ? <span className={styles.srcCount}>{activeSources.length}</span> : null}
           <button className={styles.srcClose} onClick={() => setSrcOverlay(false)} aria-label="근거 닫기">✕</button>
         </div>
+        {cardV2 && activeSources.length > 0 ? (
+          <div className={styles.srcAggregate}>
+            {activeIsRefusal
+              ? "규정에서 확인되지 않아 답을 드리지 않았어요. 아래는 검색된 참고 자료일 뿐 답의 근거가 아닙니다."
+              : reviewedCnt > 0
+                ? `사람 검수 완료 ${reviewedCnt}/${activeSources.length}건 · 나머지는 자동 변환 원문`
+                : "자동 변환 원문(사람 검수 전) 기준 — 금액·기한은 원문에서 확인하세요"}
+          </div>
+        ) : null}
+        {cardV2 && activeIsRefusal && activeSources.length > 0 ? (
+          <div className={styles.refusalTips}>
+            💡 <b>이렇게 해보세요</b>: 업무 이름을 규정 용어로 바꿔 다시 묻기(예: 출장비→여비) ·
+            상황을 더 구체적으로(누가·언제·무엇을) · 그래도 없으면 규정 밖 사안일 수 있어요 — 담당 부서에 문의하세요.
+          </div>
+        ) : null}
         {approvalHint ? (
           <button className={styles.approvalCta} onClick={() => setApprovalOpen(true)}>
             🖋 결재 관련 내용이 언급됐어요 — <b>결재선을 알아볼까요?</b>
@@ -501,7 +527,9 @@ export default function ChatApp({
                     disabled={!linkable}
                   >
                     <span className={styles.srcTag}>
-                      {highlightOn && i === 0 ? <span className={styles.keyBadge}>⭐ 핵심 근거</span> : null}
+                      {highlightOn && i === 0 && !(cardV2 && activeIsRefusal) ? (
+                        <span className={styles.keyBadge}>⭐ 핵심 근거</span>
+                      ) : null}
                       <b>{s.규정명}</b> {s.조}
                       {typeBadges && s.type === "regulation" ? (
                         <span className={styles.regChip} title="공식 규정 원문 — KEI 규정집의 진실원천(원문 그대로)">
@@ -532,7 +560,7 @@ export default function ChatApp({
                         <span className={styles.stOk} title="사람이 검수 완료한 원문">
                           ✓ 검수완료
                         </span>
-                      ) : status ? (
+                      ) : status && !cardV2 ? (
                         <span className={styles.stWarn} title="아직 사람 검수 전입니다. 금액·기한은 원문 확인 필요">
                           미검수
                         </span>
@@ -544,17 +572,17 @@ export default function ChatApp({
                         >
                           ⚠ 삭제됨{s.삭제일 ? ` (${s.삭제일})` : ""}
                         </span>
-                      ) : integrityOn && s.최근개정 ? (
+                      ) : integrityOn && !cardV2 && s.최근개정 ? (
                         <span className={styles.stRev} title="이 조문의 최근 개정 시점">
                           개정 {s.최근개정}
                         </span>
                       ) : null}
-                      {integrityOn && s.효력 !== "삭제" && s.신설 ? (
+                      {integrityOn && !cardV2 && s.효력 !== "삭제" && s.신설 ? (
                         <span className={styles.stRev} title="최근 신설된 조문">
                           신설
                         </span>
                       ) : null}
-                      {typeBadges && (s.graph_expand || s.graph_expand_reg || s.graph_expand_action || s.graph_expand_gian) ? (
+                      {typeBadges && !cardV2 && (s.graph_expand || s.graph_expand_reg || s.graph_expand_action || s.graph_expand_gian) ? (
                         <span
                           className={styles.autoChip}
                           title={
@@ -579,7 +607,21 @@ export default function ChatApp({
                         </span>
                       ) : null}
                     </span>
-                    {s.분류 ? <span className={styles.srcCat}>{s.분류}</span> : null}
+                    {cardV2 ? (
+                      <span className={styles.srcMetaLine}>
+                        {[
+                          s.분류,
+                          integrityOn && s.최근개정 && s.효력 !== "삭제" ? `개정 ${s.최근개정}` : "",
+                          integrityOn && s.신설 && s.효력 !== "삭제" ? "신설" : "",
+                          s.graph_expand ? "🔗 별표 자동첨부" : "",
+                          s.graph_expand_reg ? "🔗 준용·참조 자동첨부" : "",
+                          s.graph_expand_action ? "🔗 후속단계 자동첨부" : "",
+                          s.graph_expand_gian ? "🔗 기안 자동첨부" : "",
+                        ].filter(Boolean).join(" · ")}
+                      </span>
+                    ) : s.분류 ? (
+                      <span className={styles.srcCat}>{s.분류}</span>
+                    ) : null}
                     <span className={styles.srcSnippet}>{highlightFigures(s.snippet, styles.fig)}</span>
                   </button>
                 </li>

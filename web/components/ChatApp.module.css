@@ -358,3 +358,15 @@
   .sidebar { height: auto; max-height: 200px; }
   .thread { height: 60vh; }
 }
+
+/* v1 ⑧·⑨(S3·S4): 근거 패널 재설계 */
+.srcAggregate {
+  font-size: 11.5px; line-height: 1.5; color: var(--color-text-tertiary);
+  margin: -4px 0 10px; padding: 0 2px;
+}
+.refusalTips {
+  font-size: 12px; line-height: 1.6; color: var(--color-text-secondary);
+  border: 1px dashed var(--color-border-strong); border-radius: 10px;
+  padding: 9px 11px; margin-bottom: 10px; background: var(--color-bg-subtle);
+}
+.srcMetaLine { display: block; margin-top: 5px; font-size: 11px; color: var(--color-text-tertiary); }

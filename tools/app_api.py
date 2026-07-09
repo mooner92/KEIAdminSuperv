@@ -165,6 +165,15 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-10-15",
     },
+    "source_card_v2": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "근거 패널 신뢰 재설계(v1 스펙 ⑧·⑨/S3·S4) — ⓐ배지 3단 위계: 제목줄=출처성격+안전신호"
+                       "(⚠삭제·일부반영·✓검수완료)만, 보조(개정일·신설·🔗자동첨부)는 하단 메타줄 ⓑ미검수 표시 정책: "
+                       "카드마다 반복 대신 패널 헤더 집계(값 불변) ⓒ⭐핵심근거는 거부 답변에서 억제 ⓓ거부 답변 시 "
+                       "'참고 검색 결과'로 리프레임 + 대안 안내 블록. 프론트 전용.",
+        "owner": "platform",
+        "expires": "2026-10-31",
+    },
     "approval_finder": {
         "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
         "description": "결재선 판정기(Track B) — ① 독립 페이지 /approval + 상단 메뉴 '결재선'(둘러보기와 동일 UX: "
