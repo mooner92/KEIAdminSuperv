@@ -234,6 +234,13 @@ python tools/02_chunk_and_embed.py --vault KEI-행정가이드 --db tools/chroma
 
 백업 정책은 §10.1의 "진실원천 vs 파생물" 구분에서 그대로 나온다. **진실원천(볼트·`app.db`)만 백업하고, 파생물(`chroma/`·`out/`)은 백업하지 않는다.**
 
+> ✅ **자동화 구현됨(v1 스펙 B1, `docs/19`)**: `deploy/backup-appdb.sh` — python3 sqlite 온라인 백업(WAL 일관 스냅샷)으로
+> prod·dev의 `app.db`+`.app_secret`을 `~/kei-backups/YYYY-MM-DD/`(⛔ repo 밖)에 저장, `PRAGMA integrity_check` 검증,
+> 14일 로테이션. crontab 매일 03:10 등록. 복구: 백업 파일을 `tools/app.db`로 교체 후 PM2 재기동.
+>
+> **계정 운영 CLI(v1 스펙 B5)**: `APP_DB=tools/app.db python tools/user_admin.py list | reset-pw <user> [--password ...] | delete <user> --yes`
+> — 비밀번호 분실 시 관리자가 서버에서 재설정(미지정 시 임시 비밀번호 자동 생성·1회 전달). 해시는 웹 로그인과 동일(bcrypt).
+
 | 대상 | 백업 방식 | 근거 |
 | --- | --- | --- |
 | **볼트 `KEI-행정가이드/`** | **git = 진실원천**(사내 리모트/미러) | 모든 노트·개정이력·템플릿이 여기 있음. 공개 레포엔 안 올림(gitignore) |

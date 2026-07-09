@@ -79,6 +79,7 @@ export default function Login({ onAuthed }: { onAuthed: (u: User) => void }) {
           )}
         </div>
         <p className={styles.note}>🔒 내부 전용 · 입력 정보는 사내 서버에만 저장됩니다.</p>
+        <p className={styles.note}>비밀번호를 잊으셨나요? 시스템 관리자에게 재설정을 요청하세요.</p>
       </div>
     </div>
   );
