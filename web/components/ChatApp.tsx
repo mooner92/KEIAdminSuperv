@@ -6,6 +6,7 @@ import ApprovalDrawer from "./ApprovalDrawer";
 import { api, type ChatMeta, type Message, type Source, type User } from "../lib/api";
 import type { DocMeta } from "../lib/vault";
 import { useFlag } from "../lib/flags";
+import { CORPUS_AS_OF, SITE_NAME } from "../lib/site";
 import styles from "./ChatApp.module.css";
 
 const EXAMPLES = [
@@ -84,7 +85,8 @@ export default function ChatApp({
   const typeBadges = useFlag("source_type_badges"); // 📜규정(공식)/📘가이드(참고) 출처 성격 구분
   const integrityOn = useFlag("article_integrity"); // Track A: 조문 효력 배지(⚠삭제됨/개정일)
   const approvalOn = useFlag("approval_finder"); // Track B: 결재 언급 시 근거 패널에 결재선 판정기 제안
-  const cardV2 = useFlag("source_card_v2"); // v1 ⑧·⑨(S3·S4): 배지 3단 위계·미검수 집계·거부 리프레임
+  const cardV2 = useFlag("source_card_v2");
+  const actionsOn = useFlag("answer_actions"); // v1 ⑫(S6): 복사·인용 칩·수치 대조 // v1 ⑧·⑨(S3·S4): 배지 3단 위계·미검수 집계·거부 리프레임
   const [approvalOpen, setApprovalOpen] = useState(false); // 결재선 드로어(우측 슬라이드인)
   const [srcOverlay, setSrcOverlay] = useState(false); // v1 B6: ≤1080px 근거 바텀시트(넓은 화면에선 무시)
   useEffect(() => {
@@ -245,6 +247,45 @@ export default function ChatApp({
     const prevUser = [...messages.slice(0, idx)].reverse().find((m) => m.role === "user");
     if (prevUser?.content && !sending) send(prevUser.content);
   };
+  // v1 ⑫(S6-#37): 답변 본문에 실제 인용된 [규정명 제N조] → 근거 카드 매칭(드로어 점프용)
+  const CITE_RE = /\[([^\[\]\n]{2,40}?)\s+(제\d+조(?:의\d+)?)\]/g;
+  const citedOf = (m: Message) => {
+    if (!actionsOn || m.role !== "assistant" || !m.sources?.length) return [];
+    const out: { label: string; src: Source }[] = [];
+    const seen = new Set<string>();
+    for (const mt of m.content.matchAll(CITE_RE)) {
+      const [_, name, jo] = mt;
+      const src = m.sources.find((s) => s.규정명 === name && (s.조 || "").startsWith(jo));
+      const key = `${name}#${jo}`;
+      if (src && !seen.has(key)) { seen.add(key); out.push({ label: `${name} ${jo}`, src }); }
+    }
+    return out.slice(0, 6);
+  };
+
+  // v1 ⑫(S6-#21): 복사 — 본문 + 출처 목록 + 기준일 자동 부착(면책은 본문에 이미 포함)
+  const [copiedId, setCopiedId] = useState<number | null>(null);
+  const copyAnswer = async (m: Message) => {
+    const srcList = (m.sources || []).map((s) => `- ${s.tag}`).join("\n");
+    const text = `${m.content}\n\n[근거 출처]\n${srcList}\n(${SITE_NAME} · 규정집 기준일 ${CORPUS_AS_OF})`;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedId(m.id);
+      setTimeout(() => setCopiedId(null), 1600);
+    } catch { /* clipboard 미지원 환경 무시 */ }
+  };
+
+  // v1 ⑫(S6-#42): 수치 결정적 대조 — 답변의 금액·비율 토큰이 근거 스니펫 문구에 있는지(집계, fail-safe 주의 신호)
+  const numAudit = (m: Message) => {
+    if (!actionsOn || !m.sources?.length) return null;
+    const nums = Array.from(m.content.matchAll(/\d[\d,]*\s*(?:원|만원|천원|억원|%|퍼센트)/g)).map((x) => x[0]);
+    if (!nums.length) return null;
+    const normN = (t: string) => t.replace(/[\s,]/g, "");
+    const hay = normN((m.sources || []).map((s) => s.snippet || "").join(" "));
+    const uniq = Array.from(new Set(nums.map(normN)));
+    const found = uniq.filter((n) => hay.includes(n)).length;
+    return { total: uniq.length, found };
+  };
+
   const isTruncated = (m: Message) =>
     m.role === "assistant" && (m.content.includes("응답이 중간에 끊겼습니다") || m.content.includes("답변을 가져오지 못했습니다") || m.content.includes("생성 모델에 연결하지 못했습니다"));
 
@@ -397,6 +438,25 @@ export default function ChatApp({
                         💰 금액·한도가 포함된 답변입니다. 정확한 수치는 <b>근거 원문</b>에서 확인하세요.
                       </div>
                     ) : null}
+                    {/* v1 ⑫(S6-#42): 수치 대조 집계 — 결정적 문자열 매칭(검증 아님·주의 신호) */}
+                    {(() => { const a = m.id > 0 ? numAudit(m) : null; return a ? (
+                      <div className={styles.numAudit}>
+                        🔢 수치 대조: 답변 속 {a.total}개 중 <b>{a.found}개</b>가 근거 문구와 일치
+                        {a.found < a.total ? " — 나머지는 원문에서 직접 확인하세요(계산·요약된 수치일 수 있음)" : ""}
+                      </div>
+                    ) : null; })()}
+                    {/* v1 ⑫(S6-#37): 답변에 실제 인용된 조문 → 드로어 점프 칩 */}
+                    {m.id > 0 && citedOf(m).length > 0 ? (
+                      <div className={styles.citedRow}>
+                        {citedOf(m).map((c, ci) => (
+                          <button key={ci} type="button" className={styles.citedChip}
+                            title="답변이 인용한 조문 — 클릭하면 원문으로"
+                            onClick={() => openSource(c.src)}>
+                            🔗 {c.label}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
                     {/* v1 B4: 절단/실패 답변엔 다시 시도 버튼(직전 질문 재전송) */}
                     {isTruncated(m) && !sending ? (
                       <button type="button" className={styles.retryBtn} onClick={() => retry(m.id)}>
@@ -406,6 +466,12 @@ export default function ChatApp({
                     {/* 답변 평가(👍/👎) — 영속 메시지(id>0)에만. 스트리밍 중 임시 메시지는 제외 */}
                     {m.id > 0 ? (
                       <div className={styles.fbRow}>
+                        {actionsOn ? (
+                          <button type="button" className={styles.fbBtn} onClick={() => copyAnswer(m)}
+                            title="답변을 출처 목록과 함께 복사">
+                            {copiedId === m.id ? "✓ 복사됨" : "📋 복사"}
+                          </button>
+                        ) : null}
                         <button
                           type="button"
                           className={`${styles.fbBtn} ${m.feedback === "up" ? styles.fbUp : ""}`}

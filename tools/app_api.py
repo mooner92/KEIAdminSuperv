@@ -165,6 +165,14 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-10-15",
     },
+    "answer_actions": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "답변 액션(v1 스펙 ⑫/S6) — ⓐ📋 복사(본문+출처 목록+기준일 자동 부착) ⓑ답변에 실제 "
+                       "인용된 [규정명 제N조] → 근거 드로어로 점프하는 앵커 칩 ⓒ금액·수치 답변의 결정적 대조: "
+                       "답변 수치가 근거 스니펫 문구에 존재하는지 집계 표시(fail-safe 주의 신호, 검증 아님·무LLM). 프론트 전용.",
+        "owner": "platform",
+        "expires": "2026-11-15",
+    },
     "source_card_v2": {
         "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
         "description": "근거 패널 신뢰 재설계(v1 스펙 ⑧·⑨/S3·S4) — ⓐ배지 3단 위계: 제목줄=출처성격+안전신호"

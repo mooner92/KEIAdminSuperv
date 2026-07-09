@@ -13,7 +13,8 @@ export const FLAG_DEFAULTS: Record<string, boolean> = {
   graph_impact: false, // Track C: 문서 드로어 '개정 파급(전이폐포)·함께 보는 조문(공동인용)' 패널 (release 플래그, 만료 2026-09-30)
   deadline_calc: false, // Track B: 문서 드로어 '이 규정의 기한' — 기준일→마감일 계산 + .ics (release 플래그, 만료 2026-10-15)
   approval_finder: false,
-  source_card_v2: false, // v1 ⑧·⑨: 근거 카드 3단 위계 + 미검수 집계 + 거부 리프레임 (release, 만료 2026-10-31) // Track B: 위임전결규정 드로어 '결재선 판정기' — 업무·직급→전결권자 (release 플래그, 만료 2026-10-15)
+  source_card_v2: false,
+  answer_actions: false, // v1 ⑫(S6): 답변 복사·인용 앵커 칩·수치 대조 (release, 만료 2026-11-15) // v1 ⑧·⑨: 근거 카드 3단 위계 + 미검수 집계 + 거부 리프레임 (release, 만료 2026-10-31) // Track B: 위임전결규정 드로어 '결재선 판정기' — 업무·직급→전결권자 (release 플래그, 만료 2026-10-15)
 };
 const CACHE_KEY = "kei-flags";
 
