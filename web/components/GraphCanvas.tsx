@@ -3,6 +3,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/router";
 import type { GraphData } from "../lib/vault";
 import { useTheme } from "../lib/theme";
+import { useFlag } from "../lib/flags";
 import styles from "../styles/Graph.module.css";
 
 // react-force-graph는 canvas/window 의존 → 클라이언트에서만 로드
@@ -30,7 +31,28 @@ export default function GraphCanvas({
   selectedId?: string | null;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const fgRef = useRef<any>(null);
+  const upgrades = useFlag("explore_upgrades"); // v1 ⑭(S7-#32): 노드 검색·전체보기
+  const [q, setQ] = useState("");
+  const [miss, setMiss] = useState(false);
   const router = useRouter();
+
+  // 노드 검색: norm 매칭 첫 노드로 카메라 이동 + 선택(분할 뷰 문서 패널 연동)
+  const norm = (t: string) => t.toLowerCase().replace(/[\s･·,]/g, "");
+  const jumpTo = () => {
+    const t = norm(q.trim());
+    if (!t) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const node: any = (graph.nodes as any[]).find((n) => norm(n.title || "").includes(t));
+    if (!node || node.x == null) { setMiss(true); setTimeout(() => setMiss(false), 1500); return; }
+    setMiss(false);
+    onNodeSelect?.(String(node.id)); // 문서 패널 먼저(카메라 실패와 무관하게 동작 보장)
+    try {
+      fgRef.current?.centerAt(node.x, node.y, 600);
+      fgRef.current?.zoom(3.2, 600);
+    } catch { /* dynamic ref 미전달 등 — 선택만으로도 기능 성립 */ }
+  };
   const { resolved } = useTheme();
   const dark = resolved === "dark";
   const [size, setSize] = useState({ w: 900, h: 600 });
@@ -49,7 +71,25 @@ export default function GraphCanvas({
   return (
     <div ref={ref} className={styles.canvas}>
       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+      {upgrades ? (
+        <div className={styles.graphTools}>
+          <input
+            className={styles.graphSearch}
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && !(e.nativeEvent as KeyboardEvent).isComposing) jumpTo(); }}
+            placeholder="노드 검색 (예: 복무규정)"
+            aria-label="노드 검색"
+          />
+          <button className={styles.graphBtn} onClick={jumpTo}>이동</button>
+          <button className={styles.graphBtn} onClick={() => fgRef.current?.zoomToFit(600, 40)} aria-label="전체보기">
+            ⛶ 전체보기
+          </button>
+          {miss ? <span className={styles.graphMiss}>일치하는 노드 없음</span> : null}
+        </div>
+      ) : null}
       <ForceGraph2D
+        ref={fgRef}
         width={size.w}
         height={size.h}
         graphData={graph as never}

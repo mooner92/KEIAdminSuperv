@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ColorSchemeArea, SearchField } from "@toss/tds-mobile";
 import { useTheme } from "../lib/theme";
+import { useFlag } from "../lib/flags";
+import DocDrawer from "./DocDrawer";
 import type { ApprovalRule } from "./ApprovalFinder";
 import styles from "./Explorer.module.css";
 import rowStyles from "./ApprovalFinder.module.css";
@@ -21,8 +23,17 @@ const norm = (s: string) => s.replace(/[\s･·,]/g, "");
 
 type Filters = { cat: Set<string>; role: Set<string>; owner: Set<string> };
 
+const REG_SLUG = "2300_위임전결규정"; // 별표 원문 문서(slug = 파일 stem)
+
 export default function ApprovalExplorer({ rules }: { rules: ApprovalRule[] }) {
   const { resolved } = useTheme();
+  const upgrades = useFlag("explore_upgrades"); // v1 ⑭(S7-#33): 행→별표 원문 링크
+  // 원문 드로어: 업무 경로의 가장 긴 구간을 하이라이트 후보로(표 행 매칭, 실패 시 문서 상단 — fail-soft)
+  const [origText, setOrigText] = useState<string | null>(null);
+  const openOrig = (r: ApprovalRule) => {
+    const seg = r.업무.split(">").map((x) => x.trim()).sort((a, b) => b.length - a.length)[0] || "";
+    setOrigText(seg);
+  };
   const [q, setQ] = useState("");
   const [f, setF] = useState<Filters>({ cat: new Set(), role: new Set(), owner: new Set() });
   const [pageSize, setPageSize] = useState(30);
@@ -224,6 +235,12 @@ export default function ApprovalExplorer({ rules }: { rules: ApprovalRule[] }) {
                   전결 <b className={rowStyles.owner}>{r.전결권자}</b>
                   {r.협의 ? <span className={rowStyles.consult}>협의 {r.협의}</span> : null}
                   {r.원장 ? <span className={rowStyles.wonjang}>원장 결재</span> : null}
+                  {upgrades ? (
+                    <button type="button" className={rowStyles.origBtn} title="위임전결규정 별표 원문에서 확인"
+                      onClick={() => openOrig(r)}>
+                      📜 원문
+                    </button>
+                  ) : null}
                 </div>
               </div>
             </li>
@@ -233,6 +250,14 @@ export default function ApprovalExplorer({ rules }: { rules: ApprovalRule[] }) {
           ) : null}
         </ul>
       </section>
+
+      {/* v1 ⑭(S7-#33): 별표 원문 드로어 — 페이지 이동 없이 근거 확인 */}
+      <DocDrawer
+        slug={origText !== null ? REG_SLUG : null}
+        highlight
+        highlightText={origText || ""}
+        onClose={() => setOrigText(null)}
+      />
     </div>
   );
 }

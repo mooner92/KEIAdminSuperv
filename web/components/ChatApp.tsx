@@ -267,11 +267,33 @@ export default function ChatApp({
   const copyAnswer = async (m: Message) => {
     const srcList = (m.sources || []).map((s) => `- ${s.tag}`).join("\n");
     const text = `${m.content}\n\n[근거 출처]\n${srcList}\n(${SITE_NAME} · 규정집 기준일 ${CORPUS_AS_OF})`;
+    // ⚠ navigator.clipboard는 보안 컨텍스트(HTTPS/localhost) 전용 — 사내 IP(HTTP) 접속에선 없음.
+    // 그 경우 임시 textarea + execCommand('copy') 폴백으로 동작 보장.
+    let done = false;
     try {
-      await navigator.clipboard.writeText(text);
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        done = true;
+      }
+    } catch { /* 아래 폴백 시도 */ }
+    if (!done) {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        done = document.execCommand("copy");
+        ta.remove();
+      } catch { done = false; }
+    }
+    if (done) {
       setCopiedId(m.id);
       setTimeout(() => setCopiedId(null), 1600);
-    } catch { /* clipboard 미지원 환경 무시 */ }
+    } else {
+      alert("복사에 실패했습니다. 텍스트를 직접 선택해 복사해 주세요.");
+    }
   };
 
   // v1 ⑫(S6-#42): 수치 결정적 대조 — 답변의 금액·비율 토큰이 근거 스니펫 문구에 있는지(집계, fail-safe 주의 신호)

@@ -169,6 +169,9 @@ def _tighten_spacing(text: str) -> str:
 # 뱉으면 프론트(react-markdown, KaTeX 미도입)가 파싱 못 해 raw로 노출된다. 프롬프트로 억제 + 표기만 결정적 정리(값 불변).
 # 볼드는 '**…**' 짝 단위로 안쪽 공백만 trim(한쪽/양쪽 공백 모두 안전). 한 줄 내로 한정(줄바꿈 넘어 과매치 방지).
 _MD_BOLD_RE = re.compile(r"\*\*[ \t]*(\S(?:[^\n]*?\S)?)[ \t]*\*\*")
+# qwen3.5가 굵게 안에 따옴표를 넣는 습관(**'연차휴가'**를) — CommonMark는 닫는 **가
+# 구두점 뒤+글자 앞이면 강조로 인정하지 않아 원시 ** 노출. 안쪽 따옴표를 벗겨 교정.
+_MD_BOLD_QUOTE_RE = re.compile(r"\*\*['\"‘’“”]([^*\n]+?)['\"‘’“”]\*\*")
 _LATEX_TEXT_RE = re.compile(r"\\(?:text|mathrm|mathbf)\s*\{([^}]*)\}")  # \text{원} → 원
 _LATEX_CMD = [(r"\times", "×"), (r"\div", "÷"), (r"\cdot", "·"), (r"\pm", "±"),
               (r"\leq", "≤"), (r"\geq", "≥"), (r"\%", "%"), (r"\,", " "), (r"\;", " ")]
@@ -177,7 +180,8 @@ _LATEX_LEFTOVER_RE = re.compile(r"\\[a-zA-Z]+")                   # 남은 백�
 
 
 def _fix_markdown(text: str) -> str:
-    return _MD_BOLD_RE.sub(r"**\1**", text)
+    text = _MD_BOLD_RE.sub(r"**\1**", text)
+    return _MD_BOLD_QUOTE_RE.sub(r"**\1**", text)
 
 
 def _strip_latex(text: str) -> str:
