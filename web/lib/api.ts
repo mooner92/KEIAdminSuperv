@@ -59,7 +59,7 @@ export type Message = {
 };
 // 관리자 피드백 신호(개인정보 보호: 질문·답변 본문 미포함 — 규정 메타 + 사유만)
 export type CorpusDoc = {
-  slug: string; title: string; section: string; 검수상태: string;
+  slug: string; title: string; 구분: string; section: string; 검수상태: string;
   chunks: number; excluded: boolean; needs_reindex: boolean;
 };
 export type FeedbackRow = {

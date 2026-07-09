@@ -473,7 +473,8 @@ def corpus_list(admin: User = Depends(current_admin)):
     chunks = _chunks_by_slug()
     docs = []
     from pathlib import Path as _P
-    for md in sorted(_P(vault).rglob("*.md")):
+    vault_p = _P(vault)
+    for md in sorted(vault_p.rglob("*.md")):
         if "_templates" in md.parts or md.parts[-2].startswith("90_"):
             continue
         head = md.read_text(encoding="utf-8", errors="ignore")[:800]
@@ -485,9 +486,11 @@ def corpus_list(admin: User = Depends(current_admin)):
         slug = md.stem
         n = chunks.get(slug, 0)
         excluded = slug in ex
+        rel = md.relative_to(vault_p).parts  # 예: (10_업무가이드, 0000_미분류, 파일.md)
         docs.append({
             "slug": slug,
             "title": _fm("규정명") or _fm("제목") or _fm("용어") or slug,
+            "구분": rel[0] if len(rel) >= 2 else "",     # 상위 폴더(업무가이드/규정원문/용어집/시스템)
             "section": md.parts[-2] if len(md.parts) >= 2 else "",
             "검수상태": _fm("검수상태") or "미검수",
             "chunks": n,

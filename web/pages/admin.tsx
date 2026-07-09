@@ -1,371 +1,134 @@
 import { useCallback, useEffect, useState } from "react";
 import Head from "next/head";
-import { SITE_NAME } from "../lib/site";
 import Link from "next/link";
 import Layout from "../components/Layout";
-import { api, ApiError, type CorpusDoc, type FlagMeta, type FlagAudit, type Stats } from "../lib/api";
+import AdminCorpus from "../components/AdminCorpus";
+import AdminFlags from "../components/AdminFlags";
+import { api, ApiError, type FeedbackRow, type Stats } from "../lib/api";
+import { SITE_NAME } from "../lib/site";
 import { useFlag } from "../lib/flags";
 import styles from "../styles/Admin.module.css";
 
-// 기능 플래그 관리자 페이지. 관리자만 접근(백엔드 /flags/manage가 403로 막음 → 안내).
-// 정적 export라 데이터는 클라이언트에서 런타임 fetch.
-export default function AdminPage() {
-  const [flags, setFlags] = useState<FlagMeta[] | null>(null);
-  const [audit, setAudit] = useState<FlagAudit[]>([]);
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [downs, setDowns] = useState<Awaited<ReturnType<typeof api.feedbackList>> | null>(null); // v1 ⑮(#52) 👎 사유
-  const [admin, setAdmin] = useState("");
-  const [err, setErr] = useState("");
-  const [busy, setBusy] = useState("");
-  // v1.1 P1(docs/20): 코퍼스 관리
-  const corpusOn = useFlag("corpus_admin");
-  const [corpus, setCorpus] = useState<Awaited<ReturnType<typeof api.corpusList>> | null>(null);
-  const [cq, setCq] = useState("");
-  const loadCorpus = () => api.corpusList().then(setCorpus).catch(() => {});
-  // P3 업로드 상태
-  const [pending, setPending] = useState<{ id: string; name: string; warn: string }[]>([]);
-  const [preview, setPreview] = useState<{ id: string; name: string; text: string; warn: string } | null>(null);
-  const [upBusy, setUpBusy] = useState(false);
-  const loadUploads = () => api.corpusUploads().then((r) => setPending(r.uploads)).catch(() => {});
-  const [ridx, setRidx] = useState<Awaited<ReturnType<typeof api.corpusReindexStatus>> | null>(null);
-  // 재색인 진행 폴링(3s) — 완료 시 목록 갱신
-  useEffect(() => {
-    if (!corpusOn) return;
-    let alive = true;
-    const tick = () => api.corpusReindexStatus().then((r) => {
-      if (!alive) return;
-      setRidx((prev) => { if (prev?.running && !r.running) loadCorpus(); return r; });
-    }).catch(() => {});
-    tick();
-    const t = setInterval(tick, 3000);
-    return () => { alive = false; clearInterval(t); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [corpusOn]);
+// 관리자 페이지(v1.1 UX 개편, docs/21) — 탭 셸: 대시보드 / 코퍼스 관리 / 기능 플래그.
+// 탭 상태는 URL 해시(#corpus 등)와 동기화(새로고침·딥링크 유지). 접근은 백엔드 403이 방어.
+type Tab = "dash" | "corpus" | "flags";
+const TABS: { k: Tab; label: string }[] = [
+  { k: "dash", label: "📊 대시보드" },
+  { k: "corpus", label: "📚 코퍼스 관리" },
+  { k: "flags", label: "🚩 기능 플래그" },
+];
 
-  const loadAudit = useCallback(() => {
-    api.flagsAudit().then(setAudit).catch(() => {});
+export default function AdminPage() {
+  const corpusOn = useFlag("corpus_admin");
+  const [tab, setTab] = useState<Tab>("dash");
+  const [gate, setGate] = useState<"loading" | "ok" | string>("loading");
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [downs, setDowns] = useState<FeedbackRow[] | null>(null);
+
+  // 해시 ↔ 탭 동기화(딥링크·새로고침 유지)
+  useEffect(() => {
+    const fromHash = () => {
+      const h = window.location.hash.replace("#", "") as Tab;
+      if (["dash", "corpus", "flags"].includes(h)) setTab(h);
+    };
+    fromHash();
+    window.addEventListener("hashchange", fromHash);
+    return () => window.removeEventListener("hashchange", fromHash);
   }, []);
+  const go = (t: Tab) => { setTab(t); window.history.replaceState(null, "", `#${t}`); };
 
   const load = useCallback(() => {
-    api
-      .flagsManage()
-      .then((r) => {
-        setFlags(r.flags);
-        setAdmin(r.admin);
-        setErr("");
-        loadAudit();
+    api.flagsManage()
+      .then(() => {
+        setGate("ok");
         api.stats().then(setStats).catch(() => {});
         api.feedbackList("down").then(setDowns).catch(() => {});
-        loadCorpus();
-        loadUploads();
       })
       .catch((e) => {
-        if (e instanceof ApiError) {
-          setErr(
-            e.status === 403
-              ? "관리자 전용 페이지입니다. (APP_ADMINS에 등록된 계정으로 로그인 필요)"
-              : e.status === 401
-                ? "로그인이 필요합니다."
-                : e.message
-          );
-        } else {
-          setErr("불러오기에 실패했습니다.");
-        }
+        setGate(e instanceof ApiError
+          ? (e.status === 403 ? "관리자 전용 페이지입니다. (APP_ADMINS에 등록된 계정으로 로그인 필요)"
+            : e.status === 401 ? "로그인이 필요합니다." : e.message)
+          : "불러오기에 실패했습니다.");
       });
-  }, [loadAudit]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  const toggle = async (f: FlagMeta) => {
-    setBusy(f.key);
-    try {
-      const u = await api.setFlag(f.key, !f.enabled);
-      setFlags(
-        (prev) =>
-          prev?.map((x) =>
-            x.key === f.key ? { ...x, enabled: u.enabled, updated_by: u.updated_by, updated_at: u.updated_at } : x
-          ) ?? null
-      );
-      loadAudit();
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "토글 실패");
-    } finally {
-      setBusy("");
-    }
-  };
+  }, []);
+  useEffect(load, [load]);
 
   return (
-    <Layout
-      breadcrumb={
-        <span>
-          <Link href="/">{SITE_NAME}</Link>
-          <span className={styles.sep}>›</span>관리자
-        </span>
-      }
-    >
+    <Layout breadcrumb={<span><Link href="/">{SITE_NAME}</Link><span className={styles.sep}>›</span>관리자</span>}>
       <Head>
         <title>{`관리자 · ${SITE_NAME}`}</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
       <h1 className={styles.h1}>관리자</h1>
-
-      {err ? <div className={styles.err}>{err}</div> : null}
-
-      {stats ? (
-        <section className={styles.dash}>
-          <h2 className={styles.h2}>
-            운영 대시보드 <span className={styles.dashDays}>최근 {stats.days}일</span>
-          </h2>
-          <p className={styles.privacy}>
-            🔒 개인정보 보호: 인기 질문·콘텐츠 갭은 서로 다른 <b>{stats.k_anon}명 이상</b>이 물은 항목만
-            집계(숫자=질문한 사용자 수)로 표시됩니다. 개별 채팅 내용·작성자는 관리자도 볼 수 없습니다.
-          </p>
-          <div className={styles.cards}>
-            <div className={styles.card}>
-              <div className={styles.cardN}>{stats.users}</div>
-              <div className={styles.cardL}>사용자</div>
-            </div>
-            <div className={styles.card}>
-              <div className={styles.cardN}>{stats.chats}</div>
-              <div className={styles.cardL}>대화</div>
-            </div>
-            <div className={styles.card}>
-              <div className={styles.cardN}>{stats.questions}</div>
-              <div className={styles.cardL}>질문</div>
-            </div>
-            <div className={styles.card}>
-              <div className={styles.cardN}>{Math.round(stats.refusal_rate * 100)}%</div>
-              <div className={styles.cardL}>거부율 ({stats.refusals}/{stats.answers})</div>
-            </div>
-            <div className={styles.card}>
-              <div className={styles.cardN}>👍 {stats.feedback.up} · 👎 {stats.feedback.down}</div>
-              <div className={styles.cardL}>피드백</div>
-            </div>
-          </div>
-          <div className={styles.dashGrid}>
-            <div>
-              <h3 className={styles.h3}>인기 질문</h3>
-              <ol className={styles.qlist}>
-                {stats.top_questions.map((q, i) => (
-                  <li key={i}>
-                    <span className={styles.qn}>{q.n}</span> {q.q}
-                  </li>
-                ))}
-                {stats.top_questions.length === 0 ? (
-                  <li className={styles.muted}>{stats.k_anon}명 이상이 물은 질문이 아직 없습니다</li>
-                ) : null}
-              </ol>
-            </div>
-            <div>
-              <h3 className={styles.h3}>
-                콘텐츠 갭 <span className={styles.muted}>(거부된 질문 — 보강 우선순위)</span>
-              </h3>
-              <ol className={styles.qlist}>
-                {stats.gaps.map((q, i) => (
-                  <li key={i}>
-                    <span className={`${styles.qn} ${styles.qnGap}`}>{q.n}</span> {q.q}
-                  </li>
-                ))}
-                {stats.gaps.length === 0 ? (
-                  <li className={styles.muted}>반복된 거부 질문 없음 👍</li>
-                ) : null}
-              </ol>
-            </div>
-          </div>
-        </section>
-      ) : null}
-
-      {downs && downs.length > 0 ? (
-        <section className={styles.dash}>
-          <h2 className={styles.h2}>👎 부정 피드백 사유 <span className={styles.dashDays}>최근 {Math.min(downs.length, 20)}건</span></h2>
-          <p className={styles.privacy}>🔒 질문·답변 본문은 표시하지 않습니다 — 근거 규정 메타와 사유만(검수 우선순위 참고용).</p>
-          <ul className={styles.qlist}>
-            {downs.slice(0, 20).map((f, i) => (
-              <li key={i}>
-                <b>{f.sources?.map((s2) => `${s2.규정명} ${s2.조}`.trim()).slice(0, 2).join(", ") || "(근거 메타 없음)"}</b>
-                {f.reason ? <> — “{f.reason}”</> : <span className={styles.muted}> (사유 없음)</span>}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      {corpusOn && corpus ? (
-        <section className={styles.dash}>
-          <h2 className={styles.h2}>
-            코퍼스 관리 <span className={styles.dashDays}>문서 {corpus.summary.total} · 청크 {corpus.summary.indexed_chunks}</span>
-          </h2>
-          <p className={styles.privacy}>
-            색인 <b>제외</b>는 파일을 지우지 않는 안전 토글입니다(복귀 가능). 토글 후
-            {corpus.summary.needs_reindex > 0 ? <b> ⟳ 재색인 필요 {corpus.summary.needs_reindex}건 — </b> : " "}
-            서버에서 <code>python tools/02_chunk_and_embed.py …</code> 실행 시 반영됩니다(P2에서 버튼화).
-          </p>
-          <div className={styles.uploadBar}>
-            <label className={styles.uploadBtn}>
-              {upBusy ? "변환 중…" : "📤 문서 업로드(md·hwp·hwpx·pdf)"}
-              <input type="file" accept=".md,.hwp,.hwpx,.pdf" style={{ display: "none" }} disabled={upBusy}
-                aria-label="문서 업로드"
-                onChange={async (e) => {
-                  const f = e.target.files?.[0];
-                  e.target.value = "";
-                  if (!f) return;
-                  setUpBusy(true);
-                  try {
-                    const r = await api.corpusUpload(f);
-                    setPreview({ id: r.id, name: r.name, text: r.preview, warn: r.warn });
-                    loadUploads();
-                  } catch (err) { alert(err instanceof Error ? err.message : "업로드 실패"); }
-                  finally { setUpBusy(false); }
-                }} />
-            </label>
-            <span className={styles.uploadHint}>업로드 → 변환 미리보기 → <b>승인해야 편입</b>(검수상태 미검수) → 재색인 실행 시 반영</span>
-          </div>
-          {pending.length > 0 ? (
-            <ul className={styles.pendList}>
-              {pending.map((u) => (
-                <li key={u.id} className={styles.pendRow}>
-                  <span>⏳ {u.name}{u.warn ? <em className={styles.pendWarn}> — {u.warn}</em> : null}</span>
-                  <span className={styles.pendBtns}>
-                    <button onClick={async () => {
-                      const t = prompt("편입할 문서 제목(가이드로 편입):", u.name.replace(/\.[^.]+$/, ""));
-                      if (t === null) return;
-                      await api.corpusApprove(u.id, "guide", t).catch((e) => alert(e.message));
-                      setPreview(null); loadUploads(); loadCorpus();
-                    }}>✅ 가이드로 승인</button>
-                    <button onClick={async () => {
-                      const t = prompt("편입할 규정명(규정원문으로 편입):", u.name.replace(/\.[^.]+$/, ""));
-                      if (t === null) return;
-                      await api.corpusApprove(u.id, "regulation", t).catch((e) => alert(e.message));
-                      setPreview(null); loadUploads(); loadCorpus();
-                    }}>📜 규정으로 승인</button>
-                    <button onClick={async () => { await api.corpusReject(u.id).catch(() => {}); setPreview(null); loadUploads(); }}>🗑 거절</button>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          {preview ? (
-            <div className={styles.previewBox}>
-              <div className={styles.previewHead}>변환 미리보기 — {preview.name}
-                {preview.warn ? <em className={styles.pendWarn}> ⚠ {preview.warn}</em> : null}
-                <button className={styles.previewClose} onClick={() => setPreview(null)}>✕</button>
-              </div>
-              <pre className={styles.previewPre}>{preview.text}</pre>
-            </div>
-          ) : null}
-          <div className={styles.reindexBar}>
-            <button className={styles.reindexBtn} disabled={!!ridx?.running}
-              onClick={async () => { await api.corpusReindex().catch(() => {}); setRidx((r) => r ? { ...r, running: true } : r); }}>
-              {ridx?.running ? "⟳ 재색인 진행 중…" : "⟳ 재색인 실행"}
-            </button>
-            {ridx?.running || ridx?.log?.length ? (
-              <span className={styles.reindexLog}>{ridx.log[ridx.log.length - 1] || "…"}</span>
-            ) : null}
-            {!ridx?.running && ridx?.backups?.length ? (
-              <span className={styles.rollbackWrap}>
-                롤백:
-                {ridx.backups.slice(-2).map((b) => (
-                  <button key={b} className={styles.rollbackBtn}
-                    title="이 스냅샷으로 즉시 되돌리기(수 초·재임베딩 없음)"
-                    onClick={async () => {
-                      if (!confirm(`${b} 시점으로 색인을 되돌릴까요? (현재 색인은 보존됩니다)`)) return;
-                      await api.corpusRollback(b).catch(() => {});
-                      loadCorpus(); api.corpusReindexStatus().then(setRidx).catch(() => {});
-                    }}>
-                    {b.replace("chroma.bak-", "")}
-                  </button>
-                ))}
-              </span>
-            ) : null}
-          </div>
-          <input className={styles.corpusSearch} placeholder="문서 검색(제목·슬러그)" value={cq}
-            onChange={(e) => setCq(e.target.value)} aria-label="코퍼스 검색" />
-          <ul className={styles.corpusList}>
-            {corpus.docs
-              .filter((d) => !cq.trim() || (d.title + d.slug).toLowerCase().includes(cq.trim().toLowerCase()))
-              .slice(0, 60)
-              .map((d: CorpusDoc) => (
-                <li key={d.slug} className={styles.corpusRow}>
-                  <span className={styles.corpusTitle}>
-                    {d.title}
-                    <span className={styles.corpusMeta}> · {d.section} · 청크 {d.chunks} · {d.검수상태}</span>
-                    {d.needs_reindex ? <span className={styles.reindexBadge}>⟳ 재색인 필요</span> : null}
-                  </span>
-                  <button
-                    className={`${styles.exToggle} ${d.excluded ? styles.exOn : ""}`}
-                    onClick={async () => { await api.corpusExclude(d.slug, !d.excluded).catch(() => {}); loadCorpus(); }}
-                  >
-                    {d.excluded ? "제외됨 → 복귀" : "색인 제외"}
-                  </button>
-                </li>
-              ))}
-          </ul>
-          {corpus.docs.length > 60 ? <p className={styles.muted}>검색으로 좁혀서 보세요(60건까지 표시).</p> : null}
-        </section>
-      ) : null}
-
-      <h2 className={styles.h2}>기능 플래그 관리</h2>
-      <p className={styles.lead}>
-        새 기능을 켜고/끕니다. 변경은 <b>즉시 반영</b>(재배포 불필요)되고 <b>감사 기록</b>이 남습니다.
-        다 쓴 플래그는 만료일에 맞춰 코드에서 제거하세요.
-      </p>
-
-      {flags ? (
+      {gate !== "ok" ? (
+        <div className={styles.err}>{gate === "loading" ? "확인 중…" : gate}</div>
+      ) : (
         <>
-          <div className={styles.who}>로그인 관리자: <b>{admin}</b></div>
-          <ul className={styles.list}>
-            {flags.map((f) => {
-              // v1 스펙 ⑦(#46): 만료 규율 시각화 — 초과=빨강, D-14 이내=노랑
-              const days = f.expires
-                ? Math.ceil((new Date(f.expires + "T23:59:59").getTime() - Date.now()) / 86400000)
-                : null;
-              return (
-              <li key={f.key} className={styles.row}>
-                <div className={styles.meta}>
-                  <code className={styles.key}>{f.key}</code>
-                  {days !== null && days < 0 ? (
-                    <span className={styles.expOver}>⚠ 만료 초과 D+{-days} — 상시적용(코드 제거) 또는 폐기 결정 필요</span>
-                  ) : days !== null && days <= 14 ? (
-                    <span className={styles.expSoon}>만료 임박 D-{days}</span>
-                  ) : null}
-                  <div className={styles.desc}>{f.description}</div>
-                  <div className={styles.subline}>
-                    소유 {f.owner || "—"} · 만료 {f.expires || "장수(상시)"}
-                    {f.updated_by ? ` · 최근 변경 ${f.updated_by}` : ""}
-                  </div>
-                </div>
-                <button
-                  className={`${styles.toggle} ${f.enabled ? styles.on : ""}`}
-                  disabled={busy === f.key}
-                  onClick={() => toggle(f)}
-                  role="switch"
-                  aria-checked={f.enabled}
-                  aria-label={`${f.key} ${f.enabled ? "끄기" : "켜기"}`}
-                >
-                  <span className={styles.knob} />
-                </button>
-              </li>
-              );
-            })}
-          </ul>
-
-          <h2 className={styles.h2}>변경 이력 (감사)</h2>
-          <ul className={styles.audit}>
-            {audit.map((a, i) => (
-              <li key={i}>
-                <span className={styles.at}>{new Date(a.at * 1000).toLocaleString("ko-KR")}</span> ·{" "}
-                <b>{a.key}</b> → <span className={a.enabled ? styles.tOn : styles.tOff}>{a.enabled ? "ON" : "OFF"}</span> ·{" "}
-                {a.actor}
-              </li>
+          <nav className={styles.tabBar} role="tablist" aria-label="관리자 메뉴">
+            {TABS.filter((t) => t.k !== "corpus" || corpusOn).map((t) => (
+              <button key={t.k} role="tab" aria-selected={tab === t.k}
+                className={`${styles.tabBtn} ${tab === t.k ? styles.tabOn : ""}`}
+                onClick={() => go(t.k)}>
+                {t.label}
+              </button>
             ))}
-            {audit.length === 0 ? <li className={styles.muted}>이력 없음</li> : null}
-          </ul>
+          </nav>
+
+          {tab === "dash" ? (
+            <section>
+              {stats ? (
+                <section className={styles.dash}>
+                  <h2 className={styles.h2}>운영 대시보드 <span className={styles.dashDays}>최근 {stats.days}일</span></h2>
+                  <p className={styles.privacy}>
+                    🔒 개인정보 보호: 인기 질문·콘텐츠 갭은 서로 다른 <b>{stats.k_anon}명 이상</b>이 물은 항목만
+                    집계로 표시됩니다. 개별 채팅 내용·작성자는 관리자도 볼 수 없습니다.
+                  </p>
+                  <div className={styles.cards}>
+                    <div className={styles.card}><div className={styles.cardN}>{stats.users}</div><div className={styles.cardL}>사용자</div></div>
+                    <div className={styles.card}><div className={styles.cardN}>{stats.chats}</div><div className={styles.cardL}>대화</div></div>
+                    <div className={styles.card}><div className={styles.cardN}>{stats.questions}</div><div className={styles.cardL}>질문</div></div>
+                    <div className={styles.card}><div className={styles.cardN}>{Math.round(stats.refusal_rate * 100)}%</div><div className={styles.cardL}>거부율 ({stats.refusals}/{stats.answers})</div></div>
+                    <div className={styles.card}><div className={styles.cardN}>👍 {stats.feedback.up} · 👎 {stats.feedback.down}</div><div className={styles.cardL}>피드백</div></div>
+                  </div>
+                  <div className={styles.dashGrid}>
+                    <div>
+                      <h3 className={styles.h3}>인기 질문</h3>
+                      <ol className={styles.qlist}>
+                        {stats.top_questions.map((q, i) => <li key={i}><span className={styles.qn}>{q.n}</span> {q.q}</li>)}
+                        {stats.top_questions.length === 0 ? <li className={styles.muted}>{stats.k_anon}명 이상이 물은 질문이 아직 없습니다</li> : null}
+                      </ol>
+                    </div>
+                    <div>
+                      <h3 className={styles.h3}>콘텐츠 갭 <span className={styles.muted}>(거부된 질문 — 보강 우선순위)</span></h3>
+                      <ol className={styles.qlist}>
+                        {stats.gaps.map((q, i) => <li key={i}><span className={`${styles.qn} ${styles.qnGap}`}>{q.n}</span> {q.q}</li>)}
+                        {stats.gaps.length === 0 ? <li className={styles.muted}>반복된 거부 질문 없음 👍</li> : null}
+                      </ol>
+                    </div>
+                  </div>
+                </section>
+              ) : <p className={styles.lead}>불러오는 중…</p>}
+              {downs && downs.length > 0 ? (
+                <section className={styles.dash}>
+                  <h2 className={styles.h2}>👎 부정 피드백 사유 <span className={styles.dashDays}>최근 {Math.min(downs.length, 20)}건</span></h2>
+                  <p className={styles.privacy}>🔒 질문·답변 본문은 표시하지 않습니다 — 근거 규정 메타와 사유만(검수 우선순위 참고용).</p>
+                  <ul className={styles.qlist}>
+                    {downs.slice(0, 20).map((fb, i) => (
+                      <li key={i}>
+                        <b>{fb.sources?.map((s2) => `${s2.규정명} ${s2.조}`.trim()).slice(0, 2).join(", ") || "(근거 메타 없음)"}</b>
+                        {fb.reason ? <> — “{fb.reason}”</> : <span className={styles.muted}> (사유 없음)</span>}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+            </section>
+          ) : null}
+
+          {tab === "corpus" && corpusOn ? <AdminCorpus /> : null}
+          {tab === "flags" ? <AdminFlags /> : null}
         </>
-      ) : !err ? (
-        <div className={styles.muted}>불러오는 중…</div>
-      ) : null}
+      )}
     </Layout>
   );
 }
