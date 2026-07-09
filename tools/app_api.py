@@ -111,18 +111,6 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "",  # 예시(장수). 실제 release 플래그는 실제 만료일(YYYY-MM-DD)을 적어 정리 강제
     },
-    "cite_highlight": {
-        "default": False,  # release 플래그 — off로 배포, 파일럿 검증 후 on, 안정되면 플래그 제거
-        "description": "근거 조문 클릭 시 문서 드로어에서 인용 조문(별표 포함) 블록 형광 강조 + 근거 패널 '핵심 근거' 표시 (#1 피드백)",
-        "owner": "platform",
-        "expires": "2026-07-20",  # ⛔ 이 날짜까지 검증→상시적용(플래그 제거) 또는 폐기. flag debt 정리
-    },
-    "graph_split": {
-        "default": False,  # release 플래그
-        "description": "관계 그래프에서 노드 클릭 시 페이지 이동 대신 옆에 문서 패널을 열어 그래프와 동시에 보기(분할 뷰)",
-        "owner": "platform",
-        "expires": "2026-07-24",
-    },
     "graph_expand_regs": {
         "default": False,  # ⛔ off로 배포 — top-k 희석 위험이라 평가로 이득 입증 후 on(하이브리드·다양성과 동일 규율)
         "description": "검색 시 회수 조문이 준용/참조하는 다른 규정 조문을 근거에 자동 첨부(규정↔규정 1홉 확장). "
@@ -226,11 +214,31 @@ def effective_flags() -> dict:
     return {k: bool(db.get(k, (meta or {}).get("default", False))) for k, meta in FLAG_REGISTRY.items()}
 
 
+def flag_expiry_status(expires: str, today: str) -> str:
+    """플래그 만료 규율(v1 스펙 ⑦/#46): '' → 'ok'(장수) / 만료 지남 → 'overdue' / 14일 이내 → 'soon' / 그 외 'ok'."""
+    if not expires:
+        return "ok"
+    if expires < today:
+        return "overdue"
+    from datetime import date
+    y1, m1, d1 = map(int, today.split("-"))
+    y2, m2, d2 = map(int, expires.split("-"))
+    return "soon" if (date(y2, m2, d2) - date(y1, m1, d1)).days <= 14 else "ok"
+
+
 def init_db():
     SQLModel.metadata.create_all(engine)
     ensure_flags()
     if not {x.strip() for x in os.environ.get("APP_ADMINS", "").split(",") if x.strip()}:
         print("⚠ APP_ADMINS 미설정 — 기능 플래그 관리자 기능 비활성(아무도 토글 불가). 운영자 아이디를 APP_ADMINS에 설정하세요.")
+    # 플래그 만료 규율(v1 스펙 ⑦): 만료 지난/임박 release 플래그를 기동 시 경고 — flag debt 방치 방지
+    today = time.strftime("%Y-%m-%d")
+    for k, meta in FLAG_REGISTRY.items():
+        st = flag_expiry_status((meta or {}).get("expires", ""), today)
+        if st == "overdue":
+            print(f"⛔ 플래그 만료 초과: {k} (만료 {meta['expires']}) — 상시적용(코드 제거) 또는 폐기를 결정하세요 (docs/13 §D)")
+        elif st == "soon":
+            print(f"⚠ 플래그 만료 임박: {k} (만료 {meta['expires']})")
 
 
 # ───────────────────────── 인증 ─────────────────────────

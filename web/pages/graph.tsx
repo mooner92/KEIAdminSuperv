@@ -10,7 +10,7 @@ import { useFlag } from "../lib/flags";
 import styles from "../styles/Graph.module.css";
 
 export default function GraphPage({ graph }: { graph: GraphData }) {
-  const splitOn = useFlag("graph_split"); // 노드 클릭 시 옆 문서 패널(분할 뷰) — release 플래그
+  const splitOn = true; // graph_split 졸업(v1 ⑦, 2026-07-09): 검증 완료 → 분할 뷰 상시 적용
   const [selected, setSelected] = useState<string | null>(null);
   return (
     <Layout

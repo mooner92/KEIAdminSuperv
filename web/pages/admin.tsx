@@ -157,10 +157,20 @@ export default function AdminPage() {
         <>
           <div className={styles.who}>로그인 관리자: <b>{admin}</b></div>
           <ul className={styles.list}>
-            {flags.map((f) => (
+            {flags.map((f) => {
+              // v1 스펙 ⑦(#46): 만료 규율 시각화 — 초과=빨강, D-14 이내=노랑
+              const days = f.expires
+                ? Math.ceil((new Date(f.expires + "T23:59:59").getTime() - Date.now()) / 86400000)
+                : null;
+              return (
               <li key={f.key} className={styles.row}>
                 <div className={styles.meta}>
                   <code className={styles.key}>{f.key}</code>
+                  {days !== null && days < 0 ? (
+                    <span className={styles.expOver}>⚠ 만료 초과 D+{-days} — 상시적용(코드 제거) 또는 폐기 결정 필요</span>
+                  ) : days !== null && days <= 14 ? (
+                    <span className={styles.expSoon}>만료 임박 D-{days}</span>
+                  ) : null}
                   <div className={styles.desc}>{f.description}</div>
                   <div className={styles.subline}>
                     소유 {f.owner || "—"} · 만료 {f.expires || "장수(상시)"}
@@ -178,7 +188,8 @@ export default function AdminPage() {
                   <span className={styles.knob} />
                 </button>
               </li>
-            ))}
+              );
+            })}
           </ul>
 
           <h2 className={styles.h2}>변경 이력 (감사)</h2>

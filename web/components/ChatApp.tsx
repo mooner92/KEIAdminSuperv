@@ -80,7 +80,7 @@ export default function ChatApp({
   }, [docs]);
 
   // #1 피드백: 근거 클릭 시 드로어에서 인용 조문 하이라이트 + 패널 '핵심 근거' 표시 (release 플래그)
-  const highlightOn = useFlag("cite_highlight");
+  const highlightOn = true; // cite_highlight 졸업(v1 ⑦, 2026-07-09): 검증 완료 → 상시 적용
   const typeBadges = useFlag("source_type_badges"); // 📜규정(공식)/📘가이드(참고) 출처 성격 구분
   const integrityOn = useFlag("article_integrity"); // Track A: 조문 효력 배지(⚠삭제됨/개정일)
   const approvalOn = useFlag("approval_finder"); // Track B: 결재 언급 시 근거 패널에 결재선 판정기 제안
