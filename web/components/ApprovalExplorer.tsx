@@ -12,11 +12,8 @@ import rowStyles from "./ApprovalFinder.module.css";
  * ⛔ 위임전결규정 별표 원문 기준 — 실무 결재선은 부서 확인(면책은 페이지 헤더).
  */
 const PAGE_SIZES = [10, 30, 50];
-const SCOPE_FIELDS: { key: string; label: string }[] = [
-  { key: "work", label: "업무" },
-  { key: "cat", label: "구분" },
-  { key: "owner", label: "전결권자" },
-];
+// 자주 찾는 업무 키워드(2클릭 조회: 좌측 직급 + 키워드 칩). 실건수 표시·0건 자동 숨김.
+const KEYWORDS = ["출장", "휴가", "병가", "휴직", "채용", "교육", "결산", "예산", "계약", "구매", "법인카드", "출판", "겸직", "감사", "보수", "평가"];
 const ROLES_KEY = "kei-approval-roles"; // 선택 직급 기억(브라우저) — 계정 직급 설정의 경량 선행
 
 // 공백·중점 무시 정규화('국내출장'=='국내 출장') + 토큰 AND 매칭
@@ -28,7 +25,6 @@ export default function ApprovalExplorer({ rules }: { rules: ApprovalRule[] }) {
   const { resolved } = useTheme();
   const [q, setQ] = useState("");
   const [f, setF] = useState<Filters>({ cat: new Set(), role: new Set(), owner: new Set() });
-  const [scope, setScope] = useState<Set<string>>(() => new Set(["work", "cat"]));
   const [pageSize, setPageSize] = useState(30);
   const [page, setPage] = useState(1);
   const listRef = useRef<HTMLUListElement>(null);
@@ -57,19 +53,9 @@ export default function ApprovalExplorer({ rules }: { rules: ApprovalRule[] }) {
     return Array.from(cnt.keys()).sort((a, b) => (cnt.get(b) || 0) - (cnt.get(a) || 0));
   }, [rules]);
 
-  const toggleScope = (key: string) =>
-    setScope((prev) => {
-      const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
-      if (next.size === 0) next.add("work");
-      return next;
-    });
-
   const matchesQuery = (r: ApprovalRule, tokens: string[]) => {
     if (!tokens.length) return true;
-    const hay = norm(
-      [scope.has("work") ? r.업무 + " " + r.대상 : "", scope.has("cat") ? r.구분 : "", scope.has("owner") ? r.전결권자 : ""].join(" ")
-    );
+    const hay = norm(r.업무 + " " + r.대상 + " " + r.구분); // 검색 대상 고정: 업무+구분
     return tokens.every((t) => hay.includes(t));
   };
 
@@ -83,11 +69,24 @@ export default function ApprovalExplorer({ rules }: { rules: ApprovalRule[] }) {
     return true;
   };
 
-  const filtered = useMemo(() => rules.filter((r) => passes(r)), [rules, q, f, scope]);
+  const filtered = useMemo(() => rules.filter((r) => passes(r)), [rules, q, f]);
+
+  // 키워드 칩 건수: 좌측 필터(직급·구분·전결권자) 반영 — 검색어와는 독립
+  const kwCount = (kw: string) =>
+    rules.filter((r) => {
+      if (f.cat.size && !f.cat.has(r.구분)) return false;
+      if (f.role.size && r.대상 && !f.role.has(r.대상)) return false;
+      if (f.owner.size && !f.owner.has(r.전결권자)) return false;
+      return norm(r.업무 + " " + r.구분).includes(kw);
+    }).length;
+  const kwChips = useMemo(
+    () => KEYWORDS.map((k) => ({ k, n: kwCount(k) })).filter((x) => x.n > 0),
+    [rules, f]
+  );
 
   const total = filtered.length;
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
-  useEffect(() => setPage(1), [q, f, pageSize, scope]);
+  useEffect(() => setPage(1), [q, f, pageSize]);
   const cur = Math.min(page, pageCount);
   const start = (cur - 1) * pageSize;
   const pageItems = filtered.slice(start, start + pageSize);
@@ -166,21 +165,21 @@ export default function ApprovalExplorer({ rules }: { rules: ApprovalRule[] }) {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               onDeleteClick={() => setQ("")}
-              placeholder={`검색 (${SCOPE_FIELDS.filter((s) => scope.has(s.key)).map((s) => s.label).join("·")}) — 예: 출장, 휴가, 계약`}
+              placeholder="업무 검색 — 예: 출장, 휴가, 계약 (아래 칩으로 바로 조회)"
               aria-label="업무 검색"
             />
           </ColorSchemeArea>
-          <div className={styles.scopeRow} role="group" aria-label="검색 범위">
-            <span className={styles.scopeLabel}>검색 범위</span>
-            {SCOPE_FIELDS.map((s) => (
+          <div className={styles.scopeRow} role="group" aria-label="자주 찾는 업무">
+            <span className={styles.scopeLabel}>자주 찾는 업무</span>
+            {kwChips.map(({ k, n }) => (
               <button
-                key={s.key}
+                key={k}
                 type="button"
-                className={scope.has(s.key) ? `${styles.scopeChip} ${styles.scopeOn}` : styles.scopeChip}
-                aria-pressed={scope.has(s.key)}
-                onClick={() => toggleScope(s.key)}
+                className={q.trim() === k ? `${styles.scopeChip} ${styles.scopeOn}` : styles.scopeChip}
+                aria-pressed={q.trim() === k}
+                onClick={() => setQ(q.trim() === k ? "" : k)}
               >
-                {s.label}
+                {k} <span style={{ opacity: 0.6 }}>{n}</span>
               </button>
             ))}
           </div>

@@ -24,8 +24,21 @@ const roleLabels = await p.locator("aside label", { hasText: /부원장|부서�
 const badRoles = roleLabels.filter((o) => /만원|평가서|중요한 사항|부서간|부서내/.test(o));
 ok(badRoles.length === 0 && roleLabels.length >= 6, `5) 직급 체크박스 정화(${roleLabels.length}개, 비직급 값 0)`);
 
-// ② 검색 범위 태그(업무·구분·전결권자)
-ok((await p.locator('[aria-label="검색 범위"] button').count()) === 3, "6) 검색 범위 태그 3종(업무·구분·전결권자)");
+// ② 자주 찾는 업무 키워드 칩(실건수·0건 숨김) — 2클릭 조회
+const kwBtns = p.locator('[aria-label="자주 찾는 업무"] button');
+ok((await kwBtns.count()) >= 8, `6) 자주 찾는 업무 칩 렌더 (${await kwBtns.count()}개)`);
+// 2클릭 흐름: 좌측 '일반직원' 체크 + '채용' 칩 클릭 → 결과
+await p.locator("aside label", { hasText: "일반직원" }).locator("input").check();
+await p.waitForTimeout(400);
+await kwBtns.filter({ hasText: "채용" }).first().click();
+await p.waitForTimeout(500);
+let kwBody = await p.locator("main").textContent();
+ok(/채용/.test(kwBody) && /전결/.test(kwBody) && /\d+건/.test(kwBody), "6b) 2클릭(일반직원+채용) → 전결 결과 표시");
+// 칩 재클릭 = 해제
+await kwBtns.filter({ hasText: "채용" }).first().click();
+await p.waitForTimeout(400);
+await p.locator("aside label", { hasText: "일반직원" }).locator("input").uncheck();
+await p.waitForTimeout(300);
 
 // ③ 페이지네이션 — 335건이면 페이지 이동 UI 존재
 body = await p.textContent("body");
