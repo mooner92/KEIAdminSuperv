@@ -67,6 +67,17 @@ function loadAll(): Doc[] {
       return stems.has(t) ? `[${disp}](/d/${t}/${a})` : disp;
     });
 
+  // 날짜 정규화(v1 스펙 B2): gray-matter가 YAML 날짜(개정일: 2021-08-17)를 JS Date로 파싱해
+  // String()하면 "Tue Aug 17 2021 09:00:00 GMT+0900…"가 화면·docdata에 그대로 노출된다.
+  // Date → YYYY-MM-DD(로컬 기준), 그 외는 문자열 그대로.
+  const fmtDate = (v: unknown): string => {
+    if (v instanceof Date && !isNaN(v.getTime())) {
+      const p = (n: number) => String(n).padStart(2, "0");
+      return `${v.getFullYear()}-${p(v.getMonth() + 1)}-${p(v.getDate())}`;
+    }
+    return String(v ?? "");
+  };
+
   _cache = raws.map((r) => {
     const title = String(r.data["규정명"] || r.data["제목"] || r.data["용어"] || r.stem);
     return {
@@ -75,7 +86,7 @@ function loadAll(): Doc[] {
       section: r.section,
       category: String(r.data["분류"] || ""),
       regNo: String(r.data["규정번호"] || ""),
-      revised: String(r.data["개정일"] || ""),
+      revised: fmtDate(r.data["개정일"] || r.data["최종검토일"] || ""),
       reviewed: String(r.data["검수상태"] || ""),
       type: String(r.data["type"] || ""),
       articleCount: (r.content.match(/^\s*제\s*\d+\s*조/gm) || []).length,

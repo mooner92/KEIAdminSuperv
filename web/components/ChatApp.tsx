@@ -259,6 +259,9 @@ export default function ChatApp({
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    // 한글 IME 조합 중 Enter는 무시(v1 스펙 B3) — 이중전송·마지막 글자 유실 방지.
+    // keyCode 229 = 일부 브라우저의 IME 처리 중 키 이벤트.
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       send();
@@ -387,6 +390,7 @@ export default function ChatApp({
                           value={reasonText}
                           onChange={(e) => setReasonText(e.target.value)}
                           onKeyDown={(e) => {
+                            if (e.nativeEvent.isComposing || e.keyCode === 229) return; // IME 가드(B3)
                             if (e.key === "Enter") submitReason(m.id);
                             if (e.key === "Escape") setReasonFor(null);
                           }}
