@@ -35,11 +35,21 @@ await p.waitForTimeout(500);
 const overlay = p.locator('aside[class*=srcOverlayOpen]');
 ok((await overlay.count()) > 0 && (await overlay.isVisible()), "5) 클릭 → 근거 오버레이 표시");
 const overlayTxt = (await overlay.textContent()) || "";
-ok(/근거 조문/.test(overlayTxt) && /규정|가이드/.test(overlayTxt), "6) 오버레이에 근거 카드 렌더");
+ok(/근거 조문/.test(overlayTxt) && /규정|가이드/.test(overlayTxt), "6) 바텀시트에 근거 카드 렌더");
+// 바텀시트가 화면을 다 덮지 않는지(대화가 위에 보임): 시트 top이 화면 40% 아래여야
+const box = await overlay.boundingBox();
+ok(box && box.y > 900 * 0.38, `6b) 바텀시트 높이 제한(대화 가시) — top=${Math.round(box?.y || 0)}px/900px`);
 await p.screenshot({ path: "verify-v1-b6.png" });
-await overlay.locator('button[aria-label="근거 닫기"]').click();
+// 배경 탭으로 닫기
+await p.mouse.click(500, 100);
 await p.waitForTimeout(400);
-ok(!(await p.locator('aside[class*=srcOverlayOpen]').isVisible().catch(() => false)), "7) 닫기 동작");
+ok(!(await p.locator('aside[class*=srcOverlayOpen]').isVisible().catch(() => false)), "7) 배경 탭 → 닫힘");
+// 다시 열고 ESC로 닫기
+await fab.click();
+await p.waitForTimeout(400);
+await p.keyboard.press("Escape");
+await p.waitForTimeout(300);
+ok(!(await p.locator('aside[class*=srcOverlayOpen]').isVisible().catch(() => false)), "7b) ESC → 닫힘");
 
 // 1440px 복귀 — FAB 숨김(CSS), 패널 복원
 await p.setViewportSize({ width: 1440, height: 1100 });

@@ -85,7 +85,13 @@ export default function ChatApp({
   const integrityOn = useFlag("article_integrity"); // Track A: 조문 효력 배지(⚠삭제됨/개정일)
   const approvalOn = useFlag("approval_finder"); // Track B: 결재 언급 시 근거 패널에 결재선 판정기 제안
   const [approvalOpen, setApprovalOpen] = useState(false); // 결재선 드로어(우측 슬라이드인)
-  const [srcOverlay, setSrcOverlay] = useState(false); // v1 B6: ≤1080px 근거 오버레이(넓은 화면에선 무시)
+  const [srcOverlay, setSrcOverlay] = useState(false); // v1 B6: ≤1080px 근거 바텀시트(넓은 화면에선 무시)
+  useEffect(() => {
+    if (!srcOverlay) return;
+    const onKey = (e: globalThis.KeyboardEvent) => { if (e.key === "Escape") setSrcOverlay(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [srcOverlay]);
 
   // 활성 메시지(없으면 마지막 assistant)의 근거를 우측에 표시
   const activeSources: Source[] = useMemo(() => {
@@ -463,8 +469,10 @@ export default function ChatApp({
         </p>
       </div>
 
-      {/* ── 우측: 근거 조문(메시지별). ≤1080px에선 srcOverlay로 오버레이 표시(v1 B6) ── */}
+      {/* ── 우측: 근거 조문(메시지별). ≤1080px에선 바텀시트로 표시(v1 B6) — 배경 탭/ESC 닫기 ── */}
+      {srcOverlay ? <div className={styles.srcBackdrop} onClick={() => setSrcOverlay(false)} /> : null}
       <aside className={`${styles.sources} ${srcOverlay ? styles.srcOverlayOpen : ""}`}>
+        <div className={styles.srcHandle} aria-hidden="true" />
         <div className={styles.srcHead}>
           <span className={styles.srcTitle}>근거 조문</span>
           {activeSources.length > 0 ? <span className={styles.srcCount}>{activeSources.length}</span> : null}

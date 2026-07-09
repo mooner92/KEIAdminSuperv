@@ -309,9 +309,12 @@
 .graphCta:hover { color: var(--color-primary); }
 
 /* ── 반응형 ── */
-/* v1 B6: 좁은 화면 근거 접근 — 숨기는 대신 플로팅 버튼 → 오버레이(같은 패널 재사용) */
+/* v1 B6: 좁은 화면 근거 접근 — 숨기는 대신 플로팅 버튼 → 바텀시트(같은 패널 재사용) */
 .srcFab { display: none; }
 .srcClose { display: none; }
+.srcHandle { display: none; }
+.srcBackdrop { display: none; }
+@keyframes srcSheetUp { from { transform: translateY(24px); opacity: 0.6; } to { transform: translateY(0); opacity: 1; } }
 @media (max-width: 1080px) {
   .app {
     grid-template-columns: 200px 1fr;
@@ -320,12 +323,22 @@
     overflow: visible;
   }
   .sources { display: none; }
+  /* 바텀시트: 화면을 다 덮지 않고(최대 58vh) 대화가 위에 계속 보임 — 배경 탭/ESC로 닫기 */
   .sources.srcOverlayOpen {
     display: flex; flex-direction: column;
-    position: fixed; left: 12px; right: 12px; bottom: 12px; top: 18vh; z-index: 70;
-    background: var(--color-surface); border: 1px solid var(--color-border-strong);
-    border-radius: 14px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
-    padding: 14px; overflow-y: auto;
+    position: fixed; left: 0; right: 0; bottom: 0; top: auto; z-index: 70;
+    max-height: 58vh;
+    background: var(--color-surface); border: 1px solid var(--color-border-strong); border-bottom: none;
+    border-radius: 16px 16px 0 0; box-shadow: 0 -10px 36px rgba(0, 0, 0, 0.35);
+    padding: 8px 14px 14px; overflow-y: auto;
+    animation: srcSheetUp 0.22s ease-out;
+  }
+  .srcBackdrop {
+    display: block; position: fixed; inset: 0; z-index: 65; background: rgba(0, 0, 0, 0.42);
+  }
+  .srcOverlayOpen .srcHandle {
+    display: block; width: 44px; height: 4px; border-radius: 999px;
+    background: var(--color-border-strong); margin: 2px auto 8px; flex: none;
   }
   .srcFab {
     display: inline-flex; align-items: center; gap: 6px;
