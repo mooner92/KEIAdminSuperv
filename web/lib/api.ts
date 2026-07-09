@@ -58,6 +58,10 @@ export type Message = {
   feedback_reason?: string; // 👎 사유(선택)
 };
 // 관리자 피드백 신호(개인정보 보호: 질문·답변 본문 미포함 — 규정 메타 + 사유만)
+export type CorpusDoc = {
+  slug: string; title: string; section: string; 검수상태: string;
+  chunks: number; excluded: boolean; needs_reindex: boolean;
+};
 export type FeedbackRow = {
   id: number;
   rating: "up" | "down";
@@ -198,5 +202,11 @@ export const api = {
   setFlag: (key: string, enabled: boolean) =>
     j<FlagMeta>(`/flags/${encodeURIComponent(key)}`, { method: "POST", body: JSON.stringify({ enabled }) }),
   flagsAudit: () => j<FlagAudit[]>("/flags/audit"),
+
+  // 코퍼스 관리 P1(관리자) — docs/20
+  corpusList: () =>
+    j<{ docs: CorpusDoc[]; summary: { total: number; excluded: number; indexed_chunks: number; needs_reindex: number } }>("/corpus"),
+  corpusExclude: (slug: string, excluded: boolean) =>
+    j<{ slug: string; excluded: boolean }>("/corpus/exclude", { method: "POST", body: JSON.stringify({ slug, excluded }) }),
   stats: (days?: number) => j<Stats>(`/stats${days ? `?days=${days}` : ""}`), // 관리자 전용 대시보드
 };

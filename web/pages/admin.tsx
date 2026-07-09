@@ -3,7 +3,8 @@ import Head from "next/head";
 import { SITE_NAME } from "../lib/site";
 import Link from "next/link";
 import Layout from "../components/Layout";
-import { api, ApiError, type FlagMeta, type FlagAudit, type Stats } from "../lib/api";
+import { api, ApiError, type CorpusDoc, type FlagMeta, type FlagAudit, type Stats } from "../lib/api";
+import { useFlag } from "../lib/flags";
 import styles from "../styles/Admin.module.css";
 
 // 기능 플래그 관리자 페이지. 관리자만 접근(백엔드 /flags/manage가 403로 막음 → 안내).
@@ -16,6 +17,11 @@ export default function AdminPage() {
   const [admin, setAdmin] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState("");
+  // v1.1 P1(docs/20): 코퍼스 관리
+  const corpusOn = useFlag("corpus_admin");
+  const [corpus, setCorpus] = useState<Awaited<ReturnType<typeof api.corpusList>> | null>(null);
+  const [cq, setCq] = useState("");
+  const loadCorpus = () => api.corpusList().then(setCorpus).catch(() => {});
 
   const loadAudit = useCallback(() => {
     api.flagsAudit().then(setAudit).catch(() => {});
@@ -31,6 +37,7 @@ export default function AdminPage() {
         loadAudit();
         api.stats().then(setStats).catch(() => {});
         api.feedbackList("down").then(setDowns).catch(() => {});
+        loadCorpus();
       })
       .catch((e) => {
         if (e instanceof ApiError) {
@@ -162,6 +169,42 @@ export default function AdminPage() {
               </li>
             ))}
           </ul>
+        </section>
+      ) : null}
+
+      {corpusOn && corpus ? (
+        <section className={styles.dash}>
+          <h2 className={styles.h2}>
+            코퍼스 관리 <span className={styles.dashDays}>문서 {corpus.summary.total} · 청크 {corpus.summary.indexed_chunks}</span>
+          </h2>
+          <p className={styles.privacy}>
+            색인 <b>제외</b>는 파일을 지우지 않는 안전 토글입니다(복귀 가능). 토글 후
+            {corpus.summary.needs_reindex > 0 ? <b> ⟳ 재색인 필요 {corpus.summary.needs_reindex}건 — </b> : " "}
+            서버에서 <code>python tools/02_chunk_and_embed.py …</code> 실행 시 반영됩니다(P2에서 버튼화).
+          </p>
+          <input className={styles.corpusSearch} placeholder="문서 검색(제목·슬러그)" value={cq}
+            onChange={(e) => setCq(e.target.value)} aria-label="코퍼스 검색" />
+          <ul className={styles.corpusList}>
+            {corpus.docs
+              .filter((d) => !cq.trim() || (d.title + d.slug).toLowerCase().includes(cq.trim().toLowerCase()))
+              .slice(0, 60)
+              .map((d: CorpusDoc) => (
+                <li key={d.slug} className={styles.corpusRow}>
+                  <span className={styles.corpusTitle}>
+                    {d.title}
+                    <span className={styles.corpusMeta}> · {d.section} · 청크 {d.chunks} · {d.검수상태}</span>
+                    {d.needs_reindex ? <span className={styles.reindexBadge}>⟳ 재색인 필요</span> : null}
+                  </span>
+                  <button
+                    className={`${styles.exToggle} ${d.excluded ? styles.exOn : ""}`}
+                    onClick={async () => { await api.corpusExclude(d.slug, !d.excluded).catch(() => {}); loadCorpus(); }}
+                  >
+                    {d.excluded ? "제외됨 → 복귀" : "색인 제외"}
+                  </button>
+                </li>
+              ))}
+          </ul>
+          {corpus.docs.length > 60 ? <p className={styles.muted}>검색으로 좁혀서 보세요(60건까지 표시).</p> : null}
         </section>
       ) : null}
 

@@ -263,9 +263,22 @@ def chunk_guide(body: str, max_chars: int = 1800, pack: int = 1400):
     return final or [(body.strip(), "")]
 
 
+def _load_excluded() -> set:
+    """코퍼스 관리 P1(docs/20): 관리자가 제외한 문서(slug=stem)는 색인에서 skip(파일 불변)."""
+    p = Path(__file__).parent / "index" / "exclude.json"
+    try:
+        import json as _json
+        return set(_json.loads(p.read_text(encoding="utf-8")).get("excluded", []))
+    except Exception:
+        return set()
+
+
 def iter_chunks(vault: Path):
+    excluded = _load_excluded()
     for md in sorted(vault.rglob("*.md")):
         if "_templates" in md.parts:
+            continue
+        if md.stem in excluded:   # 관리자 제외(P1) — soft skip
             continue
         meta, body = split_frontmatter(md.read_text(encoding="utf-8"))
         typ = meta.get("type", "")

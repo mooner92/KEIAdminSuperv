@@ -165,6 +165,13 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-10-15",
     },
+    "corpus_admin": {
+        "default": False,  # release 플래그 — 관리자 전용 기능이지만 노출도 플래그로(v1.1 P1)
+        "description": "코퍼스 관리 P1(docs/20) — /admin에 볼트 문서 목록(청크수·검수상태)·색인 제외 토글·"
+                       "재색인 필요 배지. 제외는 soft(exclude.json, 파일 불변·02가 skip), 재색인 실행은 P2에서 버튼화.",
+        "owner": "platform",
+        "expires": "2026-12-15",
+    },
     "explore_upgrades": {
         "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
         "description": "탐색 마감(v1 스펙 ⑬⑭/S7) — ⓐ둘러보기 드로어 URL 딥링크(?doc=슬러그, 뒤로가기 연동) "
@@ -201,6 +208,15 @@ FLAG_REGISTRY: dict = {
         "expires": "2026-10-15",
     },
 }
+
+
+class CorpusAudit(SQLModel, table=True):
+    """코퍼스 관리 감사(v1.1 P1): 제외/복귀 이력. ⛔ 검수상태와 무관 — 색인 포함 여부만."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    slug: str = Field(index=True)
+    action: str  # exclude | include
+    actor: str = ""
+    at: float = Field(default_factory=time.time)
 
 
 class Flag(SQLModel, table=True):
@@ -409,6 +425,100 @@ class FlagIn(BaseModel):
 def get_flags():
     """현재 유효 플래그 {key: bool}. 인증 불요(둘러보기/그래프도 사용) — UI 토글일 뿐 비민감."""
     return effective_flags()
+
+
+# ───────────────────── 코퍼스 관리(P1: 목록·제외) — docs/20 ─────────────────────
+EXCLUDE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "index", "exclude.json")
+_corpus_cache = {"t": 0.0, "chunks": {}}
+
+
+def _load_excluded() -> set:
+    try:
+        with open(EXCLUDE_PATH, encoding="utf-8") as f:
+            return set(json.load(f).get("excluded", []))
+    except Exception:
+        return set()
+
+
+def _save_excluded(ex: set):
+    os.makedirs(os.path.dirname(EXCLUDE_PATH), exist_ok=True)
+    with open(EXCLUDE_PATH, "w", encoding="utf-8") as f:
+        json.dump({"excluded": sorted(ex)}, f, ensure_ascii=False, indent=1)
+
+
+def _chunks_by_slug() -> dict:
+    """chroma 색인의 path(stem)별 청크 수 — 60s 캐시(전량 metadata 스캔)."""
+    now = time.time()
+    if now - _corpus_cache["t"] < 60 and _corpus_cache["chunks"]:
+        return _corpus_cache["chunks"]
+    try:
+        _, col, _ = rag_core.backend()
+        got = col.get(include=["metadatas"])
+        cnt: dict = {}
+        for m in got["metadatas"]:
+            stem = os.path.splitext(os.path.basename(m.get("path") or ""))[0]
+            cnt[stem] = cnt.get(stem, 0) + 1
+        _corpus_cache.update(t=now, chunks=cnt)
+    except Exception:
+        pass
+    return _corpus_cache["chunks"]
+
+
+@router.get("/corpus")
+def corpus_list(admin: User = Depends(current_admin)):
+    """관리자: 볼트 문서 목록 + 색인 상태(제외·청크수·재색인 필요)."""
+    vault = os.environ.get("VAULT_DIR", os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "KEI-행정가이드"))
+    ex = _load_excluded()
+    chunks = _chunks_by_slug()
+    docs = []
+    from pathlib import Path as _P
+    for md in sorted(_P(vault).rglob("*.md")):
+        if "_templates" in md.parts or md.parts[-2].startswith("90_"):
+            continue
+        head = md.read_text(encoding="utf-8", errors="ignore")[:800]
+        def _fm(k):
+            m = re.search(rf"^{k}:\s*\"?([^\"\n]+)", head, re.M)
+            return (m.group(1).strip() if m else "")
+        slug = md.stem
+        n = chunks.get(slug, 0)
+        excluded = slug in ex
+        docs.append({
+            "slug": slug,
+            "title": _fm("규정명") or _fm("제목") or _fm("용어") or slug,
+            "section": md.parts[-2] if len(md.parts) >= 2 else "",
+            "검수상태": _fm("검수상태") or "미검수",
+            "chunks": n,
+            "excluded": excluded,
+            "needs_reindex": (excluded and n > 0) or (not excluded and n == 0),
+        })
+    summary = {
+        "total": len(docs),
+        "excluded": sum(1 for d in docs if d["excluded"]),
+        "indexed_chunks": sum(d["chunks"] for d in docs),
+        "needs_reindex": sum(1 for d in docs if d["needs_reindex"]),
+    }
+    return {"docs": docs, "summary": summary}
+
+
+class ExcludeIn(BaseModel):
+    slug: str
+    excluded: bool
+
+
+@router.post("/corpus/exclude")
+def corpus_exclude(body: ExcludeIn, admin: User = Depends(current_admin)):
+    """관리자: 문서 색인 제외/복귀 토글(soft — 파일 불변, 02가 skip). 재색인은 P1에선 CLI."""
+    ex = _load_excluded()
+    if body.excluded:
+        ex.add(body.slug)
+    else:
+        ex.discard(body.slug)
+    _save_excluded(ex)
+    with Session(engine) as s:
+        s.add(CorpusAudit(slug=body.slug, action="exclude" if body.excluded else "include", actor=admin.username))
+        s.commit()
+    _corpus_cache["t"] = 0  # 다음 조회에서 needs_reindex 재계산
+    return {"slug": body.slug, "excluded": body.excluded}
 
 
 @router.get("/flags/manage")
