@@ -12,6 +12,7 @@ import re
 import sqlite3
 import threading
 import time
+import unicodedata
 
 EMBED_MODEL = os.environ.get("EMBED_MODEL", "nlpai-lab/KURE-v1")   # 02/03과 동일해야 함
 CHROMA_DIR = os.environ.get("CHROMA_DIR", "tools/chroma")
@@ -252,7 +253,14 @@ SYSTEM = (
     "(예: '일비 1만원 × 3일 + 숙박비 5만원 × 2박 = 13만원 [여비규정 별표2]'). 단계를 장황하게 늘리지 않는다."
     " ⛔ 계산에 넣는 모든 수치는 반드시 [근거]에 있는 값이어야 한다 — 추측해 채워 넣지 않는다."
     " 필요한 값이 [근거]에 없으면 그 항목은 '규정에서 확인되지 않습니다'라고 밝히고,"
-    " 조건에 따라 달라지면 조건별로 나눠 설명한 뒤 원문·담당 부서 확인을 안내한다."
+    " 조건에 따라 달라지면 조건별로 나눠 설명한 뒤 원문·담당 부서 확인을 안내한다.\n"
+    "11) [근거]는 질문과 가장 관련 높은 조문 일부일 뿐, 전체 규정의 집계가 아니다."
+    " 사용자가 '몇 개인지'·'모든/전체 목록'·'종류 전부'처럼 **전체의 개수·전수를 물을 때만** 다음을 적용한다:"
+    " ⛔ '총 N개' 표현 금지(근거에 보이는 개수는 전체가 아니다). 첫 줄은 '검색된 근거에서는 ○○ N건이"
+    " 확인됩니다(전체 목록 아님)' 형태로 쓰고, [근거]에 있는 항목만 나열한 뒤 전체 목록·정확한 개수는"
+    " '규정 둘러보기' 화면과 담당 부서 확인을 안내한다."
+    " ⛔ 그 밖의 일반 질문(금액·일수·기한·가부·방법 등)에는 이 형식과 '검색된 근거에서는'·'전체 목록 아님'"
+    " 문구를 쓰지 않는다 — 규칙 2대로 첫 줄에 바로 답한다."
 )
 
 # 가드레일(절대 규칙 #4): 모든 답변 끝에 면책 문구. 14B가 종종 누락(평가셋 측정 ~19%)하므로
@@ -268,6 +276,27 @@ def _ensure_disclaimer(text: str) -> str:
     return (t.rstrip() + "\n\n" + DISCLAIMER) if t.strip() else DISCLAIMER
 
 
+# ── P2.10 집계 정직성 백스톱(SYSTEM 규칙 11의 결정적 보장) ─────────────────
+# top-k 근거는 전체 집계가 아니다 — 개수·전수 질문 답변에 '근거 기준(전체 아님)' 한정과
+# 전체 확인 경로 안내가 없으면 결정적으로 덧붙인다(면책 문구 _ensure_disclaimer와 같은 패턴).
+_ENUM_Q_RE = re.compile(
+    r"몇\s*개|몇개|모든|전체\s*(목록|리스트|개수)|목록|리스트|종류|뭐가\s*있|뭐뭐|어떤\s*것들|다\s*알려|전부\s*(알려|보여|뽑|나열)"
+)
+_ENUM_KEYS = ("전체 목록 아님", "전체 아님", "전체가 아닐", "둘러보기")
+_ENUM_NOTE = ("ℹ️ 위 개수·목록은 이번에 검색된 근거 기준이며 전체가 아닐 수 있습니다. "
+              "전체 규정은 '규정 둘러보기' 화면에서 확인하세요.")
+
+
+def _ensure_enum_note(question: str, text: str) -> str:
+    """개수·전수 질문인데 답변에 '전체 아님' 한정·둘러보기 안내가 없으면 덧붙인다(무해한 강화)."""
+    t = text or ""
+    if not t.strip() or not _ENUM_Q_RE.search(question or ""):
+        return t
+    if any(k in t for k in _ENUM_KEYS):
+        return t
+    return t.rstrip() + "\n\n" + _ENUM_NOTE
+
+
 CONDENSE_SYS = (
     "너는 검색어 재작성기다. [대화]를 참고해 [후속질문]을, 그 자체로 의미가 통하는 "
     "'독립 질문' 한 줄로 바꾼다.\n"
@@ -275,9 +304,99 @@ CONDENSE_SYS = (
     "- ⛔ 후속질문이 그 자체로 완성돼 보여도, 직전 대화의 핵심 대상·주제(특정 제도·문서·출장 종류 등)를 "
     "검색어에 반드시 포함한다. 예: 직전이 '국내출장 보고'면 후속 'ERP에서 어떻게 해?'는 "
     "'국내출장 출장복명서 ERP 작성·제출 방법'으로 재작성(임의로 '국외'로 바꾸지 않는다).\n"
+    "- ⛔ 직전 '도우미' 답변의 문장을 복사·요약해 출력하지 않는다. 출력은 항상 [후속질문]을 다듬은 "
+    "'질문'이어야 하며, [후속질문]에 있는 핵심 단어(대상·제도명)는 빼지 않고 유지한다.\n"
+    "- 단, [후속질문]이 스스로 새로운 대상·제도를 지목하면(주제 전환) 이전 주제를 검색어에 섞지 않는다.\n"
     "- 새로운 사실·추측을 더하지 않는다. 질문 의도만 보존한다.\n"
     "- 출력은 재작성된 질문 한 줄만. 따옴표·설명·접두어 금지."
 )
+
+# ── P1.5 재작성 위생 가드 ──────────────────────────────────────────────
+# 실측 결함(dev session 42, 2026-07-09): 재작성 LLM이 질문을 재작성하지 않고 직전 '답변'을
+# 그대로 복사해 출력 → 사용자 질문 단어("인사 위원회, 징계 위원회")가 검색기에 미도달,
+# 직전 오답("존재하지 않는다")이 검색어에 주입되는 자기강화 오류로 거짓 부정 답변 발생.
+# 아래 가드는 그런 출력을 결정적으로 거르고 원 질문으로 강등한다(검색어 방어만 — 답변·가드레일 불변).
+# 적대적 리뷰(3렌즈) 반영: 화이트리스트 정규화(전각 우회 차단)·NFC·casefold, 구어 의문어 stop 확충,
+# 어간 2자 미만이면 조사 미제거(휴가→휴 파괴 방지), 복사 판정에 서술문/길이 조건(규정명 재사용 허용).
+_RW_STRIP = re.compile(r"[^가-힣A-Za-z0-9]+")  # 한글·영숫자만 보존(블랙리스트 우회 원천 차단)
+
+_RW_STOP = {
+    # 요청·지시·설명 기능어
+    "대해", "대한", "대해서", "관해", "관해서", "관련", "관련된", "내용", "정보", "설명", "질문",
+    "알려줘", "알려주세요", "알려", "말해줘", "말해", "해줘", "해주세요", "부탁", "부탁해",
+    # 의문사·지시어·정도 부사 (구어 후속질문 "그거 얼마 정도 드나요?"의 전 토큰이 여기서 걸러져야 함)
+    "뭐야", "뭔가", "무엇", "어떻게", "어떤", "어디", "어디서", "언제", "언제야", "언제까지",
+    "누구", "누가", "얼마", "얼마나", "얼마야", "얼마까지", "며칠", "몇일", "몇개", "몇가지", "몇번",
+    "그건", "그거", "이거", "저거", "이건", "그날", "그때", "그곳", "여기", "여기서", "거기", "거기서",
+    "바로", "정도", "조금", "많이", "자세히", "전부", "모두", "모든",
+    # 담화·시제
+    "그럼", "그러면", "그리고", "다시", "지금", "이제", "궁금", "궁금해", "확인",
+    # 짧은 구어 동사(어미 패턴 _RW_PRED가 못 거르는 축약형)
+    "있어", "있나", "있나요", "있는지", "인가요", "인가", "걸려", "걸리나", "되나", "드나",
+    "받아", "받나", "주나", "쳐주나", "해야", "해도", "되요", "돼요",
+}
+# 서술·의문 어미로 끝나는 토큰(동사·형용사 활용형)은 명사가 아니므로 핵심어에서 제외
+_RW_PRED = re.compile(
+    r"(습니다|습니까|입니다|입니까|합니다|합니까|됩니다|됩니까"
+    r"|나요|까요|가요|어요|아요|여요|세요|네요|지요"
+    r"|는지|은지|을지|을까|는가|은가|던가|거든|잖아"
+    r"|어야|아야|해야|하나|하니|하냐|되니|되냐|할까|될까)$"
+)
+# 서술문 종결 표지 — 재작성이 '질문'이 아니라 답변 문장 복사임을 나타내는 신호
+_RW_DECL = re.compile(r"(습니다|입니다|합니다|됩니다|이다|한다|된다|있다|없다|았다|었다|는다|으며|지만|는데)$")
+# 조사 제거(긴 것 우선). 형태소 분석기 없이 어미 수준 근사 — 핵심 명사 비교용이라 과제거보다 보수적으로.
+_RW_JOSA = re.compile(
+    r"(으로써|으로서|에서는|에게서|한테서|이라는|라는|이란|으로|에서|에게|한테|이랑|하고|처럼|만큼"
+    r"|보다|부터|까지|이나|든지|라도|마저|조차|은|는|이|가|을|를|와|과|의|에|도|만|랑|나|로)$"
+)
+
+
+def _rw_norm(s: str) -> str:
+    """NFC + 소문자 + 한글·영숫자만 — 복사 여부를 표기(마크다운·전각·대소문자·자모분해) 차이와 무관하게 비교."""
+    return _RW_STRIP.sub("", unicodedata.normalize("NFC", s or "")).casefold()
+
+
+def _rw_core_tokens(question: str) -> set:
+    """질문의 핵심 단어(2자 이상, 조사 제거, 기능어·활용형 제외) — 재작성이 질문을 보존했는지 검사용."""
+    out = set()
+    q = unicodedata.normalize("NFC", question or "")
+    for t in re.findall(r"[가-힣A-Za-z0-9]{2,}", q):
+        if t in _RW_STOP or _RW_PRED.search(t):
+            continue
+        for _ in range(2):  # 겹조사(예: '위원회에서는') 대비 최대 2회 제거
+            t2 = _RW_JOSA.sub("", t)
+            if t2 == t or len(t2) < 2:  # 어간이 1자가 되면 조사 아님(휴가→휴, 회의→회 파괴 방지)
+                break
+            t = t2
+        if len(t) >= 2 and t not in _RW_STOP:
+            out.add(t.casefold())
+    return out
+
+
+def _rewrite_ok(rq: str, question: str, recent: list) -> bool:
+    """재작성 결과 위생 검사. False면 원 질문으로 강등(안전 기본값 — 최악이 '맥락 복원 없음').
+    ① 직전 답변 복사(부분 복사 포함) 차단 ② 원 질문 핵심어가 전부 사라진 무관 출력 차단 ③ 장문 차단.
+    """
+    if len(rq) > 200:  # 재작성은 '질문 한 줄' — 장문은 답변 복사·설명문 신호
+        return False
+    rqn = _rw_norm(rq)
+    # ① 직전 '답변'과의 동일/포함 비교(assistant만 — 이전 사용자 질문과 같아지는 건 정상 재질문).
+    #    hist_text가 답변을 500자로 절단해 넣으므로 복사본도 그 안에서 나온다(여유 있게 800자 비교).
+    #    단, 답변은 규정명·소제목을 늘 인용하므로(절대규칙3) 짧은 '명사구' 재사용은 복사가 아니다 —
+    #    30자 이상이거나 서술문으로 끝날 때만 복사로 판정(session 42 에코는 둘 다 해당).
+    if len(rqn) >= 15:
+        looks_decl = bool(_RW_DECL.search(rq.rstrip().rstrip(".!?…\"'」』)").rstrip()))
+        if len(rqn) >= 30 or looks_decl:
+            for h in recent:
+                if isinstance(h, dict) and h.get("role") == "assistant" \
+                        and rqn in _rw_norm((h.get("content") or "")[:800]):
+                    return False
+    # ② 핵심어 보존: 질문에 핵심 단어가 2개 이상인데 재작성에 하나도 없으면 드리프트.
+    #    (1개 이하면 '그건 언제까지야?' 같은 지시대명사 후속질문 — 재작성이 단어를 바꾸는 게 정상이라 미적용)
+    core = _rw_core_tokens(question)
+    if len(core) >= 2 and not any(t in rqn for t in core):
+        return False
+    return True
 
 _state: dict = {}
 _lock = threading.Lock()
@@ -332,7 +451,7 @@ def condense_query(question: str, history=None, enabled: bool = None) -> str:
     """
     use = REWRITE if enabled is None else enabled
     recent = [h for h in (history or [])
-              if h.get("role") in ("user", "assistant") and h.get("content")][-6:]
+              if isinstance(h, dict) and h.get("role") in ("user", "assistant") and h.get("content")][-6:]
     if not use or not recent:
         return question
     try:
@@ -347,7 +466,9 @@ def condense_query(question: str, history=None, enabled: bool = None) -> str:
         )
         rq = (out.choices[0].message.content or "").strip().strip('"').strip()
         rq = rq.splitlines()[0].strip() if rq else ""
-        return rq if len(rq) >= 2 else question  # 비었거나 너무 짧으면 원문
+        if len(rq) < 2 or not _rewrite_ok(rq, question, recent):
+            return question  # 비었거나·직전 답변 복사·질문 무관 출력이면 원 질문으로 강등
+        return rq
     except Exception:  # noqa: BLE001 — 재작성 실패는 원 질문으로 강등(서비스 영향 없음)
         return question
 
@@ -815,7 +936,8 @@ def answer(question: str, context: str, history=None, temperature: float = 0.1) 
         messages=_build_messages(question, context, history),
         extra_body=_gen_extra(),  # 매 요청마다 상주 재확인 + 사고 off
     )
-    return _ensure_disclaimer(_postprocess(out.choices[0].message.content or ""))
+    return _ensure_disclaimer(
+        _ensure_enum_note(question, _postprocess(out.choices[0].message.content or "")))
 
 
 # 스트리밍 홀드백: 공백결함 정규화('제 11 조'→'제11조')는 패턴이 완성돼야 합칠 수 있으므로,
@@ -849,6 +971,9 @@ def answer_stream(question: str, context: str, history=None, temperature: float 
     final = _postprocess(seen)
     if len(final) > emitted:                 # 홀드백 잔여분 방출
         yield final[emitted:]
+    # 집계 정직성(P2.10): 개수·전수 질문인데 '전체 아님' 한정이 없으면 결정적으로 덧붙임
+    if final.strip() and _ENUM_Q_RE.search(question or "") and not any(k in final for k in _ENUM_KEYS):
+        yield "\n\n" + _ENUM_NOTE
     # 가드레일: 스트림 본문에 면책 문구가 없으면 마지막에 덧붙여 보장(중복 방지 감지 포함)
     if _DISC_KEY not in final:
         yield ("\n\n" + DISCLAIMER) if final.strip() else DISCLAIMER
