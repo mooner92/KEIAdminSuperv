@@ -211,6 +211,22 @@ export const api = {
   corpusReindex: () => j<{ started: boolean }>("/corpus/reindex", { method: "POST" }),
   corpusReindexStatus: () =>
     j<{ running: boolean; ok: boolean | null; log: string[]; backups: string[] }>("/corpus/reindex"),
+  // P3 업로드(관리자) — multipart는 j() 대신 전용 fetch(Content-Type 자동)
+  corpusUpload: async (file: File) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    const r = await fetch(`${BASE}/corpus/upload`, { method: "POST", credentials: "same-origin", body: fd });
+    if (!r.ok) {
+      let msg = `업로드 실패 (${r.status})`;
+      try { const e = await r.json(); if (e?.detail) msg = e.detail; } catch { /* ignore */ }
+      throw new ApiError(r.status, msg);
+    }
+    return (await r.json()) as { id: string; name: string; warn: string; preview: string; chars: number };
+  },
+  corpusUploads: () => j<{ uploads: { id: string; name: string; warn: string; at: number }[] }>("/corpus/uploads"),
+  corpusApprove: (id: string, doc_type: "guide" | "regulation", title: string) =>
+    j<{ slug: string; path: string }>(`/corpus/uploads/${id}/approve`, { method: "POST", body: JSON.stringify({ doc_type, title }) }),
+  corpusReject: (id: string) => j<{ rejected: string }>(`/corpus/uploads/${id}/reject`, { method: "POST" }),
   corpusRollback: (backup: string) =>
     j<{ rolled_back_to: string }>("/corpus/rollback", { method: "POST", body: JSON.stringify({ backup }) }),
   stats: (days?: number) => j<Stats>(`/stats${days ? `?days=${days}` : ""}`), // 관리자 전용 대시보드

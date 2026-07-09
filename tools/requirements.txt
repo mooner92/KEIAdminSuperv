@@ -29,3 +29,4 @@ bcrypt>=4.0        # 비밀번호 해시(직접 사용 — passlib은 bcrypt 5 �
 # 6) 연구행정 가이드 변환(01c): PDF/PPTX → md
 pymupdf>=1.24      # PDF 텍스트 추출(fitz). 스캔 이미지 PDF는 image-pdf로 표시
 python-pptx>=1.0   # PPTX 슬라이드 텍스트/표 추출
+python-multipart  # P3 업로드(FastAPI File) — v1.1 docs/20

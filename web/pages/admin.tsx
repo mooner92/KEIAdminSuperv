@@ -22,6 +22,11 @@ export default function AdminPage() {
   const [corpus, setCorpus] = useState<Awaited<ReturnType<typeof api.corpusList>> | null>(null);
   const [cq, setCq] = useState("");
   const loadCorpus = () => api.corpusList().then(setCorpus).catch(() => {});
+  // P3 업로드 상태
+  const [pending, setPending] = useState<{ id: string; name: string; warn: string }[]>([]);
+  const [preview, setPreview] = useState<{ id: string; name: string; text: string; warn: string } | null>(null);
+  const [upBusy, setUpBusy] = useState(false);
+  const loadUploads = () => api.corpusUploads().then((r) => setPending(r.uploads)).catch(() => {});
   const [ridx, setRidx] = useState<Awaited<ReturnType<typeof api.corpusReindexStatus>> | null>(null);
   // 재색인 진행 폴링(3s) — 완료 시 목록 갱신
   useEffect(() => {
@@ -52,6 +57,7 @@ export default function AdminPage() {
         api.stats().then(setStats).catch(() => {});
         api.feedbackList("down").then(setDowns).catch(() => {});
         loadCorpus();
+        loadUploads();
       })
       .catch((e) => {
         if (e instanceof ApiError) {
@@ -196,6 +202,59 @@ export default function AdminPage() {
             {corpus.summary.needs_reindex > 0 ? <b> ⟳ 재색인 필요 {corpus.summary.needs_reindex}건 — </b> : " "}
             서버에서 <code>python tools/02_chunk_and_embed.py …</code> 실행 시 반영됩니다(P2에서 버튼화).
           </p>
+          <div className={styles.uploadBar}>
+            <label className={styles.uploadBtn}>
+              {upBusy ? "변환 중…" : "📤 문서 업로드(md·hwp·hwpx·pdf)"}
+              <input type="file" accept=".md,.hwp,.hwpx,.pdf" style={{ display: "none" }} disabled={upBusy}
+                aria-label="문서 업로드"
+                onChange={async (e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = "";
+                  if (!f) return;
+                  setUpBusy(true);
+                  try {
+                    const r = await api.corpusUpload(f);
+                    setPreview({ id: r.id, name: r.name, text: r.preview, warn: r.warn });
+                    loadUploads();
+                  } catch (err) { alert(err instanceof Error ? err.message : "업로드 실패"); }
+                  finally { setUpBusy(false); }
+                }} />
+            </label>
+            <span className={styles.uploadHint}>업로드 → 변환 미리보기 → <b>승인해야 편입</b>(검수상태 미검수) → 재색인 실행 시 반영</span>
+          </div>
+          {pending.length > 0 ? (
+            <ul className={styles.pendList}>
+              {pending.map((u) => (
+                <li key={u.id} className={styles.pendRow}>
+                  <span>⏳ {u.name}{u.warn ? <em className={styles.pendWarn}> — {u.warn}</em> : null}</span>
+                  <span className={styles.pendBtns}>
+                    <button onClick={async () => {
+                      const t = prompt("편입할 문서 제목(가이드로 편입):", u.name.replace(/\.[^.]+$/, ""));
+                      if (t === null) return;
+                      await api.corpusApprove(u.id, "guide", t).catch((e) => alert(e.message));
+                      setPreview(null); loadUploads(); loadCorpus();
+                    }}>✅ 가이드로 승인</button>
+                    <button onClick={async () => {
+                      const t = prompt("편입할 규정명(규정원문으로 편입):", u.name.replace(/\.[^.]+$/, ""));
+                      if (t === null) return;
+                      await api.corpusApprove(u.id, "regulation", t).catch((e) => alert(e.message));
+                      setPreview(null); loadUploads(); loadCorpus();
+                    }}>📜 규정으로 승인</button>
+                    <button onClick={async () => { await api.corpusReject(u.id).catch(() => {}); setPreview(null); loadUploads(); }}>🗑 거절</button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {preview ? (
+            <div className={styles.previewBox}>
+              <div className={styles.previewHead}>변환 미리보기 — {preview.name}
+                {preview.warn ? <em className={styles.pendWarn}> ⚠ {preview.warn}</em> : null}
+                <button className={styles.previewClose} onClick={() => setPreview(null)}>✕</button>
+              </div>
+              <pre className={styles.previewPre}>{preview.text}</pre>
+            </div>
+          ) : null}
           <div className={styles.reindexBar}>
             <button className={styles.reindexBtn} disabled={!!ridx?.running}
               onClick={async () => { await api.corpusReindex().catch(() => {}); setRidx((r) => r ? { ...r, running: true } : r); }}>

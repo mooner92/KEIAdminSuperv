@@ -628,6 +628,133 @@ def corpus_rollback(body: RollbackIn, admin: User = Depends(current_admin)):
     return {"rolled_back_to": os.path.basename(bak)}
 
 
+# ── P3: 업로드 → 변환 미리보기 → 승인 편입 (docs/20) ─────────────────────────
+from fastapi import File, Form, UploadFile
+
+UPLOAD_DIR = os.path.expanduser(os.environ.get("KEI_UPLOAD_DIR", "~/kei-uploads"))
+UPLOAD_MAX = 30 * 1024 * 1024  # 30MB
+UPLOAD_EXTS = {".md", ".hwp", ".hwpx", ".pdf"}
+PENDING: dict = {}  # id → {name, ext, status, preview_path, warn, at}
+
+
+def _c01c():
+    """01c 변환기(extract_hwp/extract_pdf) 지연 로드 — 숫자 파일명이라 importlib 사용."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "c01c", os.path.join(os.path.dirname(os.path.abspath(__file__)), "01c_guides_to_md.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _convert_upload(path: str, ext: str):
+    """업로드 파일 → (md 본문, 경고). ⛔ 자동 편입 금지 — 미리보기 후 사람이 승인(절대 규칙)."""
+    from pathlib import Path as _P
+    if ext == ".md":
+        return _P(path).read_text(encoding="utf-8", errors="ignore"), ""
+    c = _c01c()
+    if ext in (".hwp", ".hwpx"):
+        body, st = c.extract_hwp(_P(path), timeout=90)
+        return (body, "" if st == "ok" else f"변환 상태: {st} — 표/서식 깨짐 가능, 미리보기 확인 필수")
+    body, st = c.extract_pdf(_P(path))
+    warn = "" if st == "ok" else ("스캔 이미지 PDF로 보임 — 텍스트 추출 불가(OCR 필요)" if st == "image-pdf" else f"변환 오류: {body[:120]}")
+    return body, warn
+
+
+def _slugify(name: str, vault: str) -> str:
+    base = re.sub(r"[\\/:*?\"<>|#\[\]]+", " ", name).strip().replace("  ", " ")[:60] or "업로드문서"
+    slug, i = base, 2
+    from pathlib import Path as _P
+    existing = {p.stem for p in _P(vault).rglob("*.md")}
+    while slug in existing:
+        slug = f"{base}-{i}"; i += 1
+    return slug
+
+
+@router.post("/corpus/upload")
+async def corpus_upload(file: UploadFile = File(...), admin: User = Depends(current_admin)):
+    """관리자: 파일 업로드(staging, repo 밖) → 변환 → 미리보기 반환. 편입은 별도 승인."""
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in UPLOAD_EXTS:
+        raise HTTPException(400, f"지원 형식: {', '.join(sorted(UPLOAD_EXTS))}")
+    data = await file.read()
+    if len(data) > UPLOAD_MAX:
+        raise HTTPException(413, "파일이 너무 큽니다(30MB 제한).")
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    uid = time.strftime("%Y%m%d-%H%M%S") + "-" + secrets.token_hex(3)
+    raw = os.path.join(UPLOAD_DIR, uid + ext)
+    with open(raw, "wb") as f:
+        f.write(data)
+    try:
+        md, warn = _convert_upload(raw, ext)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(422, f"변환 실패: {type(e).__name__}: {e}")
+    conv = os.path.join(UPLOAD_DIR, uid + ".converted.md")
+    with open(conv, "w", encoding="utf-8") as f:
+        f.write(md)
+    PENDING[uid] = {"name": file.filename, "ext": ext, "raw": raw, "conv": conv, "warn": warn, "at": time.time()}
+    with Session(engine) as s:
+        s.add(CorpusAudit(slug=file.filename or uid, action="upload", actor=admin.username)); s.commit()
+    return {"id": uid, "name": file.filename, "warn": warn, "preview": md[:4000], "chars": len(md)}
+
+
+@router.get("/corpus/uploads")
+def corpus_uploads(admin: User = Depends(current_admin)):
+    return {"uploads": [{"id": k, "name": v["name"], "warn": v["warn"], "at": v["at"]} for k, v in sorted(PENDING.items())]}
+
+
+class ApproveIn(BaseModel):
+    doc_type: str = "guide"   # guide | regulation
+    title: str = ""
+    분류: str = "0000_미분류"
+
+
+@router.post("/corpus/uploads/{uid}/approve")
+def corpus_upload_approve(uid: str, body: ApproveIn, admin: User = Depends(current_admin)):
+    """관리자 승인 → 볼트 편입(검수상태: 미검수). 재색인은 P2 버튼으로."""
+    it = PENDING.get(uid)
+    if not it:
+        raise HTTPException(404, "대기 중 업로드가 없습니다.")
+    if body.doc_type not in ("guide", "regulation"):
+        raise HTTPException(400, "doc_type은 guide|regulation")
+    vault = os.environ.get("VAULT_DIR", os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "KEI-행정가이드"))
+    title = (body.title or os.path.splitext(it["name"] or "업로드문서")[0]).strip()
+    slug = _slugify(title, vault)
+    md = open(it["conv"], encoding="utf-8").read()
+    today = time.strftime("%Y-%m-%d")
+    if body.doc_type == "guide":
+        fm = (f"---\ntype: guide\n제목: \"{title}\"\n분류: \"{body.분류}\"\n대상: \"\"\n관련규정: []\n"
+              f"관련서식: []\n최종검토일: {today}\n검토자: \"{admin.username}(업로드)\"\n태그: [업로드]\n검수상태: 미검수\n---\n\n")
+        sub = "10_업무가이드/0000_미분류"
+    else:
+        fm = (f"---\ntype: regulation\n규정번호: \"\"\n규정명: \"{title}\"\n분류: \"{body.분류}\"\n"
+              f"개정일: {today}\n원본파일: \"{it['name']}\"\n태그: [업로드]\n검수상태: 미검수\n---\n\n")
+        sub = "20_규정원문/0000_미분류"
+    dest_dir = os.path.join(vault, sub)
+    os.makedirs(dest_dir, exist_ok=True)
+    dest = os.path.join(dest_dir, slug + ".md")
+    with open(dest, "w", encoding="utf-8") as f:
+        f.write(fm + f"# {title}\n\n> [!warning] 업로드 자동 변환 — 미리보기 승인본. 표/서식 확인 후 `검수상태: 검수완료`로.\n\n" + md)
+    PENDING.pop(uid, None)
+    _corpus_cache["t"] = 0
+    with Session(engine) as s:
+        s.add(CorpusAudit(slug=slug, action="approve", actor=admin.username)); s.commit()
+    return {"slug": slug, "path": os.path.join(sub, slug + ".md"), "needs_reindex": True}
+
+
+@router.post("/corpus/uploads/{uid}/reject")
+def corpus_upload_reject(uid: str, admin: User = Depends(current_admin)):
+    it = PENDING.pop(uid, None)
+    if not it:
+        raise HTTPException(404, "대기 중 업로드가 없습니다.")
+    for k in ("raw", "conv"):
+        try: os.remove(it[k])
+        except OSError: pass
+    with Session(engine) as s:
+        s.add(CorpusAudit(slug=it["name"] or uid, action="reject", actor=admin.username)); s.commit()
+    return {"rejected": uid}
+
+
 @router.get("/flags/manage")
 def manage_flags(admin: User = Depends(current_admin)):
     """관리자 페이지용: 메타데이터 포함 전체 목록."""
