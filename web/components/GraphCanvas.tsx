@@ -6,11 +6,19 @@ import { useTheme } from "../lib/theme";
 import { useFlag } from "../lib/flags";
 import styles from "../styles/Graph.module.css";
 
-// react-force-graph는 canvas/window 의존 → 클라이언트에서만 로드
-const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
-  ssr: false,
-  loading: () => <div className={styles.loading}>그래프 불러오는 중…</div>,
-});
+// react-force-graph는 canvas/window 의존 → 클라이언트에서만 로드.
+// ⚠ next/dynamic은 ref를 전달하지 않음 → forwardRef 래퍼로 감싸야 centerAt/zoom 등 카메라 API 사용 가능.
+const ForceGraph2D = dynamic(
+  async () => {
+    const mod = await import("react-force-graph-2d");
+    const FG = mod.default;
+    // next/dynamic의 Loadable이 ref를 벗겨내므로, 일반 prop(forwardedRef)으로 우회해 부착.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const Wrapped = ({ forwardedRef, ...props }: any) => <FG {...props} ref={forwardedRef} />;
+    return Wrapped;
+  },
+  { ssr: false, loading: () => <div className={styles.loading}>그래프 불러오는 중…</div> }
+);
 
 const SECTION_COLOR: Record<string, string> = {
   규정집: "#3182f6",
@@ -48,10 +56,19 @@ export default function GraphCanvas({
     if (!node || node.x == null) { setMiss(true); setTimeout(() => setMiss(false), 1500); return; }
     setMiss(false);
     onNodeSelect?.(String(node.id)); // 문서 패널 먼저(카메라 실패와 무관하게 동작 보장)
+    // 지도식 fly-to: ① 살짝 축소(맥락 확보) → ② 대상으로 이동 → ③ 확대 (지도 검색 이동 효과)
     try {
-      fgRef.current?.centerAt(node.x, node.y, 600);
-      fgRef.current?.zoom(3.2, 600);
-    } catch { /* dynamic ref 미전달 등 — 선택만으로도 기능 성립 */ }
+      const fg = fgRef.current;
+      if (!fg) return;
+      const cur = typeof fg.zoom === "function" ? fg.zoom() : 1;
+      fg.zoom(Math.min(cur, 1.1), 300);
+      setTimeout(() => fg.centerAt(node.x, node.y, 650), 280);
+      setTimeout(() => {
+        fg.zoom(3.4, 550);
+        // 검증 마커: 카메라 시퀀스가 실제 실행됐음을 DOM에 노출(E2E가 픽셀 대신 확인)
+        setTimeout(() => ref.current?.setAttribute("data-cam-zoom", String(Math.round((fg.zoom() || 0) * 10) / 10)), 700);
+      }, 950);
+    } catch { /* 카메라 실패해도 선택(패널)은 유지 */ }
   };
   const { resolved } = useTheme();
   const dark = resolved === "dark";
@@ -89,7 +106,7 @@ export default function GraphCanvas({
         </div>
       ) : null}
       <ForceGraph2D
-        ref={fgRef}
+        forwardedRef={fgRef}
         width={size.w}
         height={size.h}
         graphData={graph as never}
