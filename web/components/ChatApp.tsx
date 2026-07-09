@@ -684,6 +684,14 @@ export default function ChatApp({
                           신설
                         </span>
                       ) : null}
+                      {integrityOn && s.표깨짐 ? (
+                        <span
+                          className={styles.stDeleted}
+                          title="이 문서의 표가 변환 과정에서 손상되어 항목-값 짝이 어긋날 수 있어요. 금액·일수는 반드시 원문 표에서 확인하세요"
+                        >
+                          ⚠ 표 확인
+                        </span>
+                      ) : null}
                       {typeBadges && !cardV2 && (s.graph_expand || s.graph_expand_reg || s.graph_expand_action || s.graph_expand_gian) ? (
                         <span
                           className={styles.autoChip}

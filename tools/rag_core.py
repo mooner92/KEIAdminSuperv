@@ -260,7 +260,10 @@ SYSTEM = (
     " 확인됩니다(전체 목록 아님)' 형태로 쓰고, [근거]에 있는 항목만 나열한 뒤 전체 목록·정확한 개수는"
     " '규정 둘러보기' 화면과 담당 부서 확인을 안내한다."
     " ⛔ 그 밖의 일반 질문(금액·일수·기한·가부·방법 등)에는 이 형식과 '검색된 근거에서는'·'전체 목록 아님'"
-    " 문구를 쓰지 않는다 — 규칙 2대로 첫 줄에 바로 답한다."
+    " 문구를 쓰지 않는다 — 규칙 2대로 첫 줄에 바로 답한다.\n"
+    "12) [근거]에 '⚠ 표 구조 손상' 표시가 있는 블록은 변환 과정에서 표의 항목-값 짝이 무너진 것이다."
+    " ⛔ 그 블록의 수치(금액·일수)를 답에 쓰지 않는다 — 값 질문이면 '해당 표가 변환 중 손상되어 수치를"
+    " 확정할 수 없습니다'라고 밝히고 원문 표(별표)와 담당 부서 확인을 안내한다."
 )
 
 # 가드레일(절대 규칙 #4): 모든 답변 끝에 면책 문구. 14B가 종종 누락(평가셋 측정 ~19%)하므로
@@ -389,7 +392,72 @@ def _verification_context(context: str) -> str:
 
 
 # lookahead 주의: 나열 쉼표("100,000, 광역시")는 허용하되 천단위 그룹 중간(",000")·소수점 진행은 차단
+# lookahead 주의: 나열 쉼표("100,000, 광역시")는 허용하되 천단위 그룹 중간(",000")·소수점 진행은 차단
 _BARE_NUM_RE = re.compile(r"(?<![\d.,])(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)(?!\d)(?!,\d{3})(?!\.\d)")
+
+
+# ── P0-3 표 무결성 격리 (docs/22 §2) ────────────────────────────────────
+# HWP 변환에서 표 구조가 무너지면(셀 병합·행 붕괴) LLM이 항목-값을 오결합한다.
+# 실측: 상조회규약 별표(경조금 전 항목이 한 셀에) → "부모상 300만원" 오답(실제 50만),
+#       복무규정 별표1(결혼 "51"=5/1 병합, 사망 "5333"=5/3/3/3 병합).
+# 손상 표가 근거로 쓰이면: 블록에 경고 라벨(TABLE_BROKEN_MARK) + 수치 인용 금지 지시 +
+# P0-1 허용집합에서 그 블록의 수치 제외 + srcs '표깨짐' 마커(UI 배지) + 검수 큐 가산(01o).
+TABLE_GUARD = os.environ.get("RAG_TABLE_GUARD", "1") == "1"
+
+_MONEY_TOKEN_RE = re.compile(r"\d{1,3}(?:,\d{3})+\s*원?|\d+\s*(?:억|만|천)\s*원")
+_PERSON_TOKENS = ("본인", "배우자", "자녀", "부모", "조부모", "외조부모", "형제")
+
+
+def _table_broken(text: str):
+    """표 붕괴 신호 감지 → 사유 문자열(정상이면 None). 경고 전용 휴리스틱 — 내용 자동 변경 없음.
+
+    ⚠ 정밀도 우선(과탐 시 정답에 거짓 경고 → 신뢰 자해):
+      - '5 1'처럼 공백 구분 병렬 값·라벨 짝이 살아있는 다중 금액 셀(여비 별표2 상한 3종)은 정상.
+      - 잡는 것: ⓐ 카테고리째 붕괴된 거대 금액 셀(상조회 별표: 한 셀 금액 11개)
+                ⓑ 무공백 병합 숫자(복무규정 별표1: '51'=5/1, '5333'=5/3/3/3).
+    """
+    for line in (text or "").splitlines():
+        if "|" not in line:
+            continue
+        cells = [c.strip() for c in line.split("|")]
+        for c in cells:
+            if len(_MONEY_TOKEN_RE.findall(c)) >= 5:
+                return "한 셀에 금액 다수(카테고리-금액 경계 붕괴)"
+        # 병합 일수: 셀이 '무공백' 2~4자리 순수 숫자(0 없음 — '20' 같은 실수치 제외)이고 같은 행에 대상 2개 이상
+        joined = "".join(cells).replace(" ", "").replace("･", "").replace("·", "")
+        n_persons = sum(1 for t in _PERSON_TOKENS if t in joined)
+        if n_persons >= 2 and any(re.fullmatch(r"[1-9]{2,4}", c) for c in cells):
+            return "대상 다수 행의 값 병합(예: '51'=5/1)"
+    # ⓒ 평탄화 표: 표가 | 없이 줄 단위로 무너진 형태 — 카테고리 라인 뭉치(≥4) 뒤에 '라벨 : 금액원'
+    #    라인 뭉치(≥3). 실측: 경조사 가이드의 경조금 표(카테고리 8줄 + 금액 10줄 분리 → "부모상 300만" 오답 원천).
+    lines = (text or "").splitlines()
+    cat_run = 0
+    for idx, raw in enumerate(lines):
+        s = raw.strip()
+        if s and len(s) <= 12 and re.fullmatch(r"[가-힣 ·ㆍ･]+", s):
+            cat_run += 1
+            continue
+        if cat_run >= 4:
+            window = lines[idx: idx + 10]
+            if sum(1 for w in window if re.search(r":\s*[\d,]+\s*원", w)) >= 3:
+                return "표 평탄화(카테고리 라인과 금액 라인이 분리 — 짝 소실)"
+        cat_run = 0
+    return None
+
+
+def _overlay_table_integrity(srcs, blocks):
+    """손상 표 블록에 경고 라벨·지시를 주입하고 srcs에 '표깨짐' 마커(blocks/srcs 정합 유지)."""
+    for j in range(min(len(srcs), len(blocks))):
+        head, _, body = blocks[j].partition("\n")
+        if TABLE_BROKEN_MARK in head:  # ⚠ '|' 유무로 거르지 말 것 — 평탄화 표(ⓒ)는 | 없이 무너진다(실측)
+            continue
+        reason = _table_broken(body)
+        if not reason:
+            continue
+        srcs[j]["표깨짐"] = True
+        new_head = head[:-1] + f" {TABLE_BROKEN_MARK}]" if head.endswith("]") else f"{head} {TABLE_BROKEN_MARK}"
+        blocks[j] = (f"{new_head}\n(⚠ 표 구조 손상: {reason} — 이 블록의 수치를 인용하지 말고, "
+                     f"원문 표 확인을 안내할 것)\n{body}")
 
 
 def _bare_table_values(text: str) -> set:
@@ -1028,6 +1096,13 @@ def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None
                         blocks.append(f"[{s2['tag']} · 결재상신(기안, 자동첨부)]\n{d2}")
         except Exception as e:  # noqa: BLE001
             print(f"⚠ 기안 허브 첨부 실패(무시): {e}")
+
+    # 표 무결성 격리(P0-3, docs/22): 손상 표 블록에 경고 라벨 — 수치 게이트(P0-1)와 UI 배지가 소비.
+    if TABLE_GUARD:
+        try:
+            _overlay_table_integrity(srcs, blocks)
+        except Exception as e:  # noqa: BLE001 — 격리 실패는 기본 회수로 우아하게 강등
+            print(f"⚠ 표 무결성 오버레이 실패(무시): {e}")
 
     # ctx 8K 초과(→Ollama 400) 방지: 순위순 예산 상한 + 근거 목록 동기화(정직성) —
     # 컨텍스트에서 빠진 블록의 출처는 목록에서도 제외, 절단된 마지막 블록은 '절단' 마커.

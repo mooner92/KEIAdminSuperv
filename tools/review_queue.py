@@ -49,6 +49,8 @@ def main():
     ap.add_argument("--out", default="tools/.review_queue.json", help="전체 큐 JSON(로컬 전용)")
     ap.add_argument("--feedback", default="tools/.feedback_signals.json",
                     help="인앱 피드백 신호 JSON(있으면 👎 받은 규정 우선순위↑). feedback_export.py가 생성")
+    ap.add_argument("--tables", default="tools/index/table_integrity.json",
+                    help="표 무결성 스캔 JSON(있으면 손상 표 문서 +25 — 실사고 위험 최우선). 01o가 생성")
     args = ap.parse_args()
 
     # 인앱 피드백 신호(선택): {규정명: down 수}. 파일 없으면 조용히 건너뜀(opt-in, graceful).
@@ -60,6 +62,16 @@ def main():
             fb_down = {k: v.get("down", 0) for k, v in sig.get("by_regulation", {}).items() if v.get("down")}
         except Exception as e:
             print(f"⚠ 피드백 신호 로드 실패({type(e).__name__}) — 무시하고 계속")
+
+    # 표 무결성 신호(선택, P0-3): {상대경로: 손상행 수}. 깨진 표는 수치 오답의 직접 원인 — 최우선 검수.
+    broken_tables = {}
+    tbp = Path(args.tables)
+    if tbp.exists():
+        try:
+            tj = json.loads(tbp.read_text(encoding="utf-8"))
+            broken_tables = {d["path"]: d.get("손상행", 1) for d in tj.get("docs", [])}
+        except Exception as e:
+            print(f"⚠ 표 무결성 신호 로드 실패({type(e).__name__}) — 무시하고 계속")
 
     vault = Path(args.vault)
     notes = []  # (meta, body, path, stem)
@@ -88,13 +100,17 @@ def main():
         unclassified = (cat in ("", "0000_미분류")) or (typ == "regulation" and not (meta.get("규정번호") or "").strip())
         inb = inbound.get(stem, 0)
         down = fb_down.get(name, 0)  # 인앱 👎 피드백 수(규정명/제목 일치)
+        rel = str(md.relative_to(vault))
+        n_broken = broken_tables.get(rel, 0)  # 표 무결성 스캔(P0-3) — 실사고 위험 최우선
         score = (TYPE_W.get(typ, 5) + (15 if has_byeolpyo else 0)
-                 + (8 if unclassified else 0) + min(inb, 10) + min(2 * down, 20))
+                 + (8 if unclassified else 0) + min(inb, 10) + min(2 * down, 20)
+                 + (25 if n_broken else 0))
         rows.append({
             "score": score, "type": typ, "name": name, "분류": cat,
             "검수상태": reviewed or "미검수", "별표": has_byeolpyo,
             "미분류": unclassified, "인바운드": inb, "피드백_down": down,
-            "path": str(md.relative_to(vault)),
+            "표손상행": n_broken,
+            "path": rel,
         })
 
     rows.sort(key=lambda r: (-r["score"], r["type"], r["name"]))
@@ -104,7 +120,9 @@ def main():
     print(f"검수 큐: 미검수 {len(rows)}건"
           + (f" (유형={args.type})" if args.type else "")
           + f" · 별표포함 {sum(r['별표'] for r in rows)} · 미분류 {sum(r['미분류'] for r in rows)}"
-          + (f" · 👎피드백 {n_fb}" if fb_down else " · 👎피드백 신호 없음(feedback_export.py 먼저 실행)"))
+          + (f" · 👎피드백 {n_fb}" if fb_down else " · 👎피드백 신호 없음(feedback_export.py 먼저 실행)")
+          + (f" · ⚠표손상 {sum(1 for r in rows if r['표손상행'])}" if broken_tables
+             else " · 표손상 신호 없음(01o_table_integrity.py 먼저 실행)"))
     by_type = Counter(r["type"] for r in rows)
     print("  유형별:", ", ".join(f"{k} {v}" for k, v in sorted(by_type.items())))
     print(f"\n=== 상위 {min(args.top, len(rows))} (점수 내림차순) ===")

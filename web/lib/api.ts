@@ -46,6 +46,7 @@ export type Source = {
   graph_expand_action?: boolean; // 행위 후속단계(정산·결과보고) 자동첨부
   graph_expand_gian?: boolean; // 결재상신(기안) 흐름 자동첨부
   절단?: boolean; // 근거가 길어 뒷부분이 LLM 컨텍스트에서 잘림 — '일부 반영' 배지
+  표깨짐?: boolean; // P0-3(docs/22): HWP 변환에서 표 구조 손상 — '⚠ 표 확인' 배지(수치는 원문 확인)
 };
 export type Feedback = "up" | "down" | null;
 export type Message = {
