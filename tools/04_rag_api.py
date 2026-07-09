@@ -110,6 +110,9 @@ def chat(req: ChatReq):
     tags = [s["tag"] for s in srcs]
     try:
         answer = rag_core.answer(user_msg, context, history, temperature=req.temperature or 0.1)
+        note = rag_core.numeric_guard_note(user_msg, answer, context)  # P0-1 수치 게이트(docs/22)
+        if note:
+            answer = answer.rstrip() + "\n\n" + note
     except Exception as e:
         answer = ("⚠️ 생성 모델에 연결하지 못했습니다. 회수된 근거 조문은 아래와 같습니다.\n\n"
                   + "\n".join(f"- {t}" for t in tags)

@@ -1081,6 +1081,9 @@ def post_message(cid: int, body: MsgIn, stream: bool = False, user: User = Depen
     if not stream:
         try:
             ans = rag_core.answer(q, context, history)
+            note = rag_core.numeric_guard_note(q, ans, context)  # P0-1 수치 게이트(docs/22)
+            if note:
+                ans = ans.rstrip() + "\n\n" + note
         except Exception as e:
             ans = ("⚠️ 생성 모델에 연결하지 못했습니다. 회수된 근거 조문은 답변과 함께 저장돼 있습니다.\n"
                    f"(관리자 확인: {rag_core.VLLM_BASE} / {rag_core.LLM_MODEL} · {type(e).__name__})")
@@ -1120,6 +1123,14 @@ def post_message(cid: int, body: MsgIn, stream: bool = False, user: User = Depen
         except Exception as e:
             err = type(e).__name__
         full = finalize_stream_text("".join(acc), err)
+        # P0-1 수치 게이트(docs/22): 스트림은 이미 방출된 토큰을 회수할 수 없으므로 사후 경고를 델타로 부착
+        try:
+            note = rag_core.numeric_guard_note(q, full, context)
+        except Exception:  # noqa: BLE001 — 게이트 오류가 답변을 막지 않게
+            note = ""
+        if note:
+            yield _sse({"type": "delta", "t": "\n\n" + note})
+            full = full.rstrip() + "\n\n" + note
         if err:
             # 클라이언트가 절단/실패를 표시하고 '다시 시도'를 제공할 수 있게 명시 이벤트(v1 스펙 B4)
             yield _sse({"type": "error", "err": err, "partial": bool(acc)})

@@ -297,6 +297,148 @@ def _ensure_enum_note(question: str, text: str) -> str:
     return t.rstrip() + "\n\n" + _ENUM_NOTE
 
 
+# ── P0-1 수치 검증 게이트 (docs/22 §1) ──────────────────────────────────
+# 실측 환각(페르소나 라운드): "연간 근무일수 총 248일 [복무규정 제11조]"(조문에 없음),
+# 연말정산 "증빙 마감 1월 18일(목)"(근거 어디에도 없음). 답변의 위험 수치(화폐·%·기간·날짜)가
+# 근거·질문·명시적 계산식 어디에서도 확인되지 않으면 경고를 결정적으로 부착한다(절대 규칙1의 서버측 강제).
+# ⚠ 조작(fabrication) 차단기다 — 값이 근거에 '있으면' 통과하므로 오귀속은 P0-3(표손상 제외)·검색 보강의 몫.
+NUM_GATE = os.environ.get("RAG_NUM_GATE", "1") == "1"
+
+TABLE_BROKEN_MARK = "⚠표손상"  # P0-3 오버레이가 블록 헤더에 붙이는 마커 — 게이트 허용집합에서 제외
+
+_MULT = {"억": 100_000_000, "만": 10_000, "천": 1_000}
+# 게이트 대상 단위(화폐·비율·기간). 회·명·건·개는 서수·개수라 오탐 많아 제외.
+_AMT_RE = re.compile(r"(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)\s*(억|만|천)?\s*(원|퍼센트|%|일|박|개월|주|년|시간)")
+_AMT_COMPOSITE_RE = re.compile(r"(\d+)\s*(억|만)\s*(\d+)\s*(만|천)\s*원")  # 3만5천원, 1억2천만원
+_FRACTION_RE = re.compile(r"(\d+)\s*분의\s*(\d+)")  # 10분의 3 → 30%
+_MD_RE = re.compile(r"(\d{1,2})\s*월\s*(\d{1,2})\s*일")  # 1월 18일 → 날짜쌍
+# 인용·식별 번호류(수치 검증 대상 아님) — 추출 전에 마스킹
+_NUM_MASK_RE = re.compile(
+    r"제\s*\d+\s*조(?:의\s*\d+)?|제\s*\d+\s*항|제\s*\d+\s*호|별\s*표\s*\d+|별\s*지\s*제?\s*\d+\s*호?"
+    r"|\d{4}\s*[.년]\s*\d{1,2}\s*[.월]\s*\d{1,2}\s*\.?\s*일?"  # 연월일(개정 2023. 12. 29. 등)
+    r"|(?:19|20)\d{2}\s*년?"                                     # 연도
+    r"|[a-zA-Z]{2,4}_\d{3,5}[A-Za-z]?"                           # ERP 메뉴코드(gen_0020M)
+    r"|☎\s*[\d-]+|\d{2,4}-\d{3,4}(?:-\d{4})?"                   # 내선·전화
+)
+
+
+def _num_values(text: str):
+    """텍스트에서 (종류, 정규화값) 집합 추출. 종류: 원|%|일|박|개월|주|년|시간|날짜."""
+    t = _NUM_MASK_RE.sub(" ", text or "")
+    out = set()
+    for m in _AMT_COMPOSITE_RE.finditer(t):  # 복합 화폐 먼저(부분 매칭 방지 위해 마스킹)
+        v = int(m.group(1)) * _MULT[m.group(2)] + int(m.group(3)) * _MULT[m.group(4)]
+        out.add(("원", float(v)))
+    t = _AMT_COMPOSITE_RE.sub(" ", t)
+    for m in _MD_RE.finditer(t):
+        out.add(("날짜", (int(m.group(1)), int(m.group(2)))))
+    t = _MD_RE.sub(" ", t)
+    for m in _FRACTION_RE.finditer(t):
+        den, num = int(m.group(1)), int(m.group(2))
+        if den:
+            out.add(("%", round(num / den * 100, 4)))
+    for m in _AMT_RE.finditer(t):
+        v = float(m.group(1).replace(",", "")) * _MULT.get(m.group(2) or "", 1)
+        unit = m.group(3)
+        if unit == "퍼센트":
+            unit = "%"
+        out.add((unit, round(v, 4)))
+    return out
+
+
+def _calc_line_results(text: str, allowed: set):
+    """'A × B = C'/'A + B = C' 꼴 라인에서, 피연산자가 전부 검증되고 산술이 맞으면 결과 C를 허용집합에 추가.
+    (SYSTEM 규칙 10 '계산식을 보여라'와 정합 — 식 없이 던진 합계는 경고 대상으로 남는다.)"""
+    import math
+    extra = set()
+    for line in (text or "").splitlines():
+        if "=" not in line or not any(op in line for op in ("×", "*", "x", "+")):
+            continue
+        vals = [v for v in _num_values(line) if v[0] != "날짜"]
+        # 등장 순서 근사: 라인 재추출(집합은 순서 상실) — 값 리스트로 다시
+        seq = []
+        masked = _NUM_MASK_RE.sub(" ", line)
+        for m in _AMT_RE.finditer(_MD_RE.sub(" ", masked)):
+            v = float(m.group(1).replace(",", "")) * _MULT.get(m.group(2) or "", 1)
+            seq.append(round(v, 4))
+        if len(seq) < 3:
+            continue
+        *ops, result = seq
+        # 피연산자 검증: 단위 무관 값 기준(일비 1만'원' × 3'일')
+        allowed_vals = {v for _, v in allowed if not isinstance(v, tuple)}
+        if not all(any(math.isclose(o, a, rel_tol=1e-9) for a in allowed_vals) for o in ops):
+            continue
+        prod = math.prod(ops)
+        tot = sum(ops)
+        if math.isclose(prod, result, rel_tol=1e-9) or math.isclose(tot, result, rel_tol=1e-9):
+            extra.add(("원", result))
+            extra.add(("일", result))  # 단위 불문 결과 허용(합산 일수 등)
+            extra.update({(u, result) for u in ("%", "개월", "주", "년", "시간", "박")})
+    return extra
+
+
+def _verification_context(context: str) -> str:
+    """허용집합에 쓸 컨텍스트 — 표손상(P0-3) 마커가 붙은 블록은 제외(깨진 표의 값은 오결합 위험)."""
+    segs, skip = [], False
+    for line in (context or "").splitlines():
+        if line.startswith("[") and line.rstrip().endswith("]"):
+            skip = TABLE_BROKEN_MARK in line
+        if not skip:
+            segs.append(line)
+    return "\n".join(segs)
+
+
+# lookahead 주의: 나열 쉼표("100,000, 광역시")는 허용하되 천단위 그룹 중간(",000")·소수점 진행은 차단
+_BARE_NUM_RE = re.compile(r"(?<![\d.,])(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)(?!\d)(?!,\d{3})(?!\.\d)")
+
+
+def _bare_table_values(text: str) -> set:
+    """표 행(| 셀 |)의 '무단위 숫자'를 허용값으로 수확 — 표는 단위가 헤더에 있고 셀엔 값만 남는
+    경우가 흔해(휴가 '5 1', 여비 '100,000'), 단위 필수 추출만으론 정상 인용을 과차단한다.
+    표손상 블록은 _verification_context에서 이미 제외된 뒤에 호출된다."""
+    out = set()
+    for line in (text or "").splitlines():
+        if "|" not in line:
+            continue
+        for m in _BARE_NUM_RE.finditer(_NUM_MASK_RE.sub(" ", line)):
+            out.add(round(float(m.group(1).replace(",", "")), 4))
+    return out
+
+
+def numeric_guard_note(question: str, answer: str, context: str) -> str:
+    """답변의 미검증 수치 경고문 반환(문제 없으면 ""). 게이트 오류는 ""로 강등 — 답변을 막지 않는다."""
+    if not NUM_GATE or not (answer or "").strip():
+        return ""
+    try:
+        vctx = _verification_context(context)
+        allowed = _num_values(vctx) | _num_values(question)
+        allowed |= {("무단위", v) for v in _bare_table_values(vctx)}  # 표 셀의 단위 생략 값
+        allowed |= _calc_line_results(answer, allowed)
+        import math
+        allowed_vals = {v for _, v in allowed if not isinstance(v, tuple)}
+        allowed_dates = {v for k, v in allowed if k == "날짜"}
+        bad = []
+        for kind, v in sorted(_num_values(answer), key=str):
+            if kind == "날짜":
+                ok = v in allowed_dates
+            else:
+                ok = any(math.isclose(v, a, rel_tol=1e-9) for a in allowed_vals if not isinstance(a, tuple))
+            if not ok:
+                if kind == "날짜":
+                    bad.append(f"{v[0]}월 {v[1]}일")
+                elif kind == "원":
+                    bad.append(f"{int(v):,}원" if float(v).is_integer() else f"{v}원")
+                else:
+                    bad.append(f"{int(v) if float(v).is_integer() else v}{kind}")
+        if not bad:
+            return ""
+        shown = " · ".join(list(dict.fromkeys(bad))[:5])
+        return (f"⚠️ **수치 확인 필요**: 다음 값은 인용된 근거에서 확인되지 않았습니다 — {shown}. "
+                "원문(조문·별표)에서 직접 확인하기 전에는 이 수치를 사용하지 마세요.")
+    except Exception:  # noqa: BLE001 — 게이트 실패가 답변을 막지 않게
+        return ""
+
+
 CONDENSE_SYS = (
     "너는 검색어 재작성기다. [대화]를 참고해 [후속질문]을, 그 자체로 의미가 통하는 "
     "'독립 질문' 한 줄로 바꾼다.\n"
