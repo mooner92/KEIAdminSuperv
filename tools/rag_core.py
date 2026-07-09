@@ -263,7 +263,12 @@ SYSTEM = (
     " 문구를 쓰지 않는다 — 규칙 2대로 첫 줄에 바로 답한다.\n"
     "12) [근거]에 '⚠ 표 구조 손상' 표시가 있는 블록은 변환 과정에서 표의 항목-값 짝이 무너진 것이다."
     " ⛔ 그 블록의 수치(금액·일수)를 답에 쓰지 않는다 — 값 질문이면 '해당 표가 변환 중 손상되어 수치를"
-    " 확정할 수 없습니다'라고 밝히고 원문 표(별표)와 담당 부서 확인을 안내한다."
+    " 확정할 수 없습니다'라고 밝히고 원문 표(별표)와 담당 부서 확인을 안내한다.\n"
+    "13) 자격·수급·적용 여부(누가 받을 수 있나, 나에게 적용되나)는 그 규정의 목적·적용범위 조항"
+    "(주로 제1~2조, '(자동첨부)'로 함께 제공됨)을 근거로만 판단한다. ⛔ 지급 기준·계산식 조항에"
+    " 계산 방법이 있다는 이유로 자격이 있다고 추론하지 않는다(예: 퇴직금 계산식이 있어도 적용범위가"
+    " '1년 이상 근속자'면 1년 미만은 대상이 아니다). 적용범위 조항이 [근거]에 없으면 '적용 여부는"
+    " 규정에서 확인되지 않습니다'라고 답하고 담당 부서 확인을 안내한다."
 )
 
 # 가드레일(절대 규칙 #4): 모든 답변 끝에 면책 문구. 14B가 종종 누락(평가셋 측정 ~19%)하므로
@@ -306,6 +311,10 @@ def _ensure_enum_note(question: str, text: str) -> str:
 # 근거·질문·명시적 계산식 어디에서도 확인되지 않으면 경고를 결정적으로 부착한다(절대 규칙1의 서버측 강제).
 # ⚠ 조작(fabrication) 차단기다 — 값이 근거에 '있으면' 통과하므로 오귀속은 P0-3(표손상 제외)·검색 보강의 몫.
 NUM_GATE = os.environ.get("RAG_NUM_GATE", "1") == "1"
+
+# P0-2 적용범위 앵커링(docs/22 §3): 인용 규정의 제1~2조(목적·적용범위)를 자동 동반 — 자격·수급 오추론 방지.
+SCOPE_ANCHOR = os.environ.get("RAG_SCOPE_ANCHOR", "1") == "1"
+SCOPE_ANCHOR_MAX_REGS = int(os.environ.get("RAG_SCOPE_ANCHOR_MAX_REGS", "2"))  # 상위 N개 규정만(ctx 예산)
 
 TABLE_BROKEN_MARK = "⚠표손상"  # P0-3 오버레이가 블록 헤더에 붙이는 마커 — 게이트 허용집합에서 제외
 
@@ -1096,6 +1105,39 @@ def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None
                         blocks.append(f"[{s2['tag']} · 결재상신(기안, 자동첨부)]\n{d2}")
         except Exception as e:  # noqa: BLE001
             print(f"⚠ 기안 허브 첨부 실패(무시): {e}")
+
+    # 적용범위 앵커링(P0-2, docs/22): 인용된 규정의 제1~2조(목적·적용범위)를 자동 동반 첨부.
+    # 실측 결함: 퇴직금규정 제3·4·7조(계산식)만 회수되자 LLM이 수급 '자격'을 계산식에서 역추론해
+    # "1년 미만도 지급" 오답(제2조: 1년 이상 근속자 적용). 자격·적용 판단의 근거를 항상 공급한다.
+    if SCOPE_ANCHOR:
+        try:
+            art_idx, art_map = _ensure_article_index()
+            have_tags = {s.get("tag") for s in srcs}
+            seen_regs, added = [], 0
+            for s in srcs:
+                if s.get("type") != "regulation":
+                    continue
+                reg = (s.get("규정명") or "").strip()
+                if not reg or reg in seen_regs:
+                    continue
+                seen_regs.append(reg)
+                if len(seen_regs) > SCOPE_ANCHOR_MAX_REGS:
+                    break
+                for jo in ("제1조", "제2조"):
+                    aid = art_idx.get((reg, jo))
+                    if not aid:
+                        continue
+                    d2, m2 = art_map[aid]
+                    s2 = _src(d2, m2, None)
+                    if s2["tag"] in have_tags:
+                        continue
+                    have_tags.add(s2["tag"])
+                    s2["scope_anchor"] = True  # UI 🔗 자동첨부 배지 + 평가 식별
+                    srcs.append(s2)
+                    blocks.append(f"[{s2['tag']} · 목적/적용범위(자동첨부)]\n{d2}")
+                    added += 1
+        except Exception as e:  # noqa: BLE001 — 앵커 실패는 기본 회수로 우아하게 강등
+            print(f"⚠ 적용범위 앵커 실패(무시): {e}")
 
     # 표 무결성 격리(P0-3, docs/22): 손상 표 블록에 경고 라벨 — 수치 게이트(P0-1)와 UI 배지가 소비.
     if TABLE_GUARD:

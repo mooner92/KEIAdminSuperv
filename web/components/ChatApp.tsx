@@ -692,7 +692,7 @@ export default function ChatApp({
                           ⚠ 표 확인
                         </span>
                       ) : null}
-                      {typeBadges && !cardV2 && (s.graph_expand || s.graph_expand_reg || s.graph_expand_action || s.graph_expand_gian) ? (
+                      {typeBadges && !cardV2 && (s.graph_expand || s.graph_expand_reg || s.graph_expand_action || s.graph_expand_gian || s.scope_anchor) ? (
                         <span
                           className={styles.autoChip}
                           title={
@@ -702,7 +702,9 @@ export default function ChatApp({
                                 ? "회수된 조문이 준용·참조하는 다른 규정 조문을 자동으로 함께 가져왔어요"
                                 : s.graph_expand_action
                                   ? "신청의 의무적 후속 단계(정산·결과보고) 화면을 자동으로 함께 가져왔어요"
-                                  : "결재상신(기안) 공통 흐름을 자동으로 함께 가져왔어요"
+                                  : s.scope_anchor
+                                    ? "이 규정이 누구에게 적용되는지(목적·적용범위 조항)를 자동으로 함께 가져왔어요"
+                                    : "결재상신(기안) 공통 흐름을 자동으로 함께 가져왔어요"
                           }
                         >
                           🔗 자동첨부
@@ -727,6 +729,8 @@ export default function ChatApp({
                           s.graph_expand_reg ? "🔗 준용·참조 자동첨부" : "",
                           s.graph_expand_action ? "🔗 후속단계 자동첨부" : "",
                           s.graph_expand_gian ? "🔗 기안 자동첨부" : "",
+                          s.scope_anchor ? "🔗 적용범위 자동첨부" : "",
+                          s.표깨짐 ? "⚠ 표 확인" : "",
                         ].filter(Boolean).join(" · ")}
                       </span>
                     ) : s.분류 ? (
