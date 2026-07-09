@@ -22,6 +22,20 @@ export default function AdminPage() {
   const [corpus, setCorpus] = useState<Awaited<ReturnType<typeof api.corpusList>> | null>(null);
   const [cq, setCq] = useState("");
   const loadCorpus = () => api.corpusList().then(setCorpus).catch(() => {});
+  const [ridx, setRidx] = useState<Awaited<ReturnType<typeof api.corpusReindexStatus>> | null>(null);
+  // 재색인 진행 폴링(3s) — 완료 시 목록 갱신
+  useEffect(() => {
+    if (!corpusOn) return;
+    let alive = true;
+    const tick = () => api.corpusReindexStatus().then((r) => {
+      if (!alive) return;
+      setRidx((prev) => { if (prev?.running && !r.running) loadCorpus(); return r; });
+    }).catch(() => {});
+    tick();
+    const t = setInterval(tick, 3000);
+    return () => { alive = false; clearInterval(t); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [corpusOn]);
 
   const loadAudit = useCallback(() => {
     api.flagsAudit().then(setAudit).catch(() => {});
@@ -182,6 +196,31 @@ export default function AdminPage() {
             {corpus.summary.needs_reindex > 0 ? <b> ⟳ 재색인 필요 {corpus.summary.needs_reindex}건 — </b> : " "}
             서버에서 <code>python tools/02_chunk_and_embed.py …</code> 실행 시 반영됩니다(P2에서 버튼화).
           </p>
+          <div className={styles.reindexBar}>
+            <button className={styles.reindexBtn} disabled={!!ridx?.running}
+              onClick={async () => { await api.corpusReindex().catch(() => {}); setRidx((r) => r ? { ...r, running: true } : r); }}>
+              {ridx?.running ? "⟳ 재색인 진행 중…" : "⟳ 재색인 실행"}
+            </button>
+            {ridx?.running || ridx?.log?.length ? (
+              <span className={styles.reindexLog}>{ridx.log[ridx.log.length - 1] || "…"}</span>
+            ) : null}
+            {!ridx?.running && ridx?.backups?.length ? (
+              <span className={styles.rollbackWrap}>
+                롤백:
+                {ridx.backups.slice(-2).map((b) => (
+                  <button key={b} className={styles.rollbackBtn}
+                    title="이 스냅샷으로 즉시 되돌리기(수 초·재임베딩 없음)"
+                    onClick={async () => {
+                      if (!confirm(`${b} 시점으로 색인을 되돌릴까요? (현재 색인은 보존됩니다)`)) return;
+                      await api.corpusRollback(b).catch(() => {});
+                      loadCorpus(); api.corpusReindexStatus().then(setRidx).catch(() => {});
+                    }}>
+                    {b.replace("chroma.bak-", "")}
+                  </button>
+                ))}
+              </span>
+            ) : null}
+          </div>
           <input className={styles.corpusSearch} placeholder="문서 검색(제목·슬러그)" value={cq}
             onChange={(e) => setCq(e.target.value)} aria-label="코퍼스 검색" />
           <ul className={styles.corpusList}>

@@ -14,6 +14,7 @@ import json
 import os
 import re
 import secrets
+import sys
 import time
 from collections import Counter
 from typing import Optional
@@ -479,6 +480,8 @@ def corpus_list(admin: User = Depends(current_admin)):
         def _fm(k):
             m = re.search(rf"^{k}:\s*\"?([^\"\n]+)", head, re.M)
             return (m.group(1).strip() if m else "")
+        if not _fm("type"):   # type 프론트매터 없는 파일(폴더 README 등)은 02도 색인하지 않음 — 목록 제외
+            continue
         slug = md.stem
         n = chunks.get(slug, 0)
         excluded = slug in ex
@@ -519,6 +522,110 @@ def corpus_exclude(body: ExcludeIn, admin: User = Depends(current_admin)):
         s.commit()
     _corpus_cache["t"] = 0  # 다음 조회에서 needs_reindex 재계산
     return {"slug": body.slug, "excluded": body.excluded}
+
+
+# ── P2: 재색인 실행(백업→02→무재시작 reload) + 롤백(스냅샷 스왑) — docs/20 ──
+import shutil
+import subprocess
+import threading
+
+REINDEX = {"running": False, "ok": None, "log": [], "started": 0.0, "backup": ""}
+_BAK_KEEP = 2
+
+
+def _chroma_dir() -> str:
+    return os.path.abspath(rag_core.CHROMA_DIR)
+
+
+def _list_backups():
+    base = os.path.dirname(_chroma_dir())
+    name = os.path.basename(_chroma_dir())
+    out = sorted(d for d in os.listdir(base) if d.startswith(name + ".bak-"))
+    return [os.path.join(base, d) for d in out]
+
+
+def _reindex_worker(vault: str):
+    cd = _chroma_dir()
+    try:
+        # 1) 스냅샷 백업(롤백용) + 로테이션
+        ts = time.strftime("%Y%m%d-%H%M%S")
+        bak = f"{cd}.bak-{ts}"
+        REINDEX["log"].append(f"백업 생성: {os.path.basename(bak)}")
+        shutil.copytree(cd, bak)
+        REINDEX["backup"] = bak
+        for old in _list_backups()[:-_BAK_KEEP]:
+            shutil.rmtree(old, ignore_errors=True)
+        # 2) 02 실행(exclude.json 자동 반영)
+        script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "02_chunk_and_embed.py")
+        cmd = [sys.executable, script, "--vault", vault, "--db", cd]
+        REINDEX["log"].append("재색인 시작(수 분 소요, GPU)…")
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                                cwd=os.path.dirname(script))
+        for line in proc.stdout:
+            line = line.strip()
+            if line and "it/s" not in line and "%|" not in line:   # tqdm 진행바 제외
+                REINDEX["log"] = REINDEX["log"][-40:] + [line]
+        rc = proc.wait()
+        if rc != 0:
+            raise RuntimeError(f"02 종료코드 {rc}")
+        # 3) 무재시작 적용
+        rag_core.reload()
+        _corpus_cache["t"] = 0
+        REINDEX["ok"] = True
+        REINDEX["log"].append("✅ 완료 — 새 색인 적용됨(무재시작)")
+    except Exception as e:  # noqa: BLE001
+        REINDEX["ok"] = False
+        REINDEX["log"].append(f"⛔ 실패: {type(e).__name__}: {e} — 필요 시 롤백하세요")
+    finally:
+        REINDEX["running"] = False
+
+
+@router.post("/corpus/reindex")
+def corpus_reindex(admin: User = Depends(current_admin)):
+    """관리자: 재색인 실행(동시 1개). 백업→02(exclude 반영)→reload. 진행은 GET /corpus/reindex."""
+    if REINDEX["running"]:
+        raise HTTPException(409, "이미 재색인이 진행 중입니다.")
+    vault = os.environ.get("VAULT_DIR", os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "KEI-행정가이드"))
+    REINDEX.update(running=True, ok=None, log=[], started=time.time(), backup="")
+    threading.Thread(target=_reindex_worker, args=(vault,), daemon=True).start()
+    with Session(engine) as s:
+        s.add(CorpusAudit(slug="(전체)", action="reindex", actor=admin.username)); s.commit()
+    return {"started": True}
+
+
+@router.get("/corpus/reindex")
+def corpus_reindex_status(admin: User = Depends(current_admin)):
+    return {"running": REINDEX["running"], "ok": REINDEX["ok"], "started": REINDEX["started"],
+            "log": REINDEX["log"][-8:],
+            "backups": [os.path.basename(b) for b in _list_backups()]}
+
+
+class RollbackIn(BaseModel):
+    backup: str  # basename (chroma.bak-…)
+
+
+@router.post("/corpus/rollback")
+def corpus_rollback(body: RollbackIn, admin: User = Depends(current_admin)):
+    """관리자: 스냅샷 스왑 롤백(수 초·재임베딩 없음) — 현재 색인은 .pre-rollback로 보존."""
+    if REINDEX["running"]:
+        raise HTTPException(409, "재색인 진행 중에는 롤백할 수 없습니다.")
+    cd = _chroma_dir()
+    base = os.path.dirname(cd)
+    bak = os.path.join(base, os.path.basename(body.backup))
+    if not (os.path.basename(bak).startswith(os.path.basename(cd) + ".bak-") and os.path.isdir(bak)):
+        raise HTTPException(404, "해당 백업이 없습니다.")
+    keep = f"{cd}.pre-rollback-{time.strftime('%Y%m%d-%H%M%S')}"
+    os.rename(cd, keep)
+    shutil.copytree(bak, cd)
+    rag_core.reload()
+    _corpus_cache["t"] = 0
+    with Session(engine) as s:
+        s.add(CorpusAudit(slug=os.path.basename(bak), action="rollback", actor=admin.username)); s.commit()
+    # pre-rollback 보존본도 로테이션 대상(백업 2세대 규칙과 별개로 1개만 유지)
+    pres = sorted(d for d in os.listdir(base) if d.startswith(os.path.basename(cd) + ".pre-rollback-"))
+    for old in pres[:-1]:
+        shutil.rmtree(os.path.join(base, old), ignore_errors=True)
+    return {"rolled_back_to": os.path.basename(bak)}
 
 
 @router.get("/flags/manage")

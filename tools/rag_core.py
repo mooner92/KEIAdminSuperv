@@ -298,6 +298,31 @@ def backend():
     return _state["embed"], _state["col"], _state["llm"]
 
 
+def reload():
+    """재색인/롤백 후 무재시작 적용(v1.1 P2, docs/20): 벡터 컬렉션 핸들과 파생 인덱스 캐시를 재생성.
+    임베딩·리랭커·LLM 클라이언트는 유지(재로딩 비용·GPU 점유 회피)."""
+    with _lock:
+        keep = {k: _state[k] for k in ("embed", "llm", "rerank") if k in _state}
+        _state.clear()
+        _state.update(keep)
+        try:
+            import chromadb
+            # ⚠ chromadb는 경로별 시스템을 전역 캐시 — 디렉터리 스왑(롤백) 후에도 옛 핸들을 돌려준다.
+            # 캐시를 비워 스왑된 디렉터리로 새로 연다(무재시작 롤백의 핵심).
+            try:
+                from chromadb.api.shared_system_client import SharedSystemClient
+                SharedSystemClient._identifier_to_system.clear()
+            except Exception:  # noqa: BLE001 — 버전에 따라 경로 상이(구버전 폴백)
+                try:
+                    chromadb.api.client.SharedSystemClient._identifier_to_system.clear()
+                except Exception:
+                    pass
+            _state["col"] = chromadb.PersistentClient(path=CHROMA_DIR).get_collection(COLLECTION)
+            print(f"rag_core.reload: 컬렉션 재오픈({_state['col'].count()} 청크) + 파생 인덱스 캐시 초기화")
+        except Exception as e:  # noqa: BLE001 — 다음 backend() 호출에서 재시도
+            print(f"⚠ reload 실패(다음 요청에서 재시도): {e}")
+
+
 def condense_query(question: str, history=None, enabled: bool = None) -> str:
     """멀티턴 후속 질문을 직전 맥락을 복원한 '독립 검색어'로 재작성(검색 정확도↑).
 

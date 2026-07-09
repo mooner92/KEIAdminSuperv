@@ -208,5 +208,10 @@ export const api = {
     j<{ docs: CorpusDoc[]; summary: { total: number; excluded: number; indexed_chunks: number; needs_reindex: number } }>("/corpus"),
   corpusExclude: (slug: string, excluded: boolean) =>
     j<{ slug: string; excluded: boolean }>("/corpus/exclude", { method: "POST", body: JSON.stringify({ slug, excluded }) }),
+  corpusReindex: () => j<{ started: boolean }>("/corpus/reindex", { method: "POST" }),
+  corpusReindexStatus: () =>
+    j<{ running: boolean; ok: boolean | null; log: string[]; backups: string[] }>("/corpus/reindex"),
+  corpusRollback: (backup: string) =>
+    j<{ rolled_back_to: string }>("/corpus/rollback", { method: "POST", body: JSON.stringify({ backup }) }),
   stats: (days?: number) => j<Stats>(`/stats${days ? `?days=${days}` : ""}`), // 관리자 전용 대시보드
 };

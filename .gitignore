@@ -121,3 +121,8 @@ web/yeobi-*.png
 발표*.md
 *발표자료*
 debug*.png
+# 코퍼스 관리 P2 스냅샷(내부 규정 파생 벡터 — 커밋 금지)
+tools/chroma.bak-*/
+tools/chroma.pre-rollback-*/
+chroma.bak-*/
+chroma.pre-rollback-*/
