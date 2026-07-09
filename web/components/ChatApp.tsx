@@ -510,6 +510,30 @@ export default function ChatApp({
                           신설
                         </span>
                       ) : null}
+                      {typeBadges && (s.graph_expand || s.graph_expand_reg || s.graph_expand_action || s.graph_expand_gian) ? (
+                        <span
+                          className={styles.autoChip}
+                          title={
+                            s.graph_expand
+                              ? "회수된 조문이 인용하는 별표(금액표 등)를 자동으로 함께 가져왔어요"
+                              : s.graph_expand_reg
+                                ? "회수된 조문이 준용·참조하는 다른 규정 조문을 자동으로 함께 가져왔어요"
+                                : s.graph_expand_action
+                                  ? "신청의 의무적 후속 단계(정산·결과보고) 화면을 자동으로 함께 가져왔어요"
+                                  : "결재상신(기안) 공통 흐름을 자동으로 함께 가져왔어요"
+                          }
+                        >
+                          🔗 자동첨부
+                        </span>
+                      ) : null}
+                      {s.절단 ? (
+                        <span
+                          className={styles.stWarn}
+                          title="이 근거가 길어 뒷부분은 답변 생성에 반영되지 않았어요 — 정확한 값은 원문 확인"
+                        >
+                          일부 반영
+                        </span>
+                      ) : null}
                     </span>
                     {s.분류 ? <span className={styles.srcCat}>{s.분류}</span> : null}
                     <span className={styles.srcSnippet}>{highlightFigures(s.snippet, styles.fig)}</span>

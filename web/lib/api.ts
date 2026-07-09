@@ -40,6 +40,12 @@ export type Source = {
   삭제일?: string; // 삭제 조문의 삭제 시점(표시용)
   최근개정?: string; // 이 조문의 최근 개정일(YYYY.M.D) — 개정 배지
   신설?: boolean; // 신설 조문 여부
+  // 자동첨부 마커(top-5 검색이 아니라 그래프 확장으로 딸려온 근거) — 🔗 배지로 구분
+  graph_expand?: boolean; // 별표(금액표) 자동첨부
+  graph_expand_reg?: boolean; // 준용/참조 규정 자동첨부
+  graph_expand_action?: boolean; // 행위 후속단계(정산·결과보고) 자동첨부
+  graph_expand_gian?: boolean; // 결재상신(기안) 흐름 자동첨부
+  절단?: boolean; // 근거가 길어 뒷부분이 LLM 컨텍스트에서 잘림 — '일부 반영' 배지
 };
 export type Feedback = "up" | "down" | null;
 export type Message = {

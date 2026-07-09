@@ -49,6 +49,34 @@ def test_stream_no_tail_when_present():
     assert tail == ""
 
 
+def test_cap_blocks_within_budget():
+    # 예산 이내 → 전부 유지, 절단 없음
+    blocks = ["a" * 100, "b" * 100]
+    out, trunc = rc._cap_blocks(blocks)
+    assert out == blocks and trunc is False
+
+
+def test_cap_blocks_truncates_and_drops():
+    # 예산 초과: 두 번째 블록은 절단 표기와 함께 잘리고, 세 번째는 제외 → srcs 동기화 시뮬레이트
+    blocks = ["x" * (rc.CTX_MAX_CHARS - 1000), "y" * 3000, "z" * 3000]
+    out, trunc = rc._cap_blocks(blocks)
+    assert len(out) == 2 and trunc is True
+    assert "일부 생략" in out[1]
+    # retrieve()의 동기화 규칙: srcs를 len(blocks)로 자르고 마지막에 절단 마커
+    srcs = [{"tag": "A"}, {"tag": "B"}, {"tag": "C"}]
+    srcs[:] = srcs[: len(out)]
+    if trunc and srcs:
+        srcs[-1]["절단"] = True
+    assert [s["tag"] for s in srcs] == ["A", "B"] and srcs[-1].get("절단") is True
+
+
+def test_cap_blocks_no_meaningless_tail():
+    # 남은 예산이 500자 미만이면 다음 블록을 아예 담지 않음(잘린 꼬리 방지)
+    blocks = ["x" * (rc.CTX_MAX_CHARS - 100), "y" * 2000]
+    out, trunc = rc._cap_blocks(blocks)
+    assert len(out) == 1 and trunc is False
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     for fn in fns:

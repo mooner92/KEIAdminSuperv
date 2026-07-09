@@ -121,17 +121,22 @@ CTX_MAX_CHARS = int(os.environ.get("RAG_CTX_MAX_CHARS", "6500"))
 
 
 def _cap_blocks(blocks):
-    """근거 블록(순위순)을 CTX_MAX_CHARS 예산 안에 담는다. 초과 블록은 절단, 이후는 제외."""
+    """근거 블록(순위순)을 CTX_MAX_CHARS 예산 안에 담는다. 초과 블록은 절단, 이후는 제외.
+
+    반환 (담긴 블록들, 마지막 블록이 절단됐는지). 호출부는 srcs를 len(blocks)로 동기화해
+    'LLM이 읽지 않은 근거가 목록에 표시'되는 불일치를 막는다(근거 표기 정직성)."""
     out, used = [], 0
+    truncated_last = False
     for b in blocks:
         if used + len(b) <= CTX_MAX_CHARS:
             out.append(b); used += len(b)
         elif CTX_MAX_CHARS - used > 500:      # 남은 예산이 의미 있으면 이 블록만 잘라 담음
             out.append(b[: CTX_MAX_CHARS - used].rstrip() + "\n…(근거가 길어 일부 생략 — 정확한 값은 원문 확인)")
+            truncated_last = True
             break
         else:
             break
-    return out
+    return out, truncated_last
 
 # 하이브리드 추론 모델(qwen3/3.5)은 기본적으로 사고과정을 답 앞에 먼저 생성한다.
 # RAG에선 사고를 끄고 답만 받는다 — 스트리밍/후처리(두괄식·면책·출처) 안정.
@@ -732,7 +737,13 @@ def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None
         except Exception as e:  # noqa: BLE001
             print(f"⚠ 기안 허브 첨부 실패(무시): {e}")
 
-    blocks = _cap_blocks(blocks)  # ctx 8K 초과(→Ollama 400) 방지: 순위순 예산 상한
+    # ctx 8K 초과(→Ollama 400) 방지: 순위순 예산 상한 + 근거 목록 동기화(정직성) —
+    # 컨텍스트에서 빠진 블록의 출처는 목록에서도 제외, 절단된 마지막 블록은 '절단' 마커.
+    blocks, truncated_last = _cap_blocks(blocks)
+    if len(srcs) > len(blocks):
+        srcs[:] = srcs[: len(blocks)]
+    if truncated_last and srcs:
+        srcs[-1]["절단"] = True  # UI '일부 반영' 배지 — 뒷부분은 LLM에 전달되지 않음
     return "\n\n---\n\n".join(blocks), srcs
 
 

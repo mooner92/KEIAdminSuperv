@@ -232,6 +232,9 @@ python 03_rag_query.py --db tools/chroma --q "출장 여비 정산" --retrieve-o
 
 회수 직후 `retrieve()`는 `tools/index/article_status.json`(01k)을 오버레이한다(`_overlay_article_status`) — **삭제된 조문을 근거에서 뒤로 강등**하고 컨텍스트 블록에 `⚠ [이 조문은 삭제되어 효력이 없습니다]`를 주입해 LLM이 유효 근거로 오인하지 않게 한다(⛔ 절대 규칙1 방어). 동시에 `효력`/`최근개정`/`신설` 메타를 출처에 실어 UI 배지로 노출한다. 규정↔규정 확장(§4.7의 `graph_expand_regs`)은 청크 `reg_refs`에 더해 `clause_xref.json`(01i)의 **cross 준용/인용 엣지**를 병합해 더 완전한 근거를 동반 로드한다. 모두 **원문 불변·재임베딩 불필요**(런타임 인덱스 로드). 토글 `RAG_ARTICLE_STATUS`·`RAG_CLAUSE_XREF`(둘 다 기본 on). 상세는 [18-조문정제-무결성.md](18-조문정제-무결성.md).
 
+> [!note] 근거 개수와 표기 정직성
+> 근거 패널의 개수는 **기본 top-5 + 자동첨부**다 — 별표(≤3, 기본 on)·준용/참조(≤2)·행위 후속단계(≤2)·기안(≤1)은 검색 순위를 밀어내지 않고 덧붙는다(플래그 항목은 prod 기본 off). UI는 자동첨부 근거에 `🔗 자동첨부` 배지(`source_type_badges` 게이트)를 단다. 또한 컨텍스트 상한(`RAG_CTX_MAX_CHARS`) 절단 시 **컨텍스트에서 빠진 블록의 출처는 `x_sources`에서도 제외**하고, 부분 절단된 마지막 근거엔 `절단` 마커(UI '일부 반영')를 달아 — "LLM이 읽지 않은 근거가 목록에 표시"되는 불일치를 차단한다.
+
 > [!important] 시각 그래프(`/graph`)는 검색에 쓰이지 않는다
 > `/graph`는 `01b/01e/01g/01h`가 만든 **문서레벨 `[[ ]]` 위키링크**를 사람이 탐색하도록 그린 화면이다. `retrieve()`는 이 그래프를 읽지 않는다 — 검색이 소비하는 그래프 신호는 **별표 refs**(기본 on)·**reg_refs/clause_xref**(§4.8·`graph_expand_regs`)·**행위흐름·기안**(`graph_expand_actions`)의 **typed 인덱스**뿐이다. 즉 "큰 문서 그래프는 검색에 안 쓴다"가 맞고, Track A의 `clause_xref`가 조문↔조문 그래프를 검색이 실제로 소비하게 보강한다.
 
