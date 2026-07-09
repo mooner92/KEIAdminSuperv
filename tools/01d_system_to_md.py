@@ -48,8 +48,8 @@ SYSTEMS = {
         "strip_h1": "", "warn": WARN_DEFAULT,
     },
     "external": {
-        "name": "대외업무", "prefix": "대외업무 시스템", "cat": "대외업무시스템",
-        "tags": ["대외업무", "시스템"], "overview": "대외업무 시스템 개요",
+        "name": "대외업무", "prefix": "대외업무 시스템", "cat": "대외업무(NAMS)",
+        "tags": ["대외업무", "NAMS", "시스템"], "overview": "대외업무 시스템 개요",
         "strip_h1": "", "warn": WARN_DEFAULT,
     },
     "webdisk": {
