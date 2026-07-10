@@ -27,6 +27,9 @@ from pathlib import Path
 
 try:
     from hwp_hwpx_parser import Reader
+
+    from hwp_tables import install_paragraph_preserving_tables
+    install_paragraph_preserving_tables()  # 표 셀 문단 병합('51'=5/1) 방지 — docs/23 §1(지렛대 ①)
 except ImportError:
     raise SystemExit("pip install hwp-hwpx-parser 먼저 실행하세요. (tools/requirements.txt)")
 

@@ -116,6 +116,9 @@ def classify(title: str, body: str) -> str:
 def _hwp_worker(path_str, q):
     try:
         from hwp_hwpx_parser import Reader
+
+        from hwp_tables import install_paragraph_preserving_tables
+        install_paragraph_preserving_tables()  # 표 셀 문단 병합 방지 — docs/23 §1
         with Reader(path_str) as r:
             enc = r.is_encrypted
             enc = enc() if callable(enc) else enc
