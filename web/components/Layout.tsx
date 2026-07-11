@@ -21,6 +21,7 @@ export default function Layout({
   const nav = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href)) ? styles.navActive : undefined;
   const demoBanner = useFlag("demo_banner"); // 기능 플래그 예시(관리자 페이지에서 토글)
   const approvalNav = useFlag("approval_finder"); // 결재선 판정기 — 상단 메뉴 노출도 플래그로
+  const journeyNav = useFlag("journey_map"); // 업무 한 장(스윔레인) — docs/25
   // 관리자 링크는 관리자에게만 노출(보안은 백엔드 403로 방어되나, 비관리자/로그아웃엔 링크 숨김)
   const [isAdmin, setIsAdmin] = useState(false);
   useEffect(() => {
@@ -45,6 +46,7 @@ export default function Layout({
             <Link href="/browse/" className={nav("/browse")} aria-current={pathname.startsWith("/browse") ? "page" : undefined}>규정 둘러보기</Link>
             <Link href="/graph/" className={nav("/graph")} aria-current={pathname.startsWith("/graph") ? "page" : undefined}>관계 그래프</Link>
             {approvalNav ? <Link href="/approval/" className={nav("/approval")} aria-current={pathname.startsWith("/approval") ? "page" : undefined}>결재선</Link> : null}
+            {journeyNav ? <Link href="/journey/" className={nav("/journey")} aria-current={pathname.startsWith("/journey") ? "page" : undefined}>업무 한 장</Link> : null}
           </nav>
           <div className={styles.headerRight}>
             <ThemeToggle />

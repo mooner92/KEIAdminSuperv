@@ -1,0 +1,56 @@
+/* 업무 한 장(docs/25) — ⛔ 시맨틱 토큰(--color-*)만 사용(다크모드 하드코딩 사고 재발 방지) */
+.wrap { position: relative; }
+
+/* ── 스윔레인(데스크톱) ── */
+.laneScroller { overflow-x: auto; border: 1px solid var(--color-border); border-radius: var(--radius-lg, 12px); background: var(--color-surface); }
+.grid { position: relative; display: grid; gap: 0; min-width: 720px; }
+.corner { position: sticky; left: 0; z-index: 2; background: var(--color-surface); border-bottom: 1px solid var(--color-border); }
+.stageHead { padding: 10px 12px; font-weight: 700; font-size: 13.5px; color: var(--color-text); border-bottom: 1px solid var(--color-border); border-left: 1px dashed var(--color-border); }
+.stageHead em { font-style: normal; color: var(--color-primary); margin-right: 4px; }
+.laneRow { display: contents; }
+.laneHead { position: sticky; left: 0; z-index: 2; display: flex; align-items: center; justify-content: center; padding: 10px 6px; font-size: 12.5px; font-weight: 600; color: var(--color-text-secondary); background: var(--color-bg-subtle); border-bottom: 1px solid var(--color-border); writing-mode: initial; text-align: center; }
+.cell { min-height: 86px; padding: 10px; border-bottom: 1px solid var(--color-border); border-left: 1px dashed var(--color-border); display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+.node { position: relative; z-index: 1; text-align: left; padding: 8px 10px; border: 1px solid var(--color-border-strong); border-radius: 10px; background: var(--color-bg); color: var(--color-text); cursor: pointer; font-size: 13px; box-shadow: var(--shadow-card, none); }
+.node:hover { border-color: var(--color-primary); }
+.nodeOn { border-color: var(--color-primary); outline: 2px solid var(--color-primary-weak); }
+.nodeName { display: block; font-weight: 600; margin-bottom: 4px; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chipErp, .chipDue, .chipAppr { font-size: 11px; padding: 0 6px; border-radius: 6px; background: var(--color-bg-subtle); color: var(--color-text-secondary); border: 1px solid var(--color-border); }
+.edges { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
+.edge { fill: none; stroke: var(--color-primary); stroke-width: 1.6; opacity: 0.55; }
+.arrowHead { fill: var(--color-primary); }
+
+/* ── 스텝퍼(좁은 화면) ── */
+.stepper { display: none; list-style: none; margin: 0; padding: 0; }
+.step { border-left: 2px solid var(--color-border-strong); margin-left: 10px; padding: 0 0 14px 14px; position: relative; }
+.step::before { content: ""; position: absolute; left: -7px; top: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--color-primary); }
+.stepHead { font-weight: 700; font-size: 14px; color: var(--color-text); margin-bottom: 6px; }
+.stepHead em { font-style: normal; color: var(--color-primary); margin-right: 4px; }
+.stepNodes { display: flex; flex-direction: column; gap: 6px; }
+.laneBadge { font-size: 11px; padding: 0 6px; border-radius: 6px; background: var(--color-primary-weak); color: var(--color-primary-strong); margin-right: 6px; }
+
+@media (max-width: 899px) {
+  .laneScroller { display: none; }
+  .stepper { display: block; }
+}
+
+/* ── 상세 패널 ── */
+.detail { margin-top: 12px; border: 1px solid var(--color-border); border-radius: var(--radius-lg, 12px); padding: 14px 16px; background: var(--color-surface); }
+.detailHead { display: flex; align-items: center; gap: 8px; color: var(--color-text); }
+.close { margin-left: auto; border: none; background: none; color: var(--color-text-secondary); cursor: pointer; font-size: 14px; }
+.action { margin: 8px 0; font-size: 13.5px; color: var(--color-text); line-height: 1.6; }
+.meta { margin: 6px 0; font-size: 13px; color: var(--color-text-secondary); }
+.meta code { background: var(--color-code-bg); padding: 0 5px; border-radius: 4px; }
+.path { font-size: 12px; color: var(--color-text-tertiary); }
+.basisList { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.basis { font-size: 12.5px; padding: 3px 10px; border-radius: 8px; border: 1px solid var(--color-border); background: var(--color-bg-subtle); color: var(--color-text); cursor: pointer; }
+.basis:hover { border-color: var(--color-primary); }
+.basisInline { border: none; background: none; color: var(--color-primary); cursor: pointer; font-size: 12.5px; padding: 0 4px; }
+
+/* ── 페이지 상단(선택 칩·요약) ── */
+.picker { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 10px; }
+.pick { padding: 6px 14px; border-radius: 999px; border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); cursor: pointer; font-size: 14px; }
+.pickOn { border-color: var(--color-primary); background: var(--color-primary-weak); color: var(--color-primary-strong); font-weight: 700; }
+.summary { font-size: 13px; color: var(--color-text-secondary); margin: 0 0 10px; }
+.unreviewed { margin-left: 8px; font-size: 12px; padding: 1px 8px; border-radius: 6px; background: var(--badge-warn-bg); border: 1px solid var(--badge-warn-border); color: var(--color-warning); }
+.footNote { margin-top: 14px; font-size: 12.5px; color: var(--color-text-tertiary); }

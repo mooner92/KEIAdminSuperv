@@ -180,6 +180,13 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-12-31",
     },
+    "journey_map": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "업무 한 장(docs/25) — /journey 스윔레인 여정 뷰 + GNB. korea100 벤치마킹: 레인(행위자)×단계 "
+                       "노드에 ERP 화면·기한·전결·근거 조문. 데이터=볼트 90_관리/_journeys(수작업 큐레이션·미검수 시작).",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
     "explore_upgrades": {
         "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
         "description": "탐색 마감(v1 스펙 ⑬⑭/S7) — ⓐ둘러보기 드로어 URL 딥링크(?doc=슬러그, 뒤로가기 연동) "

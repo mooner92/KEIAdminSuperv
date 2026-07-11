@@ -150,3 +150,31 @@ export function getGraph(): GraphData {
   }));
   return { nodes, links };
 }
+
+// ── 업무 한 장(여정) — 볼트 90_관리/_journeys/*.json (docs/25). 규정 파생 콘텐츠라 볼트에 둔다. ──
+export type JourneyBasis = { 규정명: string; 조: string };
+export type JourneyNode = {
+  id: string; name: string; lane: string; stage: string; action: string;
+  erp?: { 화면: string; 코드: string; 경로: string };
+  기한?: { text: string; 근거: JourneyBasis };
+  전결?: { 사다리: string; 근거: JourneyBasis };
+  근거: JourneyBasis[];
+};
+export type Journey = {
+  id: string; title: string; emoji: string; 요약: string; 검수상태: string;
+  lanes: string[]; stages: string[]; nodes: JourneyNode[]; edges: [string, string][];
+};
+
+export function loadJourneys(): Journey[] {
+  const dir = path.join(VAULT_DIR, "90_관리", "_journeys");
+  if (!fs.existsSync(dir)) return [];
+  const out: Journey[] = [];
+  for (const f of fs.readdirSync(dir).filter((x) => x.endsWith(".json")).sort()) {
+    try {
+      out.push(JSON.parse(fs.readFileSync(path.join(dir, f), "utf-8")) as Journey);
+    } catch {
+      /* 손상 파일은 건너뜀 */
+    }
+  }
+  return out;
+}

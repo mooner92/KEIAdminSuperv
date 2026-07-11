@@ -1,0 +1,101 @@
+import { useMemo, useState } from "react";
+import Head from "next/head";
+import Link from "next/link";
+import type { GetStaticProps } from "next";
+import Layout from "../components/Layout";
+import JourneyMap from "../components/JourneyMap";
+import DocDrawer from "../components/DocDrawer";
+import { useFlag } from "../lib/flags";
+import { SITE_NAME, CORPUS_AS_OF } from "../lib/site";
+import { getAllDocs, loadJourneys, type Journey } from "../lib/vault";
+import styles from "../styles/Home.module.css";
+import jm from "../components/JourneyMap.module.css";
+
+/**
+ * 업무 한 장(docs/25) — 업무 전체 여정(신청→결재→수행→정산→보고)을 스윔레인/스텝퍼로.
+ * 실측 근거: 신입이 '출장 처리' 지시 하나에 6턴 소요(전체 그림 부재) → 시작 전 1회 열람으로 압축.
+ * ⛔ 노드 데이터는 볼트(90_관리/_journeys) 수작업 큐레이션 — 미검수 시작, 근거 조문 필수.
+ */
+export default function JourneyPage({
+  journeys,
+  titleSlugs,
+}: {
+  journeys: Journey[];
+  titleSlugs: [string, string][];
+}) {
+  const on = useFlag("journey_map");
+  const [cur, setCur] = useState(0);
+  const [drawer, setDrawer] = useState<{ slug: string; anchor: string; text: string } | null>(null);
+  const titleToSlug = useMemo(() => new Map(titleSlugs), [titleSlugs]);
+  const j = journeys[cur];
+
+  const openDoc = (규정명: string, 조: string) => {
+    const slug = titleToSlug.get(규정명);
+    if (!slug) return;
+    const isJo = /^제\d+조/.test(조);
+    setDrawer({ slug, anchor: isJo ? 조 : "", text: isJo ? "" : 조 });
+  };
+
+  return (
+    <Layout fill>
+      <Head>
+        <title>{`업무 한 장 · ${SITE_NAME}`}</title>
+        <meta name="robots" content="noindex, nofollow" />
+      </Head>
+      <section className={styles.heroCompact}>
+        <h1 className={styles.h1}>업무 한 장</h1>
+        <p className={styles.lead}>
+          업무의 전체 흐름(누가 · 어느 화면에서 · 언제까지)을 한 장으로 봅니다. 단계를 누르면 근거
+          조문과 ERP 경로가 열려요. ⚠ <b>공식 기준은 항상 원문</b> — 실제 결재선·기한은 부서 확인이
+          필요합니다. <span className={styles.leadSub}>규정집 기준일 {CORPUS_AS_OF}</span>
+        </p>
+      </section>
+      {!on ? (
+        <p className={styles.lead}>이 기능은 아직 준비 중이에요. (관리자가 켜면 사용할 수 있습니다)</p>
+      ) : journeys.length === 0 ? (
+        <p className={styles.lead}>여정 데이터가 없습니다 — 볼트 90_관리/_journeys를 확인하세요.</p>
+      ) : (
+        <>
+          <div className={jm.picker} role="tablist" aria-label="업무 선택">
+            {journeys.map((x, i) => (
+              <button key={x.id} role="tab" aria-selected={i === cur}
+                className={`${jm.pick} ${i === cur ? jm.pickOn : ""}`} onClick={() => setCur(i)}>
+                {x.emoji} {x.title}
+              </button>
+            ))}
+          </div>
+          <p className={jm.summary}>
+            {j.요약} · 단계 {j.stages.length} · 근거 {j.nodes.reduce((a, n) => a + n.근거.length, 0)}건
+            {j.검수상태 !== "검수완료" ? <span className={jm.unreviewed}>미검수 — 원문 확인 필요</span> : null}
+          </p>
+          <JourneyMap journey={j} onOpenDoc={openDoc} />
+          <p className={jm.footNote}>
+            데이터: <Link href="/browse/">규정 원문</Link>·ERP 가이드에서 대조해 정리(검수 전). 오류 제보는 답변 👎로.
+          </p>
+        </>
+      )}
+      <DocDrawer
+        slug={drawer?.slug ?? null}
+        anchor={drawer?.anchor || ""}
+        highlight
+        highlightText={drawer?.text || ""}
+        onClose={() => setDrawer(null)}
+      />
+    </Layout>
+  );
+}
+
+export const getStaticProps: GetStaticProps = async () => {
+  const journeys = loadJourneys();
+  // 근거 조문 → 문서 드로어 매핑(제목→슬러그). 여정에 등장하는 규정명만 실어 payload 최소화.
+  const need = new Set<string>();
+  for (const j of journeys)
+    for (const n of j.nodes) {
+      for (const b of n.근거) need.add(b.규정명);
+      if (n.기한) need.add(n.기한.근거.규정명);
+      if (n.전결) need.add(n.전결.근거.규정명);
+    }
+  const titleSlugs: [string, string][] = [];
+  for (const d of getAllDocs()) if (need.has(d.title)) titleSlugs.push([d.title, d.slug]);
+  return { props: { journeys, titleSlugs } };
+};
