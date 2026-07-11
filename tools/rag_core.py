@@ -319,6 +319,13 @@ NUM_GATE = os.environ.get("RAG_NUM_GATE", "1") == "1"
 SCOPE_ANCHOR = os.environ.get("RAG_SCOPE_ANCHOR", "1") == "1"
 SCOPE_ANCHOR_MAX_REGS = int(os.environ.get("RAG_SCOPE_ANCHOR_MAX_REGS", "2"))  # 상위 N개 규정만(ctx 예산)
 
+# 수치 스토어(지렛대 ③, docs/24 §2): 검수 완료 표의 값을 결정적으로 조회해 근거 블록으로 주입.
+# ⛔ 01q가 '검수상태: 검수완료' + 비손상 표만 적재 — 스토어가 비면 완전 no-op(미검수 값 서빙 금지).
+VALUE_STORE = os.environ.get("RAG_VALUE_STORE", "1") == "1"
+VALUE_STORE_PATH = os.environ.get("RAG_VALUE_STORE_PATH",
+                                  os.path.join(os.path.dirname(os.path.abspath(__file__)), "index", "value_store.json"))
+_VALUE_Q_RE = re.compile(r"얼마|한도|상한|하한|며칠|몇\s*일|몇\s*박|일수|금액|수당|단가|지급액|요금|경조금|여비|이율|퍼센트|%")
+
 TABLE_BROKEN_MARK = "⚠표손상"  # P0-3 오버레이가 블록 헤더에 붙이는 마커 — 게이트 허용집합에서 제외
 
 # 화폐 승수(적대 리뷰 반영: 천만·백만 연쇄 — '2천만원'·'1억 6천만원'·'5백만 원'은 계약 한도류 실코퍼스 표기)
@@ -926,6 +933,39 @@ def _ensure_byeol_index():
     return _state["byeol_idx"], _state["byeol_map"]
 
 
+def _ensure_value_store() -> list:
+    """수치 스토어(01q 산출물) 1회 로드·캐시. 파일 없음/비어 있음 → 빈 리스트(no-op)."""
+    if "value_store" not in _state:
+        with _lock:
+            if "value_store" not in _state:
+                rows = []
+                try:
+                    if os.path.exists(VALUE_STORE_PATH):
+                        rows = json.loads(open(VALUE_STORE_PATH, encoding="utf-8").read()).get("rows", [])
+                except Exception as e:  # noqa: BLE001
+                    print(f"⚠ 수치 스토어 로드 실패(빈 스토어로 진행): {e}")
+                _state["value_store"] = rows
+    return _state["value_store"]
+
+
+def _value_store_lookup(query: str, limit: int = 2) -> list:
+    """질문 핵심 토큰과 (규정명+행+열) 라벨의 겹침으로 상위 행 조회. ≥2 토큰 일치만(오매칭 방지)."""
+    rows = _ensure_value_store()
+    if not rows:
+        return []
+    toks = _rw_core_tokens(query)
+    if len(toks) < 2:
+        return []
+    scored = []
+    for r in rows:
+        hay = _rw_norm(f"{r.get('규정명', '')} {r.get('표', '')} {r.get('행', '')} {r.get('열', '')}")
+        score = sum(1 for t in toks if t in hay)
+        if score >= 2:
+            scored.append((r, score))
+    scored.sort(key=lambda x: -x[1])
+    return scored[:limit]
+
+
 def _ensure_article_index():
     """(규정명, 제N조) → 조문 청크 id 정방향 인덱스. 규정↔규정 1홉 확장(reg_refs 대상 조회)용. 1회 캐시."""
     if "art_idx" not in _state:
@@ -1273,6 +1313,22 @@ def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None
                     added += 1
         except Exception as e:  # noqa: BLE001 — 앵커 실패는 기본 회수로 우아하게 강등
             print(f"⚠ 적용범위 앵커 실패(무시): {e}")
+
+    # 수치 스토어 조회(지렛대 ③, docs/24 §2): 값 질문이면 검수 완료 표의 매칭 행을 결정적으로 첨부.
+    # LLM은 조회 결과를 '인용만' — 값은 게이트(P0-1) 허용집합에 자연 포함(검수·비손상 출처라 신뢰 가능).
+    if VALUE_STORE and _VALUE_Q_RE.search(query):
+        try:
+            for row, score in _value_store_lookup(query, limit=2):
+                s2 = {"규정명": row["규정명"], "조": row.get("표", "")[:30] or "표", "분류": "수치 스토어",
+                      "tag": f"{row['규정명']} {row.get('열', '')}".strip(), "type": "value",
+                      "snippet": f"{row['행']} · {row['열']} = {row['값']}", "distance": None,
+                      "value_store": True}
+                srcs.append(s2)
+                blocks.append(f"[{s2['tag']} · 수치 스토어(검수 완료 표에서 결정적 조회)]\n"
+                              f"규정: {row['규정명']} ({row.get('파일', '')})\n표: {row.get('표', '')}\n"
+                              f"행: {row['행']}\n열: {row['열']}\n값: {row['값']}")
+        except Exception as e:  # noqa: BLE001 — 스토어 조회 실패는 기본 회수로 강등
+            print(f"⚠ 수치 스토어 조회 실패(무시): {e}")
 
     # 표 무결성 격리(P0-3, docs/22): 손상 표 블록에 경고 라벨 — 수치 게이트(P0-1)와 UI 배지가 소비.
     if TABLE_GUARD:

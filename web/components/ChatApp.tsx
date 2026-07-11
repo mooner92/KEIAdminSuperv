@@ -692,6 +692,11 @@ export default function ChatApp({
                           ⚠ 표 확인
                         </span>
                       ) : null}
+                      {typeBadges && !cardV2 && s.value_store ? (
+                        <span className={styles.autoChip} title="검수 완료된 표에서 결정적으로 조회한 값입니다(생성 아님)">
+                          📊 수치 스토어
+                        </span>
+                      ) : null}
                       {typeBadges && !cardV2 && (s.graph_expand || s.graph_expand_reg || s.graph_expand_action || s.graph_expand_gian || s.scope_anchor) ? (
                         <span
                           className={styles.autoChip}
@@ -730,6 +735,7 @@ export default function ChatApp({
                           s.graph_expand_action ? "🔗 후속단계 자동첨부" : "",
                           s.graph_expand_gian ? "🔗 기안 자동첨부" : "",
                           s.scope_anchor ? "🔗 적용범위 자동첨부" : "",
+                          s.value_store ? "📊 수치 스토어(검수 완료 표)" : "",
                           integrityOn && s.표깨짐 ? "⚠ 표 확인" : "",
                         ].filter(Boolean).join(" · ")}
                       </span>

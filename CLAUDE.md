@@ -90,6 +90,9 @@ KEI(한국환경연구원) 행정 초보(신입·전입자)가 "이 업무 어�
 - 질의:   `python tools/03_rag_query.py --db tools/chroma --q "..."`
 - RAG API: `tools/04_rag_api.py` (FastAPI, OpenAI 호환). **PM2 `kei-rag-api`**(uvicorn, 127.0.0.1:9000)로 상시 구동, env로 Ollama 연결(`tools/ecosystem.config.js`). 응답에 `x_sources`(규정명·조·분류·snippet) 포함 → 근거 패널/문서 드로어 연결.
   - 단발 실행: `cd tools && VLLM_BASE=http://127.0.0.1:11436/v1 LLM_MODEL=hf.co/unsloth/Qwen3.5-9B-GGUF:Q4_K_M .venv/bin/uvicorn 04_rag_api:app --host 127.0.0.1 --port 9000`
+- 표 무결성: `python tools/01o_table_integrity.py --vault KEI-행정가이드`  (손상 표 전수 스캔 → tools/index/, 검수 큐 가산 + P0-3 런타임 격리와 동일 휴리스틱)
+- 표 복원:  `python tools/01p_table_restore.py`  (손상 문서 원본 재파싱 → 복원 제안 스테이징. 반영은 /admin 🔧 표 복원 탭에서 사람이)
+- 수치 스토어: `python tools/01q_table_store.py --vault KEI-행정가이드`  (⛔검수완료+비손상 표만 → value_store.json, 값 질문 결정적 조회 — docs/24)
 - 검수 큐:  `python tools/review_queue.py --vault KEI-행정가이드 [--top 30]`  (미검수 우선순위. 읽기 전용·확정은 사람만. 인앱 피드백 신호 있으면 자동 반영)
 - 피드백:  `python tools/feedback_export.py`  (app.db 👍/👎 → `tools/.feedback_signals.json`, 검수 큐가 소비. 매뉴얼 `docs/14-feedback-loop.md`)
 
