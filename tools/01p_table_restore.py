@@ -105,6 +105,7 @@ def main():
         buf.append("")
         buf.append("## 복원된 표 (숫자 포함 표 전체)")
         still_broken = 0
+        jtables = []
         for label, rows in tabs:
             md = render(rows)
             verdict = _table_broken(md)
@@ -112,8 +113,18 @@ def main():
                 still_broken += 1
             buf.append(f"\n### {label}" + (f"  ⚠ 원본 자체가 병합 구조({verdict}) — 사람 행 분리 필요" if verdict else "  ✅ 구조 복원"))
             buf.append(md)
-        out = OUT_DIR / f"{re.sub(r'[/\\\\]', '_', name)}.md"
+            jtables.append({"label": label, "verdict": verdict or "", "rows": rows})
+        stem = re.sub(r'[/\\\\]', '_', name)
+        out = OUT_DIR / f"{stem}.md"
         out.write_text("\n".join(buf) + "\n", encoding="utf-8")
+        # 검수 화면(API)용 구조화 산출물 — docs/24 §1
+        (OUT_DIR / f"{stem}.json").write_text(json.dumps({
+            "name": name, "source": src,
+            "vault_paths": [d["path"] for d in docs],
+            "표본": [s for d in docs for s in (d.get("표본") or [])],
+            "사유": sorted({r for d in docs for r in d["사유"]}),
+            "tables": jtables,
+        }, ensure_ascii=False, indent=1), encoding="utf-8")
         done.append((name, len(tabs), still_broken))
 
     print(f"복원 제안 {len(done)}건 → {OUT_DIR}")

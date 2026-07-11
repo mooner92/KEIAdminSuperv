@@ -17,6 +17,7 @@ export const FLAG_DEFAULTS: Record<string, boolean> = {
   answer_actions: false, // v1 ⑫(S6)
   explore_upgrades: false,
   corpus_admin: false, // v1.1 P1: /admin 코퍼스 관리(목록·제외 토글) (release, 만료 2026-12-15) // v1 ⑬⑭(S7): URL 딥링크·드로어 뒤로·TOC·그래프 검색 (release, 만료 2026-11-30)
+  table_restore: false, // docs/24: /admin 표 복원 검수 탭(01p 제안 열람·반영) (release, 만료 2026-12-31)
 };
 const CACHE_KEY = "kei-flags";
 

@@ -60,6 +60,12 @@ export type Message = {
   feedback_reason?: string; // 👎 사유(선택)
 };
 // 관리자 피드백 신호(개인정보 보호: 질문·답변 본문 미포함 — 규정 메타 + 사유만)
+// 표 복원 검수(docs/24): 01p 복원 제안 — rows 셀 안 <br>은 UI에서 줄바꿈으로 렌더
+export type RestoreTable = { label: string; verdict: string; rows: string[][] };
+export type RestoreDoc = {
+  name: string; source: string; 사유: string[]; 표본: string[];
+  tables: RestoreTable[]; matchable: number; manual_needed: string[]; applied_at: number | null;
+};
 export type CorpusDoc = {
   slug: string; title: string; 구분: string; section: string; 검수상태: string;
   chunks: number; excluded: boolean; needs_reindex: boolean;
@@ -231,5 +237,10 @@ export const api = {
   corpusReject: (id: string) => j<{ rejected: string }>(`/corpus/uploads/${id}/reject`, { method: "POST" }),
   corpusRollback: (backup: string) =>
     j<{ rolled_back_to: string }>("/corpus/rollback", { method: "POST", body: JSON.stringify({ backup }) }),
+  // 표 복원 검수(docs/24) — 반영은 사람의 명시적 클릭으로만
+  tableRestoreList: () => j<{ docs: RestoreDoc[] }>("/corpus/table-restore"),
+  tableRestoreApply: (name: string) =>
+    j<{ matched: number; replaced: { file: string; 표: string; 행: number }[]; backups: string[]; manual_needed: string[] }>(
+      "/corpus/table-restore/apply", { method: "POST", body: JSON.stringify({ name }) }),
   stats: (days?: number) => j<Stats>(`/stats${days ? `?days=${days}` : ""}`), // 관리자 전용 대시보드
 };

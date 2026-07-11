@@ -173,6 +173,13 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-12-15",
     },
+    "table_restore": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "표 복원 검수(docs/24) — /admin '표 복원' 탭에 01p 복원 제안(손상 표 7문서) 열람·대비·"
+                       "[반영] 버튼. 반영=사람의 명시적 승인(자동 반영 없음), 헤더 일치+손상 판정 블록만 결정적 교체+백업.",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
     "explore_upgrades": {
         "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
         "description": "탐색 마감(v1 스펙 ⑬⑭/S7) — ⓐ둘러보기 드로어 URL 딥링크(?doc=슬러그, 뒤로가기 연동) "
@@ -629,6 +636,144 @@ def corpus_rollback(body: RollbackIn, admin: User = Depends(current_admin)):
     for old in pres[:-1]:
         shutil.rmtree(os.path.join(base, old), ignore_errors=True)
     return {"rolled_back_to": os.path.basename(bak)}
+
+
+# ── 표 복원 검수 (지렛대 ①, docs/24 §1) ─────────────────────────────────────
+# 01p가 스테이징한 복원 제안(JSON)을 관리자 화면에서 열람하고, 사람의 명시적 클릭으로만
+# 볼트에 반영한다(자동 반영 없음). 교체는 결정적: 헤더 일치 + 손상 판정 블록만.
+RESTORE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "index", "table_restore")
+
+
+def _vault_dir() -> str:
+    return os.environ.get("VAULT_DIR", os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "KEI-행정가이드"))
+
+
+def _restore_proposals() -> list:
+    out = []
+    if not os.path.isdir(RESTORE_DIR):
+        return out
+    for fn in sorted(os.listdir(RESTORE_DIR)):
+        if fn.endswith(".json"):
+            try:
+                out.append(json.loads(open(os.path.join(RESTORE_DIR, fn), encoding="utf-8").read()))
+            except Exception:  # noqa: BLE001 — 손상 제안 파일은 건너뜀
+                pass
+    return out
+
+
+def _norm_cells(cells: list) -> list:
+    return ["".join((c or "").split()) for c in cells]
+
+
+def _md_table_blocks(lines: list):
+    """md 라인들에서 연속 '|' 표 블록의 (시작, 끝(미포함)) 범위를 찾는다."""
+    blocks, i = [], 0
+    while i < len(lines):
+        if "|" in lines[i] and lines[i].lstrip().startswith("|"):
+            j = i
+            while j < len(lines) and "|" in lines[j] and lines[j].lstrip().startswith("|"):
+                j += 1
+            blocks.append((i, j))
+            i = j
+        else:
+            i += 1
+    return blocks
+
+
+def _render_table_lines(rows: list) -> list:
+    out = []
+    for ri, row in enumerate(rows):
+        out.append("| " + " | ".join((c or "").replace("\n", "<br>") for c in row) + " |")
+        if ri == 0:
+            out.append("|" + " --- |" * len(row))
+    return out
+
+
+def _apply_restore(prop: dict, dry: bool) -> dict:
+    """제안 표를 볼트에 결정적으로 교체. 조건: 헤더 일치(공백 무시) + 기존 블록이 손상 판정.
+    매칭 없으면 아무것도 바꾸지 않는다(평탄화 표 등은 '수동 반영 필요')."""
+    vault = _vault_dir()
+    replaced, backups = [], []
+    for rel in prop.get("vault_paths", []):
+        fp = os.path.join(vault, rel)
+        if not os.path.isfile(fp):
+            continue
+        text = open(fp, encoding="utf-8").read()
+        lines = text.splitlines()
+        changed = False
+        for t in prop.get("tables", []):
+            rows = t.get("rows") or []
+            if not rows:
+                continue
+            want = _norm_cells([c for c in rows[0] if (c or "").strip()])
+            for (a, b) in _md_table_blocks(lines):
+                head_cells = [c.strip() for c in lines[a].strip().strip("|").split("|")]
+                have = _norm_cells([c for c in head_cells if c.strip()])
+                if not want or have != want:
+                    continue
+                block_text = "\n".join(lines[a:b])
+                if not rag_core._table_broken(block_text):
+                    continue  # 이미 정상(또는 반영됨) — 건드리지 않음
+                if not dry:
+                    lines[a:b] = _render_table_lines(rows)
+                replaced.append({"file": rel, "표": t.get("label", ""), "행": len(rows)})
+                changed = True
+                break  # 이 표는 반영됨 — 다음 제안 표로
+        if changed and not dry:
+            bdir = os.path.join(RESTORE_DIR, "backup")
+            os.makedirs(bdir, exist_ok=True)
+            bak = os.path.join(bdir, rel.replace(os.sep, "__") + f".orig-{time.strftime('%Y%m%d-%H%M%S')}")
+            with open(bak, "w", encoding="utf-8") as f:
+                f.write(text)
+            backups.append(os.path.basename(bak))
+            with open(fp, "w", encoding="utf-8") as f:
+                f.write("\n".join(lines) + ("\n" if text.endswith("\n") else ""))
+    manual = [t.get("label", "") for t in prop.get("tables", []) if t.get("verdict")]
+    return {"matched": len(replaced), "replaced": replaced, "backups": backups,
+            "manual_needed": manual}
+
+
+@router.get("/corpus/table-restore")
+def table_restore_list(admin: User = Depends(current_admin)):
+    """관리자: 표 복원 제안 목록 + 볼트 매칭 가능성(dry-run) + 반영 이력."""
+    with Session(engine) as s:
+        applied = {}
+        for a in s.exec(select(CorpusAudit).where(CorpusAudit.action == "table_restore")).all():
+            applied[a.slug] = max(applied.get(a.slug, 0), a.at)
+    docs = []
+    for prop in _restore_proposals():
+        dry = _apply_restore(prop, dry=True)
+        docs.append({
+            "name": prop["name"], "source": os.path.basename(prop.get("source", "")),
+            "사유": prop.get("사유", []), "표본": prop.get("표본", [])[:3],
+            "tables": prop.get("tables", []),
+            "matchable": dry["matched"], "manual_needed": dry["manual_needed"],
+            "applied_at": applied.get(prop["name"]),
+        })
+    return {"docs": docs}
+
+
+class RestoreApplyIn(BaseModel):
+    name: str
+
+
+@router.post("/corpus/table-restore/apply")
+def table_restore_apply(body: RestoreApplyIn, admin: User = Depends(current_admin)):
+    """관리자: 복원 제안을 볼트에 반영(사람의 명시적 승인 행위). ⛔검수상태는 불변 — 사람이 별도 갱신."""
+    if REINDEX["running"]:
+        raise HTTPException(409, "재색인 진행 중에는 반영할 수 없습니다.")
+    prop = next((p for p in _restore_proposals() if p["name"] == body.name), None)
+    if not prop:
+        raise HTTPException(404, "해당 복원 제안이 없습니다.")
+    res = _apply_restore(prop, dry=False)
+    if res["matched"] == 0:
+        raise HTTPException(409, "자동 반영 가능한 표가 없습니다(평탄화·원본 병합 구조는 수동 반영).")
+    _corpus_cache["t"] = 0  # 목록 재계산(needs_reindex 반영)
+    with Session(engine) as s:
+        s.add(CorpusAudit(slug=body.name, action="table_restore", actor=admin.username))
+        s.commit()
+    return res
 
 
 # ── P3: 업로드 → 변환 미리보기 → 승인 편입 (docs/20) ─────────────────────────
