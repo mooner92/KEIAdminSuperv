@@ -51,6 +51,8 @@ def main():
                     help="인앱 피드백 신호 JSON(있으면 👎 받은 규정 우선순위↑). feedback_export.py가 생성")
     ap.add_argument("--tables", default="tools/index/table_integrity.json",
                     help="표 무결성 스캔 JSON(있으면 손상 표 문서 +25 — 실사고 위험 최우선). 01o가 생성")
+    ap.add_argument("--conflicts", default="tools/index/conflict_audit.json",
+                    help="정합성 감사 JSON(실충돌·낙후 문서 +20). 01s→검증 파이프라인이 생성")
     args = ap.parse_args()
 
     # 인앱 피드백 신호(선택): {규정명: down 수}. 파일 없으면 조용히 건너뜀(opt-in, graceful).
@@ -72,6 +74,19 @@ def main():
             broken_tables = {d["path"]: d.get("손상행", 1) for d in tj.get("docs", [])}
         except Exception as e:
             print(f"⚠ 표 무결성 신호 로드 실패({type(e).__name__}) — 무시하고 계속")
+
+    # 정합성 감사 신호(선택): 실충돌·낙후 판정 문서는 낡은 값을 답할 위험 — 우선 검수.
+    conflict_paths = {}
+    cfp = Path(args.conflicts)
+    if cfp.exists():
+        try:
+            cj = json.loads(cfp.read_text(encoding="utf-8"))
+            for v in cj.get("verdicts", []):
+                if v.get("verdict") in ("실충돌", "낙후"):
+                    for pth in v.get("paths", []):
+                        conflict_paths[pth] = conflict_paths.get(pth, 0) + 1
+        except Exception as e:
+            print(f"⚠ 정합성 감사 신호 로드 실패({type(e).__name__}) — 무시하고 계속")
 
     vault = Path(args.vault)
     notes = []  # (meta, body, path, stem)
@@ -102,14 +117,16 @@ def main():
         down = fb_down.get(name, 0)  # 인앱 👎 피드백 수(규정명/제목 일치)
         rel = str(md.relative_to(vault))
         n_broken = broken_tables.get(rel, 0)  # 표 무결성 스캔(P0-3) — 실사고 위험 최우선
+        n_conflict = conflict_paths.get(rel, 0)  # 정합성 감사(01s) — 실충돌·낙후
         score = (TYPE_W.get(typ, 5) + (15 if has_byeolpyo else 0)
                  + (8 if unclassified else 0) + min(inb, 10) + min(2 * down, 20)
-                 + (25 if n_broken else 0))
+                 + (25 if n_broken else 0) + (20 if n_conflict else 0))
         rows.append({
             "score": score, "type": typ, "name": name, "분류": cat,
             "검수상태": reviewed or "미검수", "별표": has_byeolpyo,
             "미분류": unclassified, "인바운드": inb, "피드백_down": down,
             "표손상행": n_broken,
+            "충돌판정": n_conflict,
             "path": rel,
         })
 
