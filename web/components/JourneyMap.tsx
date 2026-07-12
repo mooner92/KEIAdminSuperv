@@ -26,7 +26,7 @@ export default function JourneyMap({
       const grid = gridRef.current;
       if (!grid) return;
       const g = grid.getBoundingClientRect();
-      setSvgSize([grid.scrollWidth, grid.scrollHeight]);
+      setSvgSize([grid.clientWidth, grid.clientHeight]); // 스크롤 강제 방지 — 표는 가용폭에 맞춤
       const pts: string[] = [];
       for (const [a, b] of journey.edges) {
         const ea = nodeRefs.current.get(a);
@@ -94,7 +94,7 @@ export default function JourneyMap({
         <div
           ref={gridRef}
           className={styles.grid}
-          style={{ gridTemplateColumns: `92px repeat(${journey.stages.length}, minmax(150px, 1fr))` }}
+          style={{ gridTemplateColumns: `76px repeat(${journey.stages.length}, minmax(0, 1fr))` }}
         >
           <div className={styles.corner} />
           {journey.stages.map((s, i) => (

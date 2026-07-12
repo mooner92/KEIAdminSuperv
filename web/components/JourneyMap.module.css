@@ -2,15 +2,15 @@
 .wrap { position: relative; }
 
 /* ── 스윔레인(데스크톱) ── */
-.laneScroller { overflow-x: auto; border: 1px solid var(--color-border); border-radius: var(--radius-lg, 12px); background: var(--color-surface); }
-.grid { position: relative; display: grid; gap: 0; min-width: 720px; }
-.corner { position: sticky; left: 0; z-index: 2; background: var(--color-surface); border-bottom: 1px solid var(--color-border); }
-.stageHead { padding: 10px 12px; font-weight: 700; font-size: 13.5px; color: var(--color-text); border-bottom: 1px solid var(--color-border); border-left: 1px dashed var(--color-border); }
+.laneScroller { overflow: hidden; border: 1px solid var(--color-border); border-radius: var(--radius-lg, 12px); background: var(--color-surface); }
+.grid { position: relative; display: grid; gap: 0; }
+.corner { background: var(--color-surface); border-bottom: 1px solid var(--color-border); }
+.stageHead { padding: 10px 8px; min-width: 0; font-weight: 700; font-size: 13.5px; color: var(--color-text); border-bottom: 1px solid var(--color-border); border-left: 1px dashed var(--color-border); }
 .stageHead em { font-style: normal; color: var(--color-primary); margin-right: 4px; }
 .laneRow { display: contents; }
-.laneHead { position: sticky; left: 0; z-index: 2; display: flex; align-items: center; justify-content: center; padding: 10px 6px; font-size: 12.5px; font-weight: 600; color: var(--color-text-secondary); background: var(--color-bg-subtle); border-bottom: 1px solid var(--color-border); writing-mode: initial; text-align: center; }
-.cell { min-height: 86px; padding: 10px; border-bottom: 1px solid var(--color-border); border-left: 1px dashed var(--color-border); display: flex; flex-direction: column; gap: 8px; justify-content: center; }
-.node { position: relative; z-index: 1; text-align: left; padding: 8px 10px; border: 1px solid var(--color-border-strong); border-radius: 10px; background: var(--color-bg); color: var(--color-text); cursor: pointer; font-size: 13px; box-shadow: var(--shadow-card, none); }
+.laneHead { display: flex; align-items: center; justify-content: center; padding: 10px 6px; font-size: 12.5px; font-weight: 600; color: var(--color-text-secondary); background: var(--color-bg-subtle); border-bottom: 1px solid var(--color-border); writing-mode: initial; text-align: center; }
+.cell { min-height: 86px; min-width: 0; padding: 8px; border-bottom: 1px solid var(--color-border); border-left: 1px dashed var(--color-border); display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+.node { position: relative; z-index: 1; min-width: 0; text-align: left; padding: 8px 10px; word-break: keep-all; overflow-wrap: anywhere; border: 1px solid var(--color-border-strong); border-radius: 10px; background: var(--color-bg); color: var(--color-text); cursor: pointer; font-size: 13px; box-shadow: var(--shadow-card, none); }
 .node:hover { border-color: var(--color-primary); }
 .nodeOn { border-color: var(--color-primary); outline: 2px solid var(--color-primary-weak); }
 .nodeName { display: block; font-weight: 600; margin-bottom: 4px; }
