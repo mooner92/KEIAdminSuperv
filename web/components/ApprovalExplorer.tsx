@@ -46,6 +46,8 @@ export default function ApprovalExplorer({ rules }: { rules: ApprovalRule[] }) {
       const saved: string[] = JSON.parse(localStorage.getItem(ROLES_KEY) || "[]");
       const valid = saved.filter((r) => rules.some((x) => x.대상 === r));
       if (valid.length) setF((prev) => ({ ...prev, role: new Set(valid) }));
+      else if (rules.some((x) => x.대상 === "비정규직(연구직)"))
+        setF((prev) => ({ ...prev, role: new Set(["비정규직(연구직)"]) })); // 기본 직급(드로어와 동일)
     } catch { /* ignore */ }
   }, [rules]);
 

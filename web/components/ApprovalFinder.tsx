@@ -11,6 +11,7 @@ export type ApprovalRule = {
 
 const ROLE_KEY = "kei-approval-role"; // 마지막 선택 직급 기억(브라우저) — 계정 직급 설정의 경량 선행
 const PAGE_ROLES_KEY = "kei-approval-roles"; // 전체 페이지(체크박스)의 선택과 기억 공유(첫 항목 사용)
+const DEFAULT_ROLE = "비정규직(연구직)"; // 열릴 때 기본 직급 — 저장된 선택이 있으면 그것이 우선
 // 자주 찾는 업무 퀵칩(드로어 전용) — 별표에 실제로 있는 키워드만 렌더(0건 칩 방지)
 const QUICK_CHIPS = ["출장", "휴가", "병가", "휴직", "교육", "계약", "구매", "법인카드", "겸직", "출판"];
 
@@ -34,6 +35,7 @@ export default function ApprovalFinder({
         const pageRoles: string[] = JSON.parse(localStorage.getItem(PAGE_ROLES_KEY) || "[]");
         saved = pageRoles[0] || "";
       }
+      if (!saved) saved = DEFAULT_ROLE; // 저장된 선택이 없을 때의 기본 직급(사용자 요청)
       if (saved && rules.some((r) => r.대상 === saved)) setRole(saved);
     } catch { /* ignore */ }
   }, [rules]);
