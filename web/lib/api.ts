@@ -50,6 +50,7 @@ export type Source = {
   scope_anchor?: boolean; // P0-2(docs/22): 인용 규정의 목적·적용범위(제1~2조) 자동첨부 — 🔗 배지
   value_store?: boolean; // 지렛대③(docs/24): 검수 완료 표에서 결정적 조회한 값 — 📊 배지
 };
+export type Suggestion = { type: "ask" | "journey"; label: string; q?: string; journey?: string };
 export type Feedback = "up" | "down" | null;
 export type Message = {
   id: number;
@@ -120,7 +121,7 @@ async function j<T>(path: string, init?: RequestInit, timeoutMs = 12000): Promis
 export type StreamHandlers = {
   onMeta?: (sources: Source[], user: Message) => void;
   onDelta?: (token: string) => void;
-  onDone?: (assistant: Message, session: ChatMeta | null) => void;
+  onDone?: (assistant: Message, session: ChatMeta | null, suggestions?: Suggestion[]) => void;
   onError?: (message: string) => void;
 };
 
@@ -166,7 +167,7 @@ async function sendMessageStream(id: number, content: string, h: StreamHandlers)
       }
       if (obj.type === "meta") h.onMeta?.(obj.sources || [], obj.user);
       else if (obj.type === "delta") h.onDelta?.(obj.t || "");
-      else if (obj.type === "done") h.onDone?.(obj.assistant, obj.session ?? null);
+      else if (obj.type === "done") h.onDone?.(obj.assistant, obj.session ?? null, obj.suggestions || []);
       // 서버 절단/실패 이벤트(v1 B4): err=예외명, partial=부분 응답 존재 여부. 이후 done(마커 포함 저장본)이 따라옴.
       else if (obj.type === "error") h.onError?.(obj.err || obj.message || "오류가 발생했습니다.");
     }

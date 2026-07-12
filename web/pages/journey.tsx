@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import type { GetStaticProps } from "next";
@@ -25,6 +25,16 @@ export default function JourneyPage({
 }) {
   const on = useFlag("journey_map");
   const [cur, setCur] = useState(0);
+  // /journey/?task=<id> 딥링크(후속 제안 칩에서 진입) — 정적 export라 하이드레이션 후 파싱
+  useEffect(() => {
+    try {
+      const id = new URLSearchParams(window.location.search).get("task");
+      if (!id) return;
+      const i = journeys.findIndex((x) => x.id === id);
+      if (i >= 0) setCur(i);
+    } catch { /* ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [drawer, setDrawer] = useState<{ slug: string; anchor: string; text: string } | null>(null);
   const titleToSlug = useMemo(() => new Map(titleSlugs), [titleSlugs]);
   const j = journeys[cur];

@@ -3,7 +3,7 @@ import Link from "next/link";
 import Markdown from "./Markdown";
 import DocDrawer from "./DocDrawer";
 import ApprovalDrawer from "./ApprovalDrawer";
-import { api, type ChatMeta, type Message, type Source, type User } from "../lib/api";
+import { api, type ChatMeta, type Message, type Source, type Suggestion, type User } from "../lib/api";
 import type { DocMeta } from "../lib/vault";
 import { useFlag } from "../lib/flags";
 import { CORPUS_AS_OF, SITE_NAME } from "../lib/site";
@@ -73,6 +73,7 @@ export default function ChatApp({
   const [openSlug, setOpenSlug] = useState<string | null>(null);
   const [openAnchor, setOpenAnchor] = useState("");
   const [openSnippet, setOpenSnippet] = useState(""); // 앵커 없는 출처(조='') 텍스트 매칭 하이라이트용
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]); // docs/26: 답변 후속 제안(휘발성)
   const [reasonFor, setReasonFor] = useState<number | null>(null); // 👎 사유 입력창이 열린 메시지 id
   const [reasonText, setReasonText] = useState("");
   const threadRef = useRef<HTMLDivElement>(null);
@@ -96,6 +97,8 @@ export default function ChatApp({
   const integrityOn = useFlag("article_integrity"); // Track A: 조문 효력 배지(⚠삭제됨/개정일)
   const approvalOn = useFlag("approval_finder"); // Track B: 결재 언급 시 근거 패널에 결재선 판정기 제안
   const cardV2 = useFlag("source_card_v2");
+  const followupOn = useFlag("followup_suggest"); // docs/26: 후속 질문 칩
+  const selectAskOn = useFlag("select_ask"); // docs/26: 원문 선택 질문
   const actionsOn = useFlag("answer_actions"); // v1 ⑫(S6): 복사·인용 칩·수치 대조 // v1 ⑧·⑨(S3·S4): 배지 3단 위계·미검수 집계·거부 리프레임
   const [approvalOpen, setApprovalOpen] = useState(false); // 결재선 드로어(우측 슬라이드인)
   const [srcOverlay, setSrcOverlay] = useState(false); // v1 B6: ≤1080px 근거 바텀시트(넓은 화면에선 무시)
@@ -146,6 +149,10 @@ export default function ChatApp({
   }, [approvalOn, messages, activeMsgId]);
 
   useEffect(() => {
+    try {
+      const q = new URLSearchParams(window.location.search).get("q");
+      if (q) setInput(q); // /?q=… 프리필(원문 선택 질문 등) — 자동 전송하지 않음
+    } catch { /* ignore */ }
     api.listChats().then((list) => {
       setChats(list);
       if (list.length) selectChat(list[0].id);
@@ -162,6 +169,7 @@ export default function ChatApp({
   const selectChat = async (id: number) => {
     setActiveId(id);
     setMessages([]);
+    setSuggestions([]);
     setActiveMsgId(null);
     const { messages: msgs } = await api.getChat(id);
     setMessages(msgs);
@@ -206,6 +214,7 @@ export default function ChatApp({
     const chatId = cid as number;
     setInput("");
     setSending(true);
+    setSuggestions([]);
     // 낙관적: 사용자 메시지 + 비어있는 스트리밍 assistant 자리 추가
     setMessages((prev) => [
       ...prev,
@@ -221,10 +230,11 @@ export default function ChatApp({
           ),
         onDelta: (t) =>
           setMessages((prev) => prev.map((m) => (m.id === STREAM_ID ? { ...m, content: m.content + t } : m))),
-        onDone: (assistant, session) => {
+        onDone: (assistant, session, sugg) => {
           setMessages((prev) => prev.map((m) => (m.id === STREAM_ID ? assistant : m)));
           setActiveMsgId(assistant.id);
           if (session) setChats((prev) => [session, ...prev.filter((c) => c.id !== chatId)]);
+          setSuggestions(sugg || []);
         },
         // v1 B4: 부분 응답이 있어도 에러를 은폐하지 않는다 — 절단 안내를 덧붙임.
         // (서버 error 이벤트 뒤엔 마커가 부착된 저장본 done이 따라와 최종 상태를 확정)
@@ -563,6 +573,21 @@ export default function ChatApp({
           )}
         </div>
 
+        {followupOn && suggestions.length > 0 && !sending ? (
+          <div className={styles.suggestBar} aria-label="다음 질문 제안">
+            {suggestions.map((s, i) =>
+              s.type === "journey" ? (
+                <a key={i} className={styles.suggestChip} href={`/journey/?task=${encodeURIComponent(s.journey || "")}`}>
+                  {s.label}
+                </a>
+              ) : (
+                <button key={i} className={styles.suggestChip} onClick={() => send(s.q)}>
+                  {s.label}
+                </button>
+              )
+            )}
+          </div>
+        ) : null}
         <div className={styles.composer}>
           <textarea
             className={styles.input}
@@ -760,6 +785,10 @@ export default function ChatApp({
         highlight={highlightOn}
         highlightText={highlightOn ? openSnippet : ""}
         onClose={() => setOpenSlug(null)}
+        onAskSelection={selectAskOn ? (text) => {
+          setInput(`「${text}」 — 이게 무슨 뜻인가요?`);
+          setOpenSlug(null); // 드로어 닫고 입력창으로(자동 전송 없음 — 사용자가 다듬은 뒤 전송)
+        } : undefined}
       />
       {/* v1 B6: 좁은 화면 근거 접근 플로팅 버튼(CSS가 ≤1080px에서만 노출) */}
       {activeSources.length > 0 && !srcOverlay ? (

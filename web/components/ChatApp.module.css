@@ -388,3 +388,8 @@
 .msgTime { flex: 0 0 auto; align-self: flex-end; font-size: 10.5px; color: var(--color-text-tertiary); margin: 0 6px 4px 0; font-weight: 500; white-space: nowrap; }
 .aiTag .msgTime { align-self: auto; margin: 0; }
 .chatTime { flex: 0 0 auto; font-size: 10px; color: var(--color-text-tertiary); white-space: nowrap; }
+
+/* docs/26: 답변 후속 제안 칩(컴포저 위) */
+.suggestBar { display: flex; gap: 8px; flex-wrap: wrap; padding: 6px 2px; }
+.suggestChip { font-size: 12.5px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--color-border); background: var(--color-bg-subtle); color: var(--color-text); cursor: pointer; text-decoration: none; }
+.suggestChip:hover { border-color: var(--color-primary); color: var(--color-primary-strong); }

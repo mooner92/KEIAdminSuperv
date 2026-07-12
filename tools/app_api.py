@@ -187,6 +187,20 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-12-31",
     },
+    "followup_suggest": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "답변 후속 질문 제안(docs/26) — 무LLM·결정적(여정 점프·ACTION_FLOWS 후속단계·기한). "
+                       "답변 하단 칩 최대 3개, 결재선 카드와 중복 금지.",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
+    "select_ask": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "원문 선택 질문(docs/26) — 문서 드로어에서 구절 드래그 → '이거 물어보기' 팝오버 → "
+                       "입력창 프리필(자동 전송 없음).",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
     "explore_upgrades": {
         "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
         "description": "탐색 마감(v1 스펙 ⑬⑭/S7) — ⓐ둘러보기 드로어 URL 딥링크(?doc=슬러그, 뒤로가기 연동) "
@@ -1254,7 +1268,8 @@ def post_message(cid: int, body: MsgIn, stream: bool = False, user: User = Depen
             s.refresh(um)
             s.refresh(am)
             s.refresh(cs)
-            return {"user": _msg(um), "assistant": _msg(am), "session": _ses(cs)}
+            sugg = rag_core.suggest_followups(q, sources)  # docs/26 — 무LLM 후속 제안(휘발성)
+            return {"user": _msg(um), "assistant": _msg(am), "session": _ses(cs), "suggestions": sugg}
 
     # 스트리밍(SSE): meta(근거+user) → delta(토큰…) → [error] → done(저장된 assistant+session)
     def gen():
@@ -1301,7 +1316,12 @@ def post_message(cid: int, body: MsgIn, stream: bool = False, user: User = Depen
             s.refresh(am)
             if cs:
                 s.refresh(cs)
-            yield _sse({"type": "done", "assistant": _msg(am), "session": _ses(cs) if cs else None})
+            try:
+                sugg = rag_core.suggest_followups(q, sources)  # docs/26 — 무LLM 후속 제안(휘발성)
+            except Exception:  # noqa: BLE001
+                sugg = []
+            yield _sse({"type": "done", "assistant": _msg(am), "session": _ses(cs) if cs else None,
+                        "suggestions": sugg})
 
     return StreamingResponse(
         gen(),

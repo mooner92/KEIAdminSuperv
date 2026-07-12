@@ -611,6 +611,90 @@ def system_attribution_note(answer: str, sources) -> str:
         return ""
 
 
+# ── 후속 질문 제안 (docs/26 §1) — ⛔ 무LLM·결정적: 확정 인덱스에서 템플릿으로만 ──────────
+FOLLOWUP_MAX = 3
+
+
+def _ensure_journey_triggers() -> list:
+    """여정 제목 키워드 → (id, title). 볼트 _journeys 1회 스캔·캐시(reload로 갱신)."""
+    if "journey_trig" not in _state:
+        with _lock:
+            if "journey_trig" not in _state:
+                out = []
+                jdir = os.path.join(os.environ.get("VAULT_DIR", os.path.join(
+                    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "KEI-행정가이드")),
+                    "90_관리", "_journeys")
+                try:
+                    for fn in sorted(os.listdir(jdir)) if os.path.isdir(jdir) else []:
+                        if not fn.endswith(".json"):
+                            continue
+                        j = json.loads(open(os.path.join(jdir, fn), encoding="utf-8").read())
+                        # 트리거 키워드 = 제목에서 괄호·중점 제거한 토큰(예: '해외출장(국외출장)' → 해외출장·국외출장)
+                        kws = [t for t in re.split(r"[()·,\s]+", j.get("title", "")) if len(t) >= 2]
+                        out.append({"id": j["id"], "title": j["title"], "kws": kws})
+                except Exception as e:  # noqa: BLE001
+                    print(f"⚠ 여정 트리거 로드 실패(무시): {e}")
+                _state["journey_trig"] = out
+    return _state["journey_trig"]
+
+
+def suggest_followups(question: str, srcs: list) -> list:
+    """답변 뒤에 붙일 후속 제안(상한 3). 형태: {type: 'journey'|'ask', label, q?|journey?}.
+    ⛔ 결재선 제안은 만들지 않는다(기존 '결재선을 알아볼까요?' 카드와 중복 — docs/26)."""
+    try:
+        q = question or ""
+        blob = q + " " + " ".join(f"{s.get('규정명', '')} {s.get('조', '')}" for s in (srcs or []))
+        out, seen = [], set()
+
+        # ① 여정 점프 — 질문·근거가 여정 키워드와 일치. 여러 여정이 걸리면 '가장 긴 키워드' 일치 우선
+        #    (예: '연차휴가'는 경조사의 '휴가' 토큰보다 연차휴가 여정의 '연차휴가'가 이겨야 함 — 실측 버그)
+        best, best_len = None, 0
+        for t in _ensure_journey_triggers():
+            for k in t["kws"]:
+                if k in blob and len(k) > best_len:
+                    best, best_len = t, len(k)
+        if best:
+            out.append({"type": "journey", "journey": best["id"], "label": f"🗺 {best['title']} 전체 여정 보기"})
+
+        # ② 후속 단계 — 근거에 ACTION_FLOWS의 from 화면이 있으면 다음 화면 질문(문서 확정 쌍만)
+        for frm, to, rel in ACTION_FLOWS:
+            if to in q or to in seen:
+                continue  # 이미 그걸 물었거나 제안함
+            if any(frm in f"{s.get('규정명', '')}{s.get('조', '')}" for s in (srcs or [])) and frm not in q:
+                out.append({"type": "ask", "q": f"{to}은 어떻게 하나요?",
+                            "label": f"다음 단계 — {rel}은 어떻게?"})
+                seen.add(to)
+                break  # 후속 단계도 1개만
+
+        # ③ 기한 — 인용 규정이 기한 보유(deadlines.json) + 아직 기한을 안 물었을 때
+        if not re.search(r"기한|언제까지|며칠\s*이내", q):
+            try:
+                dl = _ensure_deadlines() if "_ensure_deadlines" in globals() else None
+            except Exception:  # noqa: BLE001
+                dl = None
+            if dl is None:
+                # deadlines 인덱스 직접 로드(1회 캐시)
+                if "deadline_regs" not in _state:
+                    p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "index", "deadlines.json")
+                    regs = set()
+                    try:
+                        if os.path.exists(p):
+                            regs = set(json.loads(open(p, encoding="utf-8").read()).get("deadlines", {}).keys())
+                    except Exception:  # noqa: BLE001
+                        pass
+                    _state["deadline_regs"] = regs
+                dl = _state["deadline_regs"]
+            cited = {(s.get("규정명") or "").strip() for s in (srcs or [])}
+            hit = next((r for r in cited if r in dl), None)
+            if hit:
+                out.append({"type": "ask", "q": f"{hit}에서 제출·정산 기한은 언제까지인가요?",
+                            "label": "⏱ 관련 기한 확인"})
+
+        return out[:FOLLOWUP_MAX]
+    except Exception:  # noqa: BLE001 — 제안 실패는 무제안(답변 불변)
+        return []
+
+
 def post_answer_notes(question: str, answer: str, context: str, sources=None) -> str:
     """생성 직후 결정적 후검증 노트 묶음(P0-1 수치 + P0-4 귀속). ""면 이상 없음."""
     notes = [n for n in (numeric_guard_note(question, answer, context),

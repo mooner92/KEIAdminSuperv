@@ -111,7 +111,7 @@
   font-size: 14px;
   text-align: center;
 }
-.article {
+.article { position: relative;
   padding: var(--space-6) var(--space-6) var(--space-8);
   max-width: 760px;
 }
@@ -260,3 +260,7 @@
   border-radius: 999px; padding: 2px 9px; font-size: 11.5px; font-weight: 600; white-space: nowrap;
 }
 .tocChip:hover { color: var(--color-primary-strong); border-color: var(--color-primary); }
+
+/* docs/26: 원문 선택 질문 팝오버 */
+.selAskBtn { position: absolute; transform: translate(-50%, -100%); z-index: 1200; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--color-primary); background: var(--color-surface); color: var(--color-primary-strong); font-size: 12.5px; cursor: pointer; box-shadow: var(--shadow-pop, 0 4px 14px rgba(0,0,0,.18)); }
+.selAskBtn:hover { background: var(--color-primary-weak); }

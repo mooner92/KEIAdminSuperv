@@ -46,6 +46,7 @@ export default function DocDrawer({
   highlight = false,
   highlightText = "",
   onClose,
+  onAskSelection,
 }: {
   slug: string | null;
   anchor?: string;
@@ -54,11 +55,36 @@ export default function DocDrawer({
   /** 앵커(조=='') 없는 출처(가이드·머리말 등)는 이 인용 텍스트로 본문에서 매칭해 강조 */
   highlightText?: string;
   onClose: () => void;
+  /** docs/26 선택 질문: 드래그한 구절로 질문하기(채팅이 콜백 제공, 미제공 시 /?q= 이동) */
+  onAskSelection?: (text: string) => void;
 }) {
   const integrityOn = useFlag("article_integrity"); // Track A: 조문 참조·정의 패널
   const impactOn = useFlag("graph_impact"); // Track C: 개정 파급·함께 보는 조문 패널
   const deadlineOn = useFlag("deadline_calc"); // Track B: 기한 역산 계산기 패널
   const approvalOn = useFlag("approval_finder"); // Track B: 결재선 판정기(위임전결)
+  const selectAskOn = useFlag("select_ask"); // docs/26: 원문 선택 질문 팝오버
+  const [selAsk, setSelAsk] = useState<{ x: number; y: number; text: string } | null>(null);
+  const articleRef = useRef<HTMLElement>(null);
+  const onBodyMouseUp = () => {
+    if (!selectAskOn) return;
+    const sel = window.getSelection();
+    const text = (sel?.toString() || "").trim().replace(/\s+/g, " ");
+    if (!sel || sel.isCollapsed || text.length < 4 || text.length > 160) { setSelAsk(null); return; }
+    try {
+      const r = sel.getRangeAt(0).getBoundingClientRect();
+      const a = articleRef.current?.getBoundingClientRect();
+      if (!a) { setSelAsk(null); return; }
+      setSelAsk({ x: Math.min(Math.max(60, r.left + r.width / 2 - a.left), a.width - 60),
+                  y: Math.max(36, r.top - a.top - 8), text });
+    } catch { setSelAsk(null); }
+  };
+  const askSelection = () => {
+    if (!selAsk) return;
+    const text = selAsk.text;
+    setSelAsk(null);
+    if (onAskSelection) onAskSelection(text);
+    else window.location.href = `/?q=${encodeURIComponent(`「${text}」 — 이게 무슨 뜻인가요?`)}`;
+  };
   const [current, setCurrent] = useState<string | null>(slug);
   const [anchor, setAnchor] = useState<string>(initialAnchor);
   const [doc, setDoc] = useState<DrawerDoc | null>(null);
@@ -226,7 +252,7 @@ export default function DocDrawer({
         <div className={styles.scroll} ref={scrollRef}>
           <AsyncState loading={loading} error={err} onRetry={() => setTick((t) => t + 1)} />
           {doc ? (
-            <article className={styles.article}>
+            <article ref={articleRef} className={styles.article} onMouseUp={onBodyMouseUp}>
               <header className={styles.head}>
                 <div className={styles.tags}>
                   <span className={styles.chip} data-section={doc.section}>
@@ -390,6 +416,16 @@ export default function DocDrawer({
                     ))}
                   </ul>
                 </aside>
+              ) : null}
+              {selAsk ? (
+                <button
+                  className={styles.selAskBtn}
+                  style={{ left: selAsk.x, top: selAsk.y }}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={askSelection}
+                >
+                  💬 이거 물어보기
+                </button>
               ) : null}
             </article>
           ) : null}
