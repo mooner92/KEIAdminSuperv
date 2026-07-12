@@ -37,7 +37,7 @@ export default function JourneyPage({
   };
 
   return (
-    <Layout fill>
+    <Layout>{/* fill 금지 — 상세 패널이 열리면 세로로 길어져 전체 페이지 스크롤이 자연스러움(푸터 침범 방지) */}
       <Head>
         <title>{`업무 한 장 · ${SITE_NAME}`}</title>
         <meta name="robots" content="noindex, nofollow" />
