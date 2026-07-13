@@ -422,6 +422,10 @@ export default function DocDrawer({
                   className={styles.selAskBtn}
                   style={{ left: selAsk.x, top: selAsk.y }}
                   onMouseDown={(e) => e.preventDefault()}
+                  /* mouseup이 article의 onBodyMouseUp으로 버블링되면 (선택이 접힌 시점이라)
+                     setSelAsk(null)로 버튼이 click 발화 전에 언마운트됨 — 실마우스에서 클릭이
+                     "무반응"이 되는 레이스(실측). 전파를 끊어 click이 살아있게 한다. */
+                  onMouseUp={(e) => e.stopPropagation()}
                   onClick={askSelection}
                 >
                   💬 이거 물어보기
