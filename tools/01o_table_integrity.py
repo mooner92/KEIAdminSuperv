@@ -47,6 +47,8 @@ def main():
     for md in sorted(vault.rglob("*.md")):
         if md.name == "README.md":
             continue
+        if "90_관리" in md.parts:   # 관리 문서(감사 보고서 등)는 코퍼스 아님 — 스캔 제외
+            continue
         meta, body = split_fm(md.read_text(encoding="utf-8", errors="ignore"))
         if not meta.get("type"):
             continue

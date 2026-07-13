@@ -91,11 +91,26 @@ def main():
     args = ap.parse_args()
     vault = Path(args.vault)
 
+    # RAG 코퍼스 제외 문서(구판·이중수록 등, exclude.json)는 충돌 스캔에서도 제외 —
+    # 이 감사의 목적이 'RAG가 답할 수 있는 텍스트'의 정합성이기 때문.
+    excluded = set()
+    exp = Path(__file__).parent / "index" / "exclude.json"
+    if exp.exists():
+        try:
+            excluded = set(json.loads(exp.read_text(encoding="utf-8")).get("excluded", []))
+        except Exception:
+            pass
+
     docs = []  # (title, type, date, rel, body)
     for md in sorted(vault.rglob("*.md")):
+        if "90_관리" in md.parts or md.stem in excluded:
+            continue
         meta, body = split_fm(md.read_text(encoding="utf-8", errors="ignore"))
         if not meta.get("type"):
             continue
+        # 최신값 단일화(docs/28): 취소선 옛값·outdated 주석은 RAG에서 제외되므로 스캔에서도 제거
+        body = re.sub(r"<!--outdated[^>]*-->", "", body)
+        body = re.sub(r"~~[^~\n]+~~ ?", "", body)
         title = (meta.get("규정명") or meta.get("제목") or md.stem).strip()
         docs.append((title, meta.get("type"), doc_date(meta, md.stem), str(md.relative_to(vault)), body))
 

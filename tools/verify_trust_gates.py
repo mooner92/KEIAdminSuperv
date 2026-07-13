@@ -55,19 +55,17 @@ def main():
     ok += 1
     print(f"  ✅ #1 무근거 수치 — 단정 없음{' + ⚠️경고' if warned else ''}")
 
-    # #3 깨진 표: 부모상 경조금(실제 50만 — 300만은 '본인 사망' 오결합)
+    # #3 경조금 표: docs/28 과업 B에서 표를 행 분리 복원(사용자 승인 반영, 2026-07-13).
+    # 복원 전 불변식은 "표깨짐 마커 + 유보 동반"이었으나, 복원 후 불변식은
+    # "마커 없음 + 정답(부모상 50만원) + 300만 원(본인 사망) 오결합 없음"이다.
     body, srcs = ask(fresh(), "부모상 당하면 경조금 얼마 받아?")
     first = body.splitlines()[0]
     marked = any(s.get("표깨짐") for s in srcs)
-    hedged = any(k in body for k in ("손상", "수치 확인 필요", "확정할 수 없", "원문 표"))
-    assert marked, f"#3 표깨짐 마커 없음: {[s.get('규정명') for s in srcs]}"
-    assert hedged, "#3 유보·경고 문구 없음"
-    # 불변식: 손상 표가 근거인 답이 첫 줄에 금액을 단정하면, 본문에 반드시 유보·경고가 동반된다
-    # (LLM이 값을 말하는 것 자체는 temp 변동으로 막을 수 없음 — 결정적 보장은 '경고 동반').
-    if re.search(r"[\d,]+\s*만?\s*원", first):
-        assert hedged, f"#3 금액 단정에 유보 없음: {first}"
+    assert not marked, f"#3 복원된 표에 표깨짐 마커 잔존: {[s.get('규정명') for s in srcs]}"
+    assert re.search(r"50\s*만\s*원|500,000", body), f"#3 부모상 경조금 정답(50만원) 없음: {first}"
+    assert not re.search(r"3,000,000\s*원?\s*(?:입니다|이다|을 받)", first), f"#3 본인 사망 값 오결합: {first}"
     ok += 1
-    print("  ✅ #3 깨진 표 — 표깨짐 마커 + 금액 단정 시 유보·경고 동반")
+    print("  ✅ #3 복원 표 — 마커 없음 + 부모상 50만원 정답 + 오결합 없음")
 
     # #4 자격 역추론: 1년 미만 퇴직금(제2조: 1년 이상 적용)
     body, srcs = ask(fresh(), "저 계약직인데 계약기간이 1년이 안 돼요. 퇴직금 받을 수 있나요?")

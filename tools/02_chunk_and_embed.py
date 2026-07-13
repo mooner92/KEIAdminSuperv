@@ -71,6 +71,15 @@ def strip_wikilinks(text: str) -> str:
     return re.sub(r"\[\[(?:[^\]|]*\|)?([^\]]*)\]\]", r"\1", text)
 
 
+def strip_outdated(text: str) -> str:
+    """최신값 단일화(docs/28 과업 A): 취소선 옛값(~~…~~)과 <!--outdated…--> 주석을
+    임베딩 텍스트에서 제거해 RAG가 옛값을 검색·인용하지 못하게 한다.
+    볼트 파일은 불변 — 웹 뷰어는 취소선을 그대로 렌더해 개정 이력을 보여준다."""
+    text = re.sub(r"<!--outdated[^>]*-->", "", text)
+    text = re.sub(r"~~[^~\n]+~~ ?", "", text)   # 뒤따르는 공백까지 제거(이중 공백 방지)
+    return text
+
+
 def _article_label(m) -> str:
     """제N조 매치 → 라벨. 가지번호(의N) 있으면 '제N조의M'까지 보존(라벨 붕괴·충돌 방지)."""
     return f"제{m.group(1)}조의{m.group(2)}" if m.group(2) else f"제{m.group(1)}조"
@@ -283,6 +292,7 @@ def iter_chunks(vault: Path):
         meta, body = split_frontmatter(md.read_text(encoding="utf-8"))
         typ = meta.get("type", "")
         rel = str(md.relative_to(vault))
+        body = strip_outdated(body)              # 취소선 옛값·outdated 주석 제거(최신값만 색인)
         body = strip_wikilinks(body)             # 그래프용 [[ ]] 는 검색 텍스트에서 제거
         if typ == "regulation":
             body = strip_injected(body)

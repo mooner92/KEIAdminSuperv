@@ -1,6 +1,7 @@
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import styles from "./Markdown.module.css";
 
 // hast 노드에서 텍스트만 추출(제N조 감지용)
@@ -10,6 +11,25 @@ function nodeText(node: unknown): string {
   if (n.type === "text") return n.value ?? "";
   if (Array.isArray(n.children)) return n.children.map(nodeText).join("");
   return "";
+}
+
+// rehype-raw 없이 raw HTML이 문자로 노출되므로, 표 셀의 '<br>' 문자열을 실제 줄바꿈으로 변환.
+// (볼트 표 규약: 셀 내 문단 경계 = <br> — hwp_tables·표 복원(docs/28 과업 B)이 생성)
+function withBreaks(children: ReactNode): ReactNode {
+  const out: ReactNode[] = [];
+  let key = 0;
+  for (const child of Array.isArray(children) ? children : [children]) {
+    if (typeof child === "string" && /<br\s*\/?>/.test(child)) {
+      const parts = child.split(/<br\s*\/?>/);
+      parts.forEach((part, i) => {
+        if (i > 0) out.push(<br key={`b${key++}`} />);
+        if (part) out.push(part);
+      });
+    } else {
+      out.push(child);
+    }
+  }
+  return out;
 }
 
 export default function Markdown({
@@ -22,8 +42,11 @@ export default function Markdown({
 }) {
   // 1) 01이 넣은 머리 H1(중복 제목) 제거
   // 2) 각 제N조가 별도 단락이 되도록 앞에 빈 줄 삽입 → 단락별 id 부여 가능
+  // 3) HTML 주석 제거 — <!--outdated …-->(docs/28) 등 메타데이터는 화면에 노출하지 않는다
+  //    (rehype-raw 미사용이라 주석이 문자로 그대로 보이는 것 방지)
   const md = source
     .replace(/^\s*#[ \t]+[^\n]*\r?\n/, "")
+    .replace(/<!--[\s\S]*?-->/g, "")
     .replace(/\n[ \t]*(제\s*\d+\s*조)/g, "\n\n$1");
 
   const seen = new Set<string>(); // 조 번호 중복 id 방지(제N조 / 제N조의M)
@@ -62,6 +85,15 @@ export default function Markdown({
         </a>
       );
     },
+    td({ children }) {
+      return <td>{withBreaks(children)}</td>;
+    },
+    th({ children }) {
+      return <th>{withBreaks(children)}</th>;
+    },
+    li({ children }) {
+      return <li>{withBreaks(children)}</li>;
+    },
     p({ node, children }) {
       // 제N조 + 별표 N + 별지 제N호 단락에 id 부여 → 출처(s.조)로 앵커 스크롤·하이라이트
       const t = nodeText(node).trimStart();
@@ -84,7 +116,9 @@ export default function Markdown({
 
   return (
     <div className={styles.md}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+      {/* singleTilde:false — 시간 범위(12:00~18:00)의 ~가 취소선으로 오렌더되는 것 방지.
+          취소선은 ~~옛값~~(docs/28 최신값 단일화)의 의미 표기로만 쓴다. */}
+      <ReactMarkdown remarkPlugins={[[remarkGfm, { singleTilde: false }]]} components={components}>
         {md}
       </ReactMarkdown>
     </div>
