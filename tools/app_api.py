@@ -426,13 +426,21 @@ def _issue_code(s: Session, email: str) -> dict:
                      expires_at=now + CODE_TTL, last_sent_at=now))
     s.commit()
     out = {"pending": True, "email": email}
-    if os.environ.get("APP_DEV_ECHO_CODE", "") == "1":  # ⛔ dev/E2E 전용 — 운영에 설정 금지
+    echo = os.environ.get("APP_DEV_ECHO_CODE", "") == "1"  # ⛔ dev/E2E 전용 — 운영에 설정 금지
+    if echo:
         out["dev_code"] = code
-        return out
-    try:
-        _send_verify_email(email, code)
-    except Exception as e:  # noqa: BLE001 — SMTP 미설정/장애: 가입을 열어두지 않는다(fail-closed)
-        raise HTTPException(503, "인증 메일을 보낼 수 없습니다. 관리자에게 문의하세요(SMTP 설정).") from e
+    # SMTP가 설정돼 있으면 echo 여부와 무관하게 실제 발송 시도(dev에서도 실메일 검증 가능).
+    # 발송 실패 시: echo 모드면 코드로 계속(개발 편의), 아니면 fail-closed(가입을 열어두지 않음).
+    if os.environ.get("SMTP_HOST", ""):
+        try:
+            _send_verify_email(email, code)
+            out["sent"] = True
+        except Exception as e:  # noqa: BLE001
+            if not echo:
+                raise HTTPException(503, "인증 메일을 보낼 수 없습니다. 관리자에게 문의하세요(SMTP 설정).") from e
+            out["sent"] = False
+    elif not echo:
+        raise HTTPException(503, "인증 메일을 보낼 수 없습니다. 관리자에게 문의하세요(SMTP 설정).")
     return out
 
 
