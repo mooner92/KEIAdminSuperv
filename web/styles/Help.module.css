@@ -1,0 +1,71 @@
+/* 도움말 허브(docs/31 §4) — 시맨틱 토큰만 사용(다크모드 호환, 하드코딩 색 금지) */
+
+.back {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-bottom: 12px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+}
+.back:hover { color: var(--color-text); }
+
+.body {
+  max-width: 760px;
+  line-height: 1.7;
+  font-size: 14.5px;
+}
+
+/* 앵커 목차 칩 — 초기 뷰포트에서 전체 구조가 보이게(스크롤 통제, §4.1) */
+.toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: var(--space-2) 0 var(--space-4);
+}
+.tocChip {
+  padding: 5px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.tocChip:hover { border-color: var(--color-primary); color: var(--color-primary); }
+
+/* 섹션 — 고정 헤더에 가리지 않게 앵커 여백 */
+.section { scroll-margin-top: calc(var(--header-h) + 12px); }
+
+/* FAQ 아코디언 — 네이티브 details(기본 접힘, 무JS 동작) */
+.faqItem {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  margin-bottom: 8px;
+  scroll-margin-top: calc(var(--header-h) + 12px);
+}
+.faqItem summary {
+  padding: 12px 14px;
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.faqItem summary::-webkit-details-marker { display: none; }
+.faqItem summary::before { content: "▸"; color: var(--color-text-tertiary); transition: transform 0.15s; }
+.faqItem[open] summary::before { transform: rotate(90deg); }
+.faqItem summary:hover { color: var(--color-primary); }
+.faqBody {
+  padding: 0 14px 12px 34px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+.faqBody a { color: var(--color-primary); }
+
+.contactNote { color: var(--color-text-secondary); }
