@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type MouseEvent, type ReactNode } from "react";
 import ThemeToggle from "./ThemeToggle";
 import { useFlag } from "../lib/flags";
 import { api } from "../lib/api";
@@ -17,7 +17,16 @@ export default function Layout({
   /** true면 페이지를 뷰포트 높이에 고정(전체 스크롤 제거) → 내부 영역만 스크롤(둘러보기/그래프) */
   fill?: boolean;
 }) {
-  const { pathname } = useRouter(); // GNB 현재 페이지 표시(v1 ⑩/S5-#15)
+  const router = useRouter();
+  const { pathname } = router; // GNB 현재 페이지 표시(v1 ⑩/S5-#15)
+  // 도움말 토글(사용자 요청): 도움말에 들어와 있으면 같은 링크가 '닫기'가 되어 이전 화면으로 복귀
+  const onHelp = pathname.startsWith("/help");
+  const closeHelp = (e: MouseEvent) => {
+    if (!onHelp) return;
+    e.preventDefault();
+    if (window.history.length > 1) router.back();
+    else router.push("/");
+  };
   const nav = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href)) ? styles.navActive : undefined;
   const demoBanner = useFlag("demo_banner"); // 기능 플래그 예시(관리자 페이지에서 토글)
   const approvalNav = useFlag("approval_finder"); // 결재선 판정기 — 상단 메뉴 노출도 플래그로
@@ -69,7 +78,8 @@ export default function Layout({
             <span className={styles.asOf} title="이 날짜 기준의 규정 원문을 근거로 답합니다. 이후 개정은 반영되지 않았을 수 있어요.">
               📑 규정집 기준일 {CORPUS_AS_OF}
             </span>
-            <Link href="/help/" className={styles.adminLink}>도움말</Link>
+            <Link href="/help/" className={styles.adminLink} onClick={closeHelp}
+              aria-pressed={onHelp}>{onHelp ? "✕ 도움말 닫기" : "도움말"}</Link>
             <span className={styles.asOf} title="배포 빌드 식별자">v.{BUILD_ID}</span>
             {isAdmin ? (
               <Link href="/admin/" className={styles.adminLink}>관리자</Link>

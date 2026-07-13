@@ -1,14 +1,20 @@
 import Head from "next/head";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import Layout from "../components/Layout";
 import { CORPUS_AS_OF, SITE_NAME } from "../lib/site";
 import styles from "../styles/Home.module.css";
 
 // v1 ⑮(#6): 도움말 — 이 도구가 무엇을 하고, 무엇을 못 하는지(한계 고지).
 export default function Help() {
+  const router = useRouter();
+  const back = () => (window.history.length > 1 ? router.back() : router.push("/"));
   return (
     <Layout>
       <Head><title>{`도움말 · ${SITE_NAME}`}</title><meta name="robots" content="noindex, nofollow" /></Head>
+      {/* 닫기 동선(사용자 요청): 상단 ‹ 뒤로 + 푸터 '도움말 닫기' 토글 — 어디서든 한 번에 복귀 */}
+      <button onClick={back} style={{ background: "none", border: "none", padding: 0, marginBottom: 12,
+        color: "var(--color-text-secondary)", fontSize: 14, cursor: "pointer" }}>‹ 뒤로</button>
       <section className={styles.heroCompact}>
         <h1 className={styles.h1}>도움말 — 이 도구는 무엇인가요?</h1>
         <p className={styles.lead}>{SITE_NAME}는 KEI 사내 규정을 근거로 답하는 내부 전용 지식 도구입니다.</p>
