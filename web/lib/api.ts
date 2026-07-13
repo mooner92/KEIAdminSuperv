@@ -193,6 +193,8 @@ export const api = {
   resendCode: (username: string, password: string) =>
     j<RegisterPending>("/auth/resend", { method: "POST", body: JSON.stringify({ username, password }) }),
   listUsers: () => j<{ n: number; users: DirectoryUser[] }>("/users"),
+  trending: (days = 7) =>
+    j<{ days: number; min_users: number; keywords: { k: string; n: number }[] }>(`/trending?days=${days}`),
   logout: () => j<{ ok: boolean }>("/auth/logout", { method: "POST" }),
 
   listChats: () => j<ChatMeta[]>("/chats"),

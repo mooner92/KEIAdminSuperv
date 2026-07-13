@@ -99,6 +99,12 @@ export default function ChatApp({
   const cardV2 = useFlag("source_card_v2");
   const followupOn = useFlag("followup_suggest"); // docs/26: 후속 질문 칩
   const selectAskOn = useFlag("select_ask"); // docs/26: 원문 선택 질문
+  const trendingOn = useFlag("trending_keywords"); // docs/29 §1: 빈 화면 인기 키워드 칩
+  const [trending, setTrending] = useState<{ k: string; n: number }[]>([]);
+  useEffect(() => {
+    if (!trendingOn) return;
+    api.trending(7).then((r) => setTrending(r.keywords)).catch(() => {}); // k-익명 집계 — 실패 시 조용히 생략
+  }, [trendingOn]);
   const actionsOn = useFlag("answer_actions"); // v1 ⑫(S6): 복사·인용 칩·수치 대조 // v1 ⑧·⑨(S3·S4): 배지 3단 위계·미검수 집계·거부 리프레임
   const [approvalOpen, setApprovalOpen] = useState(false); // 결재선 드로어(우측 슬라이드인)
   const [srcOverlay, setSrcOverlay] = useState(false); // v1 B6: ≤1080px 근거 바텀시트(넓은 화면에선 무시)
@@ -439,6 +445,19 @@ export default function ChatApp({
                   </button>
                 ))}
               </div>
+              {trendingOn && trending.length > 0 ? (
+                <div className={styles.trending}>
+                  <span className={styles.trendingLabel}>📈 요즘 많이 찾는 키워드</span>
+                  <div className={styles.examples}>
+                    {trending.map((t) => (
+                      /* 클릭 = 입력 프리필(자동 전송 없음 — select_ask와 동일 원칙) */
+                      <button key={t.k} className={styles.exChip} onClick={() => setInput(`${t.k} `)}>
+                        {t.k}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </div>
           ) : (
             <ul className={styles.msgs}>

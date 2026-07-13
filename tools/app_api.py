@@ -223,6 +223,13 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-12-31",
     },
+    "trending_keywords": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "채팅 첫 화면 '요즘 많이 찾는 키워드' 칩(docs/29 §1) — 무LLM 사전(여정·용어집) 매칭 "
+                       "집계, k-익명(서로 다른 사용자 K명 이상)만 노출, 클릭 시 입력 프리필.",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
     "explore_upgrades": {
         "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
         "description": "탐색 마감(v1 스펙 ⑬⑭/S7) — ⓐ둘러보기 드로어 URL 딥링크(?doc=슬러그, 뒤로가기 연동) "
@@ -1277,6 +1284,69 @@ def list_feedback(admin: User = Depends(current_admin), rating: str = "", limit:
                 # 질문/답변 본문은 의도적으로 제외(개인 채팅 보호). 규정 메타만.
                 "sources": [{"규정명": x.get("규정명", ""), "조": x.get("조", "")} for x in srcs],
             })
+    return out
+
+
+# ── 인기 검색 키워드(docs/29 §1) — ⛔ 무LLM·결정적: 사전(여정 트리거+용어집) 매칭 집계 ──
+# 🔒 k-익명: 서로 다른 사용자 K_ANON명 이상이 쓴 키워드만 노출(질문 본문은 절대 노출 안 함).
+_TREND: dict = {"lex": None, "cache": {}}  # cache: days → (t, data)
+_TREND_TTL = 300.0
+_TREND_STOP = {"연구원", "규정", "기관", "업무", "관리", "제도", "기준", "신청서", "위원회",
+               "신청", "확인", "방법", "처리", "문서", "자료"}  # 일반어 — 실측 노이즈("신청" 최다) 제외
+
+
+def _trend_lexicon() -> list:
+    """키워드 사전 = 여정 트리거 + 용어집(defterms) 용어명. 최장 우선 정렬(부분 문자열 중복 방지)."""
+    if _TREND["lex"] is None:
+        kws = set()
+        try:
+            for t in rag_core._ensure_journey_triggers():
+                kws.update(k for k in t.get("kws", []) if len(k) >= 2)
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            dp = os.path.join(os.path.dirname(os.path.abspath(__file__)), "index", "defterms.json")
+            terms = json.loads(open(dp, encoding="utf-8").read()).get("terms", {})
+            kws.update(k for k in terms if 2 <= len(k) <= 12)
+        except Exception:  # noqa: BLE001
+            pass
+        _TREND["lex"] = sorted((k for k in kws if k not in _TREND_STOP), key=len, reverse=True)
+    return _TREND["lex"]
+
+
+@router.get("/trending")
+def trending(user: User = Depends(current_user), days: int = 7):
+    """기간(일/주/월) 인기 검색 키워드 TOP 10. 로그인 사용자 누구나 —
+    노출은 k-익명 집계뿐이라 개인 채팅이 드러나지 않는다. 5분 캐시."""
+    days = max(1, min(days, 90))
+    now = time.time()
+    hit = _TREND["cache"].get(days)
+    if hit and now - hit[0] < _TREND_TTL:
+        return hit[1]
+    since = now - days * 86400
+    lex = _trend_lexicon()
+    with Session(engine) as s:
+        sess_user = {cs.id: cs.user_id for cs in s.exec(select(ChatSession)).all()}
+        msgs = s.exec(select(Message).where(Message.role == "user",
+                                            Message.created_at >= since)).all()
+    users_by_kw: dict = {}
+    count_by_kw: Counter = Counter()
+    for m in msgs:
+        uid = sess_user.get(m.session_id)
+        if uid is None:
+            continue
+        text = m.content or ""
+        matched: list = []
+        for k in lex:  # 최장 우선 — '연차휴가'가 잡히면 그 부분의 '휴가'는 세지 않는다
+            if k in text and not any(k in mk for mk in matched):
+                matched.append(k)
+        for k in matched:
+            users_by_kw.setdefault(k, set()).add(uid)
+            count_by_kw[k] += 1
+    rows = [{"k": k, "n": n} for k, n in count_by_kw.most_common(50)
+            if len(users_by_kw.get(k, ())) >= K_ANON][:10]
+    out = {"days": days, "min_users": K_ANON, "keywords": rows}
+    _TREND["cache"][days] = (now, out)
     return out
 
 
