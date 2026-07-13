@@ -94,6 +94,8 @@ def main():
     for md in vault.rglob("*.md"):
         if md.name == "README.md":
             continue
+        if "90_관리" in md.parts:  # 관리 문서(업데이트 노트·감사 보고서 등)는 검수 큐 대상 아님
+            continue
         meta, body = split_fm(md.read_text(encoding="utf-8"))
         if not meta.get("type"):
             continue

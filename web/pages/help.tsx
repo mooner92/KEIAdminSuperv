@@ -100,6 +100,7 @@ const FAQ: { q: string; a: ReactNode; hidden?: boolean }[] = [
 export default function Help() {
   const router = useRouter();
   const hubOn = useFlag("help_hub"); // docs/31 — off면 현행 도움말 그대로(안전 기본값)
+  const changelogOn = useFlag("changelog"); // docs/32 — 새로워진 점 링크
   const back = () => (window.history.length > 1 ? router.back() : router.push("/"));
   const jump = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
   return (
@@ -117,6 +118,9 @@ export default function Help() {
           {TOC.map((t) => (
             <button key={t.id} className={h.tocChip} onClick={() => jump(t.id)}>{t.label}</button>
           ))}
+          {changelogOn ? (
+            <Link href="/changelog/" className={h.tocChip}>새로워진 점 ↗</Link>
+          ) : null}
         </nav>
       ) : null}
 

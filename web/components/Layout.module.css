@@ -115,7 +115,7 @@
 .adminLink { color: var(--color-text-tertiary); font-weight: 600; white-space: nowrap; }
 .adminLink:hover { color: var(--color-primary); }
 
-/* 기능 플래그 예시 배너(demo_banner) */
+/* 업데이트 배너(docs/32) 베이스 — 하단 .banner 블록이 링크·닫기 레이아웃 추가 */
 .banner {
   background: var(--color-primary-weak);
   color: var(--color-primary-strong);
@@ -137,3 +137,13 @@
   .innerFill { padding: var(--space-3) var(--space-4); }
   .brandText { display: none; }
 }
+
+/* 업데이트 배너(docs/32) — 기존 .banner 재사용 + 링크/닫기. 시맨틱 토큰만 */
+.banner { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.bannerLink { color: inherit; cursor: pointer; }
+.bannerLink u { text-underline-offset: 2px; }
+.bannerClose {
+  background: none; border: none; color: inherit; opacity: 0.75;
+  font-size: 13px; cursor: pointer; padding: 2px 6px;
+}
+.bannerClose:hover { opacity: 1; }

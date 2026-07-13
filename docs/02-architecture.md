@@ -89,7 +89,7 @@ flowchart TD
 > - **스타일·콘텐츠**: CSS 변수 토큰 + CSS Modules(SSG 안전). 본문은 `react-markdown` + `remark-gfm`로 렌더합니다.
 > - **볼트 소비**: `web/lib/vault.ts`가 볼트(`KEI-행정가이드/`, git 비추적·Syncthing)를 **빌드타임 read-only**로 읽습니다(`VAULT_DIR` 환경변수, 기본 레포 루트). 드로어용 `out/docdata/*.json`도 빌드 때 함께 산출됩니다. `web/node_modules`·`.next`·`out`은 `.gitignore` 대상입니다.
 > - **기능**: 둘러보기(검색/섹션 필터 + 원문 내용 전문검색) / 문서(메타 칩·본문·백링크·제N조 앵커로 조 단위 점프) / 관계 그래프(`react-force-graph-2d`, 노드 클릭 → 문서 이동, 코드 스플릿). 단일 앱·단일 볼트 안에서 섹션(규정집/연구행정 가이드/용어집/사내 시스템)을 분리하며, 가이드는 `10_업무가이드/`에 문서 추가 시 자동 합류합니다.
-> - **기능 플래그**: 정적 export라 빌드에 박지 않고 `lib/flags.tsx`(`useFlag`, 안전기본값 + localStorage 캐시 + 폴백)로 런타임에 `GET /app/flags`를 fetch합니다. 관리자는 `/admin`에서 즉시 토글합니다(매뉴얼: [13-feature-flags.md](13-feature-flags.md)). 현재 플래그 예: `demo_banner`·`cite_highlight`·`graph_split`·`source_type_badges`(채팅 근거 출처 성격 배지 📜규정 vs 📘가이드)·`content_search`(둘러보기 원문 내용 전문검색).
+> - **기능 플래그**: 정적 export라 빌드에 박지 않고 `lib/flags.tsx`(`useFlag`, 안전기본값 + localStorage 캐시 + 폴백)로 런타임에 `GET /app/flags`를 fetch합니다. 관리자는 `/admin`에서 즉시 토글합니다(매뉴얼: [13-feature-flags.md](13-feature-flags.md)). 현재 플래그 예: `changelog`(새로워진 점, docs/32)·`help_hub`(도움말 허브)·`source_type_badges`(채팅 근거 출처 성격 배지 📜규정 vs 📘가이드)·`content_search`(둘러보기 원문 내용 전문검색).
 > - **위키링크**: 규정 상호참조 `[[ ]]`가 내부 라우트로 연결되고, 이름 변이(공백·가운뎃점·`.`·`및`)도 자동 흡수합니다(01b 정규화).
 >
 > 디자인 원칙·토큰·컴포넌트 규약은 [design-system.md](design-system.md)를 참고하세요.

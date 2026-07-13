@@ -165,6 +165,48 @@ export type Journey = {
   lanes: string[]; stages: string[]; nodes: JourneyNode[]; edges: [string, string][];
 };
 
+// ── 업데이트 노트('새로워진 점', docs/32) — 볼트 90_관리/_changelog/*.md ──
+// 노트 본문은 볼트(비공개)에만 있고, 사이트는 빌드타임에 정적으로 굽는다.
+export type ChangelogEntry = {
+  id: string;        // 파일명(확장자 제외) — 배너 '닫음' 기억 키
+  제목: string;
+  날짜: string;       // YYYY-MM-DD
+  분류: string;       // 신규 | 개선 | 수정 | 데이터
+  요약: string;       // 배너용 한 줄
+  관련페이지: string | null; // undefined는 SSG props 직렬화 불가 — null 고정
+  body: string;      // 마크다운 본문
+};
+
+export function loadChangelog(): ChangelogEntry[] {
+  const dir = path.join(VAULT_DIR, "90_관리", "_changelog");
+  if (!fs.existsSync(dir)) return [];
+  const out: ChangelogEntry[] = [];
+  for (const f of fs.readdirSync(dir).filter((x) => x.endsWith(".md"))) {
+    try {
+      const raw = fs.readFileSync(path.join(dir, f), "utf-8");
+      const m = raw.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+      if (!m) continue;
+      const meta: Record<string, string> = {};
+      for (const ln of m[1].split("\n")) {
+        const i = ln.indexOf(":");
+        if (i > 0) meta[ln.slice(0, i).trim()] = ln.slice(i + 1).trim().replace(/^["']|["']$/g, "");
+      }
+      if (meta.type !== "changelog" || !meta["제목"] || !meta["날짜"] || !meta["요약"]) continue;
+      out.push({
+        id: f.replace(/\.md$/, ""),
+        제목: meta["제목"], 날짜: meta["날짜"], 분류: meta["분류"] || "개선",
+        요약: meta["요약"], 관련페이지: meta["관련페이지"] || null,
+        body: m[2].trim(),
+      });
+    } catch {
+      /* 손상 노트는 건너뜀 */
+    }
+  }
+  // 최신순(날짜 → 파일명)
+  out.sort((a, b) => (a.날짜 === b.날짜 ? (a.id < b.id ? 1 : -1) : a.날짜 < b.날짜 ? 1 : -1));
+  return out;
+}
+
 export function loadJourneys(): Journey[] {
   const dir = path.join(VAULT_DIR, "90_관리", "_journeys");
   if (!fs.existsSync(dir)) return [];

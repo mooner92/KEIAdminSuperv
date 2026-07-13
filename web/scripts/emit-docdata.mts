@@ -12,7 +12,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { getAllDocs, getDoc, getBacklinks } from "../lib/vault.ts";
+import { getAllDocs, getDoc, getBacklinks, loadChangelog } from "../lib/vault.ts";
 
 const OUT = path.resolve(process.cwd(), "out", "docdata");
 fs.mkdirSync(OUT, { recursive: true });
@@ -165,6 +165,16 @@ if (apIdx?.rules?.length) {
   fs.writeFileSync(apPath, JSON.stringify({ rules: apIdx.rules }), "utf-8");
   console.log(`approval: ${apIdx.rules.length}개 전결규칙 → ${apPath}`);
 }
+
+// 업데이트 노트(docs/32) — 상단 배너가 런타임에 최신 1건을 읽는 단일 파일(작음).
+// 페이지(/changelog)는 SSG로 굽고, 배너는 Layout(전 페이지 공용)이라 이 파일을 fetch한다.
+const clog = loadChangelog();
+const clogPath = path.resolve(process.cwd(), "out", "changelog.json");
+fs.writeFileSync(clogPath, JSON.stringify({
+  latest: clog[0] ? { id: clog[0].id, 요약: clog[0].요약 } : null,  // 배너는 /changelog/#id로 이동 — 관련페이지는 카드에서 사용
+  n: clog.length,
+}), "utf-8");
+console.log(`changelog: ${clog.length}건 → ${clogPath}`);
 
 const idxPath = path.resolve(process.cwd(), "out", "search-index.json");
 fs.writeFileSync(idxPath, JSON.stringify(searchIndex), "utf-8");

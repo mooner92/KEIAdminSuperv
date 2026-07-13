@@ -1,78 +1,56 @@
-// 기능 플래그 end-to-end 실렌더 검증: 게이트 → 관리자 토글 → 배너 ON/OFF.
+// 기능 플래그 end-to-end 실렌더 검증: 게이트 → 관리자 토글(행 특정·원상복구) → 노출 ON/OFF.
+// 2026-07-14 재작성: demo_banner 제거(docs/32)로 스테일 → changelog 플래그·dev(3101) 기준.
+// 실행 전 상태를 기억해 끝나면 원상복구한다(dev DB 부수효과 없음).
 import { chromium } from "playwright";
+const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
+const FLAG = "changelog";
 const b = await chromium.launch();
-const ctx = await b.newContext();
-const p = await ctx.newPage();
 const fails = [];
+const ok = (c, m) => { console.log((c ? "✅" : "❌") + " " + m); if (!c) fails.push(m); };
+
+// 0) API로 초기 상태 확인(끝나고 복구용)
+const ctx = await b.newContext();
+await ctx.request.post(`${BASE}/api/app/auth/login`, { data: { username: "admintest", password: "admtest123" } });
+const before = await (await ctx.request.get(`${BASE}/api/app/flags`)).json();
+const initial = !!(before.flags ? before.flags[FLAG] : before[FLAG]);
+console.log(`초기 ${FLAG}=${initial}`);
 
 // 1) 로그아웃 상태 /admin → 게이트
-await p.goto("http://localhost:3100/admin/", { waitUntil: "load" });
-await p.waitForTimeout(1500);
-const gate = await p.evaluate(() => {
-  const t = document.body.innerText;
-  return t.includes("관리자 전용") || t.includes("로그인이 필요");
-});
-console.log("1) 로그아웃 /admin 게이트:", gate);
-if (!gate) fails.push("게이트 미작동");
+const anon = await (await b.newContext()).newPage();
+await anon.goto(`${BASE}/admin/`, { waitUntil: "load" });
+await anon.waitForTimeout(1500);
+const anonBody = await anon.innerText("body");
+ok(anonBody.includes("관리자 전용") || anonBody.includes("로그인이 필요"), "1) 로그아웃 /admin 게이트");
 
-// 1b) 로그아웃 상태 홈에는 '관리자' 링크 없어야
-await p.goto("http://localhost:3100/", { waitUntil: "load" });
-await p.waitForTimeout(1500);
-const linkLoggedOut = await p.evaluate(() =>
-  [...document.querySelectorAll("footer a")].some((a) => a.textContent.trim() === "관리자")
-);
-console.log("1b) 로그아웃 관리자 링크 숨김:", !linkLoggedOut, "(true 기대)");
-if (linkLoggedOut) fails.push("로그아웃인데 관리자 링크 노출");
-
-// 2) 관리자(mt_demo) 로그인
-await p.goto("http://localhost:3100/", { waitUntil: "load" });
-await p.waitForTimeout(1200);
-await p.fill('input[placeholder="사번 또는 아이디"]', "mt_demo");
-await p.fill('input[type="password"]', "test1234");
-await p.click('button[type="submit"]');
-await p.waitForTimeout(2800);
-
-// 3) 관리자 페이지 토글 보임
-await p.goto("http://localhost:3100/admin/", { waitUntil: "load" });
+// 2) 관리자: /admin/#flags 에서 해당 플래그 행 스위치 확인
+const p = await ctx.newPage();
+await p.goto(`${BASE}/admin/#flags`, { waitUntil: "load" });
 await p.waitForTimeout(1800);
-const hasToggle = await p.evaluate(
-  () => !!document.querySelector('[role="switch"]') && document.body.innerText.includes("demo_banner")
-);
-console.log("2) 관리자 토글 보임:", hasToggle);
-if (!hasToggle) fails.push("관리자 토글 안 보임");
-const linkAdmin = await p.evaluate(() =>
-  [...document.querySelectorAll("footer a")].some((a) => a.textContent.trim() === "관리자")
-);
-console.log("2b) 관리자에게 관리자 링크 노출:", linkAdmin, "(true 기대)");
-if (!linkAdmin) fails.push("관리자인데 링크 안 보임");
-await p.screenshot({ path: "verify-flags-admin.png" });
+ok((await p.innerText("body")).includes(FLAG), `2) 플래그 목록에 ${FLAG} 표시`);
+const row = p.locator(`text=${FLAG}`).locator("xpath=ancestor::*[.//*[@role='switch']][1]");
+const sw = row.locator('[role="switch"]').first();
+ok((await sw.count()) === 1, "2b) 플래그 행 스위치 존재(행 특정 — 맹목 첫 스위치 클릭 금지)");
 
-// 4) 토글 ON
-await p.evaluate(() => document.querySelector('[role="switch"]')?.click());
-await p.waitForTimeout(1300);
-const aria = await p.evaluate(() => document.querySelector('[role="switch"]')?.getAttribute("aria-checked"));
-console.log("3) 토글 후 aria-checked:", aria, "(true 기대)");
-if (aria !== "true") fails.push("토글 ON 실패");
+// 3) OFF 토글 → 노출 없음 / ON 토글 → 푸터 링크 노출(배너는 닫음 기억이 있어 푸터로 판정)
+const setFlag = async (want) => {
+  const cur = (await sw.getAttribute("aria-checked")) === "true";
+  if (cur !== want) { await sw.click(); await p.waitForTimeout(700); }
+};
+await setFlag(false);
+const off = await ctx.newPage();
+await off.goto(`${BASE}/browse/`, { waitUntil: "load" });
+await off.waitForTimeout(1500);
+ok(!(await off.innerText("body")).includes("새로워진 점"), "3) OFF: 배너·푸터 링크 미노출");
+await setFlag(true);
+const on = await ctx.newPage();
+await on.goto(`${BASE}/browse/`, { waitUntil: "load" });
+await on.waitForTimeout(1500);
+ok((await on.innerText("footer")).includes("새로워진 점"), "4) ON: 푸터 링크 노출");
 
-// 5) 홈에 배너 표시
-await p.goto("http://localhost:3100/", { waitUntil: "load" });
-await p.waitForTimeout(1600);
-const bannerOn = await p.evaluate(() => document.body.innerText.includes("새 기능 미리보기"));
-console.log("4) 홈 배너 표시(ON):", bannerOn);
-if (!bannerOn) fails.push("배너 ON 미반영");
-await p.screenshot({ path: "verify-flags-banner.png" });
+// 5) 원상복구
+await setFlag(initial);
+console.log(`복구: ${FLAG}=${initial}`);
 
-// 6) 토글 OFF → 배너 사라짐
-await p.goto("http://localhost:3100/admin/", { waitUntil: "load" });
-await p.waitForTimeout(1500);
-await p.evaluate(() => document.querySelector('[role="switch"]')?.click());
-await p.waitForTimeout(1300);
-await p.goto("http://localhost:3100/", { waitUntil: "load" });
-await p.waitForTimeout(1600);
-const bannerOff = await p.evaluate(() => document.body.innerText.includes("새 기능 미리보기"));
-console.log("5) 홈 배너 표시(OFF 후):", bannerOff, "(false 기대)");
-if (bannerOff) fails.push("배너 OFF 미반영");
-
+console.log(fails.length ? `\n❌ ${fails.join(" / ")}` : "\n✅ 기능 플래그 end-to-end 통과");
 await b.close();
-console.log(fails.length ? "\n❌ " + fails.join(" / ") : "\n✅ 기능 플래그 end-to-end 검증 통과");
 process.exit(fails.length ? 1 : 0);

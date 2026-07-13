@@ -5,7 +5,11 @@ import { api } from "./api";
 
 // ⛔ 백엔드 FLAG_REGISTRY(app_api.py)와 키를 동기화. 기본값은 항상 '안전한 쪽'(보통 false=기존 동작).
 export const FLAG_DEFAULTS: Record<string, boolean> = {
-  demo_banner: false,
+  changelog: false, // docs/32: 새로워진 점 — 상단 배너+/changelog 페이지+푸터 링크 (release, 만료 2026-12-31)
+  graph_expand_regs: false, // 규정↔규정 준용/참조 1홉 확장 (백엔드 실험 플래그)
+  user_directory: false, // docs/29 §4: 관리자 사용자 목록 탭 (release, 만료 2026-12-31)
+  trending_keywords: false, // docs/29 §1: 빈 화면 인기 키워드 칩 (release, 만료 2026-12-31)
+  help_hub: false, // docs/31: 도움말 허브(잘 묻는 법·FAQ·푸터 FAQ 링크) (release, 만료 2026-12-31)
   source_type_badges: false, // 근거 패널 출처 성격 배지 📜규정(공식)/📘가이드(참고) 구분 (release 플래그, 만료 2026-08-15)
   content_search: false, // 둘러보기 검색 범위 선택(제목·번호·분류·내용) + 원문 내용 전문검색 (release 플래그, 만료 2026-08-31)
   graph_expand_actions: false, // 행위 흐름 확장 — 신청 회수 시 후속 단계(정산·결과보고) 자동첨부 (백엔드, 실험 플래그)
@@ -63,6 +67,6 @@ export function FlagsProvider({ children }: { children: ReactNode }) {
 }
 
 export const useFlags = () => useContext(FlagsCtx);
-/** 단일 플래그 — 미정의 키는 안전 기본값(false). 예: const on = useFlag("demo_banner") */
+/** 단일 플래그 — 미정의 키는 안전 기본값(false). 예: const on = useFlag("changelog") */
 export const useFlag = (key: string): boolean =>
   useContext(FlagsCtx)[key] ?? FLAG_DEFAULTS[key] ?? false;

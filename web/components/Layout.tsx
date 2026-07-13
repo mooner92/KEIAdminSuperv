@@ -28,7 +28,31 @@ export default function Layout({
     else router.push("/");
   };
   const nav = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href)) ? styles.navActive : undefined;
-  const demoBanner = useFlag("demo_banner"); // 기능 플래그 예시(관리자 페이지에서 토글)
+  // 업데이트 배너(docs/32): 최신 노트 1건을 한 줄로. X로 닫으면 '그 노트'는 다시 안 뜨고,
+  // 새 노트가 나오면 다시 뜬다(localStorage에 마지막으로 닫은 노트 id 저장).
+  const changelogOn = useFlag("changelog");
+  const [latestNote, setLatestNote] = useState<{ id: string; 요약: string } | null>(null);
+  useEffect(() => {
+    if (!changelogOn) { setLatestNote(null); return; }
+    let alive = true; // 경합 방지: 플래그가 off로 갱신돼 effect가 재실행된 뒤 늦게 도착한 응답 무시
+    fetch("/changelog.json")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!alive) return;
+        const latest = d?.latest;
+        if (latest && localStorage.getItem("kei-clog-dismissed") !== latest.id) setLatestNote(latest);
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [changelogOn]);
+  const dismissNote = () => {
+    // 닫기는 항상 성공, 지속 기억은 best-effort(스토리지 차단 환경에서 ✕가 죽지 않게)
+    const id = latestNote?.id;
+    setLatestNote(null);
+    try {
+      if (id) localStorage.setItem("kei-clog-dismissed", id);
+    } catch { /* 스토리지 불가 — 이번 세션만 닫힘 */ }
+  };
   const approvalNav = useFlag("approval_finder"); // 결재선 판정기 — 상단 메뉴 노출도 플래그로
   const journeyNav = useFlag("journey_map"); // 업무 한 장(스윔레인) — docs/25
   const helpHub = useFlag("help_hub"); // 도움말 허브·FAQ(docs/31) — 푸터 FAQ 링크 게이트
@@ -42,8 +66,13 @@ export default function Layout({
   }, []);
   return (
     <div className={styles.root} data-fill={fill ? "" : undefined}>
-      {demoBanner ? (
-        <div className={styles.banner}>🚧 새 기능 미리보기 모드입니다 (기능 플래그 demo_banner)</div>
+      {latestNote ? (
+        <div className={styles.banner}>
+          <Link href={`/changelog/#${latestNote.id}`} className={styles.bannerLink}>
+            🆕 새로워진 점: {latestNote.요약} · <u>자세히 →</u>
+          </Link>
+          <button className={styles.bannerClose} onClick={dismissNote} aria-label="업데이트 알림 닫기">✕</button>
+        </div>
       ) : null}
       <header className={styles.header}>
         <div className={styles.inner}>
@@ -82,6 +111,7 @@ export default function Layout({
             <Link href="/help/" className={styles.adminLink} onClick={closeHelp}
               aria-pressed={onHelp}>{onHelp ? "✕ 도움말 닫기" : "도움말"}</Link>
             {helpHub ? <Link href="/help/#faq" className={styles.adminLink}>FAQ</Link> : null}
+            {changelogOn ? <Link href="/changelog/" className={styles.adminLink}>새로워진 점</Link> : null}
             <span className={styles.asOf} title="배포 빌드 식별자">v.{BUILD_ID}</span>
             {isAdmin ? (
               <Link href="/admin/" className={styles.adminLink}>관리자</Link>

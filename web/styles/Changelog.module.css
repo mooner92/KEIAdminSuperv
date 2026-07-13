@@ -1,0 +1,46 @@
+/* 새로워진 점(docs/32) — 시맨틱 토큰만(다크모드 호환) */
+
+.filters { display: flex; gap: 8px; margin: var(--space-2) 0 var(--space-4); flex-wrap: wrap; }
+.filterChip {
+  padding: 5px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.filterChip:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.filterOn {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-primary-weak, var(--color-surface));
+}
+
+.list { max-width: 760px; display: flex; flex-direction: column; gap: var(--space-3); }
+.card {
+  scroll-margin-top: calc(var(--header-h) + 12px); /* 배너 앵커 착지 시 sticky 헤더 가림 방지 */
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  padding: var(--space-4);
+}
+.cardHead { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.cat {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  border-radius: 6px;
+  padding: 1px 7px;
+  white-space: nowrap;
+}
+.cardTitle { margin: 0; font-size: 16.5px; font-weight: 800; color: var(--color-text); flex: 1; }
+.date { font-size: 12.5px; color: var(--color-text-tertiary); white-space: nowrap; }
+.cardBody { margin-top: var(--space-2); font-size: 14px; color: var(--color-text-secondary); line-height: 1.65; }
+.cardBody b, .cardBody strong { color: var(--color-text); }
+.empty { color: var(--color-text-tertiary); font-size: 14px; }
+
+.goLink { display: inline-block; margin-top: 8px; font-size: 13px; font-weight: 700; color: var(--color-primary); }
+.goLink:hover { text-decoration: underline; }

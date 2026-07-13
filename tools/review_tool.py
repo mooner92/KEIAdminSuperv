@@ -112,8 +112,10 @@ def reembed(md: Path, vault: Path, db: str):
 
 
 def resolve(vault: Path, key: str):
+    # 90_관리(업데이트 노트·감사 보고서 등 관리 문서)는 검수 대상 아님 — review_queue와 동일 규칙
     cands = [p for p in vault.rglob("*.md")
-             if p.name != "README.md" and (p.stem == key or str(p.relative_to(vault)) == key)]
+             if p.name != "README.md" and "90_관리" not in p.parts
+             and (p.stem == key or str(p.relative_to(vault)) == key)]
     return cands
 
 
@@ -142,8 +144,10 @@ def main():
     for md in vault.rglob("*.md"):
         if md.name == "README.md":
             continue
+        if "90_관리" in md.parts:  # 관리 문서(changelog 등) 격리 — 승인 시 스키마 오염·재임베딩 실패 방지
+            continue
         meta, body = rq.split_fm(md.read_text(encoding="utf-8"))
-        if not meta.get("type") or meta.get("검수상태") == "검수완료":
+        if not meta.get("type") or meta.get("type") == "changelog" or meta.get("검수상태") == "검수완료":
             continue
         notes.append((md, meta, body))
     queue = sorted(notes, key=lambda x: -(rq.TYPE_W.get(x[1].get("type"), 5)

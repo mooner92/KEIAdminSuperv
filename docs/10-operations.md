@@ -356,7 +356,7 @@ deploy/release를 코드 한 벌로 분리한다 — 포트를 새로 열지 않
 - 프론트: 정적 export라 빌드에 박지 않고 `lib/flags.tsx`(`useFlag`)가 런타임 fetch(안전 기본값 + localStorage 캐시 + 폴백). 관리자 페이지 `/admin`에서 즉시 토글.
 
 > [!note]
-> 현재 레지스트리 플래그(예): `demo_banner`(예시 배너)·`cite_highlight`(근거 조문 형광 강조)·`graph_split`·`graph_expand_regs`·**`source_type_badges`**(채팅 근거 출처 성격 배지 — 📜 규정 공식 원문 vs 📘 가이드 참고)·**`content_search`**(둘러보기 원문 내용 전문검색 + 검색범위 선택 제목·번호·분류·내용, `search-index.json` lazy-load). 각 플래그는 off로 배포→dev 검증→on→안정 시 제거가 기본이며, 전체 목록·만료일은 [13 기능 플래그](13-feature-flags.md).
+> 현재 레지스트리 플래그(예): `changelog`(새로워진 점 배너·페이지)·`help_hub`(도움말 허브)·`graph_expand_regs`·**`source_type_badges`**(채팅 근거 출처 성격 배지 — 📜 규정 공식 원문 vs 📘 가이드 참고)·**`content_search`**(둘러보기 원문 내용 전문검색 + 검색범위 선택 제목·번호·분류·내용, `search-index.json` lazy-load). 각 플래그는 off로 배포→dev 검증→on→안정 시 제거가 기본이며, 전체 목록·만료일은 [13 기능 플래그](13-feature-flags.md).
 
 ```bash
 # 운영자 계정을 관리자로 지정(미지정이면 아무도 토글 불가) — ecosystem.config.js env로 박는다

@@ -121,11 +121,13 @@ class Feedback(SQLModel, table=True):
 # → 프론트가 알 수 있는 플래그 목록·안전 기본값은 코드가 단일 출처. DB는 런타임 오버라이드.
 # ⛔ 클라이언트로 내려가는 값이므로 민감정보(금액·한도·내부로직) 금지. 다 쓴 플래그는 만료일 맞춰 제거(flag debt).
 FLAG_REGISTRY: dict = {
-    "demo_banner": {
-        "default": False,
-        "description": "전 화면 상단에 '미리보기' 배너 표시 (기능 플래그 예시·검증용)",
+    # demo_banner(예시용)는 changelog 배너로 대체·제거(docs/32 — flag debt 정리, 2026-07-14)
+    "changelog": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "새로워진 점(docs/32) — 상단 배너(최신 업데이트 한 줄, 닫기 지속·새 노트 재노출) + "
+                       "/changelog 페이지 + 푸터 링크. 노트 원문은 볼트 90_관리/_changelog(비공개).",
         "owner": "platform",
-        "expires": "",  # 예시(장수). 실제 release 플래그는 실제 만료일(YYYY-MM-DD)을 적어 정리 강제
+        "expires": "2026-12-31",
     },
     "graph_expand_regs": {
         "default": False,  # ⛔ off로 배포 — top-k 희석 위험이라 평가로 이득 입증 후 on(하이브리드·다양성과 동일 규율)
