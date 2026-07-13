@@ -53,7 +53,11 @@ module.exports = {
         RAG_RERANK: "0",
         APP_DB: "/home/mhchoi/kei-dev-0703/tools/app.db", // 격리 채팅DB(신규)
         APP_SECRET_FILE: "/home/mhchoi/kei-dev-0703/tools/.app_secret", // 격리 세션키(신규)
-        APP_ADMINS: "21963",
+        APP_ADMINS: "21963,admintest", // admintest = dev 전용 테스트 계정(prod 병합 시 제거)
+        VAULT_DIR: "/home/mhchoi/kei-dev-0703/KEI-행정가이드", // dev 전용 볼트(표 복원·docdata 소비)
+        // 가입 정책(docs/29 §3): dev는 SMTP 없이 인증 코드를 응답에 동봉해 E2E 가능.
+        // ⛔ 운영(prod) 병합 시 이 변수는 절대 켜지 말 것 — 대신 SMTP_HOST/PORT/FROM 설정.
+        APP_DEV_ECHO_CODE: "1",
         PYTHONUNBUFFERED: "1",
       },
     },

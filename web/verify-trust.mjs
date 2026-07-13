@@ -15,7 +15,7 @@ const ok = (c, m) => {
 const b = await chromium.launch();
 const ctx = await b.newContext();
 let r = await ctx.request.post(`${BASE}/api/app/auth/register`, { data: { username: USER, password: PW } });
-if (r.status() === 409) r = await ctx.request.post(`${BASE}/api/app/auth/login`, { data: { username: USER, password: PW } });
+if (!r.ok()) r = await ctx.request.post(`${BASE}/api/app/auth/login`, { data: { username: USER, password: PW } });
 ok(r.ok(), `0) 로그인 (${r.status()})`);
 
 const p = await ctx.newPage();

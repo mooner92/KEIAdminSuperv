@@ -65,8 +65,23 @@ def _sqlite_pragmas(dbapi_conn, _rec):
 # ───────────────────────── 모델 ─────────────────────────
 class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    username: str = Field(index=True, unique=True)
+    username: str = Field(index=True, unique=True)  # 가입 정책(docs/29 §3) 이후 = 이메일(@kei.re.kr)
     password_hash: str
+    created_at: float = Field(default_factory=time.time)
+    # 이메일 인증 여부. 정책 이전 가입 계정은 마이그레이션에서 1로 백필(잠금 방지),
+    # 신규 가입은 0으로 시작 → 코드 인증 후 1 (미인증 로그인 불가).
+    verified: bool = Field(default=False)
+
+
+class VerifyCode(SQLModel, table=True):
+    """가입 이메일 인증 코드(6자리). 이메일당 최신 1건만 유효(재발송 시 교체).
+    코드 원문은 저장하지 않고 해시만(SECRET 기반 HMAC) — DB 유출 시에도 코드 노출 없음."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    email: str = Field(index=True)
+    code_hash: str
+    expires_at: float
+    attempts: int = 0            # 검증 실패 횟수(5회 초과 시 코드 무효 — 무차별 대입 방지)
+    last_sent_at: float = 0.0    # 재발송 쿨다운(60초) 기준
     created_at: float = Field(default_factory=time.time)
 
 
@@ -201,6 +216,13 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-12-31",
     },
+    "user_directory": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "관리자 사용자 목록 탭(docs/29 §4) — 이메일·가입일·마지막 활동·채팅 수·인증 여부만. "
+                       "🔒 타인 채팅 본문을 읽는 기능은 계속 없음(P2.5 원칙).",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
     "explore_upgrades": {
         "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
         "description": "탐색 마감(v1 스펙 ⑬⑭/S7) — ⓐ둘러보기 드로어 URL 딥링크(?doc=슬러그, 뒤로가기 연동) "
@@ -298,6 +320,7 @@ def flag_expiry_status(expires: str, today: str) -> str:
 
 def init_db():
     SQLModel.metadata.create_all(engine)
+    _migrate_user_verified()
     ensure_flags()
     if not {x.strip() for x in os.environ.get("APP_ADMINS", "").split(",") if x.strip()}:
         print("⚠ APP_ADMINS 미설정 — 기능 플래그 관리자 기능 비활성(아무도 토글 불가). 운영자 아이디를 APP_ADMINS에 설정하세요.")
@@ -309,6 +332,19 @@ def init_db():
             print(f"⛔ 플래그 만료 초과: {k} (만료 {meta['expires']}) — 상시적용(코드 제거) 또는 폐기를 결정하세요 (docs/13 §D)")
         elif st == "soon":
             print(f"⚠ 플래그 만료 임박: {k} (만료 {meta['expires']})")
+
+
+def _migrate_user_verified():
+    """기존 user 테이블에 verified 컬럼 추가(create_all은 기존 테이블을 안 바꿈).
+    정책(docs/29 §3) 이전 가입 계정은 verified=1 백필 — 기존 사용자를 잠그지 않는다."""
+    import sqlalchemy
+    with engine.connect() as conn:
+        cols = {r[1] for r in conn.exec_driver_sql("PRAGMA table_info(user)").fetchall()}
+        if "verified" not in cols:
+            conn.exec_driver_sql("ALTER TABLE user ADD COLUMN verified INTEGER NOT NULL DEFAULT 0")
+            conn.exec_driver_sql("UPDATE user SET verified = 1")  # 기존 계정 백필
+            conn.commit()
+            print("DB 마이그레이션: user.verified 추가(기존 계정은 인증됨으로 백필)")
 
 
 # ───────────────────────── 인증 ─────────────────────────
@@ -324,6 +360,73 @@ def _rl_check(key: str) -> bool:
 
 def _rl_fail(key: str):
     _LOGIN_FAILS.setdefault(key, []).append(time.time())
+
+
+# ── 가입 정책(docs/29 §3): @kei.re.kr 이메일만 + 6자리 코드 인증 + ID=이메일 ──
+# fail-closed: 도메인 allowlist 기본값은 kei.re.kr — env 미설정이어도 외부 메일은 못 들어온다.
+SIGNUP_DOMAINS = {d.strip().lower() for d in
+                  os.environ.get("APP_SIGNUP_DOMAINS", "kei.re.kr").split(",") if d.strip()}
+EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+-]+@([A-Za-z0-9.-]+\.[A-Za-z]{2,})$")
+CODE_TTL, CODE_MAX_ATTEMPTS, RESEND_COOLDOWN = 600.0, 5, 60.0  # 10분 · 5회 · 60초
+
+
+def valid_signup_email(email: str) -> bool:
+    m = EMAIL_RE.match(email.strip().lower())
+    return bool(m) and m.group(1) in SIGNUP_DOMAINS
+
+
+def _code_hash(email: str, code: str) -> str:
+    import hashlib
+    import hmac as _hmac
+    return _hmac.new(SECRET.encode() if isinstance(SECRET, str) else SECRET,
+                     f"{email.lower()}|{code}".encode(), hashlib.sha256).hexdigest()
+
+
+def _send_verify_email(email: str, code: str) -> None:
+    """인증 코드 발송. 사내 SMTP 릴레이(SMTP_HOST) 필요 — 미설정 시 예외(fail-closed).
+    개발·E2E는 APP_DEV_ECHO_CODE=1로 발송 없이 코드를 응답에 동봉(⛔ 운영 금지)."""
+    host = os.environ.get("SMTP_HOST", "")
+    if not host:
+        raise RuntimeError("SMTP 미설정")
+    import smtplib
+    from email.mime.text import MIMEText
+    port = int(os.environ.get("SMTP_PORT", "25"))
+    sender = os.environ.get("SMTP_FROM", "kei-admin-llm@kei.re.kr")
+    msg = MIMEText(f"KEI 행정 LLM 가입 인증 코드: {code}\n\n10분 안에 입력해 주세요. "
+                   f"본인이 요청하지 않았다면 이 메일을 무시하세요.", _charset="utf-8")
+    msg["Subject"] = "[KEI 행정 LLM] 가입 인증 코드"
+    msg["From"], msg["To"] = sender, email
+    with smtplib.SMTP(host, port, timeout=10) as smtp:
+        if os.environ.get("SMTP_STARTTLS", "") == "1":
+            smtp.starttls()
+        user, pw = os.environ.get("SMTP_USER", ""), os.environ.get("SMTP_PASS", "")
+        if user:
+            smtp.login(user, pw)
+        smtp.sendmail(sender, [email], msg.as_string())
+
+
+def _issue_code(s: Session, email: str) -> dict:
+    """코드 생성·발송(이메일당 최신 1건, 쿨다운 60초). 반환: 응답 dict(발송 결과 포함)."""
+    email = email.strip().lower()
+    now = time.time()
+    prev = s.exec(select(VerifyCode).where(VerifyCode.email == email)).first()
+    if prev and now - prev.last_sent_at < RESEND_COOLDOWN:
+        raise HTTPException(429, f"인증 메일은 {int(RESEND_COOLDOWN)}초에 한 번만 보낼 수 있습니다.")
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    if prev:
+        s.delete(prev)
+    s.add(VerifyCode(email=email, code_hash=_code_hash(email, code),
+                     expires_at=now + CODE_TTL, last_sent_at=now))
+    s.commit()
+    out = {"pending": True, "email": email}
+    if os.environ.get("APP_DEV_ECHO_CODE", "") == "1":  # ⛔ dev/E2E 전용 — 운영에 설정 금지
+        out["dev_code"] = code
+        return out
+    try:
+        _send_verify_email(email, code)
+    except Exception as e:  # noqa: BLE001 — SMTP 미설정/장애: 가입을 열어두지 않는다(fail-closed)
+        raise HTTPException(503, "인증 메일을 보낼 수 없습니다. 관리자에게 문의하세요(SMTP 설정).") from e
+    return out
 
 
 def hash_pw(pw: str) -> str:
@@ -400,21 +503,68 @@ router = APIRouter(prefix="/app")
 
 
 # ───────────────────────── auth 엔드포인트 ─────────────────────────
+class VerifyIn(BaseModel):
+    username: str   # = 이메일
+    code: str
+
+
 @router.post("/auth/register")
-def register(body: AuthIn, response: Response):
-    uname = body.username.strip()
-    if len(uname) < 2 or len(body.password) < 4:
-        raise HTTPException(400, "아이디는 2자, 비밀번호는 4자 이상이어야 합니다.")
+def register(body: AuthIn):
+    """가입 1단계(docs/29 §3): ID=이메일(@kei.re.kr만) + 인증 코드 발송.
+    쿠키는 여기서 발급하지 않는다 — /auth/verify 성공 시에만 로그인된다."""
+    email = body.username.strip().lower()
+    if not valid_signup_email(email):
+        raise HTTPException(400, "KEI 이메일(@kei.re.kr)로만 가입할 수 있습니다.")
+    if len(body.password) < 4:
+        raise HTTPException(400, "비밀번호는 4자 이상이어야 합니다.")
     with Session(engine) as s:
-        if s.exec(select(User).where(User.username == uname)).first():
-            raise HTTPException(409, "이미 존재하는 아이디입니다.")
-        u = User(username=uname, password_hash=hash_pw(body.password))
+        exists = s.exec(select(User).where(User.username == email)).first()
+        if exists and exists.verified:
+            raise HTTPException(409, "이미 가입된 이메일입니다. 로그인해 주세요.")
+        if exists:  # 미인증 재가입: 비밀번호 갱신 후 코드 재발송
+            exists.password_hash = hash_pw(body.password)
+            s.add(exists)
+        else:
+            s.add(User(username=email, password_hash=hash_pw(body.password), verified=False))
+        return _issue_code(s, email)
+
+
+@router.post("/auth/verify")
+def verify_email(body: VerifyIn, response: Response):
+    """가입 2단계: 6자리 코드 확인 → 계정 활성 + 로그인 쿠키 발급."""
+    email = body.username.strip().lower()
+    code = body.code.strip()
+    with Session(engine) as s:
+        u = s.exec(select(User).where(User.username == email)).first()
+        vc = s.exec(select(VerifyCode).where(VerifyCode.email == email)).first()
+        if not u or u.verified:
+            raise HTTPException(400, "인증 대기 중인 계정이 아닙니다.")
+        if not vc or time.time() > vc.expires_at or vc.attempts >= CODE_MAX_ATTEMPTS:
+            raise HTTPException(410, "인증 코드가 만료되었습니다. 재발송해 주세요.")
+        if _code_hash(email, code) != vc.code_hash:
+            vc.attempts += 1
+            s.add(vc)
+            s.commit()
+            left = CODE_MAX_ATTEMPTS - vc.attempts
+            raise HTTPException(401, f"인증 코드가 올바르지 않습니다. (남은 시도 {max(left, 0)}회)")
+        u.verified = True
         s.add(u)
+        s.delete(vc)
         s.commit()
-        s.refresh(u)
         uid, un = u.id, u.username
     set_cookie(response, make_token(uid))
     return {"id": uid, "username": un}
+
+
+@router.post("/auth/resend")
+def resend_code(body: AuthIn):
+    """인증 코드 재발송(쿨다운 60초). 비밀번호 확인으로 본인 요청만 허용."""
+    email = body.username.strip().lower()
+    with Session(engine) as s:
+        u = s.exec(select(User).where(User.username == email)).first()
+        if not u or u.verified or not check_pw(body.password, u.password_hash):
+            raise HTTPException(400, "재발송 대상이 아닙니다.")
+        return _issue_code(s, email)
 
 
 @router.post("/auth/login")
@@ -424,8 +574,12 @@ def login(body: AuthIn, request: Request, response: Response):
     if not _rl_check(rl_key):
         raise HTTPException(429, "로그인 시도가 너무 많습니다. 5분 후 다시 시도해 주세요.")
     with Session(engine) as s:
-        u = s.exec(select(User).where(User.username == body.username.strip())).first()
+        u = s.exec(select(User).where(User.username == body.username.strip().lower())).first()
+        if not u:  # 레거시 계정(정책 이전, 대소문자 그대로)도 조회
+            u = s.exec(select(User).where(User.username == body.username.strip())).first()
         ok = bool(u) and check_pw(body.password, u.password_hash)
+        if ok and not u.verified:  # 미인증 계정(docs/29 §3) — 코드 인증 전 로그인 불가
+            raise HTTPException(403, "이메일 인증이 필요합니다. 가입 화면에서 인증을 완료해 주세요.")
         uid, un = (u.id, u.username) if ok else (None, None)  # 성공 시에만 uid 설정(None 토큰 발급 방지)
     if not ok:
         _rl_fail(rl_key)
@@ -1124,6 +1278,30 @@ def list_feedback(admin: User = Depends(current_admin), rating: str = "", limit:
                 "sources": [{"규정명": x.get("규정명", ""), "조": x.get("조", "")} for x in srcs],
             })
     return out
+
+
+@router.get("/users")
+def list_users(admin: User = Depends(current_admin)):
+    """관리자: 사용자 목록(docs/29 §4) — '누구인지'까지만.
+    🔒 개인정보 경계: 이메일(=ID)·가입일·마지막 활동·채팅 수·인증/관리자 여부만 반환.
+    타인 채팅 '본문'을 읽는 엔드포인트는 계속 존재하지 않는다(P2.5 원칙 ⓐ 불변)."""
+    with Session(engine) as s:
+        users = s.exec(select(User)).all()
+        sess = s.exec(select(ChatSession)).all()
+        by_user: dict = {}
+        for cs in sess:
+            d = by_user.setdefault(cs.user_id, {"chats": 0, "last": 0.0})
+            d["chats"] += 1
+            d["last"] = max(d["last"], cs.updated_at or 0.0)
+    out = []
+    for u in sorted(users, key=lambda x: -(x.created_at or 0)):
+        a = by_user.get(u.id, {"chats": 0, "last": 0.0})
+        out.append({
+            "id": u.id, "username": u.username, "created_at": u.created_at,
+            "verified": bool(u.verified), "is_admin": is_admin(u),
+            "chats": a["chats"], "last_active": a["last"] or None,
+        })
+    return {"n": len(out), "users": out}
 
 
 # ───────────────────────── 운영 대시보드(관리자) ─────────────────────────

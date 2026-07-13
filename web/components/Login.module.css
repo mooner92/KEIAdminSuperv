@@ -81,3 +81,17 @@
 }
 .switch button:hover { text-decoration: underline; }
 .note { margin: var(--space-5) 0 0; font-size: 12px; color: var(--color-text-tertiary); text-align: center; }
+
+/* 인증 코드 재발송(가입 정책 docs/29 §3) — 보조 버튼 */
+.resend {
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.resend:hover:not(:disabled) { border-color: var(--color-primary); color: var(--color-primary); }
+.resend:disabled { opacity: 0.5; cursor: default; }

@@ -30,7 +30,7 @@ ok(body.includes("비밀번호를 잊으셨나요"), "B5) 로그인 화면 재�
 
 // ── B3: IME 가드 — 로그인 후 조합 중 Enter는 전송 안 됨 ──
 let r = await ctx.request.post(`${BASE}/api/app/auth/register`, { data: { username: "imetest", password: "test1234" } });
-if (r.status() === 409) r = await ctx.request.post(`${BASE}/api/app/auth/login`, { data: { username: "imetest", password: "test1234" } });
+if (!r.ok()) r = await ctx.request.post(`${BASE}/api/app/auth/login`, { data: { username: "imetest", password: "test1234" } });
 ok(r.ok(), `B3-0) 로그인 (${r.status()})`);
 await p.reload({ waitUntil: "load" });
 await p.waitForTimeout(1200);

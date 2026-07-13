@@ -5,7 +5,7 @@ const USER = "badgetest", PW = "test1234";
 const b = await chromium.launch();
 const ctx = await b.newContext();
 let r = await ctx.request.post(`${BASE}/api/app/auth/register`, { data: { username: USER, password: PW } });
-if (r.status() === 409) r = await ctx.request.post(`${BASE}/api/app/auth/login`, { data: { username: USER, password: PW } });
+if (!r.ok()) r = await ctx.request.post(`${BASE}/api/app/auth/login`, { data: { username: USER, password: PW } });
 const p = await ctx.newPage({ viewport: { width: 1400, height: 1200 } });
 await p.goto(`${BASE}/`, { waitUntil: "load" });
 await p.waitForTimeout(1000);

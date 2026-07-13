@@ -7,7 +7,7 @@ const ok = (c, m) => { console.log((c ? "✅ " : "❌ ") + m); if (!c) fails.pus
 const b = await chromium.launch();
 const ctx = await b.newContext();
 let r = await ctx.request.post(`${BASE}/api/app/auth/register`, { data: { username: "b6test", password: "test1234" } });
-if (r.status() === 409) r = await ctx.request.post(`${BASE}/api/app/auth/login`, { data: { username: "b6test", password: "test1234" } });
+if (!r.ok()) r = await ctx.request.post(`${BASE}/api/app/auth/login`, { data: { username: "b6test", password: "test1234" } });
 ok(r.ok(), `0) 로그인 (${r.status()})`);
 
 // ── B4 회귀 + 근거 생성: 넓은 화면에서 정상 스트림 질문 1건 ──

@@ -174,12 +174,25 @@ async function sendMessageStream(id: number, content: string, h: StreamHandlers)
   }
 }
 
+// 가입 정책(docs/29 §3): register는 계정을 만들고 인증 코드를 보낸다(로그인 아님).
+// dev_code는 APP_DEV_ECHO_CODE=1(개발·E2E)일 때만 존재.
+export type RegisterPending = { pending: true; email: string; dev_code?: string };
+export type DirectoryUser = {
+  id: number; username: string; created_at: number;
+  verified: boolean; is_admin: boolean; chats: number; last_active: number | null;
+};
+
 export const api = {
   me: () => j<User>("/auth/me", undefined, 7000), // 게이트: 7초 내 미응답이면 로그인 화면으로
   login: (username: string, password: string) =>
     j<User>("/auth/login", { method: "POST", body: JSON.stringify({ username, password }) }),
   register: (username: string, password: string) =>
-    j<User>("/auth/register", { method: "POST", body: JSON.stringify({ username, password }) }),
+    j<RegisterPending>("/auth/register", { method: "POST", body: JSON.stringify({ username, password }) }),
+  verifyEmail: (username: string, code: string) =>
+    j<User>("/auth/verify", { method: "POST", body: JSON.stringify({ username, code }) }),
+  resendCode: (username: string, password: string) =>
+    j<RegisterPending>("/auth/resend", { method: "POST", body: JSON.stringify({ username, password }) }),
+  listUsers: () => j<{ n: number; users: DirectoryUser[] }>("/users"),
   logout: () => j<{ ok: boolean }>("/auth/logout", { method: "POST" }),
 
   listChats: () => j<ChatMeta[]>("/chats"),
