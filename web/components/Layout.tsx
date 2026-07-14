@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useEffect, useState, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import ThemeToggle from "./ThemeToggle";
 import { useFlag } from "../lib/flags";
 import { api } from "../lib/api";
@@ -53,6 +53,19 @@ export default function Layout({
       if (id) localStorage.setItem("kei-clog-dismissed", id);
     } catch { /* 스토리지 불가 — 이번 세션만 닫힘 */ }
   };
+  // 배너 실측 높이를 --banner-h로 노출 — 채팅처럼 100vh 공식을 쓰는 화면이 배너만큼 줄어들어
+  // 페이지 스크롤이 생기지 않게 한다(요약 줄바꿈 등 높이 변화는 ResizeObserver로 추적).
+  const bannerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const root = document.documentElement;
+    const el = bannerRef.current;
+    const set = () => root.style.setProperty("--banner-h", el ? `${el.offsetHeight}px` : "0px");
+    set();
+    if (!el) return;
+    const ro = new ResizeObserver(set);
+    ro.observe(el);
+    return () => { ro.disconnect(); root.style.setProperty("--banner-h", "0px"); };
+  }, [latestNote]);
   const approvalNav = useFlag("approval_finder"); // 결재선 판정기 — 상단 메뉴 노출도 플래그로
   const journeyNav = useFlag("journey_map"); // 업무 한 장(스윔레인) — docs/25
   const helpHub = useFlag("help_hub"); // 도움말 허브·FAQ(docs/31) — 푸터 FAQ 링크 게이트
@@ -67,7 +80,7 @@ export default function Layout({
   return (
     <div className={styles.root} data-fill={fill ? "" : undefined}>
       {latestNote ? (
-        <div className={styles.banner}>
+        <div className={styles.banner} ref={bannerRef}>
           <Link href={`/changelog/#${latestNote.id}`} className={styles.bannerLink}>
             🆕 새로워진 점: {latestNote.요약} · <u>자세히 →</u>
           </Link>

@@ -3,7 +3,8 @@
   grid-template-columns: 232px 1fr 336px;
   grid-template-rows: minmax(0, 1fr); /* 행을 컨테이너 높이로 고정(콘텐츠로 늘어나지 않게) */
   gap: var(--space-4);
-  height: calc(100vh - var(--header-h) - 150px);
+  /* --banner-h: 업데이트 배너 실측 높이(Layout이 설정, 없으면 0) — 배너로 인한 페이지 스크롤 방지 */
+  height: calc(100vh - var(--header-h) - var(--banner-h, 0px) - 150px);
   min-height: 520px;
   overflow: hidden; /* 안전장치: 내용이 footer 위로 흘러나오지 않도록 */
 }
