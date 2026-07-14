@@ -5,6 +5,7 @@ import Layout from "../components/Layout";
 import AdminCorpus from "../components/AdminCorpus";
 import AdminFlags from "../components/AdminFlags";
 import AdminTableRestore from "../components/AdminTableRestore";
+import AdminTrust from "../components/AdminTrust";
 import AdminUsers from "../components/AdminUsers";
 import { api, ApiError, type FeedbackRow, type Stats } from "../lib/api";
 import { SITE_NAME } from "../lib/site";
@@ -13,11 +14,12 @@ import styles from "../styles/Admin.module.css";
 
 // 관리자 페이지(v1.1 UX 개편, docs/21) — 탭 셸: 대시보드 / 코퍼스 관리 / 기능 플래그.
 // 탭 상태는 URL 해시(#corpus 등)와 동기화(새로고침·딥링크 유지). 접근은 백엔드 403이 방어.
-type Tab = "dash" | "corpus" | "restore" | "users" | "flags";
+type Tab = "dash" | "corpus" | "restore" | "trust" | "users" | "flags";
 const TABS: { k: Tab; label: string }[] = [
   { k: "dash", label: "📊 대시보드" },
   { k: "corpus", label: "📚 코퍼스 관리" },
   { k: "restore", label: "🔧 표 복원" },
+  { k: "trust", label: "🛡 신뢰" },
   { k: "users", label: "👥 사용자" },
   { k: "flags", label: "🚩 기능 플래그" },
 ];
@@ -26,16 +28,18 @@ export default function AdminPage() {
   const corpusOn = useFlag("corpus_admin");
   const restoreOn = useFlag("table_restore");
   const usersOn = useFlag("user_directory");
+  const trustOn = useFlag("trust_ops");
   const [tab, setTab] = useState<Tab>("dash");
   const [gate, setGate] = useState<"loading" | "ok" | string>("loading");
   const [stats, setStats] = useState<Stats | null>(null);
+  const [statDays, setStatDays] = useState(30); // docs/34 ③: 대시보드 기간 필터(일/주/월)
   const [downs, setDowns] = useState<FeedbackRow[] | null>(null);
 
   // 해시 ↔ 탭 동기화(딥링크·새로고침 유지)
   useEffect(() => {
     const fromHash = () => {
       const h = window.location.hash.replace("#", "") as Tab;
-      if (["dash", "corpus", "restore", "users", "flags"].includes(h)) setTab(h);
+      if (["dash", "corpus", "restore", "trust", "users", "flags"].includes(h)) setTab(h);
     };
     fromHash();
     window.addEventListener("hashchange", fromHash);
@@ -47,7 +51,7 @@ export default function AdminPage() {
     api.flagsManage()
       .then(() => {
         setGate("ok");
-        api.stats().then(setStats).catch(() => {});
+        api.stats(statDays).then(setStats).catch(() => {});
         api.feedbackList("down").then(setDowns).catch(() => {});
       })
       .catch((e) => {
@@ -56,7 +60,8 @@ export default function AdminPage() {
             : e.status === 401 ? "로그인이 필요합니다." : e.message)
           : "불러오기에 실패했습니다.");
       });
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statDays]);
   useEffect(load, [load]);
 
   return (
@@ -72,7 +77,7 @@ export default function AdminPage() {
         <>
           <nav className={styles.tabBar} role="tablist" aria-label="관리자 메뉴">
             {TABS.filter((t) => (t.k !== "corpus" || corpusOn) && (t.k !== "restore" || restoreOn)
-              && (t.k !== "users" || usersOn)).map((t) => (
+              && (t.k !== "users" || usersOn) && (t.k !== "trust" || trustOn)).map((t) => (
               <button key={t.k} role="tab" aria-selected={tab === t.k}
                 className={`${styles.tabBtn} ${tab === t.k ? styles.tabOn : ""}`}
                 onClick={() => go(t.k)}>
@@ -85,7 +90,13 @@ export default function AdminPage() {
             <section>
               {stats ? (
                 <section className={styles.dash}>
-                  <h2 className={styles.h2}>운영 대시보드 <span className={styles.dashDays}>최근 {stats.days}일</span></h2>
+                  <h2 className={styles.h2}>운영 대시보드{" "}
+                    <select className={styles.daysSel} value={statDays} onChange={(e) => setStatDays(Number(e.target.value))} aria-label="집계 기간">
+                      <option value={1}>오늘(1일)</option>
+                      <option value={7}>주간(7일)</option>
+                      <option value={30}>월간(30일)</option>
+                    </select>
+                  </h2>
                   <p className={styles.privacy}>
                     🔒 개인정보 보호: 인기 질문·콘텐츠 갭은 서로 다른 <b>{stats.k_anon}명 이상</b>이 물은 항목만
                     집계로 표시됩니다. 개별 채팅 내용·작성자는 관리자도 볼 수 없습니다.
@@ -134,6 +145,7 @@ export default function AdminPage() {
 
           {tab === "corpus" && corpusOn ? <AdminCorpus /> : null}
           {tab === "restore" && restoreOn ? <AdminTableRestore /> : null}
+          {tab === "trust" && trustOn ? <AdminTrust /> : null}
           {tab === "users" && usersOn ? <AdminUsers /> : null}
           {tab === "flags" ? <AdminFlags /> : null}
         </>

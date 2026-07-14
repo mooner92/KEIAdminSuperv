@@ -16,8 +16,11 @@
 """
 import argparse
 import json
+import os
 import re
 from pathlib import Path
+
+_HERE = os.path.dirname(os.path.abspath(__file__))
 
 # 문장 종결 어미(개조식 포함) — 초장문 단락의 '여러 문장 병합' 판정용
 SENT_END = re.compile(r"[다함음됨임요것음]\.\s")
@@ -106,7 +109,7 @@ def main():
     ap = argparse.ArgumentParser(description="형식 붕괴 진단(읽기 전용)")
     ap.add_argument("--vault", required=True)
     ap.add_argument("--top", type=int, default=20)
-    ap.add_argument("--out", default="tools/index/format_scan.json")
+    ap.add_argument("--out", default=os.path.join(_HERE, "index", "format_scan.json"))
     args = ap.parse_args()
     vault = Path(args.vault)
 

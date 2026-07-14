@@ -47,7 +47,10 @@ export default function Markdown({
   const md = source
     .replace(/^\s*#[ \t]+[^\n]*\r?\n/, "")
     .replace(/<!--[\s\S]*?-->/g, "")
-    .replace(/\n[ \t]*(제\s*\d+\s*조)/g, "\n\n$1");
+    .replace(/\n[ \t]*(제\s*\d+\s*조)/g, "\n\n$1")
+    // 별지 라벨도 별도 단락으로 분리 — 앞 문단에 흡수되면 id가 안 붙어 서식 앵커가 죽는다
+    // (표 셀 라벨 '| [별지…' 은 표가 깨지므로 제외 — 파이프 시작 줄은 건드리지 않음)
+    .replace(/\n[ \t]*([\[<【〔(]?\s*별지\s*제?\s*\d)/g, "\n\n$1");
 
   const seen = new Set<string>(); // 조 번호 중복 id 방지(제N조 / 제N조의M)
 
@@ -101,7 +104,8 @@ export default function Markdown({
       let m: RegExpMatchArray | null;
       if ((m = t.match(/^제\s*(\d+)\s*조/))) id = `제${m[1]}조`;
       else if ((m = t.match(/^\[?\s*별표\s*(\d+)/))) id = `별표 ${m[1]}`;
-      else if ((m = t.match(/^\[?\s*별지\s*제?\s*(\d+)\s*호/))) id = `별지 제${m[1]}호`;
+      else if ((m = t.match(/^[\[<【〔(]?\s*별지\s*제?\s*(\d+(?:-\d+)?)\s*호(의\s*\d+)?/)))
+        id = `별지 제${m[1]}호${(m[2] || "").replace(/\s+/g, "")}`; // ⚠ vault.ts FORM_LABEL과 동기 유지(서식 찾기 앵커 계약)
       if (id && !seen.has(id)) {
         seen.add(id);
         return (

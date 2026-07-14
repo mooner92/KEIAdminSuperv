@@ -207,6 +207,71 @@ export function loadChangelog(): ChangelogEntry[] {
   return out;
 }
 
+// ── 서식 찾기(docs/34 ①) — 규정 원문의 별지 서식 대장(빌드타임 추출, 수작업 0) ──
+export type FormEntry = {
+  규정명: string;
+  slug: string;
+  호: string;           // "별지 제N호"·"별지 제6-1호"·"별지 제19호의2" — 표시·앵커·dedup 공용 라벨
+  호수: number;         // 번호 검색용 첫 숫자
+  서식명: string;       // 라벨 줄 잔여 또는 다음 의미 줄(원문 그대로, 40자 절단)
+  anchor: string;       // 문서 내 앵커 id(=호) — Markdown 렌더러의 별지 id 규칙과 동기(적대 검증 확정)
+};
+
+// 줄 시작 라벨만 서식 블록으로 인정. 변형 실측(적대 검증): [별지…]·<별지…>·【별지…】·〔별지…]·
+// (별지…)·표 셀 '| [별지…'·하이픈 호수(제6-1호)·가지 호수(제19호의2)까지 지원.
+// ⚠ web/components/Markdown.tsx의 별지 앵커 정규식과 반드시 동기 유지.
+const FORM_LABEL = /^[\s|]*[\[<【〔(]?\s*별지\s*제?\s*(\d+(?:-\d+)?)\s*호(의\s*\d+)?[^\n]*/;
+
+export function loadForms(): FormEntry[] {
+  const out: FormEntry[] = [];
+  const seen = new Set<string>();
+  for (const meta of getAllDocs()) {
+    if (meta.section !== "규정집") continue;
+    const doc = getDoc(meta.slug);
+    if (!doc) continue;
+    const lines = doc.body.split("\n");
+    for (let i = 0; i < lines.length; i++) {
+      const m = lines[i].match(FORM_LABEL);
+      if (!m) continue;
+      // 폐지 서식 제외 — 라벨 닫힘 뒤의 '삭제' 표기로 한정(서식명에 '삭제'가 든 오배제 방지)
+      if (/[\]>】〕)]\s*<?삭제|서식\]?\s*삭제/.test(lines[i])) continue;
+      const label = `별지 제${m[1]}호${(m[2] || "").replace(/\s+/g, "")}`;
+      const key = `${meta.slug}#${label}`;
+      if (seen.has(key)) continue; // 같은 문서 같은 호 중복 라벨은 첫 블록만
+      // 서식명 후보 ①: 라벨 줄의 잔여 텍스트(태그·괄호·파이프 제거 후) — 같은 줄 제목 지원
+      const rest = lines[i]
+        .replace(FORM_LABEL, "")
+        .replace(/<[^>]*>/g, "")
+        .replace(/[\]】〕>|]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      let title = /[가-힣A-Za-z]{2,}/.test(rest) ? rest.slice(0, 40) : "";
+      // 후보 ②: 다음 의미 줄 — 다열 표 행(셀 2+)·결재란 조각·태그·구분선 제외.
+      // 단일 셀 표('| 제목 |')는 서식 제목의 흔한 형태라 수용(적대 검증 후 회귀 수정).
+      if (!title) {
+        for (let j = i + 1; j < Math.min(i + 7, lines.length); j++) {
+          const raw = lines[j].trim();
+          if (!raw || raw.startsWith("<") || /^[\s|:\-–—]*$/.test(raw)) continue;
+          const cells = raw.split("|").map((c) => c.trim()).filter(Boolean);
+          if (cells.length >= 2) continue; // 다열 표 행(결재란 등) — 제목 아님
+          const inner = cells[0] || "";
+          if (/^(결\s*재|담\s*당|부서장|실\(팀\)장|원\s*장)/.test(inner)) continue;
+          if (!/[가-힣A-Za-z]{2,}/.test(inner)) continue; // 깨진 문자·기호만인 줄
+          title = inner.replace(/\s+/g, " ").slice(0, 40);
+          break;
+        }
+      }
+      seen.add(key);
+      out.push({ 규정명: doc.title, slug: meta.slug, 호: label, 호수: Number(m[1].split("-")[0]),
+                 서식명: title || "(서식명 미기재)", anchor: label });
+    }
+  }
+  out.sort((a, b) => (a.규정명 === b.규정명
+    ? a.호수 - b.호수 || a.호.localeCompare(b.호, "ko")
+    : a.규정명.localeCompare(b.규정명, "ko")));
+  return out;
+}
+
 export function loadJourneys(): Journey[] {
   const dir = path.join(VAULT_DIR, "90_관리", "_journeys");
   if (!fs.existsSync(dir)) return [];

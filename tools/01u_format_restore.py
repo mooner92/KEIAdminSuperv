@@ -20,10 +20,13 @@ type:system(ERP 노트)은 생성물의 의도된 인라인 열거이므로 대�
 """
 import argparse
 import json
+import os
 import re
 import shutil
 import time
 from pathlib import Path
+
+_HERE = os.path.dirname(os.path.abspath(__file__))  # 어느 cwd에서 돌려도 정본 tools/index/에 기록
 
 CTRL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 CIRCLED = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮"
@@ -91,19 +94,19 @@ def rebreak_line(s: str, signals: set) -> str:
 def main():
     ap = argparse.ArgumentParser(description="형식 복원(결정적, 내용 불변 기계 검증)")
     ap.add_argument("--vault", required=True)
-    ap.add_argument("--scan", default="tools/index/format_scan.json")
+    ap.add_argument("--scan", default=os.path.join(_HERE, "index", "format_scan.json"))
     ap.add_argument("--ctrl", action="store_true", help="제어문자 제거")
     ap.add_argument("--rebreak", action="store_true", help="항·호·목 인라인 병합 개행 복원")
     ap.add_argument("--only", default="", help="특정 문서 path 부분 일치 필터(파일럿용)")
     ap.add_argument("--dry", action="store_true")
-    ap.add_argument("--out", default="tools/index/format_restore.json")
+    ap.add_argument("--out", default=os.path.join(_HERE, "index", "format_restore.json"))
     args = ap.parse_args()
     if not (args.ctrl or args.rebreak):
         raise SystemExit("--ctrl / --rebreak 중 하나 이상을 지정하세요.")
 
     vault = Path(args.vault)
     scan = json.loads(Path(args.scan).read_text(encoding="utf-8"))
-    bdir = Path("tools/index/format_restore/backup")
+    bdir = Path(_HERE) / "index" / "format_restore" / "backup"
     ts = time.strftime("%Y%m%d-%H%M%S")
     report = []
 

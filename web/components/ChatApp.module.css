@@ -398,3 +398,17 @@
 /* 인기 검색 키워드(docs/29 §1) — 빈 화면 예시 칩 아래 보조 블록 */
 .trending { margin-top: var(--space-4); display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .trendingLabel { font-size: 12.5px; font-weight: 700; color: var(--color-text-tertiary); }
+
+/* Stop 버튼(docs/34 ③) — 스트리밍 중 보내기 자리를 대체. 시맨틱 토큰만 */
+.stop {
+  padding: 10px 16px;
+  border: 1px solid var(--color-danger, var(--color-border));
+  border-radius: 10px;
+  background: var(--color-surface);
+  color: var(--color-danger, var(--color-text));
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.stop:hover { background: var(--color-danger-bg, var(--color-surface)); }

@@ -239,6 +239,26 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-12-31",
     },
+    "trust_ops": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "관리자 🛡 신뢰 탭(docs/34 ②) — 고위험 답변 레이더·수요×품질 매트릭스·👎 유형 분류. "
+                       "🔒 질문·답변 본문 미반환(P2.5) — 규정 메타·집계만.",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
+    "chat_stop": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "채팅 스트리밍 ■ 중단 버튼 + 2단계 대기 표시(docs/34 ③) — off면 기존 '보내기 …' 동작.",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
+    "forms_registry": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "서식 찾기 /forms(docs/34 ①) — 규정 별지 서식 대장(빌드타임 추출)·검색·원문 앵커 바로보기. "
+                       "진입은 푸터·도움말(메뉴 과밀 방지, 반응 보고 GNB 승격).",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
     "explore_upgrades": {
         "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
         "description": "탐색 마감(v1 스펙 ⑬⑭/S7) — ⓐ둘러보기 드로어 URL 딥링크(?doc=슬러그, 뒤로가기 연동) "
@@ -1367,6 +1387,165 @@ def trending(user: User = Depends(current_user), days: int = 7):
     return out
 
 
+# ── 신뢰 운영 트랙(docs/34 ②) — 검수의 조준경. 🔒 질문·답변 본문은 절대 반환하지 않는다(P2.5). ──
+_REVIEW_CACHE: dict = {"t": 0.0, "by_slug": {}, "by_name": {}}
+# 금액 감지 — 웹 P2.2 MONEY_RE(ChatApp.tsx)와 등가 유지(사용자에게 💰 경고가 뜨는 답변은 레이더에도 잡혀야 함)
+_TRUST_MONEY_RE = re.compile(
+    r"\d[\d,]*\s*(?:원|만원|천원|억원|%|퍼센트)"      # 500,000원·20000원·7%
+    r"|[일이삼사오육칠팔구십백천만억]{2,}\s*원"          # 오천만 원·삼십만원
+    r"|한도|상한|지급(?:액|률|기준)"
+)
+# 👎 사유 결정적 버킷(무LLM) — 키워드 매칭, 첫 일치 우선
+_FB_BUCKETS = [
+    ("금액", re.compile(r"금액|원\b|돈|한도|단가|수당액")),
+    ("기한", re.compile(r"기한|기간|날짜|일자|마감|언제")),
+    ("출처", re.compile(r"출처|근거|조문|규정명|인용|링크")),
+    ("낡음", re.compile(r"옛|예전|개정|바뀌|오래|구버전|최신")),
+    ("누락", re.compile(r"누락|빠졌|없|부족|모자")),
+]
+
+
+def _review_status_maps() -> tuple:
+    """볼트 프론트매터의 검수상태를 slug·규정명으로 조인(5분 캐시).
+    저장된 근거 JSON에는 검수상태가 없다(실측) — '현재' 상태를 조인해야
+    문서가 검수완료로 승격되면 과거 답변도 위험 목록에서 자동으로 빠진다."""
+    now = time.time()
+    if now - _REVIEW_CACHE["t"] < 300 and _REVIEW_CACHE["by_slug"]:
+        return _REVIEW_CACHE["by_slug"], _REVIEW_CACHE["by_name"]
+    by_slug, by_name = {}, {}
+    vault = _vault_dir()
+    for root, _dirs, files in os.walk(vault):
+        if "90_관리" in root or "_templates" in root:
+            continue
+        for fn in files:
+            if not fn.endswith(".md"):
+                continue
+            try:
+                with open(os.path.join(root, fn), encoding="utf-8") as f:
+                    head = f.read(1500)
+            except OSError:
+                continue
+            if not head.startswith("---"):
+                continue
+            status = "미검수"
+            name = ""
+            for ln in head.split("\n", 40)[1:40]:
+                if ln.startswith("---"):
+                    break
+                if ln.startswith("검수상태:"):
+                    status = ln.split(":", 1)[1].strip().strip('"')
+                elif ln.startswith(("규정명:", "제목:", "용어:")) and not name:
+                    name = ln.split(":", 1)[1].strip().strip('"')
+            stem = fn[:-3]
+            by_slug[stem] = status
+            if name:
+                by_name.setdefault(name, status)
+    _REVIEW_CACHE.update(t=now, by_slug=by_slug, by_name=by_name)
+    return by_slug, by_name
+
+
+def _src_review(src: dict, by_slug: dict, by_name: dict) -> str:
+    return by_slug.get(src.get("slug") or "", by_name.get(src.get("규정명") or "", "미검수"))
+
+
+@router.get("/trust")
+def trust_ops(admin: User = Depends(current_admin), days: int = 30):
+    """관리자: 신뢰 운영 3블록 — ⓐ 고위험 답변 레이더(금액 포함 + 미검수 근거)
+    ⓑ 수요×품질 매트릭스(규정 단위 인용수×검수상태×👎) ⓒ 👎 사유 유형 분류.
+    🔒 메시지 id·질문·답변 본문은 어떤 필드로도 반환하지 않는다 — 규정 메타·집계·시각만."""
+    days = max(1, min(days, 365))
+    since = time.time() - days * 86400
+    by_slug, by_name = _review_status_maps()
+    with Session(engine) as s:
+        msgs = s.exec(select(Message).where(Message.role == "assistant",
+                                            Message.created_at >= since)).all()
+        fbs = s.exec(select(Feedback).where(Feedback.created_at >= since)).all()
+        # 👎 매트릭스 귀속: 기간 기준을 '피드백 시각'으로 통일 — 창 밖 옛 답변에 최근 달린 👎도
+        # 근거 규정에 귀속(버킷 집계와 동일 모집단, 리뷰 확정 불일치 해소).
+        down_ids = [f.message_id for f in fbs if f.rating == "down"]
+        down_msgs = (s.exec(select(Message).where(Message.id.in_(down_ids))).all()
+                     if down_ids else [])
+
+    def _parse_srcs(m) -> list:
+        """근거 JSON 방어 파싱 — 손상 행 1건이 화면 전체를 500으로 만들지 않게(리뷰 확정)."""
+        try:
+            srcs = json.loads(m.sources_json) if m.sources_json else []
+        except ValueError:
+            return []
+        if not isinstance(srcs, list):
+            return []
+        return [x for x in srcs if isinstance(x, dict)]
+
+    def _src_name(x: dict) -> str:
+        # 규정명이 비어도 slug가 있으면 스템으로 집계 포함(리뷰: slug-only 근거 탈락 방지)
+        return (x.get("규정명") or "").strip() or (x.get("slug") or "").strip()
+
+    radar = []
+    demand: Counter = Counter()          # 규정명 → 이 규정을 인용한 '답변 수'(조 단위 부풀림 금지)
+    downs: Counter = Counter()           # 규정명 → 👎 '피드백 수'
+    slug_by_name: dict = {}              # 규정명 → slug(문서 링크용)
+    for m in msgs:
+        cited = []
+        seen = set()
+        names_in_msg = set()
+        for x in _parse_srcs(m):
+            name = _src_name(x)
+            key = (name, x.get("조") or "")
+            if not name or key in seen:
+                continue
+            seen.add(key)
+            cited.append({"규정명": name, "조": key[1],
+                          "검수상태": _src_review(x, by_slug, by_name)})
+            names_in_msg.add(name)
+            if x.get("slug") and name not in slug_by_name:
+                slug_by_name[name] = x["slug"]
+        for name in names_in_msg:  # 답변당 규정 1회(리뷰 확정: 다조 인용 부풀림 방지)
+            demand[name] += 1
+        n_unrev = sum(1 for c in cited if c["검수상태"] != "검수완료")
+        if cited and n_unrev and _TRUST_MONEY_RE.search(m.content or ""):
+            # 🔒 at은 '시간' 단위 절사 — 풀정밀 값은 /app/users last_active와 밀리초 조인되어
+            # 작성자 특정이 가능(적대 검증 확정, P2.5 익명성 보호)
+            radar.append({"at": int(m.created_at // 3600) * 3600,
+                          "근거": cited[:6], "n_unreviewed": n_unrev})
+    radar.sort(key=lambda r: -r["at"])
+
+    for dm in down_msgs:
+        for name in {_src_name(x) for x in _parse_srcs(dm)} - {""}:
+            downs[name] += 1
+            demand.setdefault(name, 0)  # 창 밖 답변의 👎 규정도 매트릭스에 노출
+
+    matrix = []
+    for name, n in demand.most_common(100):
+        slug = slug_by_name.get(name, "")
+        status = by_slug.get(slug) or by_name.get(name) or by_slug.get(name, "미검수")
+        matrix.append({"규정명": name, "인용수": n, "slug": slug,
+                       "검수상태": status, "down": downs.get(name, 0)})
+    # '인용 많음 × 미검수' 우선 정렬(검수 ROI)
+    matrix.sort(key=lambda r: (r["검수상태"] == "검수완료", -r["인용수"], -r["down"]))
+
+    buckets: Counter = Counter()
+    reasons = []
+    for f in fbs:
+        if f.rating != "down":
+            continue
+        text = (f.reason or "").strip()
+        cat = "기타"
+        for label, pat in _FB_BUCKETS:
+            if text and pat.search(text):
+                cat = label
+                break
+        buckets[cat] += 1
+        if text:
+            reasons.append({"유형": cat, "사유": text[:120],
+                            "at": int(f.created_at // 3600) * 3600})  # 🔒 시간 절사(익명성)
+    reasons.sort(key=lambda r: -r["at"])
+
+    return {"days": days, "radar": radar[:50],
+            "matrix": matrix[:50],
+            "feedback_types": [{"유형": k, "n": v} for k, v in buckets.most_common()],
+            "feedback_reasons": reasons[:30]}
+
+
 @router.get("/users")
 def list_users(admin: User = Depends(current_admin)):
     """관리자: 사용자 목록(docs/29 §4) — '누구인지'까지만.
@@ -1546,47 +1725,65 @@ def post_message(cid: int, body: MsgIn, stream: bool = False, user: User = Depen
             s.refresh(um)
             user_dict = _msg(um)
         yield _sse({"type": "meta", "sources": sources, "user": user_dict})
-        # 토큰 스트리밍
+
+        def _save_assistant(full_text: str):
+            """assistant 저장 + 제목/시각 갱신 — 연결 수명과 무관하게 호출 가능해야 한다."""
+            with Session(engine) as s:
+                cs = s.get(ChatSession, cid)
+                am = Message(session_id=cid, role="assistant", content=full_text,
+                             sources_json=json.dumps(sources, ensure_ascii=False))
+                s.add(am)
+                if cs and cs.title == "새 대화":
+                    cs.title = q[:40]
+                if cs:
+                    cs.updated_at = time.time()
+                    s.add(cs)
+                s.commit()
+                s.refresh(am)
+                if cs:
+                    s.refresh(cs)
+                return am, cs
+
+        # 토큰 스트리밍. ⛔ 저장 보장(적대 검증 확정): 클라이언트가 중단하고 프록시가 절단을
+        # 전파하면(nginx 기본값·직결) 제너레이터가 yield 지점에서 GeneratorExit로 닫혀
+        # 루프 '뒤'의 저장이 실행되지 않는다 → finally에서 미저장분을 절단 마커와 함께 저장.
+        # (현 server.js 프록시는 절단을 전파하지 않아 완주·전체 저장 — 어느 토폴로지든 유실 0)
         acc, err = [], None
+        saved = False
         try:
-            for tok in rag_core.answer_stream(q, context, history):
-                acc.append(tok)
-                yield _sse({"type": "delta", "t": tok})
-        except Exception as e:
-            err = type(e).__name__
-        full = finalize_stream_text("".join(acc), err)
-        # P0-1 수치 게이트(docs/22): 스트림은 이미 방출된 토큰을 회수할 수 없으므로 사후 경고를 델타로 부착
-        try:
-            note = rag_core.post_answer_notes(q, full, context, sources)
-        except Exception:  # noqa: BLE001 — 게이트 오류가 답변을 막지 않게
-            note = ""
-        if note:
-            yield _sse({"type": "delta", "t": "\n\n" + note})
-            full = full.rstrip() + "\n\n" + note
-        if err:
-            # 클라이언트가 절단/실패를 표시하고 '다시 시도'를 제공할 수 있게 명시 이벤트(v1 스펙 B4)
-            yield _sse({"type": "error", "err": err, "partial": bool(acc)})
-        # assistant 메시지 저장 + 제목/시각 갱신
-        with Session(engine) as s:
-            cs = s.get(ChatSession, cid)
-            am = Message(session_id=cid, role="assistant", content=full,
-                         sources_json=json.dumps(sources, ensure_ascii=False))
-            s.add(am)
-            if cs and cs.title == "새 대화":
-                cs.title = q[:40]
-            if cs:
-                cs.updated_at = time.time()
-                s.add(cs)
-            s.commit()
-            s.refresh(am)
-            if cs:
-                s.refresh(cs)
+            try:
+                for tok in rag_core.answer_stream(q, context, history):
+                    acc.append(tok)
+                    yield _sse({"type": "delta", "t": tok})
+            except Exception as e:
+                err = type(e).__name__
+            full = finalize_stream_text("".join(acc), err)
+            # P0-1 수치 게이트(docs/22): 스트림은 이미 방출된 토큰을 회수할 수 없으므로 사후 경고를 델타로 부착
+            try:
+                note = rag_core.post_answer_notes(q, full, context, sources)
+            except Exception:  # noqa: BLE001 — 게이트 오류가 답변을 막지 않게
+                note = ""
+            if note:
+                yield _sse({"type": "delta", "t": "\n\n" + note})
+                full = full.rstrip() + "\n\n" + note
+            if err:
+                # 클라이언트가 절단/실패를 표시하고 '다시 시도'를 제공할 수 있게 명시 이벤트(v1 스펙 B4)
+                yield _sse({"type": "error", "err": err, "partial": bool(acc)})
+            am, cs = _save_assistant(full)
+            saved = True
             try:
                 sugg = rag_core.suggest_followups(q, sources)  # docs/26 — 무LLM 후속 제안(휘발성)
             except Exception:  # noqa: BLE001
                 sugg = []
             yield _sse({"type": "done", "assistant": _msg(am), "session": _ses(cs) if cs else None,
                         "suggestions": sugg})
+        finally:
+            if not saved:
+                # GeneratorExit(연결 절단) 경로 — yield 금지, DB 작업만. 부분 응답도 보존.
+                try:
+                    _save_assistant(finalize_stream_text("".join(acc), err or "ClientDisconnected"))
+                except Exception:  # noqa: BLE001 — 저장 실패는 조용히(연결은 이미 없음)
+                    pass
 
     return StreamingResponse(
         gen(),

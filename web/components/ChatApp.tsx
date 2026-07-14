@@ -70,6 +70,9 @@ export default function ChatApp({
   const [activeMsgId, setActiveMsgId] = useState<number | null>(null);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [phase, setPhase] = useState<"search" | "write" | null>(null); // docs/34 ③: 2단계 대기 표시
+  const abortRef = useRef<AbortController | null>(null); // docs/34 ③: Stop 버튼
+  const tempIdRef = useRef(-1000); // 잔존 센티널 회수용 고유 음수 id 발급기
   const [openSlug, setOpenSlug] = useState<string | null>(null);
   const [openAnchor, setOpenAnchor] = useState("");
   const [openSnippet, setOpenSnippet] = useState(""); // 앵커 없는 출처(조='') 텍스트 매칭 하이라이트용
@@ -100,6 +103,7 @@ export default function ChatApp({
   const followupOn = useFlag("followup_suggest"); // docs/26: 후속 질문 칩
   const selectAskOn = useFlag("select_ask"); // docs/26: 원문 선택 질문
   const trendingOn = useFlag("trending_keywords"); // docs/29 §1: 빈 화면 인기 키워드 칩
+  const chatStopOn = useFlag("chat_stop"); // docs/34 ③: ■ 중단 버튼+2단계 대기 표시
   const [trending, setTrending] = useState<{ k: string; n: number }[]>([]);
   useEffect(() => {
     if (!trendingOn) return;
@@ -220,7 +224,17 @@ export default function ChatApp({
     const chatId = cid as number;
     setInput("");
     setSending(true);
+    setPhase("search"); // docs/34 ③: 2단계 대기 표시 — 근거 수신 전 '검색 중'
+    const ac = new AbortController();
+    abortRef.current = ac;
     setSuggestions([]);
+    // 중단/오류로 남은 센티널 id(-1·STREAM_ID)를 고유 음수로 회수 — 새 스트림 핸들러의
+    // m.id === STREAM_ID 매칭이 옛 말풍선을 오염시키는 것 방지(적대 검증 확정 결함).
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === STREAM_ID || m.id === -1 ? { ...m, id: tempIdRef.current-- } : m
+      )
+    );
     // 낙관적: 사용자 메시지 + 비어있는 스트리밍 assistant 자리 추가
     setMessages((prev) => [
       ...prev,
@@ -230,12 +244,16 @@ export default function ChatApp({
     setActiveMsgId(STREAM_ID);
     try {
       await api.sendMessageStream(chatId, q, {
-        onMeta: (sources, user) =>
+        onMeta: (sources, user) => {
+          setPhase("write"); // 근거 도착 — '답변 작성 중'으로 전환
           setMessages((prev) =>
             prev.map((m) => (m.id === -1 ? user : m.id === STREAM_ID ? { ...m, sources } : m))
-          ),
-        onDelta: (t) =>
-          setMessages((prev) => prev.map((m) => (m.id === STREAM_ID ? { ...m, content: m.content + t } : m))),
+          );
+        },
+        onDelta: (t) => {
+          setPhase(null); // 첫 토큰 — 인디케이터 종료
+          setMessages((prev) => prev.map((m) => (m.id === STREAM_ID ? { ...m, content: m.content + t } : m)));
+        },
         onDone: (assistant, session, sugg) => {
           setMessages((prev) => prev.map((m) => (m.id === STREAM_ID ? assistant : m)));
           setActiveMsgId(assistant.id);
@@ -252,20 +270,36 @@ export default function ChatApp({
                 : m
             )
           ),
-      });
+      }, ac.signal);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "연결이 끊겼습니다";
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === STREAM_ID
-            ? { ...m, content: m.content ? `${m.content}\n\n⚠️ (응답이 중간에 끊겼습니다 · ${msg})` : "⚠️ 답변을 가져오지 못했습니다. 다시 시도해 주세요." }
-            : m
-        )
-      );
+      if (ac.signal.aborted) {
+        // docs/34 ③ Stop: 클라이언트 수신만 중단 — 서버는 백그라운드 완료·저장.
+        // 정직한 표기: 다시 열면 전체 답변이 보인다는 사실을 숨기지 않는다.
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === STREAM_ID
+              ? { ...m, content: `${m.content}\n\n⏹ (중단됨 — 지금까지 만들어진 답변은 저장돼요. 대화를 다시 열면 확인할 수 있어요)` }
+              : m
+          )
+        );
+      } else {
+        const msg = e instanceof Error ? e.message : "연결이 끊겼습니다";
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === STREAM_ID
+              ? { ...m, content: m.content ? `${m.content}\n\n⚠️ (응답이 중간에 끊겼습니다 · ${msg})` : "⚠️ 답변을 가져오지 못했습니다. 다시 시도해 주세요." }
+              : m
+          )
+        );
+      }
     } finally {
+      abortRef.current = null;
+      setPhase(null);
       setSending(false);
     }
   };
+
+  const stop = () => abortRef.current?.abort();
 
   // v1 B4: 절단/실패한 답변의 직전 질문을 다시 전송
   const retry = (mid: number) => {
@@ -482,7 +516,14 @@ export default function ChatApp({
                       {m.content ? (
                         <Markdown source={m.content} />
                       ) : (
-                        <span className={styles.typing}>근거 조문을 찾아 답변을 작성 중…</span>
+                        /* docs/34 ③: 2단계 대기 표시 — 지금 무슨 일이 일어나는지 보여준다 */
+                        <span className={styles.typing}>
+                          {chatStopOn && m.id === STREAM_ID && phase === "search"
+                            ? "🔍 규정 검색 중…"
+                            : chatStopOn && m.id === STREAM_ID && phase === "write"
+                              ? "✍️ 근거를 찾았어요 — 답변 작성 중…"
+                              : "근거 조문을 찾아 답변을 작성 중…"}
+                        </span>
                       )}
                       {m.sources.length ? (
                         <div className={styles.aiSrcHint}>
@@ -617,9 +658,15 @@ export default function ChatApp({
             rows={1}
             disabled={sending}
           />
-          <button className={styles.send} onClick={() => send()} disabled={sending || !input.trim()}>
-            {sending ? "…" : "보내기"}
-          </button>
+          {sending && chatStopOn ? (
+            <button className={styles.stop} onClick={stop} aria-label="응답 수신 중단">■ 중단</button>
+          ) : sending ? (
+            <button className={styles.send} disabled>…</button>
+          ) : (
+            <button className={styles.send} onClick={() => send()} disabled={!input.trim()}>
+              보내기
+            </button>
+          )}
         </div>
         <p className={styles.disclaim}>
           답변은 규정 원문을 근거로 자동 생성됩니다. 금액·기한 등 중요한 사항은 <b>원문과 담당 부서</b> 확인이 필요합니다.

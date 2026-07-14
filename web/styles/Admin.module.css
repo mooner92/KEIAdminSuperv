@@ -235,3 +235,35 @@
   background: var(--color-primary-weak, transparent);
   border: 1px solid var(--color-primary);
 }
+
+/* 🛡 신뢰 탭(docs/34 ②) — 시맨틱 토큰만 */
+.trustHead { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.trustHead select {
+  margin-left: 4px; padding: 3px 8px; border: 1px solid var(--color-border);
+  border-radius: 8px; background: var(--color-surface); color: var(--color-text); font-size: 13px;
+}
+.trustH3 { margin: var(--space-5) 0 var(--space-2); font-size: 15px; color: var(--color-text); }
+.wrapCell { white-space: normal !important; }
+.srcChip {
+  display: inline-block; margin: 2px 4px 2px 0; padding: 1px 8px;
+  border: 1px solid var(--color-border); border-radius: 999px;
+  font-size: 12px; color: var(--color-text-secondary); background: var(--color-surface);
+}
+.srcChip[data-unrev] { border-color: var(--color-warning); color: var(--color-warning); }
+.typeChips { margin-bottom: var(--space-2); }
+.reasonList { margin: 0; padding-left: 18px; font-size: 13px; color: var(--color-text-secondary); }
+.reasonList li { margin-bottom: 4px; }
+
+/* 대시보드 기간 필터(docs/34 ③) */
+.daysSel {
+  margin-left: 8px; padding: 3px 8px; font-size: 13px; font-weight: 600;
+  border: 1px solid var(--color-border); border-radius: 8px;
+  background: var(--color-surface); color: var(--color-text); vertical-align: middle;
+}
+
+.retryBtn {
+  margin-top: 8px; padding: 6px 14px; border: 1px solid var(--color-border);
+  border-radius: 8px; background: var(--color-surface); color: var(--color-text-secondary);
+  font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.retryBtn:hover { border-color: var(--color-primary); color: var(--color-primary); }

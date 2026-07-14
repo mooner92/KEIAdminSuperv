@@ -127,12 +127,15 @@ export type StreamHandlers = {
 
 // 스트리밍(SSE) 전송 — fetch + ReadableStream으로 토큰을 순차 수신.
 // 서버 이벤트(한 줄 JSON): {type:"meta"|"delta"|"done"|"error", ...}
-async function sendMessageStream(id: number, content: string, h: StreamHandlers): Promise<void> {
+// signal(docs/34 ③): Stop 버튼용 AbortSignal — 중단은 '클라이언트 수신 종료'다(서버는 백그라운드
+// 완료·저장 → 대화를 다시 열면 전체 답변이 보인다는 사실을 UI가 정직하게 표기).
+async function sendMessageStream(id: number, content: string, h: StreamHandlers, signal?: AbortSignal): Promise<void> {
   const r = await fetch(`${BASE}/chats/${id}/messages?stream=1`, {
     method: "POST",
     credentials: "same-origin",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ content }),
+    signal,
   });
   if (!r.ok || !r.body) {
     let msg = `요청 실패 (${r.status})`;
@@ -182,6 +185,15 @@ export type DirectoryUser = {
   verified: boolean; is_admin: boolean; chats: number; last_active: number | null;
 };
 
+// 신뢰 운영 트랙(docs/34 ②) — 🔒 본문·메시지 id 없음(규정 메타·집계만)
+export type TrustOps = {
+  days: number;
+  radar: { at: number; 근거: { 규정명: string; 조: string; 검수상태: string }[]; n_unreviewed: number }[];
+  matrix: { 규정명: string; 인용수: number; slug: string; 검수상태: string; down: number }[];
+  feedback_types: { 유형: string; n: number }[];
+  feedback_reasons: { 유형: string; 사유: string; at: number }[];
+};
+
 export const api = {
   me: () => j<User>("/auth/me", undefined, 7000), // 게이트: 7초 내 미응답이면 로그인 화면으로
   login: (username: string, password: string) =>
@@ -195,6 +207,7 @@ export const api = {
   listUsers: () => j<{ n: number; users: DirectoryUser[] }>("/users"),
   trending: (days = 7) =>
     j<{ days: number; min_users: number; keywords: { k: string; n: number }[] }>(`/trending?days=${days}`),
+  trust: (days = 30) => j<TrustOps>(`/trust?days=${days}`),
   logout: () => j<{ ok: boolean }>("/auth/logout", { method: "POST" }),
 
   listChats: () => j<ChatMeta[]>("/chats"),

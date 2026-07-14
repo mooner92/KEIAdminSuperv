@@ -6,6 +6,9 @@ import { api } from "./api";
 // ⛔ 백엔드 FLAG_REGISTRY(app_api.py)와 키를 동기화. 기본값은 항상 '안전한 쪽'(보통 false=기존 동작).
 export const FLAG_DEFAULTS: Record<string, boolean> = {
   changelog: false, // docs/32: 새로워진 점 — 상단 배너+/changelog 페이지+푸터 링크 (release, 만료 2026-12-31)
+  trust_ops: false, // docs/34 ②: 관리자 🛡 신뢰 탭 (release, 만료 2026-12-31)
+  forms_registry: false, // docs/34 ①: /forms 서식 찾기 (release, 만료 2026-12-31)
+  chat_stop: false, // docs/34 ③: 채팅 ■ 중단 버튼+2단계 대기 표시 (release, 만료 2026-12-31)
   graph_expand_regs: false, // 규정↔규정 준용/참조 1홉 확장 (백엔드 실험 플래그)
   user_directory: false, // docs/29 §4: 관리자 사용자 목록 탭 (release, 만료 2026-12-31)
   trending_keywords: false, // docs/29 §1: 빈 화면 인기 키워드 칩 (release, 만료 2026-12-31)
