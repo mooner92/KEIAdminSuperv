@@ -17,9 +17,10 @@ ROOT = Path(__file__).resolve().parent.parent
 RAW = ROOT / "external_affairs_raw"
 VAULT = Path(os.environ.get("VAULT_DIR", ROOT / "KEI-행정가이드"))
 
-# 이번 반입 신규 문서(범위 명시 — 기존 볼트의 과거 노출은 별도 검수 트랙, docs/39 §7)
+# 이번 반입 신규 문서(범위 명시 — 기존 볼트의 과거 노출은 별도 검수 트랙, docs/39 §7).
+# 업무 단위 가이드 분리(docs/39 재설계): 9000_대외업무 폴더 전체 + 용어 + 시스템 노트.
 NEW_DOCS = [
-    VAULT / "10_업무가이드/9000_대외업무/대외요구자료반복업무분류체계.md",
+    *sorted((VAULT / "10_업무가이드/9000_대외업무").glob("*.md")),
     VAULT / "40_시스템/대외업무관리시스템.md",
     *sorted((VAULT / "30_용어집/대외업무").glob("*.md")),
 ]
@@ -60,6 +61,9 @@ if comp.exists():
 # 일반 단어 오탐 제거(부서·직급 등 명백한 비인명)
 STOP = {"연구회", "국회", "완료", "제출", "담당", "부서", "감사실", "임원실"}
 names -= STOP
+# ⚠ 2글자 이름은 일반 단어(이용·정도 등)와 대량 충돌 → 자동 스캔에서 제외(3글자 이상만).
+# 실무상 담당자 실명은 3글자가 대부분이고, 정리본 §7-3 핵심 명단도 전부 3글자라 보호 강도 유지.
+names = {n for n in names if len(n) >= 3}
 assert len(names) >= 50, f"이름 파싱이 비정상적으로 적음({len(names)}) — 원자료 형식 변화?"
 
 fails = []
