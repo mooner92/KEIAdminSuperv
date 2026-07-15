@@ -1,11 +1,44 @@
 import type { GetStaticPaths, GetStaticProps } from "next";
 import Head from "next/head";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/router";
 import { SITE_NAME } from "../../lib/site";
 import Link from "next/link";
 import Layout from "../../components/Layout";
 import Markdown from "../../components/Markdown";
 import { getAllDocs, getDoc, getBacklinks, type Doc, type DocMeta } from "../../lib/vault";
 import styles from "../../styles/Doc.module.css";
+
+// '목록으로' 복귀 대상. 과거엔 `/`(질문하기/LLM)로 하드코딩돼, 캘린더·둘러보기 등에서 문서를 열고
+// 목록으로 누르면 챗봇으로 튕기던 버그가 있었다. 기본은 실제 문서 목록(/browse), 진입 화면을
+// `?from=`으로 알려주면 그 화면으로 되돌린다(화이트리스트만 허용 — 오픈 리다이렉트 방지).
+const FROM_MAP: Record<string, string> = {
+  "/browse/": "목록으로",
+  "/calendar/": "업무 캘린더로",
+  "/now/": "추가 기능으로",
+  "/journey/": "업무 한 장으로",
+  "/graph/": "관계 그래프로",
+  "/forms/": "서식 찾기로",
+  "/changelog/": "새로워진 점으로",
+};
+
+function BackToList() {
+  const router = useRouter();
+  const [href, setHref] = useState("/browse/");
+  const [label, setLabel] = useState("목록으로");
+  useEffect(() => {
+    const from = typeof router.query.from === "string" ? router.query.from : "";
+    if (from && FROM_MAP[from]) {
+      setHref(from);
+      setLabel(FROM_MAP[from]);
+    }
+  }, [router.query.from]);
+  return (
+    <Link href={href} className={styles.back}>
+      ← {label}
+    </Link>
+  );
+}
 
 const SECTION_LABEL: Record<string, string> = {
   규정집: "규정집",
@@ -70,9 +103,7 @@ export default function DocPage({ doc, backlinks }: { doc: Doc; backlinks: DocMe
       ) : null}
 
       <div className={styles.foot}>
-        <Link href="/" className={styles.back}>
-          ← 목록으로
-        </Link>
+        <BackToList />
       </div>
     </Layout>
   );

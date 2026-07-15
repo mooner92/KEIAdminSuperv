@@ -26,7 +26,7 @@ function Item({ it }: { it: SeasonalItem }) {
       </div>
       {it.desc ? <p className={c.desc}>{it.desc}</p> : null}
       {it.근거slug ? (
-        <Link className={c.link} href={`/d/${encodeURIComponent(it.근거slug)}/`}>관련 문서 →</Link>
+        <Link className={c.link} href={`/d/${encodeURIComponent(it.근거slug)}/?from=/calendar/`}>관련 문서 →</Link>
       ) : it.관련페이지 ? (
         <Link className={c.link} href={it.관련페이지}>바로 가보기 →</Link>
       ) : null}

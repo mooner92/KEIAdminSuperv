@@ -53,6 +53,10 @@ export default function GraphPage({ graph }: { graph: GraphData }) {
             <i style={{ background: "#8b5cf6" }} />
             사내 시스템
           </span>
+          <span>
+            <i style={{ background: "#e0508a" }} />
+            대외업무
+          </span>
         </div>
       </div>
       {splitOn ? (
