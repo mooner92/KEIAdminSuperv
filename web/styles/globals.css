@@ -93,6 +93,18 @@
   --hero-bg: linear-gradient(150deg, #0f1623 0%, #142440 55%, #103230 100%);
   --hero-fg: #f4f7fb;
   --hero-fg-dim: rgba(244, 247, 251, 0.45);
+
+  /* 랜딩 '컬러 모먼트'(docs/36 P2.5, Apple 스타일) — 섹션별 은은한 컬러 필드.
+     콘텐츠 종류 액센트(규정집 파랑·가이드 초록·용어집 주황·시스템 보라)와 의미를 연결한다.
+     라이트: 아주 옅은 틴트 필드. 각 섹션은 강한 액센트(숫자·아이브로)로 포인트만. */
+  --sec-blue-bg: #eef4ff;
+  --sec-blue-fg: var(--blue600);
+  --sec-green-bg: #ecfaf3;
+  --sec-green-fg: #0a7d4e;
+  --sec-orange-bg: #fff5e8;
+  --sec-orange-fg: #b9660a;
+  --sec-purple-bg: #f3efff;
+  --sec-purple-fg: #6d4bd6;
 }
 
 * { box-sizing: border-box; }
@@ -152,6 +164,16 @@ html { transition: background-color 0.2s ease; }
   --accent-가이드: #2dd08f;
   --accent-용어집: #ffb547;
   --accent-시스템: #a78bfa;
+
+  /* 랜딩 컬러 모먼트(다크) — 페이지보다 살짝 밝은 틴트 필드 + 밝은 액센트 글자 */
+  --sec-blue-bg: #14202f;
+  --sec-blue-fg: #7db4ff;
+  --sec-green-bg: #10241c;
+  --sec-green-fg: #4ad9a0;
+  --sec-orange-bg: #271d10;
+  --sec-orange-fg: #ffc06b;
+  --sec-purple-bg: #1e1830;
+  --sec-purple-fg: #b79bf5;
 
   --badge-warn-bg: #3a2e16;
   --badge-warn-border: #5c4a1f;

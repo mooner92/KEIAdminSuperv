@@ -3,14 +3,34 @@
 .page { width: 100%; }
 .section {
   width: 100%;
-  padding: 72px 0;
+  padding: 104px 0; /* 애플식 넉넉한 여백 */
   scroll-margin-top: calc(var(--header-h) + 8px); /* sticky 헤더 가림 방지(레일 점프) */
 }
 .alt { background: var(--color-bg-subtle); }
+/* 컬러 모먼트(P2.5) — 섹션별 은은한 컬러 필드(라이트/다크 토큰 분기) */
+.mBlue { background: var(--sec-blue-bg); }
+.mGreen { background: var(--sec-green-bg); }
+.mOrange { background: var(--sec-orange-bg); }
+.mPurple { background: var(--sec-purple-bg); }
 .inner {
-  max-width: 920px;
+  max-width: 960px;
   margin: 0 auto;
   padding: 0 var(--space-5);
+}
+
+/* 섹션 아이브로 — 작은 액센트 라벨 */
+.eyebrow { margin: 0 0 12px; font-size: 13px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+.tBlue { color: var(--sec-blue-fg); }
+.tGreen { color: var(--sec-green-fg); }
+.tOrange { color: var(--sec-orange-fg); }
+.tPurple { color: var(--sec-purple-fg); }
+
+/* 텍스트+비주얼 2열 스플릿(이렇게 물어보세요) */
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-6); align-items: center; }
+.splitText { min-width: 0; }
+.splitVisual { min-width: 0; }
+@media (max-width: 760px) {
+  .split { grid-template-columns: 1fr; }
 }
 
 /* 등장 애니메이션 — reduced-motion에서는 정의 자체를 안 함(§7: 애니메이션 0).
@@ -31,7 +51,7 @@
   padding: 108px 0 96px;
 }
 .heroKicker { margin: 0 0 10px; font-size: 13px; font-weight: 700; letter-spacing: 0.04em; opacity: 0.75; }
-.heroTitle { margin: 0 0 14px; font-size: clamp(30px, 5vw, 46px); font-weight: 900; letter-spacing: -0.02em; }
+.heroTitle { margin: 0 0 16px; font-size: clamp(38px, 6.5vw, 60px); font-weight: 900; letter-spacing: -0.03em; line-height: 1.08; }
 .homeTitle { margin: 0 0 12px; font-size: clamp(26px, 5vw, 36px); font-weight: 900; letter-spacing: -0.02em; }
 .heroLead { margin: 0; font-size: clamp(15px, 2.2vw, 18px); line-height: 1.7; opacity: 0.9; }
 .heroCtas { display: flex; gap: 12px; margin-top: 28px; flex-wrap: wrap; }
@@ -59,9 +79,9 @@
 }
 .ctaGhost:hover { background: rgba(255, 255, 255, 0.08); }
 
-/* ── 본문 섹션 ── */
-.h2 { margin: 0 0 10px; font-size: clamp(21px, 3vw, 28px); font-weight: 850; color: var(--color-text); }
-.lead { margin: 0 0 var(--space-4); font-size: 15px; line-height: 1.7; color: var(--color-text-secondary); }
+/* ── 본문 섹션 (애플식 큰 타이포) ── */
+.h2 { margin: 0 0 14px; font-size: clamp(27px, 4.2vw, 42px); font-weight: 850; line-height: 1.15; letter-spacing: -0.02em; color: var(--color-text); }
+.lead { margin: 0 0 var(--space-5); font-size: clamp(15px, 1.8vw, 18px); line-height: 1.7; color: var(--color-text-secondary); }
 
 .exampleChips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 var(--space-4); }
 .exChip {
@@ -118,6 +138,18 @@
 .mockDisclaim { margin-top: 8px !important; font-size: 12px !important; color: var(--color-text-tertiary) !important; }
 .mockCaption { padding: 8px 14px 12px; font-size: 12px; color: var(--color-text-tertiary); }
 
+/* 관계 그래프 미니 비주얼 */
+.graphViz {
+  margin: var(--space-4) 0 var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-surface);
+  padding: var(--space-5);
+  height: 220px;
+  box-shadow: var(--shadow-card);
+}
+.graphViz svg { display: block; height: 100%; }
+
 /* 가드레일 카드 — 신뢰 자산 1급(리뷰 확정) */
 .guardCard {
   border: 1px solid var(--color-border);
@@ -154,8 +186,8 @@
   padding: var(--space-4);
   text-align: center;
 }
-.stat b { display: block; font-size: clamp(22px, 3vw, 30px); font-weight: 900; color: var(--color-primary); }
-.stat span { font-size: 13px; font-weight: 600; color: var(--color-text-secondary); }
+.stat b { display: block; font-size: clamp(34px, 5vw, 52px); font-weight: 900; letter-spacing: -0.03em; color: var(--sec-orange-fg); line-height: 1.05; }
+.stat span { font-size: 13.5px; font-weight: 600; color: var(--color-text-secondary); }
 .trustNote { margin: 0; font-size: 13px; line-height: 1.7; color: var(--color-text-tertiary); }
 
 /* 시작하기 */

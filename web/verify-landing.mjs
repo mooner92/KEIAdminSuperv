@@ -18,7 +18,8 @@ check("① 섹션 6개", sections === 6, String(sections));
 const railBtns = await p.locator('nav[aria-label="페이지 섹션 이동"] button').count();
 check("① ScrollRail 라벨 6개", railBtns === 6, String(railBtns));
 check("① 가드레일 시연(거부 문구)", body.includes("규정에서 확인되지 않습니다"));
-check("① 수치 카드(실측치)", /\d+\s*\n?규정 원문/.test(body) && body.includes("사람 검수 완료"));
+// 수치 카드 — 규정 원문 건수는 항상, '사람 검수 완료'는 값>0일 때만(0이면 숨김: 신뢰 역효과 방지)
+check("① 수치 카드(실측치)", /규정 원문/.test(body) && /\d{2,}/.test(body) && !/\b0\s*\n?\s*사람 검수 완료/.test(body));
 check("① 가입 3단계 스텝퍼", body.includes("6자리 코드"));
 check("① 로그인 상태 → 질문하러 가기", body.includes("질문하러 가기"));
 await p.screenshot({ path: "verify-landing.png", fullPage: true });

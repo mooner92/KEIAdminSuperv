@@ -39,6 +39,35 @@ function useReveal(root: React.RefObject<HTMLDivElement>) {
   }, [root]);
 }
 
+/** 섹션 아이브로 — 애플식 작은 액센트 라벨(컬러 모먼트의 포인트 색) */
+function Eyebrow({ tone, children }: { tone: string; children: React.ReactNode }) {
+  return <p className={`${styles.eyebrow} ${styles[tone]}`}>{children}</p>;
+}
+
+/** 관계 그래프 미니 비주얼 — 노드·엣지 SVG(정적, 커밋 가능). 우리의 가장 강한 시각 자산. */
+function GraphVisual() {
+  const nodes = [
+    { x: 90, y: 60, r: 15, a: "규정집" }, { x: 200, y: 40, r: 10, a: "가이드" },
+    { x: 250, y: 120, r: 13, a: "규정집" }, { x: 150, y: 130, r: 18, a: "규정집" },
+    { x: 60, y: 150, r: 9, a: "용어집" }, { x: 300, y: 70, r: 8, a: "시스템" },
+  ];
+  const edges = [[0, 3], [0, 1], [3, 2], [3, 4], [1, 2], [2, 5], [1, 5]];
+  const col = (a: string) => `var(--accent-${a})`;
+  return (
+    <div className={styles.graphViz} aria-hidden>
+      <svg viewBox="0 0 340 180" width="100%" height="100%">
+        {edges.map(([a, z], i) => (
+          <line key={i} x1={nodes[a].x} y1={nodes[a].y} x2={nodes[z].x} y2={nodes[z].y}
+            stroke="var(--color-border-strong)" strokeWidth="1.5" />
+        ))}
+        {nodes.map((nd, i) => (
+          <circle key={i} cx={nd.x} cy={nd.y} r={nd.r} fill={col(nd.a)} opacity="0.9" />
+        ))}
+      </svg>
+    </div>
+  );
+}
+
 /** 채팅 실사용 목업 — UI 형태만 재현(커밋 가능). 답변·출처는 자리표시 문구다. */
 function ChatMockup() {
   return (
@@ -126,22 +155,26 @@ export default function Landing({
         </div>
       </section>
 
-      {/* 2. 이렇게 물어보세요 */}
-      <section id="ask" className={styles.section}>
-        <div className={styles.inner} data-reveal>
-          <h2 className={styles.h2}>이렇게 물어보세요</h2>
-          <p className={styles.lead}>평소 말하듯 물으면 됩니다. 예를 들면 —</p>
-          <div className={styles.exampleChips} aria-label="예시 질문">
-            {EXAMPLES.map((q) => <span key={q} className={styles.exChip}>{q}</span>)}
+      {/* 2. 이렇게 물어보세요 — 파랑 모먼트 + 채팅 목업 나란히 */}
+      <section id="ask" className={`${styles.section} ${styles.mBlue}`}>
+        <div className={`${styles.inner} ${styles.split}`} data-reveal>
+          <div className={styles.splitText}>
+            <Eyebrow tone="tBlue">질문하기</Eyebrow>
+            <h2 className={styles.h2}>말하듯 물으면,<br />규정이 답합니다</h2>
+            <p className={styles.lead}>어려운 규정 용어를 몰라도 괜찮아요. 평소 말하듯 물어보세요.</p>
+            <div className={styles.exampleChips} aria-label="예시 질문">
+              {EXAMPLES.map((q) => <span key={q} className={styles.exChip}>{q}</span>)}
+            </div>
           </div>
-          <ChatMockup />
+          <div className={styles.splitVisual}><ChatMockup /></div>
         </div>
       </section>
 
       {/* 3. 모든 답에 근거 + 가드레일 시연(신뢰 자산 1급 — 리뷰 확정) */}
-      <section id="sources" className={`${styles.section} ${styles.alt}`}>
+      <section id="sources" className={`${styles.section} ${styles.mGreen}`}>
         <div className={styles.inner} data-reveal>
-          <h2 className={styles.h2}>모든 답에 근거가 달립니다</h2>
+          <Eyebrow tone="tGreen">근거</Eyebrow>
+          <h2 className={styles.h2}>모든 답에<br />근거가 달립니다</h2>
           <p className={styles.lead}>
             답변 옆 근거 패널에서 인용된 조문을 바로 열어볼 수 있고, 금액·한도가 나오면
             원문 수치 확인을 안내합니다. 규정집 기준일({CORPUS_AS_OF})도 항상 표시돼요.
@@ -157,10 +190,13 @@ export default function Landing({
         </div>
       </section>
 
-      {/* 4. 둘러보고 연결해서 */}
-      <section id="explore" className={styles.section}>
+      {/* 4. 둘러보고 연결해서 — 보라 모먼트 + 그래프 비주얼 */}
+      <section id="explore" className={`${styles.section} ${styles.mPurple}`}>
         <div className={styles.inner} data-reveal>
-          <h2 className={styles.h2}>둘러보고, 연결해서 보세요</h2>
+          <Eyebrow tone="tPurple">둘러보기</Eyebrow>
+          <h2 className={styles.h2}>규정은 서로 연결돼 있어요</h2>
+          <p className={styles.lead}>하나의 규정에서 관련 규정·가이드·서식으로 자연스럽게 이어집니다.</p>
+          <GraphVisual />
           <div className={styles.featGrid}>
             <Link href="/browse/" className={styles.featCard}>
               <span className={styles.featEmoji}>📚</span>
@@ -181,16 +217,22 @@ export default function Landing({
         </div>
       </section>
 
-      {/* 5. 믿을 수 있게 — 사용자 언어 실측치만(빌드타임 계산, 리뷰 확정) */}
-      <section id="trust" className={`${styles.section} ${styles.alt}`}>
+      {/* 5. 믿을 수 있게 — 사용자 언어 실측치만(빌드타임 계산, 리뷰 확정). 주황 모먼트 */}
+      <section id="trust" className={`${styles.section} ${styles.mOrange}`}>
         <div className={styles.inner} data-reveal>
+          <Eyebrow tone="tOrange">신뢰</Eyebrow>
           <h2 className={styles.h2}>믿을 수 있게 운영합니다</h2>
           {counts ? (
             <div className={styles.statGrid}>
-              <div className={styles.stat}><b>{counts.regs}</b><span>규정 원문</span></div>
-              <div className={styles.stat}><b>{counts.guides}</b><span>업무 가이드</span></div>
-              <div className={styles.stat}><b>{counts.terms}</b><span>행정 용어</span></div>
-              <div className={styles.stat}><b>{counts.reviewed}</b><span>사람 검수 완료</span></div>
+              {/* 값이 0인 지표는 숨긴다 — '0 검수완료'는 신뢰를 되레 깎는다(보안 리뷰 확정, §3-5) */}
+              {[
+                { n: counts.regs, label: "규정 원문" },
+                { n: counts.guides, label: "업무 가이드" },
+                { n: counts.terms, label: "행정 용어" },
+                { n: counts.reviewed, label: "사람 검수 완료" },
+              ].filter((s) => s.n > 0).map((s) => (
+                <div key={s.label} className={styles.stat}><b>{s.n.toLocaleString()}</b><span>{s.label}</span></div>
+              ))}
             </div>
           ) : null}
           <p className={styles.trustNote}>
@@ -203,7 +245,8 @@ export default function Landing({
       {/* 6. 시작하기 */}
       <section id="start" className={styles.section}>
         <div className={styles.inner} data-reveal>
-          <h2 className={styles.h2}>시작하기</h2>
+          <Eyebrow tone="tBlue">시작하기</Eyebrow>
+          <h2 className={styles.h2}>3분이면 충분해요</h2>
           <ol className={styles.steps} aria-label="가입 절차">
             <li><b>1</b> KEI 이메일(@kei.re.kr)로 가입</li>
             <li><b>2</b> 메일로 받은 6자리 코드 입력</li>
