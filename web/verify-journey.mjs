@@ -12,6 +12,9 @@ const p = await (await b.newContext({ viewport: { width: 1360, height: 900 } }))
 await p.goto(`${BASE}/journey/`, { waitUntil: "load" });
 await p.waitForTimeout(1800);
 ok((await p.getByRole("tab", { name: /국내출장/ }).count()) > 0, "1) 업무 선택 칩 렌더");
+// 여정이 늘어 기본 선택이 바뀔 수 있으므로 국내출장을 명시적으로 선택(순서 의존 제거)
+await p.getByRole("tab", { name: /국내출장/ }).click();
+await p.waitForTimeout(500);
 ok((await p.getByText("여비 기준 확인").count()) > 0, "2) 스윔레인 노드 렌더(국내출장 6노드)");
 ok((await p.locator("svg path[marker-end]").count()) >= 5, "3) SVG 엣지(화살표) 5개+");
 ok((await p.getByText("ERP 시스템").count()) > 0 && (await p.getByText("결재권자").count()) > 0, "4) 레인(행위자) 헤더");
