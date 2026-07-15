@@ -119,6 +119,9 @@ const loginVisible = await pa.evaluate(() => {
 check("⑦ 로그인 카드 첫 화면 가시(2클릭 이내 도달)", loginVisible);
 await pa.waitForTimeout(1500);
 check("⑦ 비로그인 track 전송 0건(401 노이즈 근절)", anonTracks === 0, String(anonTracks));
+// 비로그인엔 앱 메뉴(GNB) 숨김 — 사용자 요청
+const hdr = await pa.innerText("header");
+check("⑦ 비로그인: GNB 앱 메뉴 숨김", !hdr.includes("규정 둘러보기") && !hdr.includes("관계 그래프") && !hdr.includes("지금 KEI"), hdr.replace(/\s+/g, " ").slice(0, 80));
 await pa.screenshot({ path: "verify-landing-home.png" });
 await ctxAnon.close().catch(() => {});
 

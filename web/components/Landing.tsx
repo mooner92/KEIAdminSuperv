@@ -246,7 +246,7 @@ export default function Landing({
       <section id="start" className={styles.section}>
         <div className={styles.inner} data-reveal>
           <Eyebrow tone="tBlue">시작하기</Eyebrow>
-          <h2 className={styles.h2}>3분이면 충분해요</h2>
+          <h2 className={styles.h2}>1분이면 충분해요</h2>
           <ol className={styles.steps} aria-label="가입 절차">
             <li><b>1</b> KEI 이메일(@kei.re.kr)로 가입</li>
             <li><b>2</b> 메일로 받은 6자리 코드 입력</li>

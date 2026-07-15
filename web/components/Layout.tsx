@@ -78,13 +78,14 @@ export default function Layout({
   const landingOn = useFlag("landing_page"); // 소개 페이지(docs/36) — footer '소개' 진입
   // 관리자 링크는 관리자에게만 노출(보안은 백엔드 403로 방어되나, 비관리자/로그아웃엔 링크 숨김)
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isAuthed, setIsAuthed] = useState(false); // 로그인 상태 — 비로그인엔 앱 메뉴(GNB) 숨김
   const [authKnown, setAuthKnown] = useState(false);
   useEffect(() => {
     api
       .me()
-      .then((u) => { setIsAdmin(!!u.is_admin); setTrackAuthed(true); })
+      .then((u) => { setIsAdmin(!!u.is_admin); setIsAuthed(true); setTrackAuthed(true); })
       // 비로그인 확정 → track 전송 자체를 끔(401 뮤트가 로그인 직후 계측을 유실시키는 부작용 차단)
-      .catch(() => { setIsAdmin(false); setTrackAuthed(false); })
+      .catch(() => { setIsAdmin(false); setIsAuthed(false); setTrackAuthed(false); })
       .finally(() => setAuthKnown(true));
   }, []);
   // 사용량 수집(docs/35 §0): 라우트 단위 page_view — 페이로드 없음, flag off면 서버가 무시.
@@ -108,14 +109,19 @@ export default function Layout({
             <span className={styles.mark}>KEI</span>
             <span className={styles.brandText}>행정 가이드</span>
           </Link>
-          <nav className={styles.nav}>
-            <Link href="/" className={nav("/")} aria-current={pathname === "/" ? "page" : undefined}>질문하기</Link>
-            <Link href="/browse/" className={nav("/browse")} aria-current={pathname.startsWith("/browse") ? "page" : undefined}>규정 둘러보기</Link>
-            <Link href="/graph/" className={nav("/graph")} aria-current={pathname.startsWith("/graph") ? "page" : undefined}>관계 그래프</Link>
-            {approvalNav ? <Link href="/approval/" className={nav("/approval")} aria-current={pathname.startsWith("/approval") ? "page" : undefined}>결재선</Link> : null}
-            {journeyNav ? <Link href="/journey/" className={nav("/journey")} aria-current={pathname.startsWith("/journey") ? "page" : undefined}>업무 한 장</Link> : null}
-            {eventsOn ? <Link href="/now/" className={nav("/now")} aria-current={pathname.startsWith("/now") ? "page" : undefined}>지금 KEI</Link> : null}
-          </nav>
+          {/* 앱 메뉴(GNB)는 로그인 후에만 — 비로그인(랜딩/로그인)엔 숨긴다. 인증 확인 전엔 미표시(플래시 방지) */}
+          {isAuthed ? (
+            <nav className={styles.nav}>
+              <Link href="/" className={nav("/")} aria-current={pathname === "/" ? "page" : undefined}>질문하기</Link>
+              <Link href="/browse/" className={nav("/browse")} aria-current={pathname.startsWith("/browse") ? "page" : undefined}>규정 둘러보기</Link>
+              <Link href="/graph/" className={nav("/graph")} aria-current={pathname.startsWith("/graph") ? "page" : undefined}>관계 그래프</Link>
+              {approvalNav ? <Link href="/approval/" className={nav("/approval")} aria-current={pathname.startsWith("/approval") ? "page" : undefined}>결재선</Link> : null}
+              {journeyNav ? <Link href="/journey/" className={nav("/journey")} aria-current={pathname.startsWith("/journey") ? "page" : undefined}>업무 한 장</Link> : null}
+              {eventsOn ? <Link href="/now/" className={nav("/now")} aria-current={pathname.startsWith("/now") ? "page" : undefined}>지금 KEI</Link> : null}
+            </nav>
+          ) : (
+            <span className={styles.nav} aria-hidden />
+          )}
           <div className={styles.headerRight}>
             <ThemeToggle />
             <span className={styles.flag}>🔒 사내 전용</span>
@@ -141,8 +147,9 @@ export default function Layout({
               aria-pressed={onHelp}>{onHelp ? "✕ 도움말 닫기" : "도움말"}</Link>
             {helpHub ? <Link href="/help/#faq" className={styles.adminLink}>FAQ</Link> : null}
             {landingOn ? <Link href="/about/" className={styles.adminLink}>소개</Link> : null}
-            {formsOn ? <Link href="/forms/" className={styles.adminLink}>서식 찾기</Link> : null}
-            {changelogOn ? <Link href="/changelog/" className={styles.adminLink}>새로워진 점</Link> : null}
+            {/* 앱 콘텐츠 링크는 로그인 후에만(비로그인엔 소개·도움말만) */}
+            {isAuthed && formsOn ? <Link href="/forms/" className={styles.adminLink}>서식 찾기</Link> : null}
+            {isAuthed && changelogOn ? <Link href="/changelog/" className={styles.adminLink}>새로워진 점</Link> : null}
             <span className={styles.asOf} title="배포 빌드 식별자">v.{BUILD_ID}</span>
             {isAdmin ? (
               <Link href="/admin/" className={styles.adminLink}>관리자</Link>
