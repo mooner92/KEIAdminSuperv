@@ -185,6 +185,16 @@ export type DirectoryUser = {
   verified: boolean; is_admin: boolean; chats: number; last_active: number | null;
 };
 
+// 사용량 수집(docs/35 §0) — 🔒 집계만(개별 사용자 행위 미반환).
+// users=null은 k-익명 마스킹(min_users명 미만) — UI는 'N명 미만'으로 표시.
+export type Usage = {
+  days: number;
+  min_users: number;
+  events: { name: string; n: number; users: number | null }[];
+  pages: { page: string; n: number }[];
+  dau: { day: string; users: number | null }[];
+};
+
 // 신뢰 운영 트랙(docs/34 ②) — 🔒 본문·메시지 id 없음(규정 메타·집계만)
 export type TrustOps = {
   days: number;
@@ -208,6 +218,7 @@ export const api = {
   trending: (days = 7) =>
     j<{ days: number; min_users: number; keywords: { k: string; n: number }[] }>(`/trending?days=${days}`),
   trust: (days = 30) => j<TrustOps>(`/trust?days=${days}`),
+  usage: (days = 30) => j<Usage>(`/usage?days=${days}`),
   logout: () => j<{ ok: boolean }>("/auth/logout", { method: "POST" }),
 
   listChats: () => j<ChatMeta[]>("/chats"),

@@ -18,13 +18,14 @@ os.environ["APP_ADMINS"] = "boss"  # admin = 'boss'
 
 from fastapi import FastAPI                       # noqa: E402
 from fastapi.testclient import TestClient         # noqa: E402
-from sqlmodel import Session                      # noqa: E402
+from sqlmodel import Session, select              # noqa: E402
 
 import app_api                                     # noqa: E402  (import 시 임시 DB로 init_db)
 import feedback_export                             # noqa: E402
 
 app = FastAPI()
 app.include_router(app_api.router)
+app_api.init_db()
 
 fails = []
 
@@ -36,11 +37,14 @@ def ok(cond, label):
 
 
 def client_for(uname, pw="pass1234"):
-    """등록(있으면 로그인)된 쿠키를 가진 클라이언트."""
+    """로그인된 쿠키를 가진 클라이언트. 가입정책(§3, @kei.re.kr+이메일 인증) 도입 후
+    테스트 사용자는 레거시 계정처럼 DB 직접 생성(verified=True) 후 로그인한다."""
     c = TestClient(app)
-    r = c.post("/app/auth/register", json={"username": uname, "password": pw})
-    if r.status_code == 409:
-        r = c.post("/app/auth/login", json={"username": uname, "password": pw})
+    with Session(app_api.engine) as s:
+        if not s.exec(select(app_api.User).where(app_api.User.username == uname)).first():
+            s.add(app_api.User(username=uname, password_hash=app_api.hash_pw(pw), verified=True))
+            s.commit()
+    r = c.post("/app/auth/login", json={"username": uname, "password": pw})
     assert r.status_code == 200, (uname, r.status_code, r.text)
     return c
 

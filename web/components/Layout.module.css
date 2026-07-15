@@ -70,8 +70,11 @@
   margin-right: auto;
   font-size: 14px;
   font-weight: 600;
+  /* 탭 6개(플래그 전부 on)여도 좁은 화면에서 페이지 가로 스크롤이 생기지 않게 —
+     nav 자체가 접히고(min-width:0) 내부만 스크롤(모바일 미디어쿼리에서 overflow-x) */
+  min-width: 0;
 }
-.nav a { color: var(--color-text-secondary); padding: 4px 2px; }
+.nav a { color: var(--color-text-secondary); padding: 4px 2px; flex: 0 0 auto; white-space: nowrap; }
 .nav a:hover { color: var(--color-primary); }
 /* v1 ⑩(S5-#15): 현재 페이지 표시 */
 .navActive { color: var(--color-text) !important; font-weight: 800; border-bottom: 2px solid var(--color-primary); padding-bottom: 2px !important; }
@@ -109,8 +112,9 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
+  flex-wrap: wrap; /* 좁은 화면(리뷰 확정: 375px 가로 스크롤)에서 줄바꿈 — 페이지 폭을 밀지 않는다 */
 }
-.footerRight { display: flex; align-items: center; gap: var(--space-3); flex: 0 0 auto; }
+.footerRight { display: flex; align-items: center; gap: var(--space-3); flex: 0 1 auto; flex-wrap: wrap; }
 .asOf { color: var(--color-text-tertiary); white-space: nowrap; font-weight: 600; cursor: help; }
 .adminLink { color: var(--color-text-tertiary); font-weight: 600; white-space: nowrap; }
 .adminLink:hover { color: var(--color-primary); }
@@ -136,6 +140,15 @@
   .inner { padding: 0 var(--space-4); }
   .innerFill { padding: var(--space-3) var(--space-4); }
   .brandText { display: none; }
+  /* GNB 6탭(리뷰 확정: ≤390px 오버플로) — 페이지 대신 nav 내부만 가로 스크롤 */
+  .nav {
+    gap: var(--space-3);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .nav::-webkit-scrollbar { display: none; }
+  .flag { display: none; } /* '🔒 사내 전용' 칩은 좁은 화면에서 nav에 자리를 양보 */
 }
 
 /* 업데이트 배너(docs/32) — 기존 .banner 재사용 + 링크/닫기. 시맨틱 토큰만 */

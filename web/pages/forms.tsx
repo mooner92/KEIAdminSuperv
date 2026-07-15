@@ -1,10 +1,11 @@
 import Head from "next/head";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { GetStaticProps } from "next";
 import Layout from "../components/Layout";
 import { useFlag } from "../lib/flags";
 import { SITE_NAME } from "../lib/site";
+import { track } from "../lib/track";
 import { loadForms, type FormEntry } from "../lib/vault";
 import styles from "../styles/Home.module.css";
 import f from "../styles/Forms.module.css";
@@ -20,6 +21,12 @@ function norm(s: string) {
 export default function FormsPage({ forms }: { forms: FormEntry[] }) {
   const on = useFlag("forms_registry");
   const [q, setQ] = useState("");
+  // 사용량(docs/35): 검색은 1.2s 디바운스 1건 — 검색어 자체는 보내지 않음
+  useEffect(() => {
+    if (!q.trim()) return;
+    const t = setTimeout(() => track("forms_search"), 1200);
+    return () => clearTimeout(t);
+  }, [q]);
   const shown = useMemo(() => {
     const t = norm(q);
     if (!t) return forms;
@@ -82,7 +89,8 @@ export default function FormsPage({ forms }: { forms: FormEntry[] }) {
                 <td>{e.규정명}</td>
                 <td className={f.no}>{e.호}</td>
                 <td>
-                  <Link className={f.go} href={`/d/${encodeURIComponent(e.slug)}/#${encodeURIComponent(e.anchor)}`}>
+                  <Link className={f.go} href={`/d/${encodeURIComponent(e.slug)}/#${encodeURIComponent(e.anchor)}`}
+                    onClick={() => track("forms_open")}>
                     원문 보기 →
                   </Link>
                 </td>

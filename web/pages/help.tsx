@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import Layout from "../components/Layout";
 import { useFlag } from "../lib/flags";
 import { CORPUS_AS_OF, SITE_NAME } from "../lib/site";
+import { track } from "../lib/track";
 import styles from "../styles/Home.module.css";
 import h from "../styles/Help.module.css";
 
@@ -101,6 +102,7 @@ export default function Help() {
   const router = useRouter();
   const hubOn = useFlag("help_hub"); // docs/31 — off면 현행 도움말 그대로(안전 기본값)
   const changelogOn = useFlag("changelog"); // docs/32 — 새로워진 점 링크
+  const formsOn = useFlag("forms_registry"); // docs/34 ① — 서식 찾기 링크
   const back = () => (window.history.length > 1 ? router.back() : router.push("/"));
   const jump = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
   return (
@@ -131,6 +133,7 @@ export default function Help() {
             <li><b><Link href="/">질문하기</Link></b> — 행정 업무를 물으면 사내 규정·가이드·시스템 안내를 근거(출처)와 함께 답합니다.</li>
             <li><b><Link href="/browse/">규정 둘러보기</Link></b> — 원문 검색·필터, <b><Link href="/graph/">관계 그래프</Link></b> — 규정 간 연결 탐색.</li>
             <li><b><Link href="/approval/">결재선</Link></b> — 위임전결규정 별표 기준 전결권자 조회.</li>
+            {formsOn ? <li><b><Link href="/forms/">서식 찾기</Link></b> — 규정 별지 서식을 이름·번호로 검색해 원문으로 바로 이동.</li> : null}
           </ul>
         </section>
 
@@ -162,6 +165,9 @@ export default function Help() {
           <ul>
             <li>대화 내용은 <b>사내 서버에만</b> 저장되며 외부로 나가지 않습니다(온프레미스 LLM).</li>
             <li>관리자는 개별 대화 내용을 볼 수 없고, 서로 다른 3명 이상이 물은 질문만 익명 집계로 봅니다.</li>
+            <li>더 나은 개선을 위해 <b>기능 사용 횟수</b>(버튼 클릭·페이지 방문 수)를 집계할 수 있어요 —
+              무엇을 입력했는지·어떤 문서를 읽었는지는 수집하지 않습니다. 집계를 위해 횟수는
+              계정 단위로 저장되지만 관리자에게는 <b>합계만</b> 보이고, 오래된 기록은 자동 삭제됩니다.</li>
           </ul>
         </section>
 
@@ -169,7 +175,8 @@ export default function Help() {
           <section id="faq" className={h.section}>
             <h2>자주 묻는 질문 (FAQ)</h2>
             {FAQ.filter((f) => !f.hidden).map((f) => (
-              <details key={f.q} className={h.faqItem}>
+              <details key={f.q} className={h.faqItem}
+                onToggle={(e) => { if ((e.target as HTMLDetailsElement).open) track("faq_open"); }}>
                 <summary>{f.q}</summary>
                 <div className={h.faqBody}>{f.a}</div>
               </details>

@@ -1,0 +1,54 @@
+/* 지금 KEI에서(docs/35) — 시맨틱 토큰만(다크모드 호환) */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--space-3);
+  max-width: 1040px;
+}
+.card {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  padding: var(--space-4);
+  min-width: 0;
+}
+.h2 { margin: 0 0 var(--space-3); font-size: 15.5px; font-weight: 800; color: var(--color-text); }
+.muted { color: var(--color-text-tertiary); font-size: 12.5px; }
+
+/* 월 선택 칩(스펙 §2) — 1~12월, 현재 선택 강조 */
+.monthChips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 var(--space-3); }
+.monthChip {
+  border: 1px solid var(--color-border); border-radius: 999px; background: var(--color-surface);
+  color: var(--color-text-secondary); font-size: 12px; font-weight: 700; padding: 3px 9px; cursor: pointer;
+}
+.monthChip:hover { color: var(--color-primary); border-color: var(--color-primary); }
+.monthOn { background: var(--color-primary); border-color: var(--color-primary); color: var(--color-on-primary); }
+
+.calList { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--space-3); }
+.calHead { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; color: var(--color-text); }
+.when { font-size: 12px; color: var(--color-text-secondary); }
+.draft {
+  font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 6px;
+  color: var(--color-warning); border: 1px solid var(--color-warning);
+}
+.calDesc { margin: 4px 0 0; font-size: 13px; color: var(--color-text-secondary); line-height: 1.55; }
+.calLink { display: inline-block; margin-top: 4px; font-size: 12.5px; font-weight: 700; color: var(--color-primary); }
+.calLink:hover { text-decoration: underline; }
+.nextUp { margin: var(--space-3) 0 0; padding-top: var(--space-2); border-top: 1px dashed var(--color-border); font-size: 12.5px; color: var(--color-text-tertiary); }
+
+.trendList { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.trendList li { display: flex; align-items: center; gap: 10px; }
+.trendLabel { flex: 0 0 96px; font-size: 13.5px; font-weight: 600; color: var(--color-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trendLabel:hover { color: var(--color-primary); }
+.trendBarWrap { flex: 1; height: 8px; border-radius: 999px; background: var(--color-bg-subtle); overflow: hidden; }
+.trendBar { display: block; height: 100%; border-radius: 999px; background: var(--color-primary); }
+.trendN { flex: 0 0 auto; font-size: 12px; color: var(--color-text-tertiary); }
+
+.plainList { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; font-size: 13.5px; }
+.plainList a { color: var(--color-text); font-weight: 600; }
+.plainList a:hover { color: var(--color-primary); }
+
+.termBody { margin: 0; font-size: 14px; line-height: 1.6; }
+.termLink { font-size: 17px; font-weight: 800; color: var(--color-primary); }
+.termLink:hover { text-decoration: underline; }

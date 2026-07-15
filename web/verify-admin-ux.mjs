@@ -13,7 +13,10 @@ const p = await ctx.newPage({ viewport: { width: 1440, height: 1300 } });
 await p.goto(`${BASE}/admin/#corpus`, { waitUntil: "load" });
 await p.waitForTimeout(2500);
 let body = await p.textContent("body");
-ok((await p.locator('[aria-label="관리자 메뉴"] [role="tab"]').count()) === 3, "1) 탭 3개(대시보드·코퍼스·플래그)");
+// 탭 수는 기능 추가로 늘어난다(현재 6: 대시보드·코퍼스·표 복원·신뢰·사용자·플래그) — 핵심 3개 존재로 판정
+const tabTexts = await p.locator('[aria-label="관리자 메뉴"] [role="tab"]').allInnerTexts();
+ok(tabTexts.length >= 3 && ["대시보드", "코퍼스", "기능 플래그"].every((t) => tabTexts.some((x) => x.includes(t))),
+  `1) 핵심 탭 존재(대시보드·코퍼스·플래그) — 총 ${tabTexts.length}개`);
 ok(body.includes("전체 목록") && body.includes("제외 문서함"), "2) #corpus 딥링크 → 코퍼스 탭 직행");
 
 // ② 코퍼스: Explorer형 필터 + 페이지네이션
@@ -24,23 +27,34 @@ await p.waitForTimeout(500);
 body = await p.textContent("body");
 ok(/1\d\d건/.test(body), "5) 구분 필터(규정집) → 건수 축소");
 
-// ③ 제외 문서함 흐름: 제외 → 전체 목록에서 사라짐 → 제외함에 '⛔제외됨'+복귀
+// ③ 제외 문서함 흐름: 제외 → 전체 목록에서 사라짐 → 제외함에 '⛔제외됨'+복귀.
+// ⚠ dev에는 의도적 제외(docs/28 옛 문서)가 상존 — '비어야 한다'가 아니라 '원상 복귀'로 판정하고,
+//    복귀 클릭은 반드시 복무규정 행으로 스코프(first()는 남의 문서를 복귀시킬 수 있다).
+const baseExcluded = Number((body.match(/제외 문서함 (\d+)/) || [])[1] || 0);
 await p.locator('input[aria-label="코퍼스 검색"]').fill("복무규정");
 await p.waitForTimeout(500);
 await p.locator('button:has-text("색인 제외")').first().click();
-await p.waitForTimeout(1200);
-body = await p.textContent("body");
-ok(!body.includes("전결") && (await p.locator('[class*="corpusRow"]').filter({ hasText: /^복무규정/ }).count()) === 0, "6) 제외 → 전체 목록에서 사라짐");
+// 실측: 제외된 문서는 전체 목록(현재 뷰)에서 사라진다(배지는 '제외 문서함' 뷰에서만).
+// ⚠ 구판의 !body.includes("전결")는 필터 패널의 '전결' 분류 텍스트에 오탐 — 제거.
+// ⚠ 토글 후 재조회는 비동기 — 고정 대기 대신 폴링(레이스 방지, E2E 규약)
+const gone = await p.waitForFunction(
+  () => ![...document.querySelectorAll('[class*="corpusRow"]')].some((el) => el.textContent.includes("복무규정")),
+  undefined, { timeout: 8000 }).then(() => true).catch(() => false);
+ok(gone, "6) 제외 → 전체 목록(현재 뷰)에서 사라짐");
 await p.locator('button:has-text("제외 문서함")').click();
 await p.waitForTimeout(600);
 body = await p.textContent("body");
 ok(body.includes("삭제된 것이 아닙니다"), "7) 제외 문서함 안내문");
 ok(body.includes("⛔ 제외됨") && body.includes("↩ 복귀"), "8) '⛔제외됨' 배지 + 복귀 버튼");
 await p.screenshot({ path: "verify-admin-ux-excluded.png" });
-await p.locator('button:has-text("↩ 복귀")').first().click();
-await p.waitForTimeout(1200);
-body = await p.textContent("body");
-ok(body.includes("제외된 문서가 없어요"), "9) 복귀 → 제외 문서함 비움(원상)");
+await p.locator('[class*="corpusList"] li', { hasText: "복무규정" })
+  .locator('button:has-text("↩ 복귀")').first().click();
+const restored = await p.waitForFunction((base) => {
+  const noRow = ![...document.querySelectorAll('[class*="corpusList"] li')].some((el) => el.textContent.includes("복무규정"));
+  const m = document.body.textContent.match(/제외 문서함 (\d+)/);
+  return noRow && m && Number(m[1]) === base;
+}, baseExcluded, { timeout: 8000 }).then(() => true).catch(() => false);
+ok(restored, `9) 복귀 → 원상(제외 ${baseExcluded}건 유지, 복무규정 없음)`);
 
 // ④ 플래그 탭: 컴팩트·검색·상태칩·아코디언
 await p.locator('[role="tab"]', { hasText: "기능 플래그" }).click();

@@ -7,7 +7,7 @@ import AdminFlags from "../components/AdminFlags";
 import AdminTableRestore from "../components/AdminTableRestore";
 import AdminTrust from "../components/AdminTrust";
 import AdminUsers from "../components/AdminUsers";
-import { api, ApiError, type FeedbackRow, type Stats } from "../lib/api";
+import { api, ApiError, type FeedbackRow, type Stats, type Usage } from "../lib/api";
 import { SITE_NAME } from "../lib/site";
 import { useFlag } from "../lib/flags";
 import styles from "../styles/Admin.module.css";
@@ -34,6 +34,7 @@ export default function AdminPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [statDays, setStatDays] = useState(30); // docs/34 ③: 대시보드 기간 필터(일/주/월)
   const [downs, setDowns] = useState<FeedbackRow[] | null>(null);
+  const [usage, setUsage] = useState<Usage | null>(null); // docs/35: 기능 사용량(집계만)
 
   // 해시 ↔ 탭 동기화(딥링크·새로고침 유지)
   useEffect(() => {
@@ -52,6 +53,7 @@ export default function AdminPage() {
       .then(() => {
         setGate("ok");
         api.stats(statDays).then(setStats).catch(() => {});
+        api.usage(statDays).then(setUsage).catch(() => {});
         api.feedbackList("down").then(setDowns).catch(() => {});
       })
       .catch((e) => {
@@ -126,6 +128,43 @@ export default function AdminPage() {
                   </div>
                 </section>
               ) : <p className={styles.lead}>불러오는 중…</p>}
+              {usage && usage.events.length > 0 ? (
+                <section className={styles.dash}>
+                  <h2 className={styles.h2}>📈 기능 사용량 <span className={styles.dashDays}>최근 {usage.days}일 · 집계만 표시(개별 행위 미노출·{usage.min_users}명 미만은 가림)</span></h2>
+                  <div className={styles.usageGrid}>
+                    <div>
+                      <h3 className={styles.h3}>이벤트별</h3>
+                      <table className={styles.table}>
+                        <thead><tr><th>이벤트</th><th>횟수</th><th>사용자</th></tr></thead>
+                        <tbody>
+                          {usage.events.slice(0, 12).map((e) => (
+                            /* users=null → k-익명 마스킹(서버) — 소수 사용자의 활동 특정 방지 */
+                            <tr key={e.name}><td>{e.name}</td><td>{e.n}</td><td>{e.users ?? `${usage.min_users}명 미만`}</td></tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div>
+                      <h3 className={styles.h3}>페이지뷰 상위 <span className={styles.muted}>({usage.min_users}명 이상 본 경로만)</span></h3>
+                      <table className={styles.table}>
+                        <thead><tr><th>경로</th><th>뷰</th></tr></thead>
+                        <tbody>
+                          {usage.pages.map((pg) => (
+                            <tr key={pg.page}><td>{pg.page}</td><td>{pg.n}</td></tr>
+                          ))}
+                          {usage.pages.length === 0 ? (
+                            <tr><td colSpan={2} className={styles.muted}>표시할 경로 없음(k-익명 기준 미달)</td></tr>
+                          ) : null}
+                        </tbody>
+                      </table>
+                      <h3 className={styles.h3}>일별 활성 사용자</h3>
+                      <p className={styles.muted}>
+                        {usage.dau.map((d) => `${d.day.slice(5)}: ${d.users ?? `<${usage.min_users}`}`).join(" · ") || "데이터 없음"}
+                      </p>
+                    </div>
+                  </div>
+                </section>
+              ) : null}
               {downs && downs.length > 0 ? (
                 <section className={styles.dash}>
                   <h2 className={styles.h2}>👎 부정 피드백 사유 <span className={styles.dashDays}>최근 {Math.min(downs.length, 20)}건</span></h2>

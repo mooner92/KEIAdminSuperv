@@ -1,10 +1,11 @@
 import Head from "next/head";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { GetStaticProps } from "next";
 import Layout from "../components/Layout";
 import Markdown from "../components/Markdown";
 import { useFlag } from "../lib/flags";
+import { track } from "../lib/track";
 import { SITE_NAME } from "../lib/site";
 import { loadChangelog, type ChangelogEntry } from "../lib/vault";
 import styles from "../styles/Home.module.css";
@@ -18,6 +19,7 @@ const CAT_EMOJI: Record<string, string> = { 신규: "✨", 개선: "🔧", 수�
 export default function ChangelogPage({ entries }: { entries: ChangelogEntry[] }) {
   const on = useFlag("changelog"); // docs/32 §5ⓓ: off면 페이지 본문도 미노출(journey/approval 관례)
   const [cat, setCat] = useState<(typeof CATS)[number]>("전체");
+  useEffect(() => { if (on) track("changelog_view"); }, [on]);
   const shown = cat === "전체" ? entries : entries.filter((e) => e.분류 === cat);
   if (!on) {
     return (

@@ -5,6 +5,7 @@ import ThemeToggle from "./ThemeToggle";
 import { useFlag } from "../lib/flags";
 import { api } from "../lib/api";
 import { BUILD_ID, CORPUS_AS_OF } from "../lib/site";
+import { track } from "../lib/track";
 import styles from "./Layout.module.css";
 
 export default function Layout({
@@ -69,6 +70,12 @@ export default function Layout({
   const approvalNav = useFlag("approval_finder"); // 결재선 판정기 — 상단 메뉴 노출도 플래그로
   const journeyNav = useFlag("journey_map"); // 업무 한 장(스윔레인) — docs/25
   const helpHub = useFlag("help_hub"); // 도움말 허브·FAQ(docs/31) — 푸터 FAQ 링크 게이트
+  const formsOn = useFlag("forms_registry"); // 서식 찾기(docs/34 ①) — 푸터 진입
+  const eventsOn = useFlag("events_tab"); // 지금 KEI에서(docs/35) — GNB 탭
+  // 사용량 수집(docs/35 §0): 라우트 단위 page_view — 페이로드 없음, flag off면 서버가 무시.
+  // 트리거는 asPath(문서 간 이동도 새 페이지뷰) — 단 전송값은 라우트 패턴(pathname)이라 slug 미유출.
+  const { asPath } = router;
+  useEffect(() => { track("page_view", pathname); }, [asPath, pathname]);
   // 관리자 링크는 관리자에게만 노출(보안은 백엔드 403로 방어되나, 비관리자/로그아웃엔 링크 숨김)
   const [isAdmin, setIsAdmin] = useState(false);
   useEffect(() => {
@@ -99,6 +106,7 @@ export default function Layout({
             <Link href="/graph/" className={nav("/graph")} aria-current={pathname.startsWith("/graph") ? "page" : undefined}>관계 그래프</Link>
             {approvalNav ? <Link href="/approval/" className={nav("/approval")} aria-current={pathname.startsWith("/approval") ? "page" : undefined}>결재선</Link> : null}
             {journeyNav ? <Link href="/journey/" className={nav("/journey")} aria-current={pathname.startsWith("/journey") ? "page" : undefined}>업무 한 장</Link> : null}
+            {eventsOn ? <Link href="/now/" className={nav("/now")} aria-current={pathname.startsWith("/now") ? "page" : undefined}>지금 KEI</Link> : null}
           </nav>
           <div className={styles.headerRight}>
             <ThemeToggle />
@@ -124,6 +132,7 @@ export default function Layout({
             <Link href="/help/" className={styles.adminLink} onClick={closeHelp}
               aria-pressed={onHelp}>{onHelp ? "✕ 도움말 닫기" : "도움말"}</Link>
             {helpHub ? <Link href="/help/#faq" className={styles.adminLink}>FAQ</Link> : null}
+            {formsOn ? <Link href="/forms/" className={styles.adminLink}>서식 찾기</Link> : null}
             {changelogOn ? <Link href="/changelog/" className={styles.adminLink}>새로워진 점</Link> : null}
             <span className={styles.asOf} title="배포 빌드 식별자">v.{BUILD_ID}</span>
             {isAdmin ? (

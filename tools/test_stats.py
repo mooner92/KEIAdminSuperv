@@ -18,12 +18,13 @@ os.environ["STATS_MIN_USERS"] = "2"  # 테스트 편의상 K=2(서로 다른 2�
 
 from fastapi import FastAPI                       # noqa: E402
 from fastapi.testclient import TestClient         # noqa: E402
-from sqlmodel import Session                      # noqa: E402
+from sqlmodel import Session, select              # noqa: E402
 
 import app_api                                     # noqa: E402
 
 app = FastAPI()
 app.include_router(app_api.router)
+app_api.init_db()
 fails = []
 
 
@@ -34,10 +35,13 @@ def ok(c, label):
 
 
 def client_for(uname, pw="pass1234"):
+    """가입정책(§3) 도입 후 테스트 사용자는 레거시 계정처럼 DB 직접 생성(verified=True) 후 로그인."""
     c = TestClient(app)
-    r = c.post("/app/auth/register", json={"username": uname, "password": pw})
-    if r.status_code == 409:
-        r = c.post("/app/auth/login", json={"username": uname, "password": pw})
+    with Session(app_api.engine) as s:
+        if not s.exec(select(app_api.User).where(app_api.User.username == uname)).first():
+            s.add(app_api.User(username=uname, password_hash=app_api.hash_pw(pw), verified=True))
+            s.commit()
+    r = c.post("/app/auth/login", json={"username": uname, "password": pw})
     assert r.status_code == 200, (uname, r.text)
     return c
 

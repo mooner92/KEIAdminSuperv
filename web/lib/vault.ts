@@ -207,6 +207,54 @@ export function loadChangelog(): ChangelogEntry[] {
   return out;
 }
 
+// ── 이벤트탭 "지금 KEI에서"(docs/35) — 시즌 캘린더·최근 개정·용어 목록(빌드타임) ──
+export type SeasonalItem = {
+  month: number; title: string; desc?: string; 시기?: string;
+  관련페이지?: string | null; 근거?: string | null; 상태: string; // 예시 | 확정
+  근거slug?: string | null; // 근거 문서 제목 → slug 해석(링크용)
+};
+
+export function loadSeasonal(): SeasonalItem[] {
+  const fp = path.join(VAULT_DIR, "90_관리", "_calendar", "seasonal.json");
+  if (!fs.existsSync(fp)) return [];
+  try {
+    const raw = JSON.parse(fs.readFileSync(fp, "utf-8")) as SeasonalItem[];
+    if (!Array.isArray(raw)) return [];
+    const titleToSlug = new Map<string, string>();
+    for (const d of getAllDocs()) if (!titleToSlug.has(d.title)) titleToSlug.set(d.title, d.slug);
+    return raw
+      .filter((it) => it && Number.isInteger(it.month) && it.month >= 1 && it.month <= 12
+        && typeof it.title === "string" && it.title.trim())
+      .map((it) => ({
+        month: it.month, title: it.title, desc: it.desc || "", 시기: it.시기 || "",
+        // 관련페이지는 내부 경로(/...)만 — 외부 URL·javascript: 등은 링크로 만들지 않는다(calendar_lint와 동일 규약)
+        관련페이지: typeof it.관련페이지 === "string" && /^\/[^\s]*$/.test(it.관련페이지) ? it.관련페이지 : null,
+        근거: it.근거 || null,
+        상태: it.상태 === "확정" ? "확정" : "예시",
+        근거slug: (it.근거 && titleToSlug.get(it.근거)) || null,
+      }));
+  } catch {
+    return []; // 손상 파일 — 빌드는 계속(빈 캘린더)
+  }
+}
+
+// 최근 개정된 규정 상위 N — 프론트매터 개정일(YYYY-MM-DD, 월 단위 YYYY-MM도 허용) 내림차순.
+// 월 단위 날짜는 사전순 비교에서 같은 달의 일 단위 날짜보다 앞(=더 과거 취급) — 표시상 무해.
+export function recentlyRevised(n = 5): { slug: string; title: string; revised: string }[] {
+  return getAllDocs()
+    .filter((d) => d.section === "규정집" && /^\d{4}-\d{2}(-\d{2})?$/.test(d.revised))
+    .sort((a, b) => b.revised.localeCompare(a.revised))
+    .slice(0, n)
+    .map((d) => ({ slug: d.slug, title: d.title, revised: d.revised }));
+}
+
+// 오늘의 용어 후보 — 용어집 전체(가벼운 slug·제목만). '오늘' 선택은 클라이언트(날짜 시드).
+export function termPool(): { slug: string; title: string }[] {
+  return getAllDocs()
+    .filter((d) => d.section === "용어집")
+    .map((d) => ({ slug: d.slug, title: d.title }));
+}
+
 // ── 서식 찾기(docs/34 ①) — 규정 원문의 별지 서식 대장(빌드타임 추출, 수작업 0) ──
 export type FormEntry = {
   규정명: string;

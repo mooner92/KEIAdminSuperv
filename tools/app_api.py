@@ -102,6 +102,18 @@ class Message(SQLModel, table=True):
     created_at: float = Field(default_factory=time.time)
 
 
+class UsageEvent(SQLModel, table=True):
+    """기능 사용 이벤트(docs/35 §0) — 이름은 서버 allowlist로만(자유 문자열·페이로드 금지).
+    🔒 user_id는 DAU 계산용 저장만 — 관리자 뷰는 집계만 반환(누가 눌렀는지 미노출).
+    created_at은 시간 단위 절사 저장(분·초 없음 — /app/users last_active와의 조인 차단),
+    문서 상세(/d/<slug>)는 '/d'로 접어 저장(열람 이력 미저장), 보존기한 지난 행은 주기 삭제."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str = Field(index=True)
+    page: str = ""              # 라우트 프리픽스(allowlist 검증·절단·/d 접기 후 저장)
+    user_id: int = Field(index=True)
+    created_at: float = Field(default_factory=time.time, index=True)
+
+
 class Feedback(SQLModel, table=True):
     """답변 피드백(👍/👎 + 사유). 사용자당·메시지당 1건(코드 레벨 upsert).
     ⛔ 가드레일: 이 신호는 '무엇부터 다시 검수할지' 우선순위에만 쓰인다 —
@@ -243,6 +255,20 @@ FLAG_REGISTRY: dict = {
         "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
         "description": "관리자 🛡 신뢰 탭(docs/34 ②) — 고위험 답변 레이더·수요×품질 매트릭스·👎 유형 분류. "
                        "🔒 질문·답변 본문 미반환(P2.5) — 규정 메타·집계만.",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
+    "events_tab": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "이벤트탭 '지금 KEI에서'(/now, docs/35) — 시즌 캘린더·인기 키워드·최근 개정·"
+                       "새로워진 점·오늘의 용어. GNB 탭도 함께 게이트.",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
+    "usage_analytics": {
+        "default": False,  # release 플래그 — off로 배포. on 시 도움말 개인정보 고지와 함께 운용
+        "description": "기능 사용량 수집(docs/35 §0) — 이벤트 이름 allowlist·페이로드 없음·관리자엔 집계만. "
+                       "off면 프론트 미전송 + 서버 무시.",
         "owner": "platform",
         "expires": "2026-12-31",
     },
@@ -1385,6 +1411,99 @@ def trending(user: User = Depends(current_user), days: int = 7):
     out = {"days": days, "min_users": K_ANON, "keywords": rows}
     _TREND["cache"][days] = (now, out)
     return out
+
+
+# ── 사용량 수집(docs/35 §0) — 기능 존폐·개선 판단용. 🔒 이름 allowlist·페이로드 없음·집계만. ──
+TRACK_EVENTS = {
+    "page_view", "chat_send", "chat_stop", "forms_search", "forms_open",
+    "trending_click", "now_view", "changelog_view", "faq_open", "journey_view",
+    "approval_view", "graph_view", "browse_view", "doc_open", "followup_click", "select_ask",
+}
+TRACK_PAGE_PREFIXES = ("/", "/browse", "/graph", "/approval", "/journey", "/forms",
+                       "/now", "/changelog", "/help", "/admin")
+# ⛔ "/d"는 프리픽스 목록에 없다 — 문서 상세는 아래에서 '/d'로 접어 저장(어떤 문서를 읽었는지 미저장).
+_TRACK_LAST: dict = {}  # user_id → [ts,...] (간단 스로틀: 초당 5건 초과 무시)
+_TRACK_PURGE = {"t": 0.0}  # 보존기한 purge 마지막 실행 시각(프로세스당 일 1회)
+TRACK_RETENTION_DAYS = max(7, int(os.environ.get("TRACK_RETENTION_DAYS", "180")))
+
+
+class TrackIn(BaseModel):
+    name: str
+    page: str = ""
+
+
+@router.post("/track", status_code=204)
+def track_event(body: TrackIn, user: User = Depends(current_user)):
+    """사용 이벤트 수집. flag off·비허용 이름·과다 호출은 조용히 무시(204) — 프론트는 fire-and-forget.
+    🔒 저장 최소화: page는 라우트 프리픽스만(문서 상세 /d/<slug>→'/d'), created_at 시간 절사,
+    보존기한(TRACK_RETENTION_DAYS, 기본 180일) 지난 행은 일 1회 삭제."""
+    if not effective_flags().get("usage_analytics"):
+        return
+    name = (body.name or "").strip()
+    if name not in TRACK_EVENTS:
+        return  # allowlist 밖 — 자유 문자열(질문 텍스트 등) 유입 차단
+    now = time.time()
+    recent = _TRACK_LAST.setdefault(user.id, [])
+    recent[:] = [t for t in recent if now - t < 1.0]
+    if len(recent) >= 5:
+        return
+    recent.append(now)
+    if len(_TRACK_LAST) > 512:  # 메모리 상한 — 최근 1분 무활동 사용자 엔트리 정리
+        for uid in [u for u, ts in _TRACK_LAST.items() if not ts or now - ts[-1] > 60]:
+            _TRACK_LAST.pop(uid, None)
+    page = (body.page or "").split("?", 1)[0].split("#", 1)[0][:60]
+    if page == "/d" or page.startswith("/d/"):
+        page = "/d"  # 열람 이력이 되지 않게 문서 slug는 버린다
+    elif page and not any(page == p0 or page.startswith(p0 + "/") for p0 in TRACK_PAGE_PREFIXES):
+        page = ""
+    with Session(engine) as s:
+        s.add(UsageEvent(name=name, page=page, user_id=user.id,
+                         created_at=float(int(now // 3600) * 3600)))
+        if now - _TRACK_PURGE["t"] > 86400:
+            _TRACK_PURGE["t"] = now
+            cutoff = now - TRACK_RETENTION_DAYS * 86400
+            for old in s.exec(select(UsageEvent).where(UsageEvent.created_at < cutoff)).all():
+                s.delete(old)
+        s.commit()
+
+
+@router.get("/usage")
+def usage_stats(admin: User = Depends(current_admin), days: int = 30):
+    """관리자: 기능 사용량 집계 — 이벤트별 횟수·고유 사용자, 일별 활성 사용자, 페이지뷰 상위.
+    🔒 개별 사용자 행위는 반환하지 않는다(집계만) + k-익명(P2.5와 같은 원칙):
+    고유 사용자 수는 K_ANON명 미만이면 None으로 마스킹(UI가 'K명 미만'으로 표시),
+    페이지뷰는 서로 다른 K_ANON명 이상이 본 경로만, days 하한 7일(하루 차분 특정 방지)."""
+    days = max(7, min(days, 365))
+    since = time.time() - days * 86400
+    with Session(engine) as s:
+        evs = s.exec(select(UsageEvent).where(UsageEvent.created_at >= since)).all()
+    by_name: dict = {}
+    pages: dict = {}
+    daily_users: dict = {}
+    for e in evs:
+        d = by_name.setdefault(e.name, {"n": 0, "users": set()})
+        d["n"] += 1
+        d["users"].add(e.user_id)
+        if e.name == "page_view" and e.page:
+            pg = pages.setdefault(e.page, {"n": 0, "users": set()})
+            pg["n"] += 1
+            pg["users"].add(e.user_id)
+        day = time.strftime("%Y-%m-%d", time.localtime(e.created_at))
+        daily_users.setdefault(day, set()).add(e.user_id)
+
+    def mask(u: int):
+        return u if u >= K_ANON else None
+
+    return {
+        "days": days, "min_users": K_ANON,
+        "events": sorted(
+            ({"name": k, "n": v["n"], "users": mask(len(v["users"]))} for k, v in by_name.items()),
+            key=lambda x: -x["n"]),
+        "pages": sorted(
+            ({"page": p0, "n": v["n"]} for p0, v in pages.items() if len(v["users"]) >= K_ANON),
+            key=lambda x: -x["n"])[:10],
+        "dau": [{"day": d, "users": mask(len(u))} for d, u in sorted(daily_users.items())],
+    }
 
 
 # ── 신뢰 운영 트랙(docs/34 ②) — 검수의 조준경. 🔒 질문·답변 본문은 절대 반환하지 않는다(P2.5). ──

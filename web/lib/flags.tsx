@@ -9,6 +9,8 @@ export const FLAG_DEFAULTS: Record<string, boolean> = {
   trust_ops: false, // docs/34 ②: 관리자 🛡 신뢰 탭 (release, 만료 2026-12-31)
   forms_registry: false, // docs/34 ①: /forms 서식 찾기 (release, 만료 2026-12-31)
   chat_stop: false, // docs/34 ③: 채팅 ■ 중단 버튼+2단계 대기 표시 (release, 만료 2026-12-31)
+  events_tab: false, // docs/35: 지금 KEI에서(/now) — GNB 탭+페이지 (release, 만료 2026-12-31)
+  usage_analytics: false, // docs/35 §0: 기능 사용량 수집(allowlist·집계만) (release, 만료 2026-12-31)
   graph_expand_regs: false, // 규정↔규정 준용/참조 1홉 확장 (백엔드 실험 플래그)
   user_directory: false, // docs/29 §4: 관리자 사용자 목록 탭 (release, 만료 2026-12-31)
   trending_keywords: false, // docs/29 §1: 빈 화면 인기 키워드 칩 (release, 만료 2026-12-31)

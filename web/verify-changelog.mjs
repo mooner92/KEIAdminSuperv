@@ -5,13 +5,18 @@ const b = await chromium.launch();
 let pass = 0, fail = 0;
 const check = (n, ok, d = "") => { console.log((ok ? "✅" : "❌") + " " + n + (d ? " — " + d : "")); ok ? pass++ : fail++; };
 
-// ⓑ 배너: 최신 노트 노출 → 닫기 → 재방문 미노출 → '새 노트'(id 변경) 재노출
+// 기대값은 빌드 산출물(changelog.json)에서 유도 — 노트가 늘어도 스크립트가 낡지 않게(드리프트 방지)
 const ctx = await b.newContext({ viewport: { width: 1280, height: 900 } });
+const clog = await (await ctx.request.get(BASE + "/changelog.json")).json();
+const latest = clog.latest; // { id, 요약 }
+const total = clog.n;      // 전체 노트 수(빌드타임 집계)
+
+// ⓑ 배너: 최신 노트 노출 → 닫기 → 재방문 미노출 → '새 노트'(id 변경) 재노출
 const p = await ctx.newPage();
 await p.goto(BASE + "/browse/", { waitUntil: "load" });
 await p.waitForTimeout(1500);
 let body = await p.innerText("body");
-check("ⓑ 배너 노출(최신 요약)", body.includes("새로워진 점:") && body.includes("잘 묻는 법과 자주 묻는 질문"));
+check("ⓑ 배너 노출(최신 요약)", body.includes("새로워진 점:") && body.includes(latest.요약.slice(0, 12)), latest.요약);
 await p.screenshot({ path: "verify-changelog-banner.png" });
 await p.click('button[aria-label="업데이트 알림 닫기"]');
 await p.waitForTimeout(400);
@@ -25,18 +30,21 @@ await p.reload({ waitUntil: "load" });
 await p.waitForTimeout(1500);
 check("ⓑ 새 노트면 재노출", (await p.innerText("body")).includes("새로워진 점:"));
 
-// ⓑ 배너 클릭 → /changelog 해당 카드 앵커
+// ⓑ 배너 클릭 → /changelog 해당 카드 앵커(최신 노트 id — URL 인코딩 무관 비교)
 await p.click("text=자세히 →");
 await p.waitForTimeout(1000);
-check("ⓑ 배너 클릭 → /changelog/#노트", p.url().includes("/changelog/#2026-07-14"), p.url());
+check("ⓑ 배너 클릭 → /changelog/#노트",
+  decodeURIComponent(p.url()).includes(`/changelog/#${latest.id}`), decodeURIComponent(p.url()));
 
-// ⓒ 페이지: 목록 8건·필터·다크
+// ⓒ 페이지: 목록 전건·필터·다크 (기대 수는 changelog.json의 n에서 유도)
 const cards = await p.locator("article").count();
-check("ⓒ 카드 8건 렌더", cards === 8, `${cards}건`);
+check(`ⓒ 카드 전건(${total}건) 렌더`, cards === total, `${cards}건`);
 await p.click('button[role="tab"]:has-text("신규")');
 await p.waitForTimeout(300);
 const catCards = await p.locator("article").count();
-check("ⓒ 분류 필터(신규)", catCards === 4, `${catCards}건`);
+const catChips = await p.locator('article [data-cat="신규"]').count();
+check("ⓒ 분류 필터(신규) — 보이는 카드 전부 신규", catCards >= 1 && catCards < total && catChips === catCards,
+  `${catCards}건`);
 await p.screenshot({ path: "verify-changelog-page.png" });
 const pd = await ctx.newPage();
 await pd.addInitScript(() => localStorage.setItem("kei-theme", "dark"));

@@ -7,6 +7,7 @@ import { api, type ChatMeta, type Message, type Source, type Suggestion, type Us
 import type { DocMeta } from "../lib/vault";
 import { useFlag } from "../lib/flags";
 import { CORPUS_AS_OF, SITE_NAME } from "../lib/site";
+import { track } from "../lib/track";
 import styles from "./ChatApp.module.css";
 
 const EXAMPLES = [
@@ -227,6 +228,7 @@ export default function ChatApp({
     setPhase("search"); // docs/34 ③: 2단계 대기 표시 — 근거 수신 전 '검색 중'
     const ac = new AbortController();
     abortRef.current = ac;
+    track("chat_send"); // 사용량(docs/35) — 질문 텍스트는 절대 안 보냄(이름만)
     setSuggestions([]);
     // 중단/오류로 남은 센티널 id(-1·STREAM_ID)를 고유 음수로 회수 — 새 스트림 핸들러의
     // m.id === STREAM_ID 매칭이 옛 말풍선을 오염시키는 것 방지(적대 검증 확정 결함).
@@ -299,7 +301,7 @@ export default function ChatApp({
     }
   };
 
-  const stop = () => abortRef.current?.abort();
+  const stop = () => { track("chat_stop"); abortRef.current?.abort(); };
 
   // v1 B4: 절단/실패한 답변의 직전 질문을 다시 전송
   const retry = (mid: number) => {
@@ -484,8 +486,9 @@ export default function ChatApp({
                   <span className={styles.trendingLabel}>📈 요즘 많이 찾는 키워드</span>
                   <div className={styles.examples}>
                     {trending.map((t) => (
-                      /* 클릭 = 입력 프리필(자동 전송 없음 — select_ask와 동일 원칙) */
-                      <button key={t.k} className={styles.exChip} onClick={() => setInput(`${t.k} `)}>
+                      /* 클릭 = 입력 프리필(자동 전송 없음 — select_ask와 동일 원칙). 키워드 텍스트는 안 보냄(이름만) */
+                      <button key={t.k} className={styles.exChip}
+                        onClick={() => { setInput(`${t.k} `); track("trending_click", "/"); }}>
                         {t.k}
                       </button>
                     ))}

@@ -267,3 +267,6 @@
   font-size: 13px; font-weight: 600; cursor: pointer;
 }
 .retryBtn:hover { border-color: var(--color-primary); color: var(--color-primary); }
+
+.usageGrid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+@media (max-width: 900px) { .usageGrid { grid-template-columns: 1fr; } }

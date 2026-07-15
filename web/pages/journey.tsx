@@ -6,6 +6,7 @@ import Layout from "../components/Layout";
 import JourneyMap from "../components/JourneyMap";
 import DocDrawer from "../components/DocDrawer";
 import { useFlag } from "../lib/flags";
+import { track } from "../lib/track";
 import { SITE_NAME, CORPUS_AS_OF } from "../lib/site";
 import { getAllDocs, loadJourneys, type Journey } from "../lib/vault";
 import styles from "../styles/Home.module.css";
@@ -24,6 +25,7 @@ export default function JourneyPage({
   titleSlugs: [string, string][];
 }) {
   const on = useFlag("journey_map");
+  useEffect(() => { if (on) track("journey_view"); }, [on]);
   const [cur, setCur] = useState(0);
   // /journey/?task=<id> 딥링크(후속 제안 칩에서 진입) — 정적 export라 하이드레이션 후 파싱
   useEffect(() => {
