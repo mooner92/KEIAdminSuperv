@@ -9,7 +9,7 @@ KEI(한국환경연구원) 행정 초보(신입·전입자)가 "이 업무 어�
 
 ## 아키텍처: 하나의 볼트, 두 개의 화면
 - 단일 진실원천(Source of Truth) = 이 레포의 마크다운 볼트 `KEI-행정가이드/`
-- **[뇌]** Next.js 14 + Toss Design System 정적 사이트(`web/`) — 노드/링크 그래프 + 전문검색 + 문서 (사람이 탐색). 이전 Quartz를 대체.
+- **[뇌]** Next.js 14 정적 사이트(`web/`, KRDS 참고 자체 토큰 디자인 — TDS는 라이선스 무명시로 제거, docs/37) — 노드/링크 그래프 + 전문검색 + 문서 (사람이 탐색). 이전 Quartz를 대체.
 - **[LLM]** Open WebUI + vLLM — 질문에 `[규정명 제N조]` 출처 달아 답변 (행정 초보가 사용)
 - 모델·임베딩은 전부 사내 GPU(Quadro RTX 6000 24GB×2, 총 48GB)에서 구동. 두 화면 모두 Cloudflare Zero Trust 뒤(사내 전용).
 - 핵심: 그래프와 채팅은 *같은 마크다운을 먹는 두 화면*이다. 채팅은 그림이 아니라 텍스트+임베딩 검색으로 답한다.
@@ -31,9 +31,9 @@ KEI(한국환경연구원) 행정 초보(신입·전입자)가 "이 업무 어�
   - `30_용어집/` — 개념 1개 = 노트 1개
   - `40_시스템/` — ERP 메뉴·기능(별도 섹션 '시스템', 보라). `KEI_ERP_entire_features.md`를 모듈별 노트로
   - `90_관리/` — 템플릿, 개정이력, Dataview 인덱스
-- `web/` — [뇌] 화면(Next.js 14 + Toss Design System 앱). 정적 export(`out/`) → nginx. 볼트를 빌드타임 read-only 소비(`web/lib/vault.ts`). 이전 Quartz를 대체.
+- `web/` — [뇌] 화면(Next.js 14, KRDS 참고 자체 토큰 디자인·Pretendard GOV self-host). 정적 export(`out/`) → nginx. 볼트를 빌드타임 read-only 소비(`web/lib/vault.ts`). 이전 Quartz를 대체.
 - `tools/` — 파이프라인: 01 변환 → 01b 상호참조 위키링크(그래프 엣지) → 02 청킹·임베딩 → 03 질의 / 04 OpenAI호환 RAG API
-- `deploy/` — Ubuntu HWP 셋업 스크립트, docker-compose, 배포 README (Quartz 배포는 [뇌] Next.js+TDS로 대체됨)
+- `deploy/` — Ubuntu HWP 셋업 스크립트, docker-compose, 배포 README (Quartz 배포는 [뇌] Next.js로 대체됨)
 - `docs/` — 설계·계획 문서(아키텍처, 콘텐츠 모델, 파이프라인, RAG, 배포, 보안, 로드맵, ADR)
 
 ## 기술 스택 & 규약
@@ -50,10 +50,10 @@ KEI(한국환경연구원) 행정 초보(신입·전입자)가 "이 업무 어�
   - **표기 후처리(`rag_core._postprocess`, 값 불변)**: qwen3.5 공백결함 정규화(`_tighten_spacing`: '제 18 조'→제18조·'2 만 원'→2만원) + LaTeX 제거(`_strip_latex`: `$…\text{원}…$`→평문) + 볼드 공백 정리(`_fix_markdown`: `** 굵게 **`→`**굵게**`). 프론트(react-markdown, KaTeX 미도입)가 raw로 노출하는 걸 막음. 사고 off=`reasoning_effort=none`(+think:false). 비스트리밍·스트리밍 공통 적용.
   - **컨텍스트 상한(`RAG_CTX_MAX_CHARS`, 기본 6500자)**: 큰 청크(출판편람 표 등)가 top-k에 몰리면 ctx 8K 초과로 Ollama 400(빈답변="생성 모델에 연결하지 못했습니다")이 난다. `_cap_blocks`가 순위 높은 근거부터 예산 안에 담고 초과분은 절단(SYSTEM·멀티턴·답변 여유 확보). 100문항 감사에서 발견·수정. **근거 목록 동기화(정직성)**: 컨텍스트에서 빠진 블록의 출처는 `x_sources`에서도 제외, 절단된 마지막 근거엔 `절단` 마커(UI '일부 반영' 배지) — 'LLM이 읽지 않은 근거가 목록에 표시'되는 불일치 차단. **근거 개수**: 기본 top-5 + 자동첨부(별표≤3 기본on · 준용/참조≤2 · 후속단계≤2+기안≤1은 플래그, prod 기본off) — UI는 `🔗 자동첨부` 배지(source_type_badges 게이트)로 구분.
   - GPU(2×Quadro RTX 6000 24GB): 공유·변동적이라 배치 전 `nvidia-smi`·`/api/ps` 확인. Q4 GGUF(~5.7GB)라 단일 24GB에 여유 상주. 검색 임베딩(KURE-v1)·리랭커는 1장으로 충분.
-- LLM UI: **Next.js+TDS 앱에 통합된 채팅**(`web/` `/`)이 LLM API를 같은 오리진 `/api/*`로 호출. **로그인 + 채팅기록 영속화 + 멀티턴 기억 + 메시지별 근거 저장 + 응답 스트리밍(SSE)** 지원. Open WebUI는 같은 RAG API를 쓰는 선택적 폴백(브랜딩 라이선스 이슈로 기본 채택 아님).
+- LLM UI: **Next.js 앱에 통합된 채팅**(`web/` `/`)이 LLM API를 같은 오리진 `/api/*`로 호출. **로그인 + 채팅기록 영속화 + 멀티턴 기억 + 메시지별 근거 저장 + 응답 스트리밍(SSE)** 지원. Open WebUI는 같은 RAG API를 쓰는 선택적 폴백(브랜딩 라이선스 이슈로 기본 채택 아님).
 - LLM 앱 영속화(조사 확정 스택): **bcrypt(직접)+PyJWT 쿠키 + SQLModel/SQLite**(`tools/app.db`, gitignore). passlib/fastapi-users 미사용. 백엔드 3분리 — `tools/rag_core.py`(검색·생성 공용: retrieve/answer) · `tools/app_api.py`(인증·채팅 라우터 `/app/*`) · `tools/04_rag_api.py`(진입점: OpenAI호환 `/v1/*` + `/app/*` 마운트 + init_db, PM2 1프로세스·모델 1회 로드). 멀티턴=세션 메시지 LLM 재생(근거는 매 턴 새 검색). 근거=assistant 메시지에 JSON 저장. **답변 피드백**=👍/👎(+사유) `Feedback` 테이블(사용자·메시지당 1건·upsert/toggle, 소유격리). `feedback_export.py`→`.feedback_signals.json`→`review_queue.py`가 자주 틀린 규정을 검수 우선순위로 끌어올림(⛔검수상태 자동변경 없음·사람만). 관리자 집계 `GET /app/feedback`(current_admin). 매뉴얼=`docs/14-feedback-loop.md`. JWT 서명키 `tools/.app_secret`(0600, gitignore). 스트리밍: `POST /app/chats/{id}/messages?stream=1` → SSE(`meta`→`delta`…→`done`), `rag_core.answer_stream`. `server.js`는 SSE용 hop-by-hop 헤더 제거 후 파이프.
 - 콜드스타트 제거: 기동 시 `rag_core.warmup`(임베딩 KURE-v1 로드 + LLM `keep_alive=-1` 상주)을 데몬 스레드로 실행, 이후 `OLLAMA_PING_SECONDS`(기본 240s) 주기 keep-alive로 외부 언로드 백스톱. 모든 생성 호출도 `keep_alive=-1` 전달. GPU0가 비어 상주에 여유.
-- 웹앱(`web/`, Next.js 14 + Toss Design System): 한 앱에 **LLM(`/` RAG 채팅+근거패널+문서드로어) · 둘러보기(`/browse` 좌측 체크박스 필터) · 관계 그래프(`/graph`)** 통합. 정적 export(`output:export`) → `out/`. Pages Router·React 18 고정, `@toss/tds-mobile` v2.5.0. 컬러는 KEI 시맨틱 토큰(`web/styles/globals.css`; **다크모드 = `[data-theme="dark"]` 토큰 분기, 라이트/다크/시스템 토글 `lib/theme.tsx`+`ThemeToggle`, FOUC 방지 `_document` 인라인 스크립트, TDS는 `ColorSchemeArea`**), 디자인 규약 `docs/design-system.md`.
+- 웹앱(`web/`, Next.js 14 — ⚠ TDS 제거·KRDS 팔레트·Pretendard GOV self-host, docs/37): 한 앱에 **LLM(`/` RAG 채팅+근거패널+문서드로어) · 둘러보기(`/browse` 좌측 체크박스 필터) · 관계 그래프(`/graph`)** 통합. 정적 export(`output:export`) → `out/`. Pages Router·React 18 고정, 외부 UI 라이브러리 0(검색 입력 등 전부 자체 컴포넌트). 컬러는 KEI 시맨틱 토큰(`web/styles/globals.css`; **다크모드 = `[data-theme="dark"]` 토큰 분기, 라이트/다크/시스템 토글 `lib/theme.tsx`+`ThemeToggle`, FOUC 방지 `_document` 인라인 스크립트**; 원자 팔레트=KRDS 공식 토큰 값), 디자인 규약 `docs/design-system.md`.
   - **답변 신뢰 강화(금액·한도)**: 채팅 답변에 금액/한도 토큰 있으면 "원문에서 수치 확인" 안내 + 근거 스니펫의 수치 `<mark>` 강조 + 근거별 **검수상태 배지**(`docdata`의 `검수상태` 조회, 재임베딩 불필요). ⛔생성 숫자는 검증 대상(절대 규칙1) — 사용자를 원문 표/조문으로 유도. `docs/12-품질강화.md` P2.2.
   - **규정집 기준일**: footer 구석에 "📑 규정집 기준일"(규정 원문 적재일). 단일 출처 `web/lib/site.ts`의 `CORPUS_AS_OF`(현재 2026.06.19; 규정집 재적재 시 이 값만 갱신). 규정 개정 대비 답변의 근거 시점을 사용자에게 고지.
   - **실렌더 검증(Playwright)**: `web/verify-*.mjs`(feedback·trust·flags·drawer·layout 등). ⚠️ headless에서 한글이 □로 깨지면 `~/.fonts`에 한글(Noto Sans KR·나눔고딕)+이모지(Noto Color Emoji) 폰트 설치 후 `fc-cache -f`. 테스트는 `cd web && node verify-*.mjs`로 실행(dev 3100/9000 가동 필요).

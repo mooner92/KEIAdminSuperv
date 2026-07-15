@@ -1,7 +1,8 @@
 # KEI 행정 가이드 — 디자인 시스템 (Design System)
 
 > 사내 웹 서비스의 UI를 **일관되게** 만들고 유지하기 위한 원칙·토큰·컴포넌트 규약.
-> 기반: **Toss Design System(TDS) 파운데이션** + **Next.js**. 코드: [`../web/`](../web/).
+> 기반: **자체 토큰 시스템(원자 팔레트 = KRDS 공식 토큰 값) + Pretendard GOV** + **Next.js**. 코드: [`../web/`](../web/).
+> ⚠ 2026-07 TDS(Toss Design System) 완전 제거 — 라이선스 무명시(docs/37 D1). 아래 이력 항목의 TDS 언급은 당시 기록.
 
 ---
 
@@ -10,26 +11,26 @@
 - **정적 export**(`output: "export"`) → `web/server.js`(PM2 `kei-guide`, 0.0.0.0:3100) 또는 `nginx 127.0.0.1` → Cloudflare Zero Trust(사내 전용). 서버 런타임 불필요.
 - **LLM(RAG 채팅)**: 클라이언트가 같은 오리진 `/api/*`(정적 서버가 로컬 LLM API `127.0.0.1:9000`로 리버스 프록시)로 호출 → 정적 export를 유지하면서 동적 답변. 생성=격리 Ollama v0.31.1(Qwen3.5-9B, GGUF Q4_K_M), 검색=KURE-v1+Chroma.
 - **로그인·채팅기록·멀티턴·스트리밍**: `/api/app/*`(SQLite/SQLModel + bcrypt·PyJWT httpOnly 쿠키). 답변(메시지)마다 근거 조문을 저장해 지난 답변의 근거를 다시 볼 수 있다. 답변은 **SSE로 타자치듯 스트리밍**(`?stream=1`: `meta`→`delta`→`done`), 근거가 먼저 뜨고 본문이 흐른다.
-- **Toss Design System**: `@toss/tds-mobile` · `@toss/tds-mobile-ait`(Provider) + `@emotion/react`. React 18 고정(TDS peer).
+- **UI 라이브러리 없음**: 컴포넌트 전부 자체 구현(검색 입력=`SearchInput`). 서체 Pretendard GOV(SIL OFL) self-host. React 18 고정.
 - 스타일: **CSS 변수 토큰 + CSS Modules**(SSG 안전). 콘텐츠 렌더는 `react-markdown` + `remark-gfm`.
-  - Pages Router를 택한 이유: TDS(emotion 기반)와 SSG에 마찰이 적다. App Router는 emotion 레지스트리 셋업 후 향후 검토.
+  - Pages Router 유지: 정적 export(SSG)와 마찰이 적다.
 
 ---
 
 ## 1. 디자인 원칙
 1. **가독성 우선.** 밀집 표(legacy)를 버리고 여백·계층·타이포로 "읽기 쉬움"을 만든다. 한 행 = 한 문서, 메타데이터는 보조.
-2. **TDS 파운데이션 위에.** 색·타이포·간격은 TDS 토큰을 원자로 쓰고, 그 위에 **KEI 시맨틱 토큰**을 얹는다.
+2. **원자 팔레트 위에.** 색은 KRDS 공식 토큰 값을 원자로 쓰고(github.com/KRDS-uiux/krds-uiux), 그 위에 **KEI 시맨틱 토큰**을 얹는다.
 3. **시맨틱 토큰만 본다.** 컴포넌트는 `--blue500` 같은 원자색을 직접 쓰지 않고 `--color-primary` 같은 **의미 토큰**만 참조한다. → 브랜드 컬러 교체가 한 곳에서 끝난다.
-4. **데스크톱 우선 반응형.** 주 사용 환경은 데스크톱(밀집 정보). TDS는 모바일 DS이므로 **토큰·필요한 컴포넌트만** 차용하고 레이아웃은 데스크톱에 맞춘다. 모바일은 1열로 우아하게 무너진다.
+4. **데스크톱 우선 반응형.** 주 사용 환경은 데스크톱(밀집 정보). 모바일은 1열로 우아하게 무너진다.
 5. **내부 전용.** 외부 폰트/애널리틱스/CDN 의존을 피한다(시스템 한글 폰트 폴백, `noindex`). 데이터는 망 밖으로 안 나간다.
 6. **콘텐츠와 코드 분리.** 볼트(규정 마크다운)는 `web/` 밖에 있고 빌드타임 read-only로만 소비한다. UI 코드만 레포에 둔다.
 
 ---
 
 ## 2. 컬러 토큰
-원자 팔레트(TDS) → KEI 시맨틱 토큰. 정의: [`../web/styles/globals.css`](../web/styles/globals.css).
+원자 팔레트(KRDS 값) → KEI 시맨틱 토큰. 정의: [`../web/styles/globals.css`](../web/styles/globals.css).
 
-| 시맨틱 토큰 | 현재 매핑(TDS) | 용도 |
+| 시맨틱 토큰 | 현재 매핑(KRDS 원자) | 용도 |
 |---|---|---|
 | `--color-primary` | `blue500` `#3182f6` | 주요 액션·링크·선택 |
 | `--color-text` / `-secondary` / `-tertiary` | `grey900/600/500` | 본문 / 보조 / 흐림 |
@@ -42,13 +43,12 @@
 > [!tip] KEI 메인 컬러로 바꾸기
 > `globals.css`의 **시맨틱 토큰 블록만** 교체한다(예: `--color-primary: #<KEI색>`). 컴포넌트는 안 건드린다.
 > 라이트는 `:root`, 다크는 `[data-theme="dark"]` **두 블록**을 같이 손본다.
-> TDS 컴포넌트 자체 색은 `ThemeProvider({ token })`(seed token)로 재정의 가능 — 도입 시점에 연결.
 
 ### 2-1. 다크모드 · 테마 시스템
 - 선호: **라이트 · 다크 · 시스템(OS 따름)** 3단. `lib/theme.tsx`(컨텍스트)가 선호를 `localStorage`에 저장하고, 적용값을 `<html data-theme>`로 내려 `[data-theme="dark"]` 토큰을 분기한다. 헤더의 `ThemeToggle`로 순환.
 - 깜빡임(FOUC) 방지: `_document.tsx`의 인라인 스크립트가 **페인트 전에** `data-theme`를 설정.
 - 토큰만 바꾸면 끝(원칙 3): 다크는 `globals.css`의 `[data-theme="dark"]` 한 블록. 컴포넌트는 시맨틱 토큰만 보므로 자동 적응(배지·헤더·표 줄무늬 등도 `--badge-*`/`--color-header-bg`/`--color-code-bg`로 토큰화).
-- TDS 컴포넌트(현재 `SearchField`)는 `<ColorSchemeArea theme={resolved}>`로 감싸 테마를 따르게 함. `color-scheme` 속성으로 네이티브 폼·스크롤바도 함께 전환.
+- 자체 컴포넌트는 시맨틱 토큰만 참조하므로 별도 테마 래퍼 없이 라이트/다크 자동 전환.
 
 ---
 
@@ -73,7 +73,7 @@
 | **Markdown** | `web/components/Markdown.tsx` | `[[위키링크]]`는 빌드타임에 `/d/<slug>/#조` 링크로 변환 → 내부는 `next/link`. **제N조 헤딩에 id 부여 → 조 단위 점프(앵커)**. 표/인용/코드 토큰 스타일 |
 | **관계 그래프** | `web/components/GraphCanvas.tsx` | `react-force-graph-2d`로 규정 상호참조를 노드·간선으로 시각화. 노드 클릭 → 해당 문서로 이동. 코드 스플릿(동적 import)으로 초기 번들과 분리 |
 | **문서 드로어(DocDrawer)** | `web/components/DocDrawer.tsx` | Notion형 우측 슬라이드인. `out/docdata/<slug>.json` 지연 로드(빌드 산출, `scripts/emit-docdata.mts`가 `lib/vault.ts` 재사용 → 페이지와 동일 본문). 제N조 앵커 스크롤, 내부링크·백링크는 드로어 안에서 전환, ESC/배경 닫기 |
-| TDS 컴포넌트 | `@toss/tds-mobile` | `TDSMobileAITProvider`로 감싼다. `SearchField`·`SegmentedControl` 등 데스크톱에 맞는 것부터 점진 도입 |
+| 검색 입력 | `components/SearchInput.tsx` | 자체 구현(회색 라운드 필드·돋보기·클리어) — 구 TDS SearchField 대체 |
 
 ---
 
@@ -96,8 +96,8 @@
 - [x] W8 다크모드 + 테마 시스템(라이트·다크·시스템) — `[data-theme]` 토큰 분기, FOUC 방지, TDS `ColorSchemeArea` 연동
 - [x] W9 **사내 시스템 별도 섹션 '시스템'(보라 `--accent-시스템`)** — 둘러보기 라벨 '사내 시스템'(ERP·EIP·PMS·웹메일·그룹웨어·웹디스크·전자도서관 7개 시스템)·그래프 4번째 색·칩. 코퍼스 4개 섹션 + 교차링크로 그래프 293노드·357연결
 - [ ] KEI 메인 컬러 토큰 교체 (미정 — 사용자가 색을 주면 `globals.css` 토큰 한 블록 교체)
-- [ ] 번들 경량화(현재 first-load `/` ~433KB, TDS+react-markdown)
+- [x] 번들 경량화 1차 — TDS·emotion 제거(docs/37 D1)
 - [ ] 관계 그래프를 LLM 화면에 임베드(질문↔노드 상호 탐색)
-- [ ] TDS 컴포넌트 추가 확대
+- [x] TDS 제거 완료(docs/37) — 컴포넌트는 전부 자체 구현으로
 
 > 최종 수정: 2026-06-19 · 변경 시 이 문서를 먼저 갱신하고 코드에 반영한다(원칙 3 일관성).

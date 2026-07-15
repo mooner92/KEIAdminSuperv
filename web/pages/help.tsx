@@ -196,6 +196,10 @@ export default function Help() {
         <section id="contact" className={h.section}>
           <h2>문의</h2>
           <p className={h.contactNote}>비밀번호 재설정·오류 신고: 시스템 관리자에게 요청하세요.</p>
+          <p className={h.contactNote}>
+            서체: Pretendard GOV(SIL OFL, KRDS 공식 서체) · 디자인: KRDS 참고 자체 구현 ·
+            오픈소스 고지는 저장소의 NOTICE 문서를 참고하세요.
+          </p>
         </section>
       </div>
     </Layout>

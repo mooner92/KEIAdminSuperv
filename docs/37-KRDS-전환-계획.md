@@ -63,3 +63,21 @@
 지금 대기 중인 것들과의 관계: 이 전환은 **개명(P1 브랜딩)과 독립**이라 먼저 해도 된다.
 오히려 라이선스 이슈는 시한성(교육에서 인지한 컴플라이언스)이 있으므로 **D1(TDS 제거)만이라도
 우선 처리**하고, D2(팔레트)는 스크린샷 승인 흐름으로 천천히 가는 것을 추천.
+
+## 6. 진행 기록 (2026-07-15) — D1~D4 구현 완료 (feat/krds, 병합 대기)
+
+- **D1 TDS 제거**: `@toss/*`·`@emotion/react` 의존성 삭제, next.config emotion 설정 제거,
+  자체 `SearchInput`(시맨틱 토큰·기존 룩 픽셀 근사) 교체 2곳. 검색창 before/after 시각 동등 실측.
+- **D2 KRDS 팔레트**: 원자 팔레트 전량을 KRDS 공식 킷 실값으로(gray/primary/point/success/warning
+  — github.com/KRDS-uiux/krds-uiux에서 반입, 지어낸 값 0). TDS-KRDS gray가 근접해 체감 미세,
+  파랑은 #3182f6→#256EF4(약간 깊어짐). 다크는 KRDS 다크 토큰 미제공(실측)이라 수동 튜닝 유지
+  + primary 계열만 40/30으로 정렬.
+- **D3 폰트**: Pretendard GOV(KRDS 공식 서체, SIL OFL) dynamic-subset 120파일 self-host
+  (외부 CDN 0, OFL.txt 동봉). document.fonts 실측 로드·적용 확인.
+- **D4 표기**: web/NOTICE.md(서체 OFL·KRDS 참고·OSS 목록), 도움말 문의 섹션 라이선스 한 줄,
+  CLAUDE.md·docs/design-system.md의 TDS 표기 일괄 갱신.
+- **검증**: 전체 스위트 12종 통과(landing 24/24·now 21/21·help-rail 10/10·help-hub 18/18·
+  explore·approval 7/7·content-search·flags·auth-nav 7/7·signup 11/11·spec-gaps 7/7·trust).
+  before/after 스크린샷 14×2장 + 대표 4장 비교 이미지 생성.
+- **수용 기준 체크**: `grep @toss` 0건 ✅ · 검색 입력 시각 동등 ✅ · 폰트 로드 ✅ · 표기 갱신 ✅.
+- **롤백**: 원자 커밋 4개(D1~D4) — 단계별 revert 가능. **dev(feat/0703) 병합은 사용자 승인 후.**
