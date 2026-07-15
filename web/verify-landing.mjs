@@ -121,6 +121,25 @@ check("⑦ 비로그인 track 전송 0건(401 노이즈 근절)", anonTracks ===
 await pa.screenshot({ path: "verify-landing-home.png" });
 await ctxAnon.close().catch(() => {});
 
+// ⑨ 시작페이지 스크롤 0(사용자 요청) — 비로그인 '/'에서 푸터까지 한 화면(1900×983·1512×860)
+for (const vp of [{ width: 1900, height: 983 }, { width: 1512, height: 860 }]) {
+  const cno = await b.newContext({ viewport: vp });
+  const pno = await cno.newPage();
+  await pno.goto(BASE + "/", { waitUntil: "load" });
+  await pno.waitForFunction(() => document.body.innerText.includes("서비스 소개") || document.body.innerText.includes("로그인"),
+    undefined, { timeout: 8000 }).catch(() => {});
+  await pno.waitForTimeout(800);
+  const fit = await pno.evaluate(() => {
+    const footer = document.querySelector("footer");
+    return {
+      noScroll: document.documentElement.scrollHeight <= window.innerHeight + 1,
+      footerVisible: footer ? footer.getBoundingClientRect().bottom <= window.innerHeight + 1 : false,
+    };
+  });
+  check(`⑨ ${vp.width}×${vp.height} 비로그인 '/': 스크롤 0 + 푸터 가시`, fit.noScroll && fit.footerVisible, JSON.stringify(fit));
+  await cno.close().catch(() => {});
+}
+
 // ⑧ 로그인 후 '/' 기존 채팅 불변 + footer '소개' 링크
 await p.goto(BASE + "/", { waitUntil: "load" });
 await p.waitForTimeout(1500);

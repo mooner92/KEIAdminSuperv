@@ -2,8 +2,14 @@
 .wrap {
   display: flex;
   justify-content: center;
-  align-items: flex-start;
-  padding: var(--space-8) var(--space-4);
+  align-items: center;
+  /* 단독 로그인 화면(flag off)도 한 화면(스크롤 0) — ChatApp·컴팩트 홈과 같은 공식 */
+  height: calc(100vh - var(--header-h) - var(--banner-h, 0px) - 150px);
+  min-height: 420px;
+  padding: 0 var(--space-4);
+}
+@media (max-height: 840px) {
+  .wrap { height: auto; min-height: 0; padding: var(--space-6) var(--space-4); }
 }
 .card {
   width: 100%;
