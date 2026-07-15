@@ -5,32 +5,34 @@
    참고: https://tossmini-docs.toss.im/tds-mobile/foundation/colors/
    ────────────────────────────────────────────────────────────── */
 :root {
-  /* ── TDS 원자 팔레트 (foundation) ── */
-  --grey50: #f9fafb;
-  --grey100: #f2f4f6;
-  --grey200: #e5e8eb;
-  --grey300: #d1d6db;
-  --grey400: #b0b8c1;
-  --grey500: #8b95a1;
-  --grey600: #6b7684;
-  --grey700: #4e5968;
-  --grey800: #333d4b;
-  --grey900: #191f28;
+  /* ── 원자 팔레트 (foundation) — KRDS 공식 토큰 값(github.com/KRDS-uiux/krds-uiux
+     resources/css/token/krds_tokens.css, 2026-07-15 반입). docs/37 D2: 구 TDS 값 전량 교체.
+     변수명은 기존 grey/blue 체계 유지(시맨틱 토큰·컴포넌트 무변경 스왑을 위해) ── */
+  --grey50: #f4f5f6;   /* krds gray-5 */
+  --grey100: #f4f5f6;  /* krds gray-5 (KRDS 스케일이 성겨 50과 동일 — 인접 사용 없음 실측) */
+  --grey200: #e6e8ea;  /* krds gray-10 */
+  --grey300: #cdd1d5;  /* krds gray-20 */
+  --grey400: #b1b8be;  /* krds gray-30 */
+  --grey500: #8a949e;  /* krds gray-40 */
+  --grey600: #6d7882;  /* krds gray-50 */
+  --grey700: #58616a;  /* krds gray-60 */
+  --grey800: #33363d;  /* krds gray-80 */
+  --grey900: #1e2124;  /* krds gray-90 */
 
-  --blue50: #e8f3ff;
-  --blue100: #c9e2ff;
-  --blue300: #64a8ff;
-  --blue500: #3182f6;
-  --blue600: #2272eb;
-  --blue700: #1b64da;
+  --blue50: #ecf2fe;   /* krds primary-5 */
+  --blue100: #d8e5fd;  /* krds primary-10 */
+  --blue300: #86aff9;  /* krds primary-30 */
+  --blue500: #256ef4;  /* krds primary-50 */
+  --blue600: #0b50d0;  /* krds primary-60 */
+  --blue700: #0b50d0;  /* krds primary-60 (KRDS 70은 심연 네이비라 미사용) */
 
-  --red50: #ffeeee;
-  --red500: #f04452;
-  --red600: #e42939;
-  --green50: #f0faf6;
-  --green500: #03b26c;
-  --orange500: #fe9800;
-  --yellow500: #ffc342;
+  --red50: #fbeff0;    /* krds point-5 */
+  --red500: #d63d4a;   /* krds point-50 */
+  --red600: #ab2b36;   /* krds point-60 */
+  --green50: #eaf6ec;  /* krds success-5 */
+  --green500: #3fa654; /* krds success-40 */
+  --orange500: #ffb114; /* krds warning-30 */
+  --yellow500: #ffc95c; /* krds warning-20 */
 
   /* ── KEI 시맨틱 토큰 (← 나중에 KEI 메인 컬러로 여기만 교체) ── */
   --color-primary: var(--blue500);
@@ -139,8 +141,10 @@ html { transition: background-color 0.2s ease; }
 /* ── 다크 테마: KEI 시맨틱 토큰만 교체(원자 팔레트·컴포넌트 코드는 불변 — 원칙 3) ──
    라이트/다크는 [data-theme]로 분기. "system"은 JS가 prefers-color-scheme로 해석해 data-theme를 설정한다. */
 [data-theme="dark"] {
-  --color-primary: #4593fc;
-  --color-primary-strong: #6aa9ff;
+  /* 다크 원자색: KRDS는 다크 토큰 미제공(공식 킷 실측) — 수동 튜닝 유지,
+     주 색조만 KRDS 파랑 계열로 정렬(primary-40/30) */
+  --color-primary: #4c87f6;
+  --color-primary-strong: #86aff9;
   --color-primary-weak: #16314f;
   --color-on-primary: #ffffff;
 
@@ -162,7 +166,7 @@ html { transition: background-color 0.2s ease; }
   --color-warning: #ffb547;
   --color-danger: #ff6b78;
 
-  --accent-규정집: #4593fc;
+  --accent-규정집: #4c87f6; /* krds primary-40(다크 정렬) */
   --accent-가이드: #2dd08f;
   --accent-용어집: #ffb547;
   --accent-시스템: #a78bfa;

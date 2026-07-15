@@ -11,6 +11,9 @@ const clog = await (await ctx.request.get(BASE + "/changelog.json")).json();
 const latest = clog.latest; // { id, 요약 }
 const total = clog.n;      // 전체 노트 수(빌드타임 집계)
 
+// 푸터 '새로워진 점' 링크는 로그인 사용자에게만(비로그인 GNB/푸터 정리, docs/36) — 로그인 컨텍스트로 검증
+await ctx.request.post(BASE + "/api/app/auth/login", { data: { username: "admintest", password: "admtest123" } });
+
 // ⓑ 배너: 최신 노트 노출 → 닫기 → 재방문 미노출 → '새 노트'(id 변경) 재노출
 const p = await ctx.newPage();
 await p.goto(BASE + "/browse/", { waitUntil: "load" });
