@@ -1,0 +1,60 @@
+/* 우측 스크롤 레일(docs/36) — 시맨틱 토큰만. ≤880px 숨김(모바일은 자연 스크롤) */
+.rail {
+  position: fixed;
+  top: calc(var(--header-h) + 28px);
+  bottom: 40px;
+  right: 14px;
+  width: 200px;
+  z-index: 15; /* sticky 헤더(20)보다 아래 */
+  pointer-events: none; /* 빈 영역은 본문 클릭 통과 — 라벨만 상호작용 */
+}
+.track {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 4px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--color-border);
+  opacity: 0.7;
+}
+.label {
+  position: absolute;
+  right: 14px;
+  transform: translateY(-50%);
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  pointer-events: auto;
+  transition: color 0.15s ease;
+}
+.label:hover { color: var(--color-text); }
+.label:focus-visible { outline: 2px solid var(--color-primary); border-radius: 4px; }
+.on { color: var(--color-text); font-weight: 800; }
+.on::after {
+  content: "";
+  position: absolute;
+  right: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2px;
+  height: 16px;
+  border-radius: 2px;
+  background: var(--color-primary);
+}
+
+@media (max-width: 880px) {
+  .rail { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .label { transition: none; }
+}

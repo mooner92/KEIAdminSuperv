@@ -5,18 +5,21 @@ import ThemeToggle from "./ThemeToggle";
 import { useFlag } from "../lib/flags";
 import { api } from "../lib/api";
 import { BUILD_ID, CORPUS_AS_OF } from "../lib/site";
-import { track } from "../lib/track";
+import { track, setTrackAuthed } from "../lib/track";
 import styles from "./Layout.module.css";
 
 export default function Layout({
   children,
   breadcrumb,
   fill,
+  bleed,
 }: {
   children: ReactNode;
   breadcrumb?: ReactNode;
   /** true면 페이지를 뷰포트 높이에 고정(전체 스크롤 제거) → 내부 영역만 스크롤(둘러보기/그래프) */
   fill?: boolean;
+  /** true면 본문을 .inner(max-width) 없이 풀폭 렌더 — 랜딩(docs/36)처럼 섹션이 풀블리드 배경을 가질 때 */
+  bleed?: boolean;
 }) {
   const router = useRouter();
   const { pathname } = router; // GNB 현재 페이지 표시(v1 ⑩/S5-#15)
@@ -72,18 +75,23 @@ export default function Layout({
   const helpHub = useFlag("help_hub"); // 도움말 허브·FAQ(docs/31) — 푸터 FAQ 링크 게이트
   const formsOn = useFlag("forms_registry"); // 서식 찾기(docs/34 ①) — 푸터 진입
   const eventsOn = useFlag("events_tab"); // 지금 KEI에서(docs/35) — GNB 탭
-  // 사용량 수집(docs/35 §0): 라우트 단위 page_view — 페이로드 없음, flag off면 서버가 무시.
-  // 트리거는 asPath(문서 간 이동도 새 페이지뷰) — 단 전송값은 라우트 패턴(pathname)이라 slug 미유출.
-  const { asPath } = router;
-  useEffect(() => { track("page_view", pathname); }, [asPath, pathname]);
+  const landingOn = useFlag("landing_page"); // 소개 페이지(docs/36) — footer '소개' 진입
   // 관리자 링크는 관리자에게만 노출(보안은 백엔드 403로 방어되나, 비관리자/로그아웃엔 링크 숨김)
   const [isAdmin, setIsAdmin] = useState(false);
+  const [authKnown, setAuthKnown] = useState(false);
   useEffect(() => {
     api
       .me()
-      .then((u) => setIsAdmin(!!u.is_admin))
-      .catch(() => setIsAdmin(false));
+      .then((u) => { setIsAdmin(!!u.is_admin); setTrackAuthed(true); })
+      // 비로그인 확정 → track 전송 자체를 끔(401 뮤트가 로그인 직후 계측을 유실시키는 부작용 차단)
+      .catch(() => { setIsAdmin(false); setTrackAuthed(false); })
+      .finally(() => setAuthKnown(true));
   }, []);
+  // 사용량 수집(docs/35 §0): 라우트 단위 page_view — 페이로드 없음, flag off면 서버가 무시.
+  // 트리거는 asPath(문서 간 이동도 새 페이지뷰) — 전송값은 라우트 패턴(pathname)이라 slug 미유출.
+  // 인증 확인(me) 후에만 발화 — 비로그인 401 노이즈·뮤트 방지(docs/36 §6⑦).
+  const { asPath } = router;
+  useEffect(() => { if (authKnown) track("page_view", pathname); }, [asPath, pathname, authKnown]);
   return (
     <div className={styles.root} data-fill={fill ? "" : undefined}>
       {latestNote ? (
@@ -120,7 +128,7 @@ export default function Layout({
         </nav>
       ) : null}
       <main className={fill ? styles.mainFill : styles.main}>
-        <div className={fill ? styles.innerFill : styles.inner}>{children}</div>
+        {bleed ? children : <div className={fill ? styles.innerFill : styles.inner}>{children}</div>}
       </main>
       <footer className={styles.footer}>
         <div className={styles.inner}>
@@ -132,6 +140,7 @@ export default function Layout({
             <Link href="/help/" className={styles.adminLink} onClick={closeHelp}
               aria-pressed={onHelp}>{onHelp ? "✕ 도움말 닫기" : "도움말"}</Link>
             {helpHub ? <Link href="/help/#faq" className={styles.adminLink}>FAQ</Link> : null}
+            {landingOn ? <Link href="/about/" className={styles.adminLink}>소개</Link> : null}
             {formsOn ? <Link href="/forms/" className={styles.adminLink}>서식 찾기</Link> : null}
             {changelogOn ? <Link href="/changelog/" className={styles.adminLink}>새로워진 점</Link> : null}
             <span className={styles.asOf} title="배포 빌드 식별자">v.{BUILD_ID}</span>

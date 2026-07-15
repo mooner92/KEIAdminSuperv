@@ -11,6 +11,7 @@ export const FLAG_DEFAULTS: Record<string, boolean> = {
   chat_stop: false, // docs/34 ③: 채팅 ■ 중단 버튼+2단계 대기 표시 (release, 만료 2026-12-31)
   events_tab: false, // docs/35: 지금 KEI에서(/now) — GNB 탭+페이지 (release, 만료 2026-12-31)
   usage_analytics: false, // docs/35 §0: 기능 사용량 수집(allowlist·집계만) (release, 만료 2026-12-31)
+  landing_page: false, // docs/36: 소개(랜딩) — /about + 비로그인 홈 컴팩트 히어로 (release, 만료 2026-12-31)
   graph_expand_regs: false, // 규정↔규정 준용/참조 1홉 확장 (백엔드 실험 플래그)
   user_directory: false, // docs/29 §4: 관리자 사용자 목록 탭 (release, 만료 2026-12-31)
   trending_keywords: false, // docs/29 §1: 빈 화면 인기 키워드 칩 (release, 만료 2026-12-31)
@@ -35,6 +36,9 @@ const CACHE_KEY = "kei-flags";
 
 type Flags = Record<string, boolean>;
 const FlagsCtx = createContext<Flags>(FLAG_DEFAULTS);
+// 서버 flags fetch가 settle(성공/실패 무관)됐는지 — 비로그인 홈처럼 flag 값에 따라 서로 다른
+// 첫 화면을 그리는 곳이 '기본값으로 잘못 그렸다가 교체(플래시)'를 피하려고 대기할 때 쓴다(docs/36).
+const FlagsSettledCtx = createContext(false);
 
 function readCache(): Flags {
   if (typeof window === "undefined") return FLAG_DEFAULTS;
@@ -49,6 +53,7 @@ function readCache(): Flags {
 export function FlagsProvider({ children }: { children: ReactNode }) {
   // 초기값=기본값(빌드 HTML과 일치 → 하이드레이션 안전). 마운트 후 캐시→서버값 순으로 갱신.
   const [flags, setFlags] = useState<Flags>(FLAG_DEFAULTS);
+  const [settled, setSettled] = useState(false);
   useEffect(() => {
     setFlags(readCache());
     api
@@ -66,12 +71,19 @@ export function FlagsProvider({ children }: { children: ReactNode }) {
       })
       .catch(() => {
         /* 백엔드 실패 시 캐시/기본값 유지(화면 안 멈춤) */
-      });
+      })
+      .finally(() => setSettled(true)); // api.flags()는 6s 타임아웃 — 게이트가 무한 대기하지 않는다
   }, []);
-  return <FlagsCtx.Provider value={flags}>{children}</FlagsCtx.Provider>;
+  return (
+    <FlagsCtx.Provider value={flags}>
+      <FlagsSettledCtx.Provider value={settled}>{children}</FlagsSettledCtx.Provider>
+    </FlagsCtx.Provider>
+  );
 }
 
 export const useFlags = () => useContext(FlagsCtx);
 /** 단일 플래그 — 미정의 키는 안전 기본값(false). 예: const on = useFlag("changelog") */
 export const useFlag = (key: string): boolean =>
   useContext(FlagsCtx)[key] ?? FLAG_DEFAULTS[key] ?? false;
+/** 서버 flags fetch settle 여부 — 값 분기 화면의 첫 렌더 플래시 방지용(docs/36) */
+export const useFlagsSettled = () => useContext(FlagsSettledCtx);

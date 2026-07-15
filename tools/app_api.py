@@ -272,6 +272,13 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-12-31",
     },
+    "landing_page": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "소개(랜딩) 페이지(docs/36) — /about 스크롤 내러티브 + 비로그인 홈 컴팩트 히어로. "
+                       "off면 기존 로그인 폼 그대로, /about은 '준비 중'.",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
     "chat_stop": {
         "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
         "description": "채팅 스트리밍 ■ 중단 버튼 + 2단계 대기 표시(docs/34 ③) — off면 기존 '보내기 …' 동작.",
@@ -1418,9 +1425,10 @@ TRACK_EVENTS = {
     "page_view", "chat_send", "chat_stop", "forms_search", "forms_open",
     "trending_click", "now_view", "changelog_view", "faq_open", "journey_view",
     "approval_view", "graph_view", "browse_view", "doc_open", "followup_click", "select_ask",
+    "login_via_landing",  # docs/36: 랜딩 경유 로그인(로그인 직후 1회 — 비로그인 랜딩 자체는 계측 안 함)
 }
 TRACK_PAGE_PREFIXES = ("/", "/browse", "/graph", "/approval", "/journey", "/forms",
-                       "/now", "/changelog", "/help", "/admin")
+                       "/now", "/changelog", "/help", "/admin", "/about")
 # ⛔ "/d"는 프리픽스 목록에 없다 — 문서 상세는 아래에서 '/d'로 접어 저장(어떤 문서를 읽었는지 미저장).
 _TRACK_LAST: dict = {}  # user_id → [ts,...] (간단 스로틀: 초당 5건 초과 무시)
 _TRACK_PURGE = {"t": 0.0}  # 보존기한 purge 마지막 실행 시각(프로세스당 일 1회)

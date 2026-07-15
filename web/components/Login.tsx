@@ -1,11 +1,13 @@
 import { useState, type FormEvent } from "react";
 import { api, ApiError, type User } from "../lib/api";
+import { track, setTrackAuthed } from "../lib/track";
 import styles from "./Login.module.css";
 
 /** 로그인 / 회원가입 — 사내 전용. 성공 시 onAuthed(user).
  * 가입 정책(docs/29 §3): ID = KEI 이메일(@kei.re.kr) 고정, 6자리 코드 인증 후 활성.
- * 흐름: register(이메일+비번) → 코드 입력 단계 → verify 성공 시 로그인. */
-export default function Login({ onAuthed }: { onAuthed: (u: User) => void }) {
+ * 흐름: register(이메일+비번) → 코드 입력 단계 → verify 성공 시 로그인.
+ * embedded(docs/36): 랜딩 섹션에 카드로 임베드 — autoFocus 금지(로드 즉시 최하단 점프 방지). */
+export default function Login({ onAuthed, embedded }: { onAuthed: (u: User) => void; embedded?: boolean }) {
   const [mode, setMode] = useState<"login" | "register" | "verify">("login");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -16,6 +18,13 @@ export default function Login({ onAuthed }: { onAuthed: (u: User) => void }) {
 
   const fail = (e: unknown) => setErr(e instanceof ApiError ? e.message : "연결에 실패했습니다.");
 
+  // 인증 성공 공통 — track 인증 힌트 갱신(비로그인 뮤트 해제) + 랜딩 경유 로그인 1회 계측(docs/36 §6⑦)
+  const authed = (u: User) => {
+    setTrackAuthed(true);
+    if (embedded) track("login_via_landing");
+    onAuthed(u);
+  };
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (busy) return;
@@ -23,7 +32,7 @@ export default function Login({ onAuthed }: { onAuthed: (u: User) => void }) {
     setBusy(true);
     try {
       if (mode === "login") {
-        onAuthed(await api.login(username, password));
+        authed(await api.login(username, password));
       } else if (mode === "register") {
         const r = await api.register(username, password);
         setMode("verify");
@@ -33,7 +42,7 @@ export default function Login({ onAuthed }: { onAuthed: (u: User) => void }) {
             : `${r.email} 로 인증 코드를 보냈습니다. 메일함을 확인하세요.`
         );
       } else {
-        onAuthed(await api.verifyEmail(username, code));
+        authed(await api.verifyEmail(username, code));
       }
     } catch (e) {
       // 미인증 계정 로그인 → 코드 단계로 안내(재발송 버튼 제공)
@@ -61,7 +70,7 @@ export default function Login({ onAuthed }: { onAuthed: (u: User) => void }) {
   };
 
   return (
-    <div className={styles.wrap}>
+    <div className={embedded ? styles.wrapEmbedded : styles.wrap}>
       <div className={styles.card}>
         <div className={styles.brand}>
           <span className={styles.mark}>KEI</span> 행정 LLM
@@ -85,7 +94,7 @@ export default function Login({ onAuthed }: { onAuthed: (u: User) => void }) {
                   onChange={(e) => setUsername(e.target.value)}
                   autoComplete="username"
                   placeholder={mode === "register" ? "name@kei.re.kr" : "name@kei.re.kr"}
-                  autoFocus
+                  autoFocus={!embedded}
                 />
               </label>
               <label className={styles.field}>

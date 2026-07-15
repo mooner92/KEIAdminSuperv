@@ -80,10 +80,18 @@ tools/pdf/
 # ── Syncthing 런타임(디바이스 키·상태 — 비밀) ──
 deploy/syncthing-config/
 
-# ── Quartz 정적 사이트 (그래프 화면) ──
-public/
+# ── Quartz 정적 사이트 (폐기됨) — 루트 산출물만. ⚠ 과거 비앵커 `public/`이 web/public/까지
+#    블랭킷 ignore해 favicon.svg가 미추적이었다(docs/36 §6① 수술) ──
+/public/
 node_modules/
 .quartz-cache/
+
+# ── 브랜드 미디어(docs/36 §5) — 실규정 내용이 찍히는 영상·스크린샷은 공개 레포 금지(⛔ git add -f 금지).
+#    SVG(로고 등 코드 자산)만 예외. 녹화 중간 산출물은 tools/.demo/ 로만 ──
+web/public/brand/*
+!web/public/brand/*.svg
+tools/.demo/
+*.webm
 
 # ── Next.js 웹앱 (web/) — 빌드 산출물·의존성 ──
 web/.next/

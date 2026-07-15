@@ -1,0 +1,191 @@
+/* 소개(랜딩) 페이지(docs/36) — 시맨틱 토큰만. 히어로만 테마 불변 다크(--hero-* 토큰, globals.css) */
+
+.page { width: 100%; }
+.section {
+  width: 100%;
+  padding: 72px 0;
+  scroll-margin-top: calc(var(--header-h) + 8px); /* sticky 헤더 가림 방지(레일 점프) */
+}
+.alt { background: var(--color-bg-subtle); }
+.inner {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 0 var(--space-5);
+}
+
+/* 등장 애니메이션 — reduced-motion에서는 정의 자체를 안 함(§7: 애니메이션 0).
+   CSS 모듈 순수 선택자 규칙 때문에 로컬 클래스(.page)로 스코프 */
+@media (prefers-reduced-motion: no-preference) {
+  .page [data-reveal] {
+    opacity: 0;
+    transform: translateY(14px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+  .page [data-reveal].vis { opacity: 1; transform: none; }
+}
+
+/* ── 히어로 (테마 불변 다크) ── */
+.hero {
+  background: var(--hero-bg);
+  color: var(--hero-fg);
+  padding: 108px 0 96px;
+}
+.heroKicker { margin: 0 0 10px; font-size: 13px; font-weight: 700; letter-spacing: 0.04em; opacity: 0.75; }
+.heroTitle { margin: 0 0 14px; font-size: clamp(30px, 5vw, 46px); font-weight: 900; letter-spacing: -0.02em; }
+.homeTitle { margin: 0 0 12px; font-size: clamp(26px, 5vw, 36px); font-weight: 900; letter-spacing: -0.02em; }
+.heroLead { margin: 0; font-size: clamp(15px, 2.2vw, 18px); line-height: 1.7; opacity: 0.9; }
+.heroCtas { display: flex; gap: 12px; margin-top: 28px; flex-wrap: wrap; }
+.ctaPrimary {
+  display: inline-block;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  border: none;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  padding: 12px 22px;
+  cursor: pointer;
+}
+.ctaPrimary:hover { filter: brightness(1.08); }
+.ctaGhost {
+  display: inline-block;
+  border: 1px solid var(--hero-fg-dim);
+  color: var(--hero-fg);
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 12px 22px;
+}
+.ctaGhost:hover { background: rgba(255, 255, 255, 0.08); }
+
+/* ── 본문 섹션 ── */
+.h2 { margin: 0 0 10px; font-size: clamp(21px, 3vw, 28px); font-weight: 850; color: var(--color-text); }
+.lead { margin: 0 0 var(--space-4); font-size: 15px; line-height: 1.7; color: var(--color-text-secondary); }
+
+.exampleChips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 var(--space-4); }
+.exChip {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 12px;
+}
+
+/* 채팅 목업(새니타이즈 — §5 폴백 ③) */
+.mock {
+  margin: var(--space-4) 0 0;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+.mockBar { display: flex; gap: 6px; padding: 10px 14px; border-bottom: 1px solid var(--color-border); }
+.mockBar span { width: 10px; height: 10px; border-radius: 50%; background: var(--color-border); }
+.mockBody { padding: var(--space-4); display: flex; flex-direction: column; gap: 12px; }
+.mockUser {
+  align-self: flex-end;
+  margin: 0;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  border-radius: 14px 14px 4px 14px;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  max-width: 80%;
+}
+.mockBot {
+  align-self: flex-start;
+  background: var(--color-bg-subtle);
+  border-radius: 14px 14px 14px 4px;
+  padding: 12px 14px;
+  max-width: 88%;
+}
+.mockBot p { margin: 0; font-size: 14px; line-height: 1.65; color: var(--color-text); }
+.mockChips { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; }
+.mockChip {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 8px;
+}
+.mockDisclaim { margin-top: 8px !important; font-size: 12px !important; color: var(--color-text-tertiary) !important; }
+.mockCaption { padding: 8px 14px 12px; font-size: 12px; color: var(--color-text-tertiary); }
+
+/* 가드레일 카드 — 신뢰 자산 1급(리뷰 확정) */
+.guardCard {
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-primary);
+  border-radius: 12px;
+  background: var(--color-surface);
+  padding: var(--space-4) var(--space-5);
+}
+.guardLabel { margin: 0 0 6px; font-size: 13px; font-weight: 700; color: var(--color-text-secondary); }
+.guardQuote { margin: 0 0 8px; font-size: clamp(17px, 2.4vw, 21px); font-weight: 850; color: var(--color-text); }
+.guardDesc { margin: 0; font-size: 14px; line-height: 1.65; color: var(--color-text-secondary); }
+
+/* 기능 3열 */
+.featGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-3); margin-top: var(--space-4); }
+.featCard {
+  display: block;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  padding: var(--space-4);
+  color: var(--color-text);
+}
+.featCard:hover { border-color: var(--color-primary); }
+.featEmoji { display: block; font-size: 22px; margin-bottom: 8px; }
+.featCard b { font-size: 15.5px; }
+.featCard p { margin: 6px 0 0; font-size: 13px; line-height: 1.6; color: var(--color-text-secondary); }
+
+/* 수치 카드 — 빌드타임 실측치만 */
+.statGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--space-3); margin: var(--space-4) 0; }
+.stat {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  padding: var(--space-4);
+  text-align: center;
+}
+.stat b { display: block; font-size: clamp(22px, 3vw, 30px); font-weight: 900; color: var(--color-primary); }
+.stat span { font-size: 13px; font-weight: 600; color: var(--color-text-secondary); }
+.trustNote { margin: 0; font-size: 13px; line-height: 1.7; color: var(--color-text-tertiary); }
+
+/* 시작하기 */
+.steps { display: flex; gap: var(--space-3); flex-wrap: wrap; list-style: none; margin: 0 0 8px; padding: 0; }
+.steps li { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--color-text); }
+.steps b {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--color-primary); color: var(--color-on-primary); font-size: 12px;
+}
+.stepNote { margin: 0 0 var(--space-4); font-size: 12.5px; color: var(--color-text-tertiary); }
+.startLogin { margin-top: var(--space-3); }
+
+/* ── 컴팩트 홈(비로그인 '/') ── */
+.homeWrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(300px, 1fr);
+  gap: var(--space-6);
+  align-items: center;
+  padding: var(--space-8) 0;
+}
+.homeHero { min-width: 0; }
+.homeHero .heroKicker, .homeHero .heroLead { color: var(--color-text-secondary); opacity: 1; }
+.homeHero .homeTitle { color: var(--color-text); }
+.aboutLink { display: inline-block; margin-top: var(--space-3); font-size: 14px; font-weight: 700; color: var(--color-primary); }
+.aboutLink:hover { text-decoration: underline; }
+.homeLogin { min-width: 0; }
+
+@media (max-width: 760px) {
+  .homeWrap { grid-template-columns: 1fr; }
+  .section { padding: 52px 0; }
+  .hero { padding: 72px 0 60px; }
+}

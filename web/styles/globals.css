@@ -88,6 +88,11 @@
     "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
   --maxw: 1120px;
   --header-h: 56px;
+
+  /* 랜딩 히어로(docs/36 §0-4) — 의도적으로 테마 불변(라이트/다크 공용 다크 그라디언트) */
+  --hero-bg: linear-gradient(150deg, #0f1623 0%, #142440 55%, #103230 100%);
+  --hero-fg: #f4f7fb;
+  --hero-fg-dim: rgba(244, 247, 251, 0.45);
 }
 
 * { box-sizing: border-box; }

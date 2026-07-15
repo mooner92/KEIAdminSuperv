@@ -5,6 +5,13 @@ import { api } from "./api";
 let flagCache: boolean | null = null;
 let flagInflight: Promise<boolean> | null = null; // 동시 track()이 flags를 중복 fetch하지 않게
 let authMutedUntil = 0; // 401(로그아웃) 응답을 받으면 잠시 전송 중단 — 서버 로그 노이즈 방지
+// 인증 상태 힌트(docs/36 §6⑦): 비로그인이 확실하면 전송 자체를 안 한다 — 401 뮤트가 로그인
+// 직후 계측까지 유실시키는 부작용 차단. null=미확인(허용). Layout(me())·로그인 성공 지점이 갱신.
+let authedHint: boolean | null = null;
+export function setTrackAuthed(v: boolean | null): void {
+  authedHint = v;
+  if (v) authMutedUntil = 0; // 로그인했으면 뮤트 즉시 해제
+}
 
 async function enabled(): Promise<boolean> {
   if (flagCache !== null) return flagCache;
@@ -23,7 +30,7 @@ async function enabled(): Promise<boolean> {
 }
 
 export function track(name: string, page?: string): void {
-  if (Date.now() < authMutedUntil) return;
+  if (authedHint === false || Date.now() < authMutedUntil) return;
   enabled().then((on) => {
     if (!on) return;
     fetch("/api/app/track", {
