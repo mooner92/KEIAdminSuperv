@@ -6,13 +6,15 @@ let pass = 0, fail = 0;
 const check = (n, ok, d = "") => { console.log((ok ? "✅" : "❌") + " " + n + (d ? " — " + d : "")); ok ? pass++ : fail++; };
 const lum = (rgb) => { const m = rgb.match(/\d+/g).map(Number); return (m[0] + m[1] + m[2]) / 3; };
 
-// ⓑ flag on: 목차·FAQ 노출 + 초기 접힘
-const ctx = await b.newContext({ viewport: { width: 1200, height: 900 } });
+// ⓑ flag on: 목차·FAQ 노출 + 초기 접힘.
+// ⚠ 가로 칩 목차는 ≤880px에서만(데스크톱은 우측 ScrollRail이 대신, docs/36 P4) → 칩 검증은 820px에서.
+//    데스크톱 세로 레일은 verify-help-rail.mjs가 별도 검증.
+const ctx = await b.newContext({ viewport: { width: 820, height: 900 } });
 const p = await ctx.newPage();
 await p.goto(BASE + "/help/", { waitUntil: "load" });
 await p.waitForTimeout(1500);
 const body = await p.innerText("body");
-check("ⓑ 목차 칩 노출", await p.locator('nav[aria-label="도움말 목차"] button').count() === 5);
+check("ⓑ 목차 칩 노출(6종·문의 포함)", await p.locator('nav[aria-label="도움말 목차"] button').count() === 6);
 check("ⓑ 잘 묻는 법 섹션", body.includes("잘 묻는 법"));
 const nFaq = await p.locator("details").count();
 check("ⓑ FAQ 아코디언 렌더(7개 — SMTP 문항 숨김)", nFaq === 7, `${nFaq}개`);
