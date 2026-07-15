@@ -56,9 +56,11 @@ export default function NowPage({ seasonal, revised, notes, terms }: Props) {
     () => (month === null ? [] : seasonal.filter((s) => s.month === month)),
     [seasonal, month]
   );
+  // month 0 = 매월(상시) 항목(docs/39) — 월 선택과 무관하게 항상 표시(빈 상태 삼항 바깥)
+  const everyMonth = useMemo(() => seasonal.filter((s) => s.month === 0), [seasonal]);
   const nextMonth = month === null ? null : (month % 12) + 1;
   const nextItems = useMemo(
-    () => (nextMonth === null ? [] : seasonal.filter((s) => s.month === nextMonth)),
+    () => (nextMonth === null ? [] : seasonal.filter((s) => s.month === nextMonth)), // 미리보기는 월 항목만(0 제외 의도)
     [seasonal, nextMonth]
   );
   const maxTrend = trending?.length ? Math.max(...trending.map((t) => t.n)) : 1;
@@ -101,13 +103,14 @@ export default function NowPage({ seasonal, revised, notes, terms }: Props) {
             ))}
           </div>
           {monthItems.length === 0 ? (
-            <p className={n.muted}>등록된 일정이 없어요 — 일정 자료가 채워지면 여기에 보여요.</p>
+            <p className={n.muted}>이 달의 고유 일정이 아직 없어요 — 아래 매월 항목은 이 달에도 해당돼요.</p>
           ) : (
             <ul className={n.calList}>
               {monthItems.map((it, i) => (
                 <li key={i}>
                   <div className={n.calHead}>
                     <b>{it.title}</b>
+                    {it.구분 ? <span className={n.kindChip}>{it.구분}</span> : null}
                     {it.시기 ? <span className={n.when}>{it.시기}</span> : null}
                     {it.상태 === "예시" ? <span className={n.draft}>자료 확정 전</span> : null}
                   </div>
@@ -121,6 +124,27 @@ export default function NowPage({ seasonal, revised, notes, terms }: Props) {
               ))}
             </ul>
           )}
+          {/* 매월(상시) 항목 — month 0(docs/39). 빈 상태와 무관하게 항상 렌더 */}
+          {everyMonth.length > 0 ? (
+            <details className={n.everyMonth}>
+              <summary className={n.everyMonthSummary}>🔁 매월 챙길 일 {everyMonth.length}건</summary>
+              <ul className={n.calList}>
+                {everyMonth.map((it, i) => (
+                  <li key={i}>
+                    <div className={n.calHead}>
+                      <b>{it.title}</b>
+                      {it.구분 ? <span className={n.kindChip}>{it.구분}</span> : null}
+                      {it.상태 === "예시" ? <span className={n.draft}>자료 확정 전</span> : null}
+                    </div>
+                    {it.desc ? <p className={n.calDesc}>{it.desc}</p> : null}
+                    {it.근거slug ? (
+                      <Link className={n.calLink} href={`/d/${encodeURIComponent(it.근거slug)}/`}>관련 문서 →</Link>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
           {nextItems.length > 0 ? (
             <p className={n.nextUp}>
               {nextMonth}월 미리보기: {nextItems.map((x) => x.title + (x.상태 === "예시" ? " (자료 확정 전)" : "")).join(" · ")}

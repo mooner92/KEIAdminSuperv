@@ -56,6 +56,8 @@ tools/chroma.test/
 # ── 원본 규정/가이드 소스 (내부 전용 — 절대 커밋 금지) ──
 rule_files/
 research_rule_files/
+# 대외업무 원자료(담당자 실명 포함 내부 데이터 — 커밋 금지, docs/39)
+external_affairs_raw/
 *.hwp
 *.hwpx
 *.pptx

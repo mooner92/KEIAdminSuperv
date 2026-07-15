@@ -58,8 +58,11 @@ def main():
     errs = []
     for i, it in enumerate(items):
         tag = f"[{i}] {it.get('title', '?')}"
-        if not isinstance(it.get("month"), int) or not 1 <= it["month"] <= 12:
-            errs.append(f"{tag}: month는 1~12 정수")
+        if not isinstance(it.get("month"), int) or not 0 <= it["month"] <= 12:
+            errs.append(f"{tag}: month는 0~12 정수(0=매월 상시, docs/39)")
+        구분 = it.get("구분", "")
+        if 구분 and (not isinstance(구분, str) or len(구분.split()) != 1):
+            errs.append(f"{tag}: 구분은 1단어 문자열 — 현재 {구분!r}")
         if not (it.get("title") or "").strip():
             errs.append(f"{tag}: title 필수")
         if it.get("상태") not in ("예시", "확정"):
@@ -67,7 +70,7 @@ def main():
         rel = it.get("관련페이지", "")
         if rel and not INTERNAL_PATH_RE.match(rel):
             errs.append(f"{tag}: 관련페이지는 내부 경로(/...)만 — {rel!r}")
-        blob = f"{it.get('title', '')} {it.get('desc', '')} {it.get('시기', '')}"  # 제목도 스캔(린트 구멍 방지)
+        blob = f"{it.get('title', '')} {it.get('desc', '')} {it.get('시기', '')} {it.get('구분', '')}"  # 제목·구분도 스캔
         for pat, label in ((MONEY_RE, "금액"), (DEADLINE_RE, "확정 기한"), (RATIO_RE, "비율")):
             m = pat.search(blob)
             if m:

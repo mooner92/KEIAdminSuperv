@@ -18,7 +18,12 @@ const body = await p.innerText("body");
 check("① GNB '지금 KEI' 탭", (await p.innerText("header")).includes("지금 KEI"));
 const month = new Date().getMonth() + 1;
 check(`① 캘린더 이번 달(${month}월) 헤더`, body.includes(`${month}월 챙길 일`));
-check("① 캘린더 빈 달/항목 안전 렌더", body.includes("등록된 일정") || body.includes("자료 확정 전"));
+// docs/39: 확정 항목 반입 후 — 월 항목 또는 빈 상태 문구 중 하나가 렌더(문자열 고정 의존 제거)
+const calItems = await p.locator('section[aria-label="이번 달 챙길 일"] li').count();
+check("① 캘린더 항목/빈 상태 렌더", calItems > 0 || body.includes("고유 일정이 아직 없어요"), `${calItems}개`);
+// docs/39: 매월(상시) 섹션 + 대외업무 구분 칩
+check("① 매월 챙길 일 섹션", body.includes("매월 챙길 일"));
+check("① 대외업무 구분 칩", body.includes("대외업무"));
 check("① 키워드 블록(로그인)", body.includes("요즘 많이 찾는 키워드"));
 check("① 최근 개정 규정 5건", (await p.locator('section[aria-label="최근 개정된 규정"] li').count()) === 5);
 check("① 새로워진 점 3건", (await p.locator('section[aria-label="새로워진 점"] li').count()) === 3);
@@ -45,10 +50,17 @@ check("② 오늘의 용어 결정적(새로고침 동일)", term1 === term2, `$
 // ③ 사용량 track 발화(now_view + page_view)
 check("③ track 발화", trackCalls.includes("now_view") && trackCalls.includes("page_view"), trackCalls.join(","));
 
-// ④ 12월 항목(예시 배지) — 시드에 12월 연차 점검 존재. 이번 달이 12월 아니면 다음 달 미리보기/부재 허용이라
-//    캘린더 데이터가 실제 로드됐는지는 페이지 소스로 판정
-const hasSeasonalData = await p.evaluate(() => !!document.body.innerText.match(/연말정산|연차휴가 사용 점검|등록된 일정이 없어요/));
+// ④ 시즌 캘린더 데이터 로드 — 월 무관 고정 항목(매월 섹션)으로 판정. 접힌 details도 읽히게 textContent
+const hasSeasonalData = await p.evaluate(() =>
+  !!(document.body.textContent || "").match(/법인카드 모니터링|인력현황|연말정산|연차휴가 사용 점검/));
 check("④ 시즌 캘린더 데이터 로드", hasSeasonalData);
+// ④-2 확정 항목엔 '자료 확정 전' 배지가 없어야 함(월례 5건은 전부 확정).
+// details가 접혀 있어도 읽히게 textContent로 판정
+const everyTxt = await p.evaluate(() => {
+  const d = [...document.querySelectorAll("details")].find((x) => (x.textContent || "").includes("매월 챙길 일"));
+  return d ? d.textContent : "";
+});
+check("④-2 매월 항목 확정(배지 없음)", everyTxt.includes("법인카드") && !everyTxt.includes("자료 확정 전"));
 
 // ⑤ 다크 실측
 const pd = await ctx.newPage();

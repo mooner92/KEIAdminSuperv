@@ -209,7 +209,9 @@ export function loadChangelog(): ChangelogEntry[] {
 
 // ── 이벤트탭 "지금 KEI에서"(docs/35) — 시즌 캘린더·최근 개정·용어 목록(빌드타임) ──
 export type SeasonalItem = {
-  month: number; title: string; desc?: string; 시기?: string;
+  month: number; // 0=매월(상시, docs/39) · 1~12=해당 월
+  title: string; desc?: string; 시기?: string;
+  구분?: string | null; // 항목 성격 칩(예: "대외업무") — 1단어, calendar_lint 검사
   관련페이지?: string | null; 근거?: string | null; 상태: string; // 예시 | 확정
   근거slug?: string | null; // 근거 문서 제목 → slug 해석(링크용)
 };
@@ -223,10 +225,12 @@ export function loadSeasonal(): SeasonalItem[] {
     const titleToSlug = new Map<string, string>();
     for (const d of getAllDocs()) if (!titleToSlug.has(d.title)) titleToSlug.set(d.title, d.slug);
     return raw
-      .filter((it) => it && Number.isInteger(it.month) && it.month >= 1 && it.month <= 12
+      .filter((it) => it && Number.isInteger(it.month) && it.month >= 0 && it.month <= 12
         && typeof it.title === "string" && it.title.trim())
       .map((it) => ({
         month: it.month, title: it.title, desc: it.desc || "", 시기: it.시기 || "",
+        // SSG 직렬화: undefined 금지 — 반드시 null 정규화(리뷰 확정)
+        구분: typeof it.구분 === "string" && it.구분.trim() ? it.구분.trim() : null,
         // 관련페이지는 내부 경로(/...)만 — 외부 URL·javascript: 등은 링크로 만들지 않는다(calendar_lint와 동일 규약)
         관련페이지: typeof it.관련페이지 === "string" && /^\/[^\s]*$/.test(it.관련페이지) ? it.관련페이지 : null,
         근거: it.근거 || null,
