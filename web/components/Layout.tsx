@@ -3,9 +3,9 @@ import { useRouter } from "next/router";
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import ThemeToggle from "./ThemeToggle";
 import { useFlag } from "../lib/flags";
-import { api } from "../lib/api";
+import { useAuth } from "../lib/auth";
 import { BUILD_ID, CORPUS_AS_OF } from "../lib/site";
-import { track, setTrackAuthed } from "../lib/track";
+import { track } from "../lib/track";
 import styles from "./Layout.module.css";
 
 export default function Layout({
@@ -76,21 +76,13 @@ export default function Layout({
   const formsOn = useFlag("forms_registry"); // 서식 찾기(docs/34 ①) — 푸터 진입
   const eventsOn = useFlag("events_tab"); // 지금 KEI에서(docs/35) — GNB 탭
   const landingOn = useFlag("landing_page"); // 소개 페이지(docs/36) — footer '소개' 진입
-  // 관리자 링크는 관리자에게만 노출(보안은 백엔드 403로 방어되나, 비관리자/로그아웃엔 링크 숨김)
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isAuthed, setIsAuthed] = useState(false); // 로그인 상태 — 비로그인엔 앱 메뉴(GNB) 숨김
-  const [authKnown, setAuthKnown] = useState(false);
-  useEffect(() => {
-    api
-      .me()
-      .then((u) => { setIsAdmin(!!u.is_admin); setIsAuthed(true); setTrackAuthed(true); })
-      // 비로그인 확정 → track 전송 자체를 끔(401 뮤트가 로그인 직후 계측을 유실시키는 부작용 차단)
-      .catch(() => { setIsAdmin(false); setIsAuthed(false); setTrackAuthed(false); })
-      .finally(() => setAuthKnown(true));
-  }, []);
+  // 인증 상태는 공유 AuthContext에서 — 로그인/로그아웃이 여기 반영돼 GNB가 즉시 갱신된다(새로고침 불필요).
+  const { user, ready: authKnown } = useAuth();
+  const isAuthed = !!user;
+  const isAdmin = !!user?.is_admin;
   // 사용량 수집(docs/35 §0): 라우트 단위 page_view — 페이로드 없음, flag off면 서버가 무시.
   // 트리거는 asPath(문서 간 이동도 새 페이지뷰) — 전송값은 라우트 패턴(pathname)이라 slug 미유출.
-  // 인증 확인(me) 후에만 발화 — 비로그인 401 노이즈·뮤트 방지(docs/36 §6⑦).
+  // 인증 확인 후에만 발화 — 비로그인 401 노이즈·뮤트 방지(docs/36 §6⑦).
   const { asPath } = router;
   useEffect(() => { if (authKnown) track("page_view", pathname); }, [asPath, pathname, authKnown]);
   return (
