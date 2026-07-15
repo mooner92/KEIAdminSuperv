@@ -39,7 +39,7 @@
   width: min(760px, 94vw);
   background: var(--color-surface);
   border-left: 1px solid var(--color-border);
-  box-shadow: -16px 0 48px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-drawer);
   display: flex;
   flex-direction: column;
   transform: translateX(100%);

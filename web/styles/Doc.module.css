@@ -1,4 +1,5 @@
 .crumb { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.crumb a { transition: var(--transition-ui); }
 .crumb a:hover { color: var(--color-primary); }
 .sep { color: var(--color-text-disabled); }
 .crumbCur {
@@ -23,7 +24,7 @@
 .chip {
   font-size: 11.5px;
   font-weight: 700;
-  padding: 3px 9px;
+  padding: 2px var(--space-2);
   border-radius: 999px;
   color: #fff;
   background: var(--color-text-tertiary);
@@ -38,12 +39,12 @@
   background: var(--color-bg-subtle);
   border: 1px solid var(--color-border);
   border-radius: 6px;
-  padding: 2px 8px;
+  padding: 2px var(--space-2);
 }
 .badge {
   font-size: 11.5px;
   font-weight: 700;
-  padding: 3px 9px;
+  padding: 3px var(--space-2);
   border-radius: 999px;
   color: var(--color-warning);
   background: var(--badge-warn-bg);
@@ -77,11 +78,12 @@
   border: 1px solid var(--color-border);
   border-radius: 999px;
   padding: 5px 12px;
+  transition: var(--transition-ui);
 }
-.blList a:hover { border-color: var(--color-primary); }
+.blList a:hover { border-color: var(--color-primary); color: var(--color-primary-strong); }
 
 .foot { margin-top: var(--space-6); }
-.back { color: var(--color-text-secondary); font-weight: 600; font-size: 14px; }
+.back { color: var(--color-text-secondary); font-weight: 600; font-size: 14px; transition: var(--transition-ui); }
 .back:hover { color: var(--color-primary); }
 
 @media (max-width: 640px) {

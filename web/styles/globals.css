@@ -45,7 +45,7 @@
   --color-field-bg: var(--grey100); /* 검색·입력 필드 배경(docs/37 D1 — 구 TDS SearchField 톤) */
   --color-surface: #ffffff;
   --color-surface-hover: var(--grey50);
-  --color-border: var(--grey200);
+  --color-border: #d9dde2; /* KRDS gray-10/20 사이 — 흰 표면과 대비 확보(카드·행 경계 또렷) */
   --color-border-strong: var(--grey300);
 
   --color-text: var(--grey900);
@@ -87,6 +87,9 @@
   --space-8: 48px;
   --shadow-card: 0 1px 3px rgba(0, 19, 43, 0.08), 0 1px 2px rgba(0, 19, 43, 0.04);
   --shadow-pop: 0 6px 20px rgba(0, 19, 43, 0.12);
+  /* 인터랙션 전환 — 전 컴포넌트가 동일 타이밍을 쓰도록 단일 토큰(hover/press 통일) */
+  --transition-ui: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+  --shadow-drawer: -16px 0 48px rgba(0, 19, 43, 0.12); /* 문서 드로어(좌향) — 다크에서 강화 */
 
   /* Pretendard GOV(KRDS 공식 서체, SIL OFL) self-host가 1순위 — 미로드 시 시스템 폰트 폴백 */
   --font-sans: "Pretendard GOV Variable", "Pretendard", "Pretendard Variable", -apple-system,
@@ -195,4 +198,5 @@ html { transition: background-color 0.2s ease; }
 
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.55);
+  --shadow-drawer: -16px 0 48px rgba(0, 0, 0, 0.5);
 }

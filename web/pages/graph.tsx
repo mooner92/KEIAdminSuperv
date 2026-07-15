@@ -38,23 +38,23 @@ export default function GraphPage({ graph }: { graph: GraphData }) {
         </p>
         <div className={styles.legend}>
           <span>
-            <i style={{ background: "#3182f6" }} />
+            <i style={{ background: "var(--accent-규정집)" }} />
             규정집
           </span>
           <span>
-            <i style={{ background: "#03b26c" }} />
+            <i style={{ background: "var(--accent-가이드)" }} />
             연구행정 가이드
           </span>
           <span>
-            <i style={{ background: "#fe9800" }} />
+            <i style={{ background: "var(--accent-용어집)" }} />
             용어집
           </span>
           <span>
-            <i style={{ background: "#8b5cf6" }} />
+            <i style={{ background: "var(--accent-시스템)" }} />
             사내 시스템
           </span>
           <span>
-            <i style={{ background: "#e0508a" }} />
+            <i style={{ background: "var(--accent-대외업무)" }} />
             대외업무
           </span>
         </div>

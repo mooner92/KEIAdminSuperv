@@ -39,5 +39,8 @@
   color: var(--color-surface);
   font-size: 11px;
   cursor: pointer;
+  transition: background 0.15s ease, transform 0.12s ease;
 }
 .clear:hover { background: var(--color-text-tertiary); }
+.clear:active { transform: scale(0.9); }
+.clear:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }

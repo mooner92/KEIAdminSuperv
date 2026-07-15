@@ -20,12 +20,21 @@ const ForceGraph2D = dynamic(
   { ssr: false, loading: () => <div className={styles.loading}>그래프 불러오는 중…</div> }
 );
 
-const SECTION_COLOR: Record<string, string> = {
-  규정집: "#3182f6",
-  가이드: "#03b26c",
-  용어집: "#fe9800",
+// KRDS accent 토큰과 정렬(globals.css --accent-*). 캔버스(react-force-graph)는 CSS 변수를
+// 못 읽어 테마별 hex를 직접 둔다 — 토큰이 바뀌면 여기도 동기화할 것.
+const SECTION_COLOR_LIGHT: Record<string, string> = {
+  규정집: "#256ef4", // --blue500
+  가이드: "#3fa654", // --green500
+  용어집: "#ffb114", // --orange500
   시스템: "#8b5cf6",
-  대외업무: "#e0508a",
+  대외업무: "#d63384",
+};
+const SECTION_COLOR_DARK: Record<string, string> = {
+  규정집: "#4c87f6",
+  가이드: "#2dd08f",
+  용어집: "#ffb547",
+  시스템: "#a78bfa",
+  대외업무: "#f06fa8",
 };
 
 export default function GraphCanvas({
@@ -73,6 +82,7 @@ export default function GraphCanvas({
   };
   const { resolved } = useTheme();
   const dark = resolved === "dark";
+  const palette = dark ? SECTION_COLOR_DARK : SECTION_COLOR_LIGHT;
   const [size, setSize] = useState({ w: 900, h: 600 });
 
   useEffect(() => {
@@ -115,7 +125,7 @@ export default function GraphCanvas({
         nodeLabel="title"
         nodeRelSize={4}
         nodeVal={(n: any) => 1 + (n.deg || 0)}
-        nodeColor={(n: any) => SECTION_COLOR[n.section] || "#8b95a1"}
+        nodeColor={(n: any) => palette[n.section] || (dark ? "#7c8590" : "#8b95a1")}
         linkColor={() => (dark ? "rgba(233,237,243,0.16)" : "rgba(25,31,40,0.10)")}
         linkWidth={1}
         backgroundColor={dark ? "#20242c" : "#ffffff"}
@@ -130,7 +140,7 @@ export default function GraphCanvas({
             const r = Math.sqrt(1 + (node.deg || 0)) * 4 + 2;
             ctx.beginPath();
             ctx.arc(node.x, node.y, r, 0, 2 * Math.PI);
-            ctx.strokeStyle = "#3182f6";
+            ctx.strokeStyle = dark ? "#4c87f6" : "#256ef4";
             ctx.lineWidth = 2.5 / scale;
             ctx.stroke();
           }
