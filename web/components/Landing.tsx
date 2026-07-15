@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import Login from "./Login";
 import ScrollRail, { type RailItem } from "./ScrollRail";
-import { api, type User } from "../lib/api";
+import { type User } from "../lib/api";
+import { useAuth } from "../lib/auth";
 import { CORPUS_AS_OF, SITE_NAME } from "../lib/site";
 import styles from "./Landing.module.css";
 
@@ -101,12 +102,10 @@ export default function Landing({
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   useReveal(rootRef);
-  // /about은 로그인 여부를 모름 — 로그인 상태면 폼 대신 '질문하러 가기'(클라이언트 확인)
-  const [me, setMe] = useState<User | null | undefined>(undefined); // undefined=확인 중
-  useEffect(() => {
-    if (onAuthed) { setMe(null); return; } // 게이트 사용처(비로그인 확정)는 조회 불필요
-    api.me().then(setMe).catch(() => setMe(null));
-  }, [onAuthed]);
+  // 로그인 여부는 공유 AuthContext에서(단일 출처) — /about start 섹션의 '이미 로그인됨/폼' 분기용.
+  // ready 이전엔 undefined(자리표시)로 둬 하이드레이션 안전.
+  const { user, ready } = useAuth();
+  const me: User | null | undefined = ready ? user : undefined;
 
   const goStart = () => {
     const start = document.getElementById("start");

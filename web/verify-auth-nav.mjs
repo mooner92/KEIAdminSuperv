@@ -27,6 +27,10 @@ const appeared = await p.waitForFunction(() => {
 check("② 로그인 직후: GNB 즉시 등장(새로고침 없이)", appeared);
 const urlAfterLogin = p.url();
 check("② 페이지 리로드 없이 반영", urlAfterLogin.endsWith("/") || urlAfterLogin.includes("3101"));
+// 관리자 링크도 새로고침 없이 즉시(admintest=관리자) — 리뷰 확정 major(로그인 응답 is_admin 누락) 회귀 검사
+const adminLink = await p.waitForFunction(() => (document.querySelector("footer")?.innerText || "").includes("관리자"),
+  undefined, { timeout: 6000 }).then(() => true).catch(() => false);
+check("② 관리자 링크 즉시 등장(로그인 응답 is_admin)", adminLink);
 
 // ── 로그아웃 시 메뉴 즉시 사라짐 ──
 // ChatApp의 로그아웃 버튼 클릭

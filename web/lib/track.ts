@@ -6,7 +6,8 @@ let flagCache: boolean | null = null;
 let flagInflight: Promise<boolean> | null = null; // 동시 track()이 flags를 중복 fetch하지 않게
 let authMutedUntil = 0; // 401(로그아웃) 응답을 받으면 잠시 전송 중단 — 서버 로그 노이즈 방지
 // 인증 상태 힌트(docs/36 §6⑦): 비로그인이 확실하면 전송 자체를 안 한다 — 401 뮤트가 로그인
-// 직후 계측까지 유실시키는 부작용 차단. null=미확인(허용). Layout(me())·로그인 성공 지점이 갱신.
+// 직후 계측까지 유실시키는 부작용 차단. null=미확인(허용).
+// 갱신 지점: auth.tsx AuthProvider(apply — 초기 me()·로그인·로그아웃) + Login.authed(랜딩 계측 직전 언뮤트).
 let authedHint: boolean | null = null;
 export function setTrackAuthed(v: boolean | null): void {
   authedHint = v;

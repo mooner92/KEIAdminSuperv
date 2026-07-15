@@ -1,9 +1,0 @@
-/* 인증 게이트 로딩 상태(채팅 UI는 ChatApp.module.css, 로그인은 Login.module.css) */
-.loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 360px;
-  color: var(--color-text-tertiary);
-  font-size: 14px;
-}

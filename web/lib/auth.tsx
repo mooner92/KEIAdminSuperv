@@ -2,7 +2,7 @@
 // 단일 출처로 관리한다. 이전엔 Assistant(setUser)와 Layout(자체 me())이 인증 상태를 각자 들고 있어
 // 로그인/로그아웃 후 상단 메뉴가 새로고침 전까지 갱신되지 않는 버그가 있었다.
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
-import { api, type User } from "./api";
+import { api, ApiError, type User } from "./api";
 import { setTrackAuthed } from "./track";
 
 type AuthCtx = {
@@ -31,13 +31,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     api.me().then(apply).catch(() => apply(null)).finally(() => setReady(true));
+    // 탭 복귀/포커스 시 세션 조용히 재검증 — 다른 탭 로그아웃·중간 만료 반영(공유 PC 대비, 리뷰 확정).
+    // ⚠ 401(명시적 만료)에만 로그아웃 처리 — 네트워크 블립으로 사용자를 튕기지 않는다.
+    const revalidate = () => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      api.me()
+        .then(apply)
+        .catch((e) => { if (e instanceof ApiError && e.status === 401) apply(null); });
+    };
+    window.addEventListener("visibilitychange", revalidate);
+    window.addEventListener("focus", revalidate);
+    return () => {
+      window.removeEventListener("visibilitychange", revalidate);
+      window.removeEventListener("focus", revalidate);
+    };
   }, [apply]);
 
   const logout = useCallback(async () => {
     try {
       await api.logout();
     } catch {
-      /* 네트워크 실패라도 클라이언트 상태는 로그아웃 처리 */
+      // 서버 세션 무효화 실패(네트워크·오류) — 클라이언트만 로그아웃하면 쿠키가 남아 새로고침 시
+      // 재로그인될 수 있다(공유 PC 위험). 하드 리로드로 서버에 세션 상태를 재확인시킨다.
+      apply(null);
+      if (typeof window !== "undefined") window.location.reload();
+      return;
     }
     apply(null);
   }, [apply]);

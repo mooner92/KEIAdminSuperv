@@ -641,9 +641,9 @@ def verify_email(body: VerifyIn, response: Response):
         s.add(u)
         s.delete(vc)
         s.commit()
-        uid, un = u.id, u.username
+        uid, un, adm = u.id, u.username, is_admin(u)
     set_cookie(response, make_token(uid))
-    return {"id": uid, "username": un}
+    return {"id": uid, "username": un, "is_admin": adm}  # /auth/me와 동일 셰이프(관리자 링크 즉시 반영)
 
 
 @router.post("/auth/resend")
@@ -672,12 +672,13 @@ def login(body: AuthIn, request: Request, response: Response):
             if effective_flags().get("signup_approval"):
                 raise HTTPException(403, "관리자 승인 대기 중입니다. 승인되면 로그인할 수 있어요.")
             raise HTTPException(403, "이메일 인증이 필요합니다. 가입 화면에서 인증을 완료해 주세요.")
-        uid, un = (u.id, u.username) if ok else (None, None)  # 성공 시에만 uid 설정(None 토큰 발급 방지)
+        # 성공 시에만 값 설정(None 토큰 발급 방지). is_admin은 세션 안에서 계산(세션 종료 후 접근 방지)
+        uid, un, adm = (u.id, u.username, is_admin(u)) if ok else (None, None, False)
     if not ok:
         _rl_fail(rl_key)
         raise HTTPException(401, "아이디 또는 비밀번호가 올바르지 않습니다.")
     set_cookie(response, make_token(uid))
-    return {"id": uid, "username": un}
+    return {"id": uid, "username": un, "is_admin": adm}  # /auth/me와 동일 셰이프(관리자 링크 즉시 반영)
 
 
 @router.post("/auth/logout")
