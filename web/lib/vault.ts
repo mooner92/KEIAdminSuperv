@@ -13,6 +13,9 @@ export const SECTIONS = {
   가이드: { dir: "10_업무가이드", label: "연구행정 가이드", desc: "업무 단위 쉬운 설명" },
   용어집: { dir: "30_용어집", label: "용어집", desc: "개념 사전" },
   시스템: { dir: "40_시스템", label: "사내 시스템", desc: "ERP·그룹웨어·연구관리(PMS) 등 사내 시스템 메뉴·기능" },
+  // 대외업무(docs/39): 대외요구자료 3개년 운영 통계·업무별 가이드. ⚠ 규정집·연구행정 가이드(ERP 원문)와
+  // 성격이 달라(내부 관측 통계) 별도 섹션으로 분리 — 혼선 방지.
+  대외업무: { dir: "50_대외업무", label: "대외업무", desc: "대외요구자료 반복업무(국정감사·예산·결산 등) 운영 통계·가이드" },
 } as const;
 export type SectionKey = keyof typeof SECTIONS;
 

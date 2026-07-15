@@ -10,8 +10,9 @@ const SECTION_LABEL: Record<string, string> = {
   가이드: "연구행정 가이드",
   용어집: "용어집",
   시스템: "사내 시스템",
+  대외업무: "대외업무",
 };
-const SECTIONS: SectionKey[] = ["규정집", "가이드", "용어집", "시스템"];
+const SECTIONS: SectionKey[] = ["규정집", "가이드", "용어집", "시스템", "대외업무"];
 const REVIEWED = ["검수완료", "미검수"];
 const PAGE_SIZES = [10, 30, 50];
 // 검색 범위 필드(content_search 플래그 on일 때 선택 가능). 기본 = 제목+내용.

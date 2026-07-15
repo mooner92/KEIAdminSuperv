@@ -25,6 +25,7 @@ const SECTION_LABEL: Record<string, string> = {
   가이드: "연구행정 가이드",
   용어집: "용어집",
   시스템: "사내 시스템",
+  대외업무: "대외업무",
 };
 
 type Backlink = { slug: string; title: string; section: SectionKey };

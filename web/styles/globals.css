@@ -62,6 +62,7 @@
   --accent-가이드: var(--green500);
   --accent-용어집: var(--orange500);
   --accent-시스템: #8b5cf6;
+  --accent-대외업무: #d63384; /* 대외업무(docs/39) — 규정·가이드와 시각 구분되는 자홍 계열 */
 
   /* 상태 배지 / 위험 표면 / 헤더 (다크에선 토큰만 교체) */
   --badge-warn-bg: #fff6e9;
@@ -171,6 +172,7 @@ html { transition: background-color 0.2s ease; }
   --accent-가이드: #2dd08f;
   --accent-용어집: #ffb547;
   --accent-시스템: #a78bfa;
+  --accent-대외업무: #f06fa8; /* 대외업무(다크) */
 
   /* 랜딩 컬러 모먼트(다크) — 페이지보다 살짝 밝은 틴트 필드 + 밝은 액센트 글자 */
   --sec-blue-bg: #14202f;

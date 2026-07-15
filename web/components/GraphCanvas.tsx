@@ -25,6 +25,7 @@ const SECTION_COLOR: Record<string, string> = {
   가이드: "#03b26c",
   용어집: "#fe9800",
   시스템: "#8b5cf6",
+  대외업무: "#e0508a",
 };
 
 export default function GraphCanvas({

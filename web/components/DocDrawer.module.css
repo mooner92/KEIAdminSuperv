@@ -149,6 +149,7 @@
 .chip[data-section="가이드"] { background: var(--accent-가이드); }
 .chip[data-section="용어집"] { background: var(--accent-용어집); }
 .chip[data-section="시스템"] { background: var(--accent-시스템); }
+.chip[data-section="대외업무"] { background: var(--accent-대외업무); }
 .tag {
   font-size: 12px;
   color: var(--color-text-secondary);

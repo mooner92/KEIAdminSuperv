@@ -6,7 +6,7 @@ import ex from "./Explorer.module.css";
 /** 코퍼스 관리 탭(v1.1, docs/20·21) — 둘러보기형 필터 + 제외 문서함 분리 + 업로드/재색인/롤백. */
 const PAGE = 30;
 const GUBUN_LABEL: Record<string, string> = {
-  "10_업무가이드": "연구행정 가이드", "20_규정원문": "규정집", "30_용어집": "용어집", "40_시스템": "사내 시스템",
+  "10_업무가이드": "연구행정 가이드", "20_규정원문": "규정집", "30_용어집": "용어집", "40_시스템": "사내 시스템", "50_대외업무": "대외업무",
 };
 
 type Filters = { gubun: Set<string>; cat: Set<string>; rev: Set<string>; idx: Set<string> };
