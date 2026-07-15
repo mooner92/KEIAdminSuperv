@@ -934,10 +934,15 @@ def _ensure_bm25():
 def _src(doc, m, dist):
     name = (m.get("규정명") or "").strip()
     article = (m.get("조") or "").strip()
+    # slug: 청크 메타의 문서 식별자는 'path'(볼트 상대경로) — stem이 웹 /d/<slug> 라우트와 일치.
+    # (기존 'slug'/'파일' 키는 색인 메타에 존재하지 않아 항상 빈 값 — 신뢰 탭 문서 링크 미작동의 근본 원인)
+    _p = (m.get("path") or "").strip()
+    _slug = ((m.get("slug") or m.get("파일") or "").strip()
+             or (os.path.splitext(os.path.basename(_p))[0] if _p else ""))
     return {
         "규정명": name, "조": article,
         "분류": (m.get("분류") or "").strip(),
-        "slug": (m.get("slug") or m.get("파일") or "").strip(),
+        "slug": _slug,
         "type": (m.get("type") or "").strip(),   # regulation|guide|system|term → UI에서 ERP/서식 칩
         "tag": f"{name} {article}".strip(),
         "snippet": doc[:240].replace("\n", " ").strip(),

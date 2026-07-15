@@ -65,8 +65,11 @@ export default function AdminTrust() {
                   <td>{fmt(r.at)}</td>
                   <td className={styles.wrapCell}>
                     {r.근거.map((s, j) => (
+                      // docs/34 수용: 규정명 클릭 → 원문(/d/) — slug 없으면 텍스트 칩 유지
                       <span key={j} className={styles.srcChip} data-unrev={s.검수상태 !== "검수완료" || undefined}>
-                        {s.규정명}{s.조 ? ` ${s.조}` : ""}{s.검수상태 !== "검수완료" ? " ⚠" : ""}
+                        {s.slug ? (
+                          <Link href={`/d/${encodeURIComponent(s.slug)}/`}>{s.규정명}</Link>
+                        ) : s.규정명}{s.조 ? ` ${s.조}` : ""}{s.검수상태 !== "검수완료" ? " ⚠" : ""}
                       </span>
                     ))}
                   </td>

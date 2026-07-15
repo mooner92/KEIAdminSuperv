@@ -108,10 +108,25 @@ def test_flattened_no_match_manual():
     assert "결혼\n퇴직" in body  # 무변경
 
 
+def test_stale_set_roundtrip():
+    """수용 ⓓ(docs/24): 반영된 문서는 스테일 셋에 기록 → 재색인 성공 시 클리어.
+    ⚠ STALE_PATH를 임시로 돌려 실제 tools/index/ 오염 방지."""
+    app_api.STALE_PATH = os.path.join(TMP, "reindex_stale.json")
+    app_api._mark_stale(["복무규정", ""])  # 빈 슬러그는 무시돼야 함
+    st = app_api._load_stale()
+    assert st == {"복무규정"}, st
+    # corpus_list 판정식과 동일 신호: 이미 색인된(청크>0·미제외) 문서도 stale이면 재색인 필요
+    assert ((False and 12 > 0) or (not False and 12 == 0) or ("복무규정" in st)) is True
+    app_api._clear_stale()
+    assert app_api._load_stale() == set()
+    app_api._clear_stale()  # 파일 없음 멱등
+
+
 if __name__ == "__main__":
     setup()
     fns = [test_dry_run_no_change, test_apply_replaces_only_broken_matching_block,
-           test_backup_created, test_idempotent_second_apply, test_flattened_no_match_manual]
+           test_backup_created, test_idempotent_second_apply, test_flattened_no_match_manual,
+           test_stale_set_roundtrip]
     failed = 0
     for fn in fns:  # 순서 의존(적용→백업→멱등) — 정렬하지 않음
         try:

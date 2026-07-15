@@ -198,7 +198,7 @@ export type Usage = {
 // 신뢰 운영 트랙(docs/34 ②) — 🔒 본문·메시지 id 없음(규정 메타·집계만)
 export type TrustOps = {
   days: number;
-  radar: { at: number; 근거: { 규정명: string; 조: string; 검수상태: string }[]; n_unreviewed: number }[];
+  radar: { at: number; 근거: { 규정명: string; 조: string; 검수상태: string; slug?: string }[]; n_unreviewed: number }[];
   matrix: { 규정명: string; 인용수: number; slug: string; 검수상태: string; down: number }[];
   feedback_types: { 유형: string; n: number }[];
   feedback_reasons: { 유형: string; 사유: string; at: number }[];

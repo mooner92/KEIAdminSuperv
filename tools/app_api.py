@@ -722,6 +722,34 @@ def _save_excluded(ex: set):
         json.dump({"excluded": sorted(ex)}, f, ensure_ascii=False, indent=1)
 
 
+# 내용 변경 스테일 셋(docs/24 수용 ⓓ): 표 복원 반영·업로드 편입처럼 '이미 색인된 문서의 내용'이
+# 바뀐 경우를 기록 → 코퍼스 목록이 needs_reindex로 표시. 재색인 성공 시 전체 클리어(02는 전량 재색인).
+STALE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "index", "reindex_stale.json")
+
+
+def _load_stale() -> set:
+    try:
+        with open(STALE_PATH, encoding="utf-8") as f:
+            return set(json.load(f).get("stale", []))
+    except Exception:
+        return set()
+
+
+def _mark_stale(slugs) -> None:
+    st = _load_stale()
+    st.update(s for s in slugs if s)
+    os.makedirs(os.path.dirname(STALE_PATH), exist_ok=True)
+    with open(STALE_PATH, "w", encoding="utf-8") as f:
+        json.dump({"stale": sorted(st)}, f, ensure_ascii=False, indent=1)
+
+
+def _clear_stale() -> None:
+    try:
+        os.remove(STALE_PATH)
+    except FileNotFoundError:
+        pass
+
+
 def _chunks_by_slug() -> dict:
     """chroma 색인의 path(stem)별 청크 수 — 60s 캐시(전량 metadata 스캔)."""
     now = time.time()
@@ -745,6 +773,7 @@ def corpus_list(admin: User = Depends(current_admin)):
     """관리자: 볼트 문서 목록 + 색인 상태(제외·청크수·재색인 필요)."""
     vault = os.environ.get("VAULT_DIR", os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "KEI-행정가이드"))
     ex = _load_excluded()
+    stale = _load_stale()  # docs/24 ⓓ: 내용 변경(표 복원 반영 등) 후 재색인 전 문서
     chunks = _chunks_by_slug()
     docs = []
     from pathlib import Path as _P
@@ -770,7 +799,7 @@ def corpus_list(admin: User = Depends(current_admin)):
             "검수상태": _fm("검수상태") or "미검수",
             "chunks": n,
             "excluded": excluded,
-            "needs_reindex": (excluded and n > 0) or (not excluded and n == 0),
+            "needs_reindex": (excluded and n > 0) or (not excluded and n == 0) or (slug in stale),
         })
     summary = {
         "total": len(docs),
@@ -849,8 +878,9 @@ def _reindex_worker(vault: str):
         # 3) 무재시작 적용
         rag_core.reload()
         _corpus_cache["t"] = 0
+        _clear_stale()  # 전량 재색인 성공 — 내용 변경 스테일 해소(docs/24 ⓓ)
         REINDEX["ok"] = True
-        REINDEX["log"].append("✅ 완료 — 새 색인 적용됨(무재시작)")
+        REINDEX["log"].append("✅ 완료 — 새 색인 적용됨(무재시작). 웹 화면(둘러보기·그래프)은 다음 배포에 반영")
     except Exception as e:  # noqa: BLE001
         REINDEX["ok"] = False
         REINDEX["log"].append(f"⛔ 실패: {type(e).__name__}: {e} — 필요 시 롤백하세요")
@@ -1037,6 +1067,8 @@ def table_restore_apply(body: RestoreApplyIn, admin: User = Depends(current_admi
     res = _apply_restore(prop, dry=False)
     if res["matched"] == 0:
         raise HTTPException(409, "자동 반영 가능한 표가 없습니다(평탄화·원본 병합 구조는 수동 반영).")
+    # docs/24 ⓓ: 내용이 바뀐 문서를 스테일로 기록 → 코퍼스 탭이 '⟳ 재색인 필요' 표시
+    _mark_stale(os.path.splitext(os.path.basename(rel))[0] for rel in res.get("replaced", []))
     _corpus_cache["t"] = 0  # 목록 재계산(needs_reindex 반영)
     with Session(engine) as s:
         s.add(CorpusAudit(slug=body.name, action="table_restore", actor=admin.username))
@@ -1155,6 +1187,7 @@ def corpus_upload_approve(uid: str, body: ApproveIn, admin: User = Depends(curre
     _corpus_cache["t"] = 0
     with Session(engine) as s:
         s.add(CorpusAudit(slug=slug, action="approve", actor=admin.username)); s.commit()
+    _mark_stale([slug])  # 신규 편입 문서 — 재색인 전까지 '⟳ 재색인 필요' 표시(docs/24 ⓓ와 동일 신호)
     return {"slug": slug, "path": os.path.join(sub, slug + ".md"), "needs_reindex": True}
 
 
@@ -1531,7 +1564,7 @@ def usage_stats(admin: User = Depends(current_admin), days: int = 30):
 
 
 # ── 신뢰 운영 트랙(docs/34 ②) — 검수의 조준경. 🔒 질문·답변 본문은 절대 반환하지 않는다(P2.5). ──
-_REVIEW_CACHE: dict = {"t": 0.0, "by_slug": {}, "by_name": {}}
+_REVIEW_CACHE: dict = {"t": 0.0, "by_slug": {}, "by_name": {}, "name2slug": {}}
 # 금액 감지 — 웹 P2.2 MONEY_RE(ChatApp.tsx)와 등가 유지(사용자에게 💰 경고가 뜨는 답변은 레이더에도 잡혀야 함)
 _TRUST_MONEY_RE = re.compile(
     r"\d[\d,]*\s*(?:원|만원|천원|억원|%|퍼센트)"      # 500,000원·20000원·7%
@@ -1554,8 +1587,8 @@ def _review_status_maps() -> tuple:
     문서가 검수완료로 승격되면 과거 답변도 위험 목록에서 자동으로 빠진다."""
     now = time.time()
     if now - _REVIEW_CACHE["t"] < 300 and _REVIEW_CACHE["by_slug"]:
-        return _REVIEW_CACHE["by_slug"], _REVIEW_CACHE["by_name"]
-    by_slug, by_name = {}, {}
+        return _REVIEW_CACHE["by_slug"], _REVIEW_CACHE["by_name"], _REVIEW_CACHE["name2slug"]
+    by_slug, by_name, name2slug = {}, {}, {}
     vault = _vault_dir()
     for root, _dirs, files in os.walk(vault):
         if "90_관리" in root or "_templates" in root:
@@ -1583,8 +1616,9 @@ def _review_status_maps() -> tuple:
             by_slug[stem] = status
             if name:
                 by_name.setdefault(name, status)
-    _REVIEW_CACHE.update(t=now, by_slug=by_slug, by_name=by_name)
-    return by_slug, by_name
+                name2slug.setdefault(name, stem)  # 규정명 → slug(과거 근거의 slug 백필용, docs/34)
+    _REVIEW_CACHE.update(t=now, by_slug=by_slug, by_name=by_name, name2slug=name2slug)
+    return by_slug, by_name, name2slug
 
 
 def _src_review(src: dict, by_slug: dict, by_name: dict) -> str:
@@ -1598,7 +1632,7 @@ def trust_ops(admin: User = Depends(current_admin), days: int = 30):
     🔒 메시지 id·질문·답변 본문은 어떤 필드로도 반환하지 않는다 — 규정 메타·집계·시각만."""
     days = max(1, min(days, 365))
     since = time.time() - days * 86400
-    by_slug, by_name = _review_status_maps()
+    by_slug, by_name, name2slug = _review_status_maps()
     with Session(engine) as s:
         msgs = s.exec(select(Message).where(Message.role == "assistant",
                                             Message.created_at >= since)).all()
@@ -1637,11 +1671,15 @@ def trust_ops(admin: User = Depends(current_admin), days: int = 30):
             if not name or key in seen:
                 continue
             seen.add(key)
+            # docs/34 수용: 레이더 행 규정명 → /d/ 링크. 과거 저장 근거는 slug가 빈 값(실측 1423/1423)
+            # 이라 규정명→slug 볼트 조인으로 백필한다(매트릭스도 동일 혜택).
             cited.append({"규정명": name, "조": key[1],
-                          "검수상태": _src_review(x, by_slug, by_name)})
+                          "검수상태": _src_review(x, by_slug, by_name),
+                          "slug": (x.get("slug") or "").strip() or name2slug.get(name, "")})
             names_in_msg.add(name)
-            if x.get("slug") and name not in slug_by_name:
-                slug_by_name[name] = x["slug"]
+            slug = (x.get("slug") or "").strip() or name2slug.get(name, "")
+            if slug and name not in slug_by_name:
+                slug_by_name[name] = slug
         for name in names_in_msg:  # 답변당 규정 1회(리뷰 확정: 다조 인용 부풀림 방지)
             demand[name] += 1
         n_unrev = sum(1 for c in cited if c["검수상태"] != "검수완료")
@@ -1659,7 +1697,7 @@ def trust_ops(admin: User = Depends(current_admin), days: int = 30):
 
     matrix = []
     for name, n in demand.most_common(100):
-        slug = slug_by_name.get(name, "")
+        slug = slug_by_name.get(name) or name2slug.get(name, "")
         status = by_slug.get(slug) or by_name.get(name) or by_slug.get(name, "미검수")
         matrix.append({"규정명": name, "인용수": n, "slug": slug,
                        "검수상태": status, "down": downs.get(name, 0)})

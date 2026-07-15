@@ -171,6 +171,11 @@ export default function AdminCorpus() {
           </span>
         ) : null}
       </div>
+      {/* docs/20 설계 원칙 4: 재색인/롤백은 검색(RAG)에만 즉시 반영 — 웹 화면은 다음 배포에 */}
+      <p className={styles.reindexNote}>
+        ⓘ 재색인·롤백은 <b>검색(챗봇 근거)에 즉시</b> 반영돼요. 둘러보기·그래프·문서 화면은
+        다음 웹 재빌드(배포) 때 반영됩니다.
+      </p>
 
       {/* 서브뷰: 전체 목록 / 제외 문서함 (docs/21 §2) */}
       <div className={styles.viewTabs} role="tablist">

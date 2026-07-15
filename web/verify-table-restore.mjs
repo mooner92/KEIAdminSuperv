@@ -17,10 +17,13 @@ const p = await ctx.newPage();
 await p.goto(`${BASE}/admin/#restore`, { waitUntil: "load" });
 await p.waitForTimeout(2500);
 
-// 탭·목록 렌더
+// 탭·목록 렌더. ⚠ 상태 의존 기대값(docs/28에서 복무규정 등 4건 실반영됨 — 사람 승인):
+//    반영 전 = '자동 반영 가능' 배지 + 버튼 활성 / 반영 후 = '반영됨' 배지 + matchable 0 → 버튼 비활성(멱등).
 ok((await p.getByRole("tab", { name: /표 복원/ }).count()) > 0, "2) 🔧 표 복원 탭 렌더(플래그 on)");
 await p.getByText("복무규정", { exact: false }).first().waitFor({ timeout: 20000 });
-ok((await p.getByText(/자동 반영 가능/).count()) > 0, "3) '자동 반영 가능' 상태 배지");
+const list0 = await (await ctx.request.get(`${BASE}/api/app/corpus/table-restore`)).json();
+const bokmu = list0.docs.find((d) => d.name === "복무규정");
+ok((await p.getByText(/자동 반영 가능|반영됨/).count()) > 0, "3) 상태 배지(자동 반영 가능 또는 반영됨)");
 ok((await p.getByText(/수동 필요/).count()) > 0, "4) '수동 필요' 상태 배지(평탄화 문서)");
 
 // 복무규정 펼치기 → 손상 표본 vs 복원 표 대비
@@ -31,17 +34,24 @@ const cellOk = (await p.locator("td", { hasText: "본    인" }).count()) > 0
   || (await p.locator("td", { hasText: "본 인" }).count()) > 0;
 ok(cellOk, "6) 복원 표(after) 셀 줄바꿈 렌더(본인/자녀 분리)");
 
-// 반영 버튼: 존재 + 확인 대화상자까지만(⛔반영 안 함)
-let dialogSeen = false;
-p.on("dialog", async (d) => { dialogSeen = true; await d.dismiss(); });
-const btn = p.locator("li", { hasText: "복무규정" }).first().locator("button.Admin_applyBtn__sNPG_, button[title*=\"볼트에 반영\"]").first();
-ok((await btn.count()) > 0 && !(await btn.isDisabled()), "7) [반영] 버튼 활성(자동 가능 문서)");
-await btn.click();
-await p.waitForTimeout(500);
-ok(dialogSeen, "8) 확인 대화상자 표시 → 취소(실반영 없음)");
-const list = await ctx.request.get(`${BASE}/api/app/corpus/table-restore`);
-const applied = (await list.json()).docs.find((d) => d.name === "복무규정").applied_at;
-ok(!applied, "9) 취소 후 반영 이력 없음(볼트 불변)");
+const btn = p.locator("li", { hasText: "복무규정" }).first().locator('button[title*="반영"]').first();
+if (bokmu?.applied_at || bokmu?.matchable === 0) {
+  // 반영 후 정상 상태: 반영됨 배지 + 버튼 비활성(재반영 멱등 보호) + 이력 보존
+  ok((await p.locator("li", { hasText: "복무규정" }).first().getByText(/반영됨/).count()) > 0, "7) '반영됨' 배지(반영 후 상태)");
+  ok((await btn.count()) > 0 && (await btn.isDisabled()), "8) [반영] 버튼 비활성(matchable 0 — 멱등)");
+  ok(!!bokmu.applied_at, "9) 반영 이력(applied_at) 보존");
+} else {
+  // 반영 전 상태: 버튼 활성 + 확인 대화상자까지만(⛔실반영 없음)
+  let dialogSeen = false;
+  p.on("dialog", async (d) => { dialogSeen = true; await d.dismiss(); });
+  ok((await btn.count()) > 0 && !(await btn.isDisabled()), "7) [반영] 버튼 활성(자동 가능 문서)");
+  await btn.click();
+  await p.waitForTimeout(500);
+  ok(dialogSeen, "8) 확인 대화상자 표시 → 취소(실반영 없음)");
+  const applied = (await (await ctx.request.get(`${BASE}/api/app/corpus/table-restore`)).json())
+    .docs.find((d) => d.name === "복무규정").applied_at;
+  ok(!applied, "9) 취소 후 반영 이력 없음(볼트 불변)");
+}
 
 await p.screenshot({ path: "verify-table-restore.png", fullPage: false });
 await b.close();

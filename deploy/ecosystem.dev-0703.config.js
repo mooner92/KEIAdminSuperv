@@ -47,10 +47,10 @@ module.exports = {
         HF_HUB_OFFLINE: "1",
         OLLAMA_KEEP_ALIVE: "-1",
         OLLAMA_PING_SECONDS: "240",
-        // ⚠ 리랭커 off: GPU1이 프로덕션 리랭커+Ollama로 꽉 차 dev 리랭커는 OOM(매 질의 실패→밀집 강등,
-        // 로그 스팸·지연). dev는 '밀집'으로 돈다(프롬프트·콘텐츠 테스트엔 충분). 프로덕션=리랭커라 검색 순위는 다를 수 있음.
-        // GPU 여유 생기면 RAG_RERANK=1 + RAG_RERANK_DEVICE=cuda:1로 프로덕션과 동일하게.
-        RAG_RERANK: "0",
+        // 리랭커 on(2026-07-15): GPU1 여유 확인(3.1/24GB) — 프로덕션과 동일 순위로 dev 테스트.
+        // ⚠ GPU는 공유·변동적 — OOM으로 매 질의 밀집 강등·로그 스팸이 보이면 다시 "0"으로.
+        RAG_RERANK: "1",
+        RAG_RERANK_DEVICE: "cuda:1",
         APP_DB: "/home/mhchoi/kei-dev-0703/tools/app.db", // 격리 채팅DB(신규)
         APP_SECRET_FILE: "/home/mhchoi/kei-dev-0703/tools/.app_secret", // 격리 세션키(신규)
         APP_ADMINS: "21963,admintest,mhchoi@kei.re.kr", // admintest = dev 전용(prod 병합 시 제거) · mhchoi@ = 운영자 본계정
