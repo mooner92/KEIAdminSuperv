@@ -139,3 +139,7 @@ tsconfig.tsbuildinfo
 # 작업 부산물(잘못된 cwd 산출물·내부 보고 HTML) — 공개 레포 유입 차단
 tools/tools/
 web/.report-*.html
+
+# 랜딩/디자인 스크린샷(산출물 — 커밋 금지)
+web/shot-*.png
+shot-*.png
