@@ -87,8 +87,9 @@
   --shadow-card: 0 1px 3px rgba(0, 19, 43, 0.08), 0 1px 2px rgba(0, 19, 43, 0.04);
   --shadow-pop: 0 6px 20px rgba(0, 19, 43, 0.12);
 
-  --font-sans: "Pretendard", "Pretendard Variable", -apple-system, BlinkMacSystemFont,
-    "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  /* Pretendard GOV(KRDS 공식 서체, SIL OFL) self-host가 1순위 — 미로드 시 시스템 폰트 폴백 */
+  --font-sans: "Pretendard GOV Variable", "Pretendard", "Pretendard Variable", -apple-system,
+    BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
   --maxw: 1120px;
   --header-h: 56px;
 
