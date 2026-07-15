@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ColorSchemeArea, SearchField } from "@toss/tds-mobile";
-import { useTheme } from "../lib/theme";
+import SearchInput from "./SearchInput";
 import { useFlag } from "../lib/flags";
 import DocDrawer from "./DocDrawer";
 import type { ApprovalRule } from "./ApprovalFinder";
@@ -26,7 +25,6 @@ type Filters = { cat: Set<string>; role: Set<string>; owner: Set<string> };
 const REG_SLUG = "2300_위임전결규정"; // 별표 원문 문서(slug = 파일 stem)
 
 export default function ApprovalExplorer({ rules }: { rules: ApprovalRule[] }) {
-  const { resolved } = useTheme();
   const upgrades = useFlag("explore_upgrades"); // v1 ⑭(S7-#33): 행→별표 원문 링크
   // 원문 드로어: 업무 경로의 가장 긴 구간을 하이라이트 후보로(표 행 매칭, 실패 시 문서 상단 — fail-soft)
   const [origText, setOrigText] = useState<string | null>(null);
@@ -173,15 +171,13 @@ export default function ApprovalExplorer({ rules }: { rules: ApprovalRule[] }) {
 
       <section className={styles.content}>
         <div className={styles.searchWrap}>
-          <ColorSchemeArea theme={resolved}>
-            <SearchField
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              onDeleteClick={() => setQ("")}
-              placeholder="업무 검색 — 예: 출장, 휴가, 계약 (아래 칩으로 바로 조회)"
-              aria-label="업무 검색"
-            />
-          </ColorSchemeArea>
+          <SearchInput
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onClear={() => setQ("")}
+            placeholder="업무 검색 — 예: 출장, 휴가, 계약 (아래 칩으로 바로 조회)"
+            ariaLabel="업무 검색"
+          />
           <div className={styles.scopeRow} role="group" aria-label="자주 찾는 업무">
             <span className={styles.scopeLabel}>자주 찾는 업무</span>
             {kwChips.map(({ k, n }) => (

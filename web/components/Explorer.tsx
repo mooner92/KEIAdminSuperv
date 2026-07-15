@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ColorSchemeArea, SearchField } from "@toss/tds-mobile";
+import SearchInput from "./SearchInput";
 import type { DocMeta, SectionKey } from "../lib/vault";
-import { useTheme } from "../lib/theme";
 import { useFlag } from "../lib/flags";
 import DocDrawer from "./DocDrawer";
 import styles from "./Explorer.module.css";
@@ -37,7 +36,6 @@ type Filters = { section: Set<string>; category: Set<string>; reviewed: Set<stri
  * 행을 클릭하면 페이지 이동 없이 우측 Notion형 드로어로 본문을 연다.
  */
 export default function Explorer({ docs }: { docs: DocMeta[] }) {
-  const { resolved } = useTheme();
   const contentSearchOn = useFlag("content_search");
   const upgrades = useFlag("explore_upgrades"); // v1 ⑬(S7): URL 딥링크 등
   const [q, setQ] = useState("");
@@ -233,19 +231,17 @@ export default function Explorer({ docs }: { docs: DocMeta[] }) {
 
       <section className={styles.content}>
         <div className={styles.searchWrap}>
-          <ColorSchemeArea theme={resolved}>
-            <SearchField
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              onDeleteClick={() => setQ("")}
-              placeholder={
-                contentSearchOn
-                  ? `검색 (${SCOPE_FIELDS.filter((s) => scope.has(s.key)).map((s) => s.label).join("·")})`
-                  : "제목 · 규정번호 · 분류로 검색"
-              }
-              aria-label="검색"
-            />
-          </ColorSchemeArea>
+          <SearchInput
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onClear={() => setQ("")}
+            placeholder={
+              contentSearchOn
+                ? `검색 (${SCOPE_FIELDS.filter((s) => scope.has(s.key)).map((s) => s.label).join("·")})`
+                : "제목 · 규정번호 · 분류로 검색"
+            }
+            ariaLabel="검색"
+          />
           {contentSearchOn ? (
             <div className={styles.scopeRow} role="group" aria-label="검색 범위">
               <span className={styles.scopeLabel}>검색 범위</span>

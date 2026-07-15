@@ -1,26 +1,22 @@
 import ErrorBoundary from "../components/ErrorBoundary";
 import type { AppProps } from "next/app";
-import { TDSMobileAITProvider } from "@toss/tds-mobile-ait";
 import { ThemeProvider } from "../lib/theme";
 import { FlagsProvider } from "../lib/flags";
 import { AuthProvider } from "../lib/auth";
 import "../styles/globals.css";
 
-// ThemeProvider가 <html data-theme>를 관리(KEI 시맨틱 토큰 분기),
-// TDS Provider는 전역 CSS 변수·컴포넌트 동작을 셋업한다. TDS 컴포넌트의 다크 적용은
-// 사용처에서 <ColorSchemeArea theme={resolved}>로 감싼다(현재 Explorer의 SearchField).
+// ThemeProvider가 <html data-theme>를 관리(KEI 시맨틱 토큰 분기).
+// TDS는 라이선스 무명시로 제거(docs/37 D1) — 컴포넌트는 전부 자체 구현 + 시맨틱 토큰.
 export default function App({ Component, pageProps }: AppProps) {
   return (
     <ErrorBoundary>
-    <ThemeProvider>
-      <FlagsProvider>
-        <AuthProvider>
-          <TDSMobileAITProvider>
+      <ThemeProvider>
+        <FlagsProvider>
+          <AuthProvider>
             <Component {...pageProps} />
-          </TDSMobileAITProvider>
-        </AuthProvider>
-      </FlagsProvider>
-    </ThemeProvider>
-  </ErrorBoundary>
+          </AuthProvider>
+        </FlagsProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }

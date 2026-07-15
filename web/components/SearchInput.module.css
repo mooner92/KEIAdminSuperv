@@ -1,0 +1,43 @@
+/* 검색 입력(docs/37 D1) — TDS SearchField 룩 복제. 시맨틱 토큰만 */
+.wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: var(--color-field-bg);
+  border: 1.5px solid transparent;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.wrap:focus-within {
+  border-color: var(--color-primary);
+  background: var(--color-surface);
+}
+.icon { flex: 0 0 auto; color: var(--color-text-tertiary); }
+.input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 15px;
+  color: var(--color-text);
+  outline: none; /* 포커스 표시는 .wrap:focus-within 보더가 담당 */
+}
+.input::placeholder { color: var(--color-text-tertiary); }
+.clear {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-border-strong);
+  color: var(--color-surface);
+  font-size: 11px;
+  cursor: pointer;
+}
+.clear:hover { background: var(--color-text-tertiary); }

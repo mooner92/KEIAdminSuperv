@@ -40,6 +40,7 @@
 
   --color-bg: #ffffff;
   --color-bg-subtle: var(--grey50);
+  --color-field-bg: var(--grey100); /* 검색·입력 필드 배경(docs/37 D1 — 구 TDS SearchField 톤) */
   --color-surface: #ffffff;
   --color-surface-hover: var(--grey50);
   --color-border: var(--grey200);
@@ -146,6 +147,7 @@ html { transition: background-color 0.2s ease; }
   /* 레이어 대비를 분명히: 페이지(가장 어두움) < 카드/패널(확실히 밝게) < hover, 경계선은 보이게 */
   --color-bg: #0f1116;
   --color-bg-subtle: #15181e; /* body(페이지) + 카드 내부 옅은 영역 */
+  --color-field-bg: #262b34; /* 검색·입력 필드 — 카드보다 살짝 밝게 */
   --color-surface: #20242c;   /* 카드·패널 — 페이지보다 한 단계 밝게(떠 보이게) */
   --color-surface-hover: #282e38;
   --color-border: #2f3540;

@@ -5,10 +5,7 @@ const nextConfig = {
   output: "export",
   images: { unoptimized: true },
   trailingSlash: true,
-  // emotion(=TDS 기반)을 Next 컴파일러로 처리
-  compiler: { emotion: true },
-  // TDS 패키지는 트랜스파일 필요
-  transpilePackages: ["@toss/tds-mobile", "@toss/tds-mobile-ait"],
+  // TDS·emotion 설정은 docs/37 D1에서 제거(라이선스 무명시 → 의존 자체 철거)
 };
 
 export default nextConfig;
