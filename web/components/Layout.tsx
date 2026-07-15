@@ -73,8 +73,7 @@ export default function Layout({
   const approvalNav = useFlag("approval_finder"); // 결재선 판정기 — 상단 메뉴 노출도 플래그로
   const journeyNav = useFlag("journey_map"); // 업무 한 장(스윔레인) — docs/25
   const helpHub = useFlag("help_hub"); // 도움말 허브·FAQ(docs/31) — 푸터 FAQ 링크 게이트
-  const formsOn = useFlag("forms_registry"); // 서식 찾기(docs/34 ①) — 푸터 진입
-  const eventsOn = useFlag("events_tab"); // 지금 KEI에서(docs/35) — GNB 탭
+  const eventsOn = useFlag("events_tab"); // 추가 기능·업무 캘린더(docs/35·41) — GNB 탭
   const landingOn = useFlag("landing_page"); // 소개 페이지(docs/36) — footer '소개' 진입
   // 인증 상태는 공유 AuthContext에서 — 로그인/로그아웃이 여기 반영돼 GNB가 즉시 갱신된다(새로고침 불필요).
   const { user, ready: authKnown } = useAuth();
@@ -109,8 +108,8 @@ export default function Layout({
               <Link href="/graph/" className={nav("/graph")} aria-current={pathname.startsWith("/graph") ? "page" : undefined}>관계 그래프</Link>
               {approvalNav ? <Link href="/approval/" className={nav("/approval")} aria-current={pathname.startsWith("/approval") ? "page" : undefined}>결재선</Link> : null}
               {journeyNav ? <Link href="/journey/" className={nav("/journey")} aria-current={pathname.startsWith("/journey") ? "page" : undefined}>업무 한 장</Link> : null}
-              {eventsOn ? <Link href="/now/" className={nav("/now")} aria-current={pathname.startsWith("/now") ? "page" : undefined}>지금 KEI</Link> : null}
               {eventsOn ? <Link href="/calendar/" className={nav("/calendar")} aria-current={pathname.startsWith("/calendar") ? "page" : undefined}>업무 캘린더</Link> : null}
+              {eventsOn ? <Link href="/now/" className={nav("/now")} aria-current={pathname.startsWith("/now") ? "page" : undefined}>추가 기능</Link> : null}
             </nav>
           ) : (
             <span className={styles.nav} aria-hidden />
@@ -140,9 +139,7 @@ export default function Layout({
               aria-pressed={onHelp}>{onHelp ? "✕ 도움말 닫기" : "도움말"}</Link>
             {helpHub ? <Link href="/help/#faq" className={styles.adminLink}>FAQ</Link> : null}
             {landingOn ? <Link href="/about/" className={styles.adminLink}>소개</Link> : null}
-            {/* 앱 콘텐츠 링크는 로그인 후에만(비로그인엔 소개·도움말만) */}
-            {isAuthed && formsOn ? <Link href="/forms/" className={styles.adminLink}>서식 찾기</Link> : null}
-            {isAuthed && changelogOn ? <Link href="/changelog/" className={styles.adminLink}>새로워진 점</Link> : null}
+            {/* 서식 찾기·새로워진 점은 '추가 기능'(/now) 허브로 이전(docs/41) — 푸터 정리 */}
             <span className={styles.asOf} title="배포 빌드 식별자">v.{BUILD_ID}</span>
             {isAdmin ? (
               <Link href="/admin/" className={styles.adminLink}>관리자</Link>

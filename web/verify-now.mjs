@@ -15,22 +15,18 @@ p.on("request", (r) => { if (r.url().includes("/api/app/track")) trackCalls.push
 await p.goto(BASE + "/now/", { waitUntil: "load" });
 await p.waitForTimeout(2500);
 const body = await p.innerText("body");
-check("① GNB '지금 KEI' 탭", (await p.innerText("header")).includes("지금 KEI"));
-const month = new Date().getMonth() + 1;
-check(`① 캘린더 이번 달(${month}월) 헤더`, body.includes(`${month}월 챙길 일`));
-// docs/39: 확정 항목 반입 후 — 월 항목 또는 빈 상태 문구 중 하나가 렌더(문자열 고정 의존 제거)
-const calItems = await p.locator('section[aria-label="이번 달 챙길 일"] li').count();
-check("① 캘린더 항목/빈 상태 렌더", calItems > 0 || body.includes("고유 일정이 아직 없어요"), `${calItems}개`);
-// docs/40: 매월(상시)·월 칩·상세는 /calendar로 이전 — /now 캘린더 카드엔 구분 칩만 잔존
-check("① 대외업무 구분 칩", body.includes("대외업무"));
+// docs/41: /now는 '추가 기능' 허브 — 바로가기(캘린더·서식·새로워진) + 요즘 흐름(키워드·개정·용어)
+check("① GNB '추가 기능' 탭", (await p.innerText("header")).includes("추가 기능"));
+check("① 허브 제목", body.includes("추가 기능"));
+check("① 바로가기 구역", body.includes("바로가기"));
+check("① 요즘 흐름 구역", body.includes("요즘 흐름"));
+check("① 바로가기: 업무 캘린더", (await p.locator('a[href="/calendar/"]').count()) >= 1);
+check("① 바로가기: 서식 찾기", (await p.locator('a[href="/forms/"]').count()) >= 1);
+check("① 바로가기: 새로워진 점", (await p.locator('a[href="/changelog/"]').count()) >= 1);
 check("① 키워드 블록(로그인)", body.includes("요즘 많이 찾는 키워드"));
 check("① 최근 개정 규정 5건", (await p.locator('section[aria-label="최근 개정된 규정"] li').count()) === 5);
-check("① 새로워진 점 3건", (await p.locator('section[aria-label="새로워진 점"] li').count()) === 3);
 check("① 오늘의 용어", body.includes("오늘의 용어"));
 await p.screenshot({ path: "verify-now.png" });
-
-// ①-2 캘린더는 별도 페이지로 분리(docs/40) — /now엔 '전체 보기' 링크, 월 칩은 /calendar로 이전
-check("①-2 업무 캘린더 전체 보기 링크", (await p.locator('a[href="/calendar/"]').count()) >= 1);
 
 // ② 오늘의 용어 결정성 — 새로고침해도 같은 용어
 const term1 = await p.locator('section[aria-label="오늘의 용어"] a').first().innerText();
@@ -42,10 +38,8 @@ check("② 오늘의 용어 결정적(새로고침 동일)", term1 === term2, `$
 // ③ 사용량 track 발화(now_view + page_view)
 check("③ track 발화", trackCalls.includes("now_view") && trackCalls.includes("page_view"), trackCalls.join(","));
 
-// ④ /now 캘린더 카드 데이터 로드 — 이번 달(7월) 확정 항목 또는 매월 항목이 요약으로 보임
-const hasSeasonalData = await p.evaluate(() =>
-  !!(document.body.textContent || "").match(/인력증원|법인카드 모니터링|인력현황|연말정산/));
-check("④ /now 캘린더 카드 데이터 로드", hasSeasonalData);
+// ④ 서식 바로가기 카드에 실측 서식 수(loadForms) 노출
+check("④ 서식 바로가기 서식 수", /서식\s*\d{2,}종/.test(body), body.match(/서식\s*\d+종/)?.[0] || "미표시");
 
 // ⑤ 다크 실측
 const pd = await ctx.newPage();

@@ -8,24 +8,27 @@ import { useFlag } from "../lib/flags";
 import { SITE_NAME } from "../lib/site";
 import { track } from "../lib/track";
 import {
-  loadChangelog, loadSeasonal, recentlyRevised, termPool,
+  loadChangelog, loadForms, loadSeasonal, recentlyRevised, termPool,
   type ChangelogEntry, type SeasonalItem,
 } from "../lib/vault";
 import styles from "../styles/Home.module.css";
 import n from "../styles/Now.module.css";
 
-// 이벤트탭 "지금 KEI에서"(docs/35, flag events_tab) — 시기성 정보 한 장.
-// 시즌 캘린더만 사람 큐레이션(볼트 _calendar/seasonal.json), 나머지는 전부 자동.
+// "추가 기능" 허브(docs/35·41, flag events_tab) — 유틸 기능 바로가기 + 요즘 흐름 정보를 한곳에.
+// 서식 찾기·새로워진 점·업무 캘린더 진입을 여기로 모아 GNB·푸터를 정리(docs/41).
 
 type Props = {
   seasonal: SeasonalItem[];
   revised: { slug: string; title: string; revised: string }[];
   notes: Pick<ChangelogEntry, "id" | "제목" | "날짜" | "분류">[];
   terms: { slug: string; title: string }[];
+  formsCount: number;
 };
 
-export default function NowPage({ seasonal, revised, notes, terms }: Props) {
+export default function NowPage({ seasonal, revised, notes, terms, formsCount }: Props) {
   const on = useFlag("events_tab");
+  const formsOn = useFlag("forms_registry"); // 서식 찾기 바로가기 게이트
+  const changelogOn = useFlag("changelog");  // 새로워진 점 바로가기 게이트
   const [month, setMonth] = useState<number | null>(null); // 이번 달 — null = 클라이언트 미확정(SSG 안전)
   const [trending, setTrending] = useState<{ k: string; n: number }[] | null>(null);
   const [trendErr, setTrendErr] = useState<number | null>(null); // HTTP status(401=로그인 필요) | 0=기타
@@ -70,33 +73,41 @@ export default function NowPage({ seasonal, revised, notes, terms }: Props) {
     <Layout>
       <Head><title>{`지금 KEI에서 · ${SITE_NAME}`}</title><meta name="robots" content="noindex, nofollow" /></Head>
       <section className={styles.heroCompact}>
-        <h1 className={styles.h1}>지금 KEI에서</h1>
-        <p className={styles.lead}>이번 달 챙길 일과 요즘 흐름을 한 장에 모았어요.</p>
+        <h1 className={styles.h1}>추가 기능</h1>
+        <p className={styles.lead}>자주 쓰는 기능 바로가기와 요즘 흐름을 한곳에 모았어요.</p>
       </section>
 
-      <div className={n.grid}>
-        {/* 🗓 이번 달 챙길 일 — 컴팩트 요약(전체는 /calendar). 매월·다른 달·상세는 캘린더 페이지로 이전 */}
-        <section className={n.card} aria-label="이번 달 챙길 일">
-          <h2 className={n.h2}>🗓 {month === null ? "이번 달" : `${month}월`} 챙길 일</h2>
-          {monthItems.length === 0 && everyMonth.length === 0 ? (
-            <p className={n.muted}>등록된 일정이 없어요.</p>
-          ) : (
-            <ul className={n.calList}>
-              {(monthItems.length > 0 ? monthItems : everyMonth).slice(0, 4).map((it, i) => (
-                <li key={i}>
-                  <div className={n.calHead}>
-                    <b>{it.title}</b>
-                    {it.구분 ? <span className={n.kindChip}>{it.구분}</span> : null}
-                    {it.상태 === "예시" ? <span className={n.draft}>자료 확정 전</span> : null}
-                  </div>
-                  {it.desc ? <p className={n.calDesc}>{it.desc}</p> : null}
-                </li>
-              ))}
-            </ul>
-          )}
-          <Link className={n.calMore} href="/calendar/">📅 업무 캘린더 전체 보기 →</Link>
-        </section>
+      {/* ── 바로가기: 업무 캘린더 · 서식 찾기 · 새로워진 점 (GNB·푸터에서 이리로 정리, docs/41) ── */}
+      <h2 className={n.sectionLabel}>바로가기</h2>
+      <div className={n.shortcutGrid}>
+        <Link className={n.shortcut} href="/calendar/">
+          <span className={n.shortcutIcon}>📅</span>
+          <b className={n.shortcutTitle}>업무 캘린더</b>
+          <span className={n.shortcutDesc}>
+            {monthItems.length > 0 ? `이번 달 챙길 일 ${monthItems.length}건 · ` : ""}매월·연간 반복 업무를 한눈에
+          </span>
+        </Link>
+        {formsOn ? (
+          <Link className={n.shortcut} href="/forms/">
+            <span className={n.shortcutIcon}>📄</span>
+            <b className={n.shortcutTitle}>서식 찾기</b>
+            <span className={n.shortcutDesc}>규정 별지 서식 {formsCount}종을 이름·규정·번호로 검색</span>
+          </Link>
+        ) : null}
+        {changelogOn ? (
+          <Link className={n.shortcut} href="/changelog/">
+            <span className={n.shortcutIcon}>🆕</span>
+            <b className={n.shortcutTitle}>새로워진 점</b>
+            <span className={n.shortcutDesc}>
+              {notes[0] ? `최근: ${notes[0].제목}` : "서비스 업데이트 내역"}
+            </span>
+          </Link>
+        ) : null}
+      </div>
 
+      {/* ── 요즘 흐름: 인기 키워드 · 최근 개정 · 오늘의 용어 ── */}
+      <h2 className={n.sectionLabel}>요즘 흐름</h2>
+      <div className={n.grid}>
         {/* 📈 요즘 많이 찾는 키워드 */}
         <section className={n.card} aria-label="요즘 많이 찾는 키워드">
           <h2 className={n.h2}>📈 요즘 많이 찾는 키워드 <span className={n.muted}>(최근 7일)</span></h2>
@@ -137,19 +148,6 @@ export default function NowPage({ seasonal, revised, notes, terms }: Props) {
           </ul>
         </section>
 
-        {/* 🆕 새로워진 점 */}
-        <section className={n.card} aria-label="새로워진 점">
-          <h2 className={n.h2}>🆕 새로워진 점</h2>
-          <ul className={n.plainList}>
-            {notes.map((e) => (
-              <li key={e.id}>
-                <Link href={`/changelog/#${e.id}`}>{e.제목}</Link>
-                <span className={n.muted}> · {e.날짜.replace(/-/g, ".")}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-
         {/* 📖 오늘의 용어 */}
         <section className={n.card} aria-label="오늘의 용어">
           <h2 className={n.h2}>📖 오늘의 용어</h2>
@@ -175,5 +173,6 @@ export const getStaticProps: GetStaticProps = () => ({
     revised: recentlyRevised(5),
     notes: loadChangelog().slice(0, 3).map(({ id, 제목, 날짜, 분류 }) => ({ id, 제목, 날짜, 분류 })),
     terms: termPool(),
+    formsCount: loadForms().length,
   },
 });

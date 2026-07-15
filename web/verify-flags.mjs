@@ -40,12 +40,13 @@ await setFlag(false);
 const off = await ctx.newPage();
 await off.goto(`${BASE}/browse/`, { waitUntil: "load" });
 await off.waitForTimeout(1500);
-ok(!(await off.innerText("body")).includes("새로워진 점"), "3) OFF: 배너·푸터 링크 미노출");
+ok(!(await off.innerText("body")).includes("새로워진 점"), "3) OFF: 배너·허브 링크 미노출");
 await setFlag(true);
 const on = await ctx.newPage();
-await on.goto(`${BASE}/browse/`, { waitUntil: "load" });
+// docs/41: '새로워진 점' 진입은 푸터→'추가 기능'(/now) 허브 바로가기로 이전
+await on.goto(`${BASE}/now/`, { waitUntil: "load" });
 await on.waitForTimeout(1500);
-ok((await on.innerText("footer")).includes("새로워진 점"), "4) ON: 푸터 링크 노출");
+ok((await on.locator('a[href="/changelog/"]').count()) >= 1, "4) ON: 추가 기능 허브에 새로워진 점 바로가기");
 
 // 5) 원상복구
 await setFlag(initial);

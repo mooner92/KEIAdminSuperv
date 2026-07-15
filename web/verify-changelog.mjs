@@ -61,8 +61,10 @@ const dark = await pd.evaluate(() => {
 check("ⓒ 다크: 카드 제목 밝음", dark > 180, String(dark));
 await pd.screenshot({ path: "verify-changelog-dark.png" });
 
-// 푸터 링크
-check("푸터 '새로워진 점' 링크", (await p.innerText("footer")).includes("새로워진 점"));
+// docs/41: '새로워진 점' 진입은 푸터→'추가 기능'(/now) 허브 바로가기로 이전
+await p.goto(BASE + "/now/", { waitUntil: "load" });
+await p.waitForTimeout(1200);
+check("추가 기능 허브에 새로워진 점 바로가기", (await p.locator('a[href="/changelog/"]').count()) >= 1);
 
 // ⓓ flag off — 새 컨텍스트 + flags 응답 고정(localStorage 캐시 회피 — help_hub 검증 교훈 재사용)
 const ctxOff = await b.newContext();
