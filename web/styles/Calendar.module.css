@@ -1,0 +1,60 @@
+/* 업무 캘린더(docs/40) — 시맨틱 토큰만 */
+
+.everyBlock {
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface);
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-5);
+}
+.everyTitle { margin: 0 0 var(--space-3); font-size: 16px; font-weight: 800; color: var(--color-text); }
+.count { font-size: 12.5px; font-weight: 600; color: var(--color-text-tertiary); }
+.everyGrid {
+  margin: 0; padding: 0; list-style: none;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-3);
+}
+
+.monthGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-3);
+}
+.monthCard {
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface);
+  padding: var(--space-4);
+  min-width: 0;
+}
+.monthNow { border-color: var(--color-primary); box-shadow: 0 0 0 1px var(--color-primary) inset; }
+.monthHead {
+  margin: 0 0 var(--space-3); font-size: 17px; font-weight: 800; color: var(--color-text);
+  display: flex; align-items: center; gap: 8px;
+  border-bottom: 1px solid var(--color-border); padding-bottom: 8px;
+}
+.nowBadge {
+  font-size: 11px; font-weight: 800; padding: 1px 8px; border-radius: 999px;
+  background: var(--color-primary); color: var(--color-on-primary);
+}
+.emptyMonth { margin: 0; font-size: 12.5px; color: var(--color-text-tertiary); }
+.monthList, .everyGrid { }
+.monthList { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--space-3); }
+
+/* 공통 항목 */
+.item { min-width: 0; }
+.itemHead { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px; }
+.itemTitle { font-size: 14px; font-weight: 700; color: var(--color-text); }
+.kindChip {
+  font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 6px;
+  color: var(--accent-대외업무); border: 1px solid var(--accent-대외업무);
+}
+.when { font-size: 11.5px; color: var(--color-text-secondary); }
+.draft {
+  font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 6px;
+  color: var(--color-warning); border: 1px solid var(--color-warning);
+}
+.desc { margin: 3px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--color-text-secondary); }
+.link { display: inline-block; margin-top: 3px; font-size: 12px; font-weight: 700; color: var(--color-primary); }
+.link:hover { text-decoration: underline; }
+
+.foot { margin: var(--space-5) 0 0; font-size: 12px; line-height: 1.6; color: var(--color-text-tertiary); }

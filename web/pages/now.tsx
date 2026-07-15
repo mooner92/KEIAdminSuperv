@@ -26,16 +26,11 @@ type Props = {
 
 export default function NowPage({ seasonal, revised, notes, terms }: Props) {
   const on = useFlag("events_tab");
-  const [month, setMonth] = useState<number | null>(null); // 선택된 월(칩) — null = 클라이언트 미확정(SSG 안전)
-  const [realMonth, setRealMonth] = useState<number | null>(null); // 실제 이번 달(칩의 '이번 달' 표시용)
+  const [month, setMonth] = useState<number | null>(null); // 이번 달 — null = 클라이언트 미확정(SSG 안전)
   const [trending, setTrending] = useState<{ k: string; n: number }[] | null>(null);
   const [trendErr, setTrendErr] = useState<number | null>(null); // HTTP status(401=로그인 필요) | 0=기타
 
-  useEffect(() => {
-    const m = new Date().getMonth() + 1;
-    setMonth(m);
-    setRealMonth(m);
-  }, []);
+  useEffect(() => { setMonth(new Date().getMonth() + 1); }, []);
   useEffect(() => {
     if (!on) return;
     track("now_view"); // flag off면 미발화(서버도 무시하지만 전송 자체를 안 함)
@@ -44,25 +39,19 @@ export default function NowPage({ seasonal, revised, notes, terms }: Props) {
   }, [on]);
 
   // 오늘의 용어 — 날짜 시드로 결정적 선택(같은 날 = 같은 용어, 정적 export라 클라이언트 계산).
-  // 의존성은 realMonth(하이드레이션 게이트)만 — 월 칩 선택(month)에는 불변.
   const todayTerm = useMemo(() => {
-    if (!terms.length || realMonth === null) return null;
+    if (!terms.length || month === null) return null;
     const d = new Date();
     const seed = d.getFullYear() * 372 + (d.getMonth() + 1) * 31 + d.getDate();
     return terms[seed % terms.length];
-  }, [terms, realMonth]);
+  }, [terms, month]);
 
+  // 이번 달 고유 항목 + 매월(상시, month 0). 상세·다른 달은 /calendar로 이전(docs/40).
   const monthItems = useMemo(
     () => (month === null ? [] : seasonal.filter((s) => s.month === month)),
     [seasonal, month]
   );
-  // month 0 = 매월(상시) 항목(docs/39) — 월 선택과 무관하게 항상 표시(빈 상태 삼항 바깥)
   const everyMonth = useMemo(() => seasonal.filter((s) => s.month === 0), [seasonal]);
-  const nextMonth = month === null ? null : (month % 12) + 1;
-  const nextItems = useMemo(
-    () => (nextMonth === null ? [] : seasonal.filter((s) => s.month === nextMonth)), // 미리보기는 월 항목만(0 제외 의도)
-    [seasonal, nextMonth]
-  );
   const maxTrend = trending?.length ? Math.max(...trending.map((t) => t.n)) : 1;
 
   if (!on) {
@@ -86,70 +75,26 @@ export default function NowPage({ seasonal, revised, notes, terms }: Props) {
       </section>
 
       <div className={n.grid}>
-        {/* 🗓 시즌 캘린더 */}
+        {/* 🗓 이번 달 챙길 일 — 컴팩트 요약(전체는 /calendar). 매월·다른 달·상세는 캘린더 페이지로 이전 */}
         <section className={n.card} aria-label="이번 달 챙길 일">
-          <h2 className={n.h2}>
-            🗓 {month === null ? "이번 달" : `${month}월`} 챙길 일
-            {month !== null && month === realMonth ? <span className={n.muted}> (이번 달)</span> : null}
-          </h2>
-          {/* 월 선택 칩(스펙 §2) — 다른 달 일정 미리 보기 */}
-          <div className={n.monthChips} role="tablist" aria-label="월 선택">
-            {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-              <button key={m} role="tab" aria-selected={month === m}
-                className={`${n.monthChip} ${month === m ? n.monthOn : ""}`}
-                onClick={() => setMonth(m)}>
-                {m}월
-              </button>
-            ))}
-          </div>
-          {monthItems.length === 0 ? (
-            <p className={n.muted}>이 달의 고유 일정이 아직 없어요 — 아래 매월 항목은 이 달에도 해당돼요.</p>
+          <h2 className={n.h2}>🗓 {month === null ? "이번 달" : `${month}월`} 챙길 일</h2>
+          {monthItems.length === 0 && everyMonth.length === 0 ? (
+            <p className={n.muted}>등록된 일정이 없어요.</p>
           ) : (
             <ul className={n.calList}>
-              {monthItems.map((it, i) => (
+              {(monthItems.length > 0 ? monthItems : everyMonth).slice(0, 4).map((it, i) => (
                 <li key={i}>
                   <div className={n.calHead}>
                     <b>{it.title}</b>
                     {it.구분 ? <span className={n.kindChip}>{it.구분}</span> : null}
-                    {it.시기 ? <span className={n.when}>{it.시기}</span> : null}
                     {it.상태 === "예시" ? <span className={n.draft}>자료 확정 전</span> : null}
                   </div>
                   {it.desc ? <p className={n.calDesc}>{it.desc}</p> : null}
-                  {it.근거slug ? (
-                    <Link className={n.calLink} href={`/d/${encodeURIComponent(it.근거slug)}/`}>관련 문서 →</Link>
-                  ) : it.관련페이지 ? (
-                    <Link className={n.calLink} href={it.관련페이지}>바로 가보기 →</Link>
-                  ) : null}
                 </li>
               ))}
             </ul>
           )}
-          {/* 매월(상시) 항목 — month 0(docs/39). 빈 상태와 무관하게 항상 렌더 */}
-          {everyMonth.length > 0 ? (
-            <details className={n.everyMonth}>
-              <summary className={n.everyMonthSummary}>🔁 매월 챙길 일 {everyMonth.length}건</summary>
-              <ul className={n.calList}>
-                {everyMonth.map((it, i) => (
-                  <li key={i}>
-                    <div className={n.calHead}>
-                      <b>{it.title}</b>
-                      {it.구분 ? <span className={n.kindChip}>{it.구분}</span> : null}
-                      {it.상태 === "예시" ? <span className={n.draft}>자료 확정 전</span> : null}
-                    </div>
-                    {it.desc ? <p className={n.calDesc}>{it.desc}</p> : null}
-                    {it.근거slug ? (
-                      <Link className={n.calLink} href={`/d/${encodeURIComponent(it.근거slug)}/`}>관련 문서 →</Link>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            </details>
-          ) : null}
-          {nextItems.length > 0 ? (
-            <p className={n.nextUp}>
-              {nextMonth}월 미리보기: {nextItems.map((x) => x.title + (x.상태 === "예시" ? " (자료 확정 전)" : "")).join(" · ")}
-            </p>
-          ) : null}
+          <Link className={n.calMore} href="/calendar/">📅 업무 캘린더 전체 보기 →</Link>
         </section>
 
         {/* 📈 요즘 많이 찾는 키워드 */}

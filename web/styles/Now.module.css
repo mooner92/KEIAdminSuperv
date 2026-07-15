@@ -48,6 +48,9 @@
 .calLink { display: inline-block; margin-top: 4px; font-size: 12.5px; font-weight: 700; color: var(--color-primary); }
 .calLink:hover { text-decoration: underline; }
 .nextUp { margin: var(--space-3) 0 0; padding-top: var(--space-2); border-top: 1px dashed var(--color-border); font-size: 12.5px; color: var(--color-text-tertiary); }
+/* '전체 캘린더 보기' 링크(docs/40) — 캘린더 상세는 /calendar로 분리 */
+.calMore { display: inline-block; margin-top: var(--space-3); font-size: 13px; font-weight: 700; color: var(--color-primary); }
+.calMore:hover { text-decoration: underline; }
 
 .trendList { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
 .trendList li { display: flex; align-items: center; gap: 10px; }

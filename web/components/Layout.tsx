@@ -110,6 +110,7 @@ export default function Layout({
               {approvalNav ? <Link href="/approval/" className={nav("/approval")} aria-current={pathname.startsWith("/approval") ? "page" : undefined}>결재선</Link> : null}
               {journeyNav ? <Link href="/journey/" className={nav("/journey")} aria-current={pathname.startsWith("/journey") ? "page" : undefined}>업무 한 장</Link> : null}
               {eventsOn ? <Link href="/now/" className={nav("/now")} aria-current={pathname.startsWith("/now") ? "page" : undefined}>지금 KEI</Link> : null}
+              {eventsOn ? <Link href="/calendar/" className={nav("/calendar")} aria-current={pathname.startsWith("/calendar") ? "page" : undefined}>업무 캘린더</Link> : null}
             </nav>
           ) : (
             <span className={styles.nav} aria-hidden />

@@ -21,8 +21,7 @@ check(`① 캘린더 이번 달(${month}월) 헤더`, body.includes(`${month}월
 // docs/39: 확정 항목 반입 후 — 월 항목 또는 빈 상태 문구 중 하나가 렌더(문자열 고정 의존 제거)
 const calItems = await p.locator('section[aria-label="이번 달 챙길 일"] li').count();
 check("① 캘린더 항목/빈 상태 렌더", calItems > 0 || body.includes("고유 일정이 아직 없어요"), `${calItems}개`);
-// docs/39: 매월(상시) 섹션 + 대외업무 구분 칩
-check("① 매월 챙길 일 섹션", body.includes("매월 챙길 일"));
+// docs/40: 매월(상시)·월 칩·상세는 /calendar로 이전 — /now 캘린더 카드엔 구분 칩만 잔존
 check("① 대외업무 구분 칩", body.includes("대외업무"));
 check("① 키워드 블록(로그인)", body.includes("요즘 많이 찾는 키워드"));
 check("① 최근 개정 규정 5건", (await p.locator('section[aria-label="최근 개정된 규정"] li').count()) === 5);
@@ -30,15 +29,8 @@ check("① 새로워진 점 3건", (await p.locator('section[aria-label="새로�
 check("① 오늘의 용어", body.includes("오늘의 용어"));
 await p.screenshot({ path: "verify-now.png" });
 
-// ①-2 월 선택 칩(스펙 §2) — 12개 + 클릭 시 해당 월로 전환
-const chips = await p.locator('[aria-label="월 선택"] button').count();
-check("①-2 월 칩 12개", chips === 12, String(chips));
-const otherMonth = (month % 12) + 1;
-await p.locator('[aria-label="월 선택"] button', { hasText: `${otherMonth}월` }).first().click();
-await p.waitForTimeout(300);
-check(`①-2 칩 클릭 → ${otherMonth}월 전환`, (await p.innerText("body")).includes(`${otherMonth}월 챙길 일`));
-await p.locator('[aria-label="월 선택"] button', { hasText: `${month}월` }).first().click();
-await p.waitForTimeout(200);
+// ①-2 캘린더는 별도 페이지로 분리(docs/40) — /now엔 '전체 보기' 링크, 월 칩은 /calendar로 이전
+check("①-2 업무 캘린더 전체 보기 링크", (await p.locator('a[href="/calendar/"]').count()) >= 1);
 
 // ② 오늘의 용어 결정성 — 새로고침해도 같은 용어
 const term1 = await p.locator('section[aria-label="오늘의 용어"] a').first().innerText();
@@ -50,17 +42,10 @@ check("② 오늘의 용어 결정적(새로고침 동일)", term1 === term2, `$
 // ③ 사용량 track 발화(now_view + page_view)
 check("③ track 발화", trackCalls.includes("now_view") && trackCalls.includes("page_view"), trackCalls.join(","));
 
-// ④ 시즌 캘린더 데이터 로드 — 월 무관 고정 항목(매월 섹션)으로 판정. 접힌 details도 읽히게 textContent
+// ④ /now 캘린더 카드 데이터 로드 — 이번 달(7월) 확정 항목 또는 매월 항목이 요약으로 보임
 const hasSeasonalData = await p.evaluate(() =>
-  !!(document.body.textContent || "").match(/법인카드 모니터링|인력현황|연말정산|연차휴가 사용 점검/));
-check("④ 시즌 캘린더 데이터 로드", hasSeasonalData);
-// ④-2 확정 항목엔 '자료 확정 전' 배지가 없어야 함(월례 5건은 전부 확정).
-// details가 접혀 있어도 읽히게 textContent로 판정
-const everyTxt = await p.evaluate(() => {
-  const d = [...document.querySelectorAll("details")].find((x) => (x.textContent || "").includes("매월 챙길 일"));
-  return d ? d.textContent : "";
-});
-check("④-2 매월 항목 확정(배지 없음)", everyTxt.includes("법인카드") && !everyTxt.includes("자료 확정 전"));
+  !!(document.body.textContent || "").match(/인력증원|법인카드 모니터링|인력현황|연말정산/));
+check("④ /now 캘린더 카드 데이터 로드", hasSeasonalData);
 
 // ⑤ 다크 실측
 const pd = await ctx.newPage();

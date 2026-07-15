@@ -1475,9 +1475,10 @@ TRACK_EVENTS = {
     "trending_click", "now_view", "changelog_view", "faq_open", "journey_view",
     "approval_view", "graph_view", "browse_view", "doc_open", "followup_click", "select_ask",
     "login_via_landing",  # docs/36: 랜딩 경유 로그인(로그인 직후 1회 — 비로그인 랜딩 자체는 계측 안 함)
+    "calendar_view",  # docs/40: 업무 캘린더 페이지
 }
 TRACK_PAGE_PREFIXES = ("/", "/browse", "/graph", "/approval", "/journey", "/forms",
-                       "/now", "/changelog", "/help", "/admin", "/about")
+                       "/now", "/calendar", "/changelog", "/help", "/admin", "/about")
 # ⛔ "/d"는 프리픽스 목록에 없다 — 문서 상세는 아래에서 '/d'로 접어 저장(어떤 문서를 읽었는지 미저장).
 _TRACK_LAST: dict = {}  # user_id → [ts,...] (간단 스로틀: 초당 5건 초과 무시)
 _TRACK_PURGE = {"t": 0.0}  # 보존기한 purge 마지막 실행 시각(프로세스당 일 1회)

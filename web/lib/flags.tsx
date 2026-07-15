@@ -9,7 +9,7 @@ export const FLAG_DEFAULTS: Record<string, boolean> = {
   trust_ops: false, // docs/34 ②: 관리자 🛡 신뢰 탭 (release, 만료 2026-12-31)
   forms_registry: false, // docs/34 ①: /forms 서식 찾기 (release, 만료 2026-12-31)
   chat_stop: false, // docs/34 ③: 채팅 ■ 중단 버튼+2단계 대기 표시 (release, 만료 2026-12-31)
-  events_tab: false, // docs/35: 지금 KEI에서(/now) — GNB 탭+페이지 (release, 만료 2026-12-31)
+  events_tab: false, // docs/35: 지금 KEI에서(/now)+업무 캘린더(/calendar) — GNB 탭+페이지 (release, 만료 2026-12-31)
   usage_analytics: false, // docs/35 §0: 기능 사용량 수집(allowlist·집계만) (release, 만료 2026-12-31)
   landing_page: false, // docs/36: 소개(랜딩) — /about + 비로그인 홈 컴팩트 히어로 (release, 만료 2026-12-31)
   signup_approval: false, // docs/36 §10: 가입 인증을 이메일 코드 대신 관리자 승인으로 (SMTP 불가 시)
