@@ -6,6 +6,20 @@ import { chromium } from "playwright";
 const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
 const EMAIL = `e2e.signup.${Date.now() % 100000}@kei.re.kr`;
 const b = await chromium.launch();
+// 이 테스트는 이메일 코드 흐름 전용 — 승인제 플래그(docs/36 §10)가 dev에 켜져 있으면 register가
+// 코드 대신 승인 대기를 반환한다. 백엔드 플래그를 off로 토글하고 끝나면 원상 복원(finally).
+const admin = await b.newContext();
+await admin.request.post(BASE + "/api/app/auth/login", { data: { username: "admintest", password: "admtest123" } });
+let approvalWas = false;
+try {
+  const f = await (await admin.request.get(BASE + "/api/app/flags")).json();
+  approvalWas = !!f.signup_approval;
+  if (approvalWas) await admin.request.post(BASE + "/api/app/flags/signup_approval", { data: { enabled: false } });
+} catch { /* 플래그 없거나 미인증 — 코드 흐름이 기본이면 그대로 진행 */ }
+const restore = async () => {
+  if (approvalWas) await admin.request.post(BASE + "/api/app/flags/signup_approval", { data: { enabled: true } }).catch(() => {});
+  await admin.close().catch(() => {});
+};
 const ctx = await b.newContext({ viewport: { width: 1280, height: 900 } });
 const p = await ctx.newPage();
 let pass = 0, fail = 0;
@@ -69,5 +83,6 @@ check("④ 개인정보 고지 문구", abody.includes("채팅 내용은 관리�
 await ap.screenshot({ path: "verify-signup-users.png" });
 
 console.log(`\n${pass}/${pass + fail} 판정 통과`);
+await restore(); // 승인제 플래그 원상 복원
 await b.close();
 process.exit(fail ? 1 : 0);

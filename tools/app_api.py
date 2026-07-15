@@ -279,6 +279,14 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-12-31",
     },
+    "signup_approval": {
+        "default": False,  # off면 이메일 6자리 코드 인증. on이면 관리자 승인제(메일 서버 불가 시).
+        "description": "가입 인증 방식(docs/36 §10) — on이면 이메일 코드 대신 관리자 승인. "
+                       "가입 신청 → 관리자가 /admin 사용자 탭에서 승인 → 활성. @kei.re.kr 제한은 불변. "
+                       "SMTP 방화벽이 열리면 off로 되돌려 코드 인증 복귀.",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
     "chat_stop": {
         "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
         "description": "채팅 스트리밍 ■ 중단 버튼 + 2단계 대기 표시(docs/34 ③) — off면 기존 '보내기 …' 동작.",
@@ -594,15 +602,20 @@ def register(body: AuthIn):
         raise HTTPException(400, "KEI 이메일(@kei.re.kr)로만 가입할 수 있습니다.")
     if len(body.password) < 4:
         raise HTTPException(400, "비밀번호는 4자 이상이어야 합니다.")
+    approval = bool(effective_flags().get("signup_approval"))  # 관리자 승인제(메일 서버 불가 시)
     with Session(engine) as s:
         exists = s.exec(select(User).where(User.username == email)).first()
         if exists and exists.verified:
             raise HTTPException(409, "이미 가입된 이메일입니다. 로그인해 주세요.")
-        if exists:  # 미인증 재가입: 비밀번호 갱신 후 코드 재발송
+        if exists:  # 미인증 재가입: 비밀번호 갱신
             exists.password_hash = hash_pw(body.password)
             s.add(exists)
         else:
             s.add(User(username=email, password_hash=hash_pw(body.password), verified=False))
+        if approval:
+            # 승인제: 코드 미발송. 관리자가 /admin 사용자 탭에서 승인하면 활성.
+            s.commit()
+            return {"pending_approval": True, "email": email}
         return _issue_code(s, email)
 
 
@@ -655,7 +668,9 @@ def login(body: AuthIn, request: Request, response: Response):
         if not u:  # 레거시 계정(정책 이전, 대소문자 그대로)도 조회
             u = s.exec(select(User).where(User.username == body.username.strip())).first()
         ok = bool(u) and check_pw(body.password, u.password_hash)
-        if ok and not u.verified:  # 미인증 계정(docs/29 §3) — 코드 인증 전 로그인 불가
+        if ok and not u.verified:  # 미인증 계정 — 인증(코드) 또는 관리자 승인 전 로그인 불가
+            if effective_flags().get("signup_approval"):
+                raise HTTPException(403, "관리자 승인 대기 중입니다. 승인되면 로그인할 수 있어요.")
             raise HTTPException(403, "이메일 인증이 필요합니다. 가입 화면에서 인증을 완료해 주세요.")
         uid, un = (u.id, u.username) if ok else (None, None)  # 성공 시에만 uid 설정(None 토큰 발급 방지)
     if not ok:
@@ -1695,6 +1710,44 @@ def list_users(admin: User = Depends(current_admin)):
             "chats": a["chats"], "last_active": a["last"] or None,
         })
     return {"n": len(out), "users": out}
+
+
+@router.post("/users/{uid}/approve")
+def approve_user(uid: int, admin: User = Depends(current_admin)):
+    """관리자: 가입 신청 승인(docs/36 §10) — verified=True로 활성화. 승인제·코드제 무관 동작(수동 활성).
+    ⛔ @kei.re.kr 도메인 제한은 가입 시점에 이미 강제됨(여기선 재검증만 방어적으로)."""
+    with Session(engine) as s:
+        u = s.get(User, uid)
+        if not u:
+            raise HTTPException(404, "사용자를 찾을 수 없습니다.")
+        if not valid_signup_email(u.username):
+            raise HTTPException(400, "KEI 이메일(@kei.re.kr) 계정만 승인할 수 있습니다.")
+        u.verified = True
+        s.add(u)
+        s.commit()
+        # 남은 인증코드가 있으면 정리(승인됐으니 코드 흐름 무효화)
+        vc = s.exec(select(VerifyCode).where(VerifyCode.email == u.username)).first()
+        if vc:
+            s.delete(vc)
+            s.commit()
+    return {"id": uid, "verified": True}
+
+
+@router.post("/users/{uid}/reject")
+def reject_user(uid: int, admin: User = Depends(current_admin)):
+    """관리자: 가입 신청 거절 — 미인증(대기) 계정만 삭제한다. 이미 승인·활동 중인 계정은 보호."""
+    with Session(engine) as s:
+        u = s.get(User, uid)
+        if not u:
+            raise HTTPException(404, "사용자를 찾을 수 없습니다.")
+        if u.verified:
+            raise HTTPException(400, "이미 승인된 계정은 거절할 수 없습니다.")
+        vc = s.exec(select(VerifyCode).where(VerifyCode.email == u.username)).first()
+        if vc:
+            s.delete(vc)
+        s.delete(u)
+        s.commit()
+    return {"deleted": uid}
 
 
 # ───────────────────────── 운영 대시보드(관리자) ─────────────────────────

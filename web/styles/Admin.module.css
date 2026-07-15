@@ -236,6 +236,18 @@
   border: 1px solid var(--color-primary);
 }
 
+/* 가입 승인/거절 버튼(docs/36 §10) */
+.rowActions { display: inline-flex; gap: 6px; }
+.approveBtn, .rejectBtn {
+  font: inherit; font-size: 12px; font-weight: 700; padding: 3px 10px;
+  border-radius: 7px; cursor: pointer; border: 1px solid transparent;
+}
+.approveBtn { background: var(--color-primary); color: var(--color-on-primary); }
+.approveBtn:hover { filter: brightness(1.08); }
+.rejectBtn { background: transparent; color: var(--color-danger); border-color: var(--color-danger); }
+.rejectBtn:hover { background: var(--color-danger-bg, transparent); }
+.approveBtn:disabled, .rejectBtn:disabled { opacity: 0.5; cursor: default; }
+
 /* 🛡 신뢰 탭(docs/34 ②) — 시맨틱 토큰만 */
 .trustHead { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 .trustHead select {
