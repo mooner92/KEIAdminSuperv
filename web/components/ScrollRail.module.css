@@ -1,60 +1,54 @@
-/* 우측 스크롤 레일(docs/36) — 시맨틱 토큰만. ≤880px 숨김(모바일은 자연 스크롤) */
+/* 우측 스크롤 레일(docs/36) — 등간격 세로 배치. 시맨틱 토큰만. ≤880px 숨김 */
 .rail {
   position: fixed;
-  top: calc(var(--header-h) + 28px);
-  bottom: 40px;
-  right: 14px;
-  width: 200px;
+  top: 50%;
+  right: 16px;
+  transform: translateY(-50%);
   z-index: 15; /* sticky 헤더(20)보다 아래 */
-  pointer-events: none; /* 빈 영역은 본문 클릭 통과 — 라벨만 상호작용 */
-}
-.track {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  right: 4px;
-  width: 2px;
-  border-radius: 2px;
-  background: var(--color-border);
-  opacity: 0.7;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 14px;
+  max-height: calc(100vh - var(--header-h) - 80px);
 }
 .label {
-  position: absolute;
-  right: 14px;
-  transform: translateY(-50%);
-  max-width: 180px;
+  position: relative;
+  max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   text-align: right;
   background: none;
   border: none;
-  padding: 2px 4px;
-  font-size: 11.5px;
+  padding: 2px 14px 2px 4px;
+  font-size: 12px;
   font-weight: 600;
+  line-height: 1.3;
   color: var(--color-text-tertiary);
   cursor: pointer;
-  pointer-events: auto;
   transition: color 0.15s ease;
 }
 .label:hover { color: var(--color-text); }
 .label:focus-visible { outline: 2px solid var(--color-primary); border-radius: 4px; }
-.on { color: var(--color-text); font-weight: 800; }
-.on::after {
+/* 우측 눈금 — 비활성은 옅은 선, 활성은 프라이머리 막대 */
+.label::after {
   content: "";
   position: absolute;
-  right: -10px;
+  right: 0;
   top: 50%;
   transform: translateY(-50%);
   width: 2px;
-  height: 16px;
+  height: 10px;
   border-radius: 2px;
-  background: var(--color-primary);
+  background: var(--color-border-strong);
+  transition: height 0.15s ease, background 0.15s ease;
 }
+.on { color: var(--color-text); font-weight: 800; }
+.on::after { height: 18px; background: var(--color-primary); }
 
 @media (max-width: 880px) {
   .rail { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .label { transition: none; }
+  .label, .label::after { transition: none; }
 }

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import type { ReactNode } from "react";
 import Layout from "../components/Layout";
+import ScrollRail from "../components/ScrollRail";
 import { useFlag } from "../lib/flags";
 import { CORPUS_AS_OF, SITE_NAME } from "../lib/site";
 import { track } from "../lib/track";
@@ -13,12 +14,15 @@ import h from "../styles/Help.module.css";
 // ⛔ 이 페이지에는 규정 값(금액·기한·일수)을 절대 쓰지 않는다 — 사용법·신뢰 원칙만.
 // FAQ는 네이티브 <details> 아코디언(기본 접힘) — 초기 로드에 갑작스런 스크롤이 생기지 않는다.
 
+// 목차 섹션 — 상단 가로 칩(모바일)과 우측 스크롤 레일(데스크톱, docs/36 P4) 공용.
+// howto·faq는 help_hub on일 때만 렌더되므로 레일 항목도 hubOn으로 필터한다.
 const TOC = [
   { id: "intro", label: "소개" },
-  { id: "howto", label: "잘 묻는 법" },
+  { id: "howto", label: "잘 묻는 법", hub: true },
   { id: "limits", label: "한계" },
   { id: "privacy", label: "개인정보" },
-  { id: "faq", label: "FAQ" },
+  { id: "faq", label: "FAQ", hub: true },
+  { id: "contact", label: "문의" },
 ];
 
 const FAQ: { q: string; a: ReactNode; hidden?: boolean }[] = [
@@ -116,14 +120,19 @@ export default function Help() {
       </section>
 
       {hubOn ? (
-        <nav className={h.toc} aria-label="도움말 목차">
-          {TOC.map((t) => (
-            <button key={t.id} className={h.tocChip} onClick={() => jump(t.id)}>{t.label}</button>
-          ))}
-          {changelogOn ? (
-            <Link href="/changelog/" className={h.tocChip}>새로워진 점 ↗</Link>
-          ) : null}
-        </nav>
+        <>
+          {/* 데스크톱: x.ai 스타일 세로 스크롤 레일(현재 섹션 하이라이트·점프). ≤880px 자동 숨김 */}
+          <ScrollRail items={TOC.filter((t) => !t.hub || hubOn)} />
+          {/* 모바일/좁은 화면: 상단 가로 칩 목차(레일이 숨는 구간을 커버) */}
+          <nav className={h.toc} aria-label="도움말 목차">
+            {TOC.filter((t) => !t.hub || hubOn).map((t) => (
+              <button key={t.id} className={h.tocChip} onClick={() => jump(t.id)}>{t.label}</button>
+            ))}
+            {changelogOn ? (
+              <Link href="/changelog/" className={h.tocChip}>새로워진 점 ↗</Link>
+            ) : null}
+          </nav>
+        </>
       ) : null}
 
       <div className={h.body}>

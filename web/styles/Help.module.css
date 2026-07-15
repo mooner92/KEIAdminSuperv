@@ -24,6 +24,11 @@
   gap: 8px;
   margin: var(--space-2) 0 var(--space-4);
 }
+/* 데스크톱(>880px)엔 우측 ScrollRail이 목차 역할 → 상단 가로 칩은 숨김(중복 방지, docs/36 P4).
+   ≤880px(레일 숨김 구간)에서만 가로 칩 노출 */
+@media (min-width: 881px) {
+  .toc { display: none; }
+}
 .tocChip {
   padding: 5px 12px;
   border: 1px solid var(--color-border);
