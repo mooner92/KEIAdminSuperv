@@ -40,8 +40,21 @@
 .monthList, .everyGrid { }
 .monthList { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--space-3); }
 
-/* 공통 항목 */
-.item { min-width: 0; }
+/* 공통 항목 — 업무 1건 = 카드(docs/41 가독성). 테두리로 구분 + 호버 시 그림자·살짝 떠오름 */
+.item {
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-bg-subtle);
+  padding: 10px 12px;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease, transform 0.15s ease, background 0.15s ease;
+}
+.item:hover {
+  border-color: var(--color-primary);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-pop);
+  transform: translateY(-1px);
+}
 .itemHead { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px; }
 .itemTitle { font-size: 14px; font-weight: 700; color: var(--color-text); }
 .kindChip {
@@ -58,3 +71,9 @@
 .link:hover { text-decoration: underline; }
 
 .foot { margin: var(--space-5) 0 0; font-size: 12px; line-height: 1.6; color: var(--color-text-tertiary); }
+
+/* 접근성: 모션 최소화 사용자는 전환·떠오름 없이 즉시(그림자만 유지) */
+@media (prefers-reduced-motion: reduce) {
+  .item { transition: none; }
+  .item:hover { transform: none; }
+}
