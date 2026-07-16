@@ -54,8 +54,33 @@ function useSlideWheel(root: React.RefObject<HTMLDivElement>, enabled: boolean) 
     const el = root.current;
     if (!enabled || !el) return;
     let animating = false;
+    // 자체 rAF 애니메이션(easeOutCubic) — 이유(실측 확정):
+    // ① 네이티브 scrollTo(smooth)는 OS '동작 줄이기'에서 브라우저가 즉시 점프로 강등 → '번쩍'.
+    //    점수판 전환은 명시적 제품 결정이라 기기 설정과 무관하게 항상 동일하게 재생한다.
+    // ② 크롬은 mandatory 스냅 컨테이너에서 smooth를 스냅이 가로채는 이슈가 있어,
+    //    애니메이션 동안 스냅을 잠시 끈다(종료 시 정확히 스냅점에 착지시키므로 재보정 없음).
+    const animateTo = (to: number) => {
+      const from = el.scrollTop;
+      animating = true;
+      const prevSnap = el.style.scrollSnapType;
+      el.style.scrollSnapType = "none";
+      const t0 = performance.now();
+      const dur = 620;
+      const ease = (t: number) => 1 - Math.pow(1 - t, 3);
+      const step = (now: number) => {
+        const k = Math.min(1, (now - t0) / dur);
+        el.scrollTop = from + (to - from) * ease(k);
+        if (k < 1) requestAnimationFrame(step);
+        else {
+          el.style.scrollSnapType = prevSnap;
+          window.setTimeout(() => { animating = false; }, 60); // 관성 휠 잔여 이벤트 흡수
+        }
+      };
+      requestAnimationFrame(step);
+    };
     const onWheel = (e: WheelEvent) => {
-      if (!getComputedStyle(el).scrollSnapType.includes("mandatory")) return; // 폴백 모드 비개입
+      // 폴백 모드(낮은 화면 proximity·모바일 스냅 해제) 비개입 — 단 애니메이션 중엔 계속 가로챔
+      if (!animating && !getComputedStyle(el).scrollSnapType.includes("mandatory")) return;
       e.preventDefault();
       if (animating || Math.abs(e.deltaY) < 10) return;
       const h = el.clientHeight;
@@ -63,10 +88,7 @@ function useSlideWheel(root: React.RefObject<HTMLDivElement>, enabled: boolean) 
       const max = Math.round((el.scrollHeight - h) / h);
       const next = Math.min(max, Math.max(0, cur + (e.deltaY > 0 ? 1 : -1)));
       if (next === cur) return;
-      animating = true;
-      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      el.scrollTo({ top: next * h, behavior: reduce ? "auto" : "smooth" });
-      window.setTimeout(() => { animating = false; }, reduce ? 80 : 620);
+      animateTo(next * h);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
