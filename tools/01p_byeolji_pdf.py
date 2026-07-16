@@ -37,9 +37,10 @@ def frontmatter_source(md: pathlib.Path) -> str:
     return ""
 
 
-def convert_pdf(hwp: pathlib.Path, out_pdf: pathlib.Path, force: bool) -> bool:
+def convert_pdf(hwp: pathlib.Path, out_pdf: pathlib.Path, force: bool) -> tuple:
+    """(성공, 캐시히트) — 캐시히트면 재변환 안 함(재색인 훅의 증분 동작 근거)."""
     if out_pdf.exists() and not force and out_pdf.stat().st_mtime >= hwp.stat().st_mtime:
-        return True
+        return True, True
     out_pdf.parent.mkdir(parents=True, exist_ok=True)
     profile = HERE / ".byeolji_cache" / "lo-profile"
     cmd = [
@@ -53,9 +54,9 @@ def convert_pdf(hwp: pathlib.Path, out_pdf: pathlib.Path, force: bool) -> bool:
     if produced.exists():
         if produced != out_pdf:
             shutil.move(str(produced), str(out_pdf))
-        return True
+        return True, False
     print(f"  ⚠ 변환 실패: {hwp.name} — {r.stderr.strip()[:120]}")
-    return False
+    return False, False
 
 
 def norm_label(raw: str) -> str:
@@ -123,7 +124,14 @@ def main() -> int:
     vault = pathlib.Path(args.vault) / "20_규정원문"
     cache = HERE / ".byeolji_cache" / "pdf"
     manifest = {}
-    stats = {"regs": 0, "converted": 0, "byeolji": 0, "no_src": [], "convert_fail": []}
+    mpath0 = pathlib.Path(args.manifest)
+    prev = {}
+    if mpath0.exists() and not args.force:
+        try:
+            prev = json.loads(mpath0.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001
+            prev = {}
+    stats = {"regs": 0, "converted": 0, "byeolji": 0, "reused": 0, "no_src": [], "convert_fail": []}
 
     mds = sorted(vault.rglob("*.md"))
     for md in mds:
@@ -139,10 +147,23 @@ def main() -> int:
             continue
         stats["regs"] += 1
         pdf = cache / f"{stem}.pdf"
-        if not convert_pdf(hwp, pdf, args.force):
+        ok_c, cached = convert_pdf(hwp, pdf, args.force)
+        if not ok_c:
             stats["convert_fail"].append(stem)
             continue
         stats["converted"] += 1
+        # 증분 재사용(docs/50 §6): PDF 캐시히트 + 이전 manifest 항목 + 산출물 실존 → 분리·렌더 스킵
+        pmt = round(pdf.stat().st_mtime, 2)
+        pe = prev.get(stem)
+        if cached and pe and pe.get("pdf_mtime") == pmt:
+            outs_ok = all((HERE / png).exists() for b in pe.get("별지", []) for png in b.get("pngs", []))
+            outs_ok = outs_ok and all(
+                (pathlib.Path(args.out).parent / b["pdf"]).exists() for b in pe.get("별지", []))
+            if outs_ok:
+                manifest[stem] = pe
+                stats["byeolji"] += len(pe.get("별지", []))
+                stats["reused"] += 1
+                continue
         doc = fitz.open(pdf)
         hits = find_byeolji_pages(doc)
         entries = []
@@ -175,14 +196,14 @@ def main() -> int:
             stats["byeolji"] += 1
         if entries:
             manifest[stem] = {"규정명": stem.split("_", 1)[-1], "원본": srcname,
-                              "총페이지": len(doc), "별지": entries}
+                              "총페이지": len(doc), "pdf_mtime": pmt, "별지": entries}
         doc.close()
         print(f"  {stem}: 별지 {len(entries)}건")
 
     mpath = pathlib.Path(args.manifest)
     mpath.parent.mkdir(parents=True, exist_ok=True)
     mpath.write_text(json.dumps(manifest, ensure_ascii=False, indent=1), encoding="utf-8")
-    print(f"\n규정 {stats['regs']}건 · 변환 {stats['converted']}건 · 별지 {stats['byeolji']}건 → {mpath}")
+    print(f"\n규정 {stats['regs']}건 · 변환 {stats['converted']}건(재사용 {stats['reused']}) · 별지 {stats['byeolji']}건 → {mpath}")
     if stats["no_src"]:
         print(f"⚠ 원본 매핑 실패 {len(stats['no_src'])}건: {', '.join(stats['no_src'][:8])}…")
     if stats["convert_fail"]:

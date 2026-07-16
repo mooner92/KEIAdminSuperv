@@ -217,6 +217,7 @@ def main():
     ap.add_argument("--src", required=True, help="HWP/HWPX 들이 있는 폴더")
     ap.add_argument("--vault", required=True, help="Obsidian 볼트 루트")
     ap.add_argument("--dry-run", action="store_true", help="쓰지 않고 추출 결과만 미리보기")
+    ap.add_argument("--overwrite-restored", action="store_true", help="별지 복원본(byeolji-restored 마커) 파일도 덮어쓴다")
     ap.add_argument("--limit", type=int, default=0, help="처음 N개만(테스트)")
     ap.add_argument("--timeout", type=int, default=90, help="파일당 추출 제한(초). 초과 시 skip:timeout")
     args = ap.parse_args()
@@ -277,6 +278,15 @@ def main():
 
         if not args.dry_run:
             dest.parent.mkdir(parents=True, exist_ok=True)
+            # ⛔ 별지 복원본 보호(docs/50 §6): 사람이/비전으로 복원한 별지가 든 파일을
+            # 재변환이 깨진 변환본으로 되돌리지 않는다. 강제하려면 --overwrite-restored.
+            if (dest.exists() and "byeolji-restored" in dest.read_text(encoding="utf-8")
+                    and not getattr(args, "overwrite_restored", False)):
+                print(f"  ⤷ 보존(별지 복원본): {dest.name} — 건너뜀(--overwrite-restored로 강제)")
+                stats["ok"] -= 1
+                stats.setdefault("preserved", 0)
+                stats["preserved"] += 1
+                continue
             dest.write_text(build_note(num, title, date, f.name, body), encoding="utf-8")
 
     # 리포트

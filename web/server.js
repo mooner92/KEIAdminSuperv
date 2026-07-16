@@ -265,6 +265,16 @@ const server = http.createServer((req, res) => {
     return send(res, 308, null, { Location: pathname + "/" });
   }
 
+  // 별지 원문 PDF(docs/50 §6) — 재색인 훅(01p)이 갱신하는 web/public/forms-pdf를 직접 서빙.
+  // out/은 빌드 시점 사본이라, 웹 재빌드 없이도 최신 별지 PDF가 즉시 반영되게 public을 우선한다.
+  // (게이트는 위에서 이미 통과 — /forms-pdf는 비공개 경로)
+  if (safe.startsWith("forms-pdf" + path.sep) || safe.startsWith(path.join("/", "forms-pdf"))) {
+    const live = path.join(__dirname, "public", safe.replace(/^[/\\]+/, ""));
+    if (fs.existsSync(live) && fs.statSync(live).isFile()) {
+      return serveFile(res, live);
+    }
+  }
+
   // 디렉터리(슬래시로 끝남) → index.html
   if (pathname.endsWith("/")) target = path.join(target, "index.html");
 

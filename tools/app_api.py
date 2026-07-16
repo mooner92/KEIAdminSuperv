@@ -911,6 +911,19 @@ def _reindex_worker(vault: str):
         REINDEX["backup"] = bak
         for old in _list_backups()[:-_BAK_KEEP]:
             shutil.rmtree(old, ignore_errors=True)
+        # 1.5) 별지 원문 PDF 동기화(docs/50 §6) — 규정 HWP 변경분만 재변환·재분리(mtime 캐시).
+        # 실패해도 재색인은 계속(별지 PDF는 부가 산출물).
+        try:
+            p01 = os.path.join(os.path.dirname(os.path.abspath(__file__)), "01p_byeolji_pdf.py")
+            if os.path.exists(p01):
+                REINDEX["log"].append("별지 PDF 동기화(01p — 변경분만)…")
+                r01 = subprocess.run([sys.executable, p01, "--vault", vault],
+                                     capture_output=True, text=True, timeout=1800,
+                                     cwd=os.path.dirname(p01))
+                tail01 = (r01.stdout or "").strip().splitlines()[-1:] or ["(출력 없음)"]
+                REINDEX["log"].append(f"별지 PDF: {tail01[0][:120]}")
+        except Exception as e01:  # noqa: BLE001
+            REINDEX["log"].append(f"⚠ 별지 PDF 동기화 실패(무시하고 계속): {e01}")
         # 2) 02 실행(exclude.json 자동 반영)
         script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "02_chunk_and_embed.py")
         cmd = [sys.executable, script, "--vault", vault, "--db", cd]

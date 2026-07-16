@@ -93,10 +93,21 @@ def main() -> int:
         if entries:
             report[md.stem] = entries
 
+    # 원문(PDF manifest)엔 있는데 md에 라벨조차 없는 별지 — 변환에서 통째로 소실(서식찾기 미노출)
+    missing_in_md = []
+    for stem, mf in manifest.items():
+        md_labels = {e["label"] for e in report.get(stem, [])}
+        for b in mf.get("별지", []):
+            if b["label"] not in md_labels:
+                missing_in_md.append({"stem": stem, "label": b["label"], "name": b.get("name", "")})
+
     out = HERE / "index" / "byeolji_audit.json"
-    out.write_text(json.dumps({"counts": counts, "regs": report}, ensure_ascii=False, indent=1),
-                   encoding="utf-8")
+    out.write_text(json.dumps({"counts": counts, "missing_in_md": missing_in_md, "regs": report},
+                              ensure_ascii=False, indent=1), encoding="utf-8")
     total = sum(counts.values())
+    print(f"⚠ md 누락 별지(원문 PDF엔 존재): {len(missing_in_md)}건")
+    for x in missing_in_md[:12]:
+        print(f"   • {x['stem']} {x['label']} — {x['name'][:40]}")
     print(f"별지 블록 {total}건 — A(빈){counts['A']} B(구조소실){counts['B']} "
           f"C(표깨짐){counts['C']} D(빈약){counts['D']} OK {counts['OK']} → {out}")
     worst = [(s, e) for s, es in report.items() for e in es if e["grade"] in ("A", "B", "C")]
