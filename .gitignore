@@ -94,6 +94,10 @@ web/public/brand/*
 !web/public/brand/*.svg
 tools/.demo/
 *.webm
+# ── 별지 원문 PDF·렌더 PNG(docs/50) — 내부 규정 콘텐츠, 공개 레포 금지(⛔ git add -f 금지) ──
+web/public/forms-pdf/
+tools/byeolji_png/
+tools/.byeolji_cache/
 
 # ── Next.js 웹앱 (web/) — 빌드 산출물·의존성 ──
 web/.next/

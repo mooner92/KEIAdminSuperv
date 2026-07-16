@@ -23,6 +23,8 @@ export default function FormsPage({ forms }: { forms: FormEntry[] }) {
   const [q, setQ] = useState("");
   const [regFilter, setRegFilter] = useState<Set<string>>(new Set()); // 규정명 필터(체크박스)
   const [regQ, setRegQ] = useState(""); // 필터 패널 내 규정 검색
+  const [pageSize, setPageSize] = useState(30); // 10/30/50개씩 보기(docs/50)
+  const [page, setPage] = useState(1);
   // 사용량(docs/35): 검색은 1.2s 디바운스 1건 — 검색어 자체는 보내지 않음
   useEffect(() => {
     if (!q.trim()) return;
@@ -63,8 +65,12 @@ export default function FormsPage({ forms }: { forms: FormEntry[] }) {
     () => (regFilter.size ? searched.filter((e) => regFilter.has(e.규정명)) : searched),
     [searched, regFilter]
   );
+  const pageCount = Math.max(1, Math.ceil(shown.length / pageSize));
+  const cur = Math.min(page, pageCount);
+  const paged = shown.slice((cur - 1) * pageSize, cur * pageSize);
   const toggleReg = (r: string) =>
     setRegFilter((prev) => { const n = new Set(prev); n.has(r) ? n.delete(r) : n.add(r); return n; });
+  useEffect(() => { setPage(1); }, [q, regFilter, pageSize]); // 조건 변경 → 1페이지
 
   if (!on) {
     return (
@@ -125,17 +131,45 @@ export default function FormsPage({ forms }: { forms: FormEntry[] }) {
             aria-label="서식 검색"
             autoFocus
           />
-          <p className={f.count}>{shown.length}건{q ? ` · "${q}"` : ""}{regFilter.size ? ` · 규정 ${regFilter.size}개 필터` : ""}</p>
+          <div className={f.metaRow}>
+            <p className={f.count}>
+              {shown.length}건 · {shown.length === 0 ? 0 : (cur - 1) * pageSize + 1}–{Math.min(cur * pageSize, shown.length)}
+              {q ? ` · "${q}"` : ""}{regFilter.size ? ` · 규정 ${regFilter.size}개 필터` : ""}
+            </p>
+            <div className={f.pager}>
+              <span className={f.pageSizeGrp}>
+                {[10, 30, 50].map((n) => (
+                  <button key={n} className={`${f.psBtn} ${pageSize === n ? f.psActive : ""}`}
+                    onClick={() => setPageSize(n)}>{n}</button>
+                ))}
+                <span className={f.psUnit}>개씩</span>
+              </span>
+              <span className={f.pageNav}>
+                <button className={f.navBtn} disabled={cur <= 1} onClick={() => setPage(cur - 1)} aria-label="이전 페이지">‹</button>
+                <span className={f.pageInfo}>{cur} / {pageCount}</span>
+                <button className={f.navBtn} disabled={cur >= pageCount} onClick={() => setPage(cur + 1)} aria-label="다음 페이지">›</button>
+              </span>
+            </div>
+          </div>
 
           <div className={f.tableWrap}>
             <table className={f.table}>
-              <thead><tr><th>서식명</th><th>규정</th><th>번호</th><th></th></tr></thead>
+              <thead><tr><th>서식명</th><th>규정</th><th>번호</th><th>원문 서식</th><th></th></tr></thead>
               <tbody>
-                {shown.map((e) => (
+                {paged.map((e) => (
                   <tr key={`${e.slug}#${e.호}`}>
                     <td className={f.name}>{e.서식명}</td>
                     <td>{e.규정명}</td>
                     <td className={f.no}>{e.호}</td>
+                    <td>
+                      {e.pdf ? (
+                        <a className={f.dl} href={e.pdf} download onClick={() => track("forms_search")}>
+                          PDF ↓
+                        </a>
+                      ) : (
+                        <span className={f.dlNone}>—</span>
+                      )}
+                    </td>
                     <td>
                       <Link className={f.go} href={`/d/${encodeURIComponent(e.slug)}/#${encodeURIComponent(e.anchor)}`}
                         onClick={() => track("forms_open")}>

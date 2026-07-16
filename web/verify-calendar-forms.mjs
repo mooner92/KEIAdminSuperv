@@ -38,13 +38,30 @@ check("② /now → 캘린더 전체 보기 링크", (await p.locator('a[href="/
 await p.goto(BASE + "/forms/", { waitUntil: "load" });
 await p.waitForTimeout(1500);
 check("③ 규정 필터 패널", (await p.locator('aside[aria-label="규정 필터"]').count()) === 1);
-const before = await p.locator("table tbody tr").count();
+// docs/50: 페이지네이션 도입 — 축소 판정은 행 수 대신 카운트 텍스트("N건")로
+const countN = async () => parseInt(((await p.locator('[class*="count"]').first().innerText()).match(/^(\d+)건/) || [0, "0"])[1], 10);
+const before = await countN();
 const firstReg = p.locator('label input[type="checkbox"]').first();
 await firstReg.check();
 await p.waitForTimeout(500);
-const after = await p.locator("table tbody tr").count();
+const after = await countN();
 check("③ 규정 필터 → 목록 축소", after > 0 && after < before, `${before}→${after}`);
-check("③ 초기화 버튼 노출", (await p.getByText(/초기화/).count()) >= 1);
+check("③ 초기화 버튼 노출", (await p.getByText(/초기화/).count()) >= 1); // 필터 적용 중에 확인(docs/50 순서 교정)
+// docs/50 신규 계약: 페이지네이션 + 원문 PDF 다운로드 + 정크 서식명 교정
+await firstReg.uncheck();
+await p.waitForTimeout(400);
+check("③ 기본 30개 표시", (await p.locator("table tbody tr").count()) === 30);
+await p.locator('button:has-text("10")').first().click();
+await p.waitForTimeout(300);
+check("③ 10개씩 전환", (await p.locator("table tbody tr").count()) === 10);
+await p.locator('button[aria-label="다음 페이지"]').click();
+await p.waitForTimeout(300);
+check("③ 다음 페이지 이동", (await p.locator('[class*="pageInfo"]').innerText()).startsWith("2 /"));
+await p.locator('button:has-text("30")').first().click();
+await p.waitForTimeout(300);
+const dlLinks = await p.locator('a[href^="/forms-pdf/"]').count();
+check("③ 원문 PDF 다운로드 링크", dlLinks >= 1, `${dlLinks}개(1페이지)`);
+check("③ 정크 서식명('10일 이내') 교정", !(await p.innerText("table")).includes("10일 이내"));
 // 필터 내 규정 검색
 await firstReg.uncheck();
 await p.locator('input[aria-label="규정 필터 검색"]').fill("감사");

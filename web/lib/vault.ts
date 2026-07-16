@@ -268,9 +268,24 @@ export type FormEntry = {
   slug: string;
   호: string;           // "별지 제N호"·"별지 제6-1호"·"별지 제19호의2" — 표시·앵커·dedup 공용 라벨
   호수: number;         // 번호 검색용 첫 숫자
-  서식명: string;       // 라벨 줄 잔여 또는 다음 의미 줄(원문 그대로, 40자 절단)
+  서식명: string;       // ①01p manifest의 원문 제목(PDF 최대 폰트) ②라벨 줄 잔여 ③다음 의미 줄
   anchor: string;       // 문서 내 앵커 id(=호) — Markdown 렌더러의 별지 id 규칙과 동기(적대 검증 확정)
+  pdf: string | null;   // 별지 원문 PDF 다운로드 경로(01p 분리본, git-external — 없으면 null)
 };
+
+// 01p_byeolji_pdf.py manifest — 규정↔별지↔원문 PDF·서식명(원문 제목). git-external(없으면 빈 객체).
+type ByeoljiManifest = Record<string, { 별지: { label: string; name: string; pdf: string }[] }>;
+let _byeoljiMf: ByeoljiManifest | null = null;
+function byeoljiManifest(): ByeoljiManifest {
+  if (_byeoljiMf) return _byeoljiMf;
+  try {
+    const p = path.resolve(process.cwd(), "..", "tools", "index", "byeolji_manifest.json");
+    _byeoljiMf = JSON.parse(fs.readFileSync(p, "utf-8"));
+  } catch {
+    _byeoljiMf = {};
+  }
+  return _byeoljiMf!;
+}
 
 // 줄 시작 라벨만 서식 블록으로 인정. 변형 실측(적대 검증): [별지…]·<별지…>·【별지…】·〔별지…]·
 // (별지…)·표 셀 '| [별지…'·하이픈 호수(제6-1호)·가지 호수(제19호의2)까지 지원.
@@ -317,8 +332,13 @@ export function loadForms(): FormEntry[] {
         }
       }
       seen.add(key);
+      // 01p manifest 조인 — 깨진 md 휴리스틱 제목('10일 이내'류)을 원문 제목으로 교정 + 다운로드 PDF
+      const mfe = (byeoljiManifest()[meta.slug]?.별지 || []).find((b) => b.label === label);
+      const mfName = (mfe?.name || "").trim();
+      if (mfName && /[가-힣A-Za-z]{2,}/.test(mfName)) title = mfName.slice(0, 40);
       out.push({ 규정명: doc.title, slug: meta.slug, 호: label, 호수: Number(m[1].split("-")[0]),
-                 서식명: title || "(서식명 미기재)", anchor: label });
+                 서식명: title || "(서식명 미기재)", anchor: label,
+                 pdf: mfe ? `/${mfe.pdf}` : null });
     }
   }
   out.sort((a, b) => (a.규정명 === b.규정명
