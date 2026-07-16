@@ -67,6 +67,7 @@ await p.screenshot({ path: "verify-usage-admin.png" });
 // ⑦ flag off 게이트(새 컨텍스트+응답 고정): GNB 미노출 + /now 준비 중 + track 0건
 //    ⚠ GET /app/flags 응답은 평면 dict({events_tab: true, ...}) — j.flags 아님(리뷰 확정 결함 수정)
 const ctxOff = await b.newContext();
+await ctxOff.request.post(BASE + "/api/app/auth/login", { data: { username: "admintest", password: "admtest123" } }); // docs/44 게이트
 await ctxOff.route("**/api/app/flags**", async (route) => {
   try {
     const r = await route.fetch();

@@ -196,22 +196,24 @@ export default function Landing({
           <h2 className={styles.h2}>규정은 서로 연결돼 있어요</h2>
           <p className={styles.lead}>하나의 규정에서 관련 규정·가이드·서식으로 자연스럽게 이어집니다.</p>
           <GraphVisual />
+          {/* ⛔ 소개 카드는 프레젠테이션 전용 — 이 페이지는 외부 공개될 수 있어 실제 서비스로
+              이동하지 않는다(링크 금지). 서비스 진입은 로그인(시작하기)을 통해서만. */}
           <div className={styles.featGrid}>
-            <Link href="/browse/" className={styles.featCard}>
+            <div className={styles.featCard}>
               <span className={styles.featEmoji}>📚</span>
               <b>규정 둘러보기</b>
               <p>규정·가이드·용어를 분류별로 탐색하고 원문을 그대로 읽어요.</p>
-            </Link>
-            <Link href="/graph/" className={styles.featCard}>
+            </div>
+            <div className={styles.featCard}>
               <span className={styles.featEmoji}>🕸</span>
               <b>관계 그래프</b>
               <p>서로 인용하는 규정들을 연결망으로 — 관련 규정을 한눈에.</p>
-            </Link>
-            <Link href="/forms/" className={styles.featCard}>
+            </div>
+            <div className={styles.featCard}>
               <span className={styles.featEmoji}>📄</span>
               <b>서식 찾기</b>
               <p>별지 서식을 번호·이름으로 찾아 해당 조문으로 바로 이동해요.</p>
-            </Link>
+            </div>
           </div>
         </div>
       </section>

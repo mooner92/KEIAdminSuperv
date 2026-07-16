@@ -18,10 +18,64 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 
 const ROOT = path.join(__dirname, "out");
 const HOST = process.env.HOST || "0.0.0.0";
 const PORT = parseInt(process.env.PORT || "3100", 10);
+
+// ── 로그인 게이트(docs/44) — 랜딩(/,/about)이 외부 공개될 수 있어, 정적 산출물(규정 원문
+// docdata/검색인덱스/문서 페이지)을 서버에서 차단한다. 클라이언트 게이트만으론 불충분.
+// app_api.py와 같은 JWT(HS256, 쿠키 kei_session, tools/.app_secret)를 의존성 0으로 검증.
+// REQUIRE_LOGIN=0 으로만 해제 가능(기본 켜짐 — fail-closed).
+const REQUIRE_LOGIN = process.env.REQUIRE_LOGIN !== "0";
+const SECRET_PATH = process.env.APP_SECRET_FILE || path.join(__dirname, "..", "tools", ".app_secret");
+let SECRET = "";
+try { SECRET = fs.readFileSync(SECRET_PATH, "utf8").trim(); } catch { /* 아래서 fail-closed */ }
+if (REQUIRE_LOGIN && !SECRET) console.error(`⚠ 세션키(${SECRET_PATH}) 없음 — 로그인 검증 불가(전부 차단됨)`);
+
+const b64url = (s) => Buffer.from(s.replace(/-/g, "+").replace(/_/g, "/"), "base64");
+/** kei_session JWT(HS256) 검증 — 서명·만료 확인. 유효하면 true */
+function isAuthed(req) {
+  if (!REQUIRE_LOGIN) return true;
+  if (!SECRET) return false;
+  const m = /(?:^|;\s*)kei_session=([^;]+)/.exec(req.headers.cookie || "");
+  if (!m) return false;
+  const parts = m[1].split(".");
+  if (parts.length !== 3) return false;
+  try {
+    const sig = crypto.createHmac("sha256", SECRET).update(`${parts[0]}.${parts[1]}`).digest();
+    const given = b64url(parts[2]);
+    if (sig.length !== given.length || !crypto.timingSafeEqual(sig, given)) return false;
+    const payload = JSON.parse(b64url(parts[1]).toString("utf8"));
+    return typeof payload.exp === "number" && payload.exp > Date.now() / 1000;
+  } catch {
+    return false;
+  }
+}
+
+// 비로그인 허용 목록 — 랜딩 셸과 로그인에 필요한 최소만.
+// ⛔ docdata/·search-index.json·changelog.json·approval.json·/d/·/browse/ 등
+//    규정 콘텐츠는 절대 추가하지 말 것.
+const PUBLIC_PAGE = /^\/(about\/?)?$/; // "/" 와 "/about(/)"
+const PUBLIC_ASSET = [
+  /^\/_next\/static\//, // 해시 JS/CSS(코드만, 콘텐츠 없음)
+  /^\/_next\/data\/[^/]+\/(index|about)\.json$/, // 랜딩 페이지 데이터만
+  /^\/fonts\//,
+  /^\/favicon\.(svg|ico)$/,
+];
+const PUBLIC_API = [
+  /^\/api\/app\/auth\//, // 로그인·가입·확인(me)
+  /^\/api\/app\/flags$/, // 공개 플래그(비민감 불리언)
+  /^\/api\/rag\/health$/,
+];
+function isPublicPath(pathname) {
+  return (
+    PUBLIC_PAGE.test(pathname) ||
+    PUBLIC_ASSET.some((re) => re.test(pathname)) ||
+    PUBLIC_API.some((re) => re.test(pathname))
+  );
+}
 
 // RAG API(LLM)은 127.0.0.1 전용. 브라우저는 같은 오리진 /api/rag/* 로만 호출하고
 // 이 서버가 로컬 RAG API로 프록시한다 → CORS 불필요 + API가 LAN에 직접 노출되지 않음.
@@ -131,14 +185,28 @@ const server = http.createServer((req, res) => {
     return send(res, 400, "Bad Request", { "Content-Type": "text/plain" });
   }
 
+  const authed = isAuthed(req);
+
   // RAG/LLM API 리버스 프록시 (정적 라우팅보다 먼저 가로챈다)
   if (pathname.startsWith("/api/")) {
-    if (API_ROUTES[pathname]) return proxyToRag(req, res, API_ROUTES[pathname]);
-    // LLM 앱: /api/app/* → /app/* (쿼리스트링·원본 인코딩 보존)
+    if (API_ROUTES[pathname]) {
+      // /api/rag/chat 업스트림(/v1)은 무인증(OpenAI 호환) — 게이트는 여기서(로그인 필수).
+      if (!authed && !PUBLIC_API.some((re) => re.test(pathname))) {
+        return send(res, 401, JSON.stringify({ error: "로그인이 필요합니다." }),
+          { "Content-Type": "application/json; charset=utf-8" });
+      }
+      return proxyToRag(req, res, API_ROUTES[pathname]);
+    }
+    // LLM 앱: /api/app/* → /app/* (쿼리스트링·원본 인코딩 보존). 인증은 FastAPI가 자체 수행.
     if (pathname.startsWith(APP_PREFIX)) {
       return proxyToRag(req, res, req.url.replace(/^\/api\/app/, "/app"));
     }
     return notFound(res);
+  }
+
+  // 정적 산출물 게이트 — 비로그인은 랜딩 셸(허용 목록)만. 나머지는 랜딩으로.
+  if (!authed && !isPublicPath(pathname)) {
+    return send(res, 302, null, { Location: "/" });
   }
 
   // 경로 정규화 + 디렉터리 탈출(..) 차단

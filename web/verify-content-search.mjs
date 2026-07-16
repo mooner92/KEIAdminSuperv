@@ -6,6 +6,8 @@ const ok = (c, m) => { console.log((c ? "✅ " : "❌ ") + m); if (!c) fails.pus
 
 const b = await chromium.launch();
 const p = await b.newPage({ viewport: { width: 1440, height: 1200 } });
+await p.context().request.post(BASE + "/api/app/auth/login", { data: { username: "admintest", password: "admtest123" } }); // docs/44 게이트
+
 await p.goto(`${BASE}/browse`, { waitUntil: "networkidle" });
 await p.waitForTimeout(1500); // 플래그 fetch + scope 반영 대기
 

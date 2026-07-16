@@ -6,9 +6,15 @@ const fails = [];
 const ok = (c, m) => { console.log((c ? "✅ " : "❌ ") + m); if (!c) fails.push(m); };
 
 const b = await chromium.launch();
+// docs/44 서버 로그인 게이트 — 컨텍스트마다 로그인 후 진입
+const authCtx = async (opts) => {
+  const c = await b.newContext(opts);
+  await c.request.post(`${BASE}/api/app/auth/login`, { data: { username: "admintest", password: "admtest123" } });
+  return c;
+};
 
 // ── 데스크톱(라이트) ──
-const p = await (await b.newContext({ viewport: { width: 1360, height: 900 } })).newPage();
+const p = await (await authCtx({ viewport: { width: 1360, height: 900 } })).newPage();
 await p.goto(`${BASE}/journey/`, { waitUntil: "load" });
 await p.waitForTimeout(1800);
 ok((await p.getByRole("tab", { name: /국내출장/ }).count()) > 0, "1) 업무 선택 칩 렌더");
@@ -33,7 +39,7 @@ ok((await p.getByText("발생·잔여 연차 확인").count()) > 0, "7) 업무 �
 await p.screenshot({ path: "verify-journey-desktop.png" });
 
 // ── 모바일(스텝퍼) ──
-const pm = await (await b.newContext({ viewport: { width: 420, height: 900 } })).newPage();
+const pm = await (await authCtx({ viewport: { width: 420, height: 900 } })).newPage();
 await pm.goto(`${BASE}/journey/`, { waitUntil: "load" });
 await pm.waitForTimeout(1500);
 ok(!(await pm.locator("[class*=laneScroller]").first().isVisible().catch(() => false)), "8) 모바일: 스윔레인 숨김");
@@ -42,7 +48,7 @@ ok((await pm.locator("[class*=laneBadge]").count()) > 0, "10) 스텝퍼 카드�
 await pm.screenshot({ path: "verify-journey-mobile.png" });
 
 // ── 다크모드 대비 ──
-const pd = await (await b.newContext({ viewport: { width: 1360, height: 900 } })).newPage();
+const pd = await (await authCtx({ viewport: { width: 1360, height: 900 } })).newPage();
 await pd.addInitScript(() => localStorage.setItem("kei-theme", "dark"));
 await pd.goto(`${BASE}/journey/`, { waitUntil: "load" });
 await pd.waitForTimeout(1500);
@@ -55,7 +61,7 @@ ok(Math.abs(probe.lum - probe.bgLum) > 80, `11) 다크모드 텍스트 대비(Δ
 await pd.screenshot({ path: "verify-journey-dark.png" });
 
 // ── 플래그 off 시 비노출(공개 플래그 목록 조작 대신 localStorage 캐시 오버라이드) ──
-const pf = await (await b.newContext({ viewport: { width: 1360, height: 900 } })).newPage();
+const pf = await (await authCtx({ viewport: { width: 1360, height: 900 } })).newPage();
 await pf.addInitScript(() => localStorage.setItem("kei-flags", JSON.stringify({ journey_map: false })));
 await pf.goto(`${BASE}/`, { waitUntil: "load" });
 await pf.waitForTimeout(800);

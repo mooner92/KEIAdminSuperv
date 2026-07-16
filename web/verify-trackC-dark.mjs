@@ -3,6 +3,8 @@ import { chromium } from "playwright";
 const BASE = "http://localhost:3101";
 const b = await chromium.launch();
 const ctx = await b.newContext({ colorScheme: "dark" });
+await ctx.request.post(BASE + "/api/app/auth/login", { data: { username: "admintest", password: "admtest123" } }); // docs/44 게이트
+
 const p = await ctx.newPage({ viewport: { width: 760, height: 1200 } });
 await p.addInitScript(() => localStorage.setItem("kei-theme", "dark")); // FOUC 스크립트가 읽는 키
 

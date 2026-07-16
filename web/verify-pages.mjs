@@ -5,10 +5,11 @@ const targets = ["/", "/browse/", "/graph/"]; // "/"는 미로그인 → 로그�
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ colorScheme: "light" });
 await ctx.addInitScript(() => localStorage.setItem("kei-theme", "dark"));
+await ctx.request.post("http://localhost:3101/api/app/auth/login", { data: { username: "admintest", password: "admtest123" } }); // docs/44 게이트
 
 for (const t of targets) {
   const page = await ctx.newPage();
-  await page.goto("http://localhost:3100" + t, { waitUntil: "load" });
+  await page.goto("http://localhost:3101" + t, { waitUntil: "load" });
   await page.waitForTimeout(1500);
   const r = await page.evaluate(() => ({
     theme: document.documentElement.getAttribute("data-theme"),

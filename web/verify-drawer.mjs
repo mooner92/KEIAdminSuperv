@@ -2,6 +2,8 @@
 import { chromium } from "playwright";
 const b = await chromium.launch();
 const p = await b.newPage();
+await p.context().request.post("http://localhost:3101" + "/api/app/auth/login", { data: { username: "admintest", password: "admtest123" } }); // docs/44 게이트
+
 const errs = [];
 p.on("requestfailed", (r) => { if (r.url().includes("/docdata/")) errs.push("REQFAIL " + r.url()); });
 await p.goto("http://localhost:3100/browse/", { waitUntil: "load" });

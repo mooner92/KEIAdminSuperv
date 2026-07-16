@@ -15,12 +15,13 @@ const before = await (await ctx.request.get(`${BASE}/api/app/flags`)).json();
 const initial = !!(before.flags ? before.flags[FLAG] : before[FLAG]);
 console.log(`초기 ${FLAG}=${initial}`);
 
-// 1) 로그아웃 상태 /admin → 게이트
+// 1) 로그아웃 상태 /admin → 게이트(docs/44: 서버가 302로 랜딩에 착지시킴)
 const anon = await (await b.newContext()).newPage();
 await anon.goto(`${BASE}/admin/`, { waitUntil: "load" });
 await anon.waitForTimeout(1500);
 const anonBody = await anon.innerText("body");
-ok(anonBody.includes("관리자 전용") || anonBody.includes("로그인이 필요"), "1) 로그아웃 /admin 게이트");
+ok(new URL(anon.url()).pathname === "/" || anonBody.includes("관리자 전용") || anonBody.includes("로그인이 필요"),
+  "1) 로그아웃 /admin 게이트(랜딩 리다이렉트 또는 안내)");
 
 // 2) 관리자: /admin/#flags 에서 해당 플래그 행 스위치 확인
 const p = await ctx.newPage();

@@ -5,14 +5,13 @@ const b = await chromium.launch();
 let pass = 0, fail = 0;
 const check = (n, ok, d = "") => { console.log((ok ? "✅" : "❌") + " " + n + (d ? " — " + d : "")); ok ? pass++ : fail++; };
 
-// 기대값은 빌드 산출물(changelog.json)에서 유도 — 노트가 늘어도 스크립트가 낡지 않게(드리프트 방지)
 const ctx = await b.newContext({ viewport: { width: 1280, height: 900 } });
+// docs/44 게이트: changelog.json도 로그인 필요 — 로그인 먼저
+await ctx.request.post(BASE + "/api/app/auth/login", { data: { username: "admintest", password: "admtest123" } });
+// 기대값은 빌드 산출물(changelog.json)에서 유도 — 노트가 늘어도 스크립트가 낡지 않게(드리프트 방지)
 const clog = await (await ctx.request.get(BASE + "/changelog.json")).json();
 const latest = clog.latest; // { id, 요약 }
 const total = clog.n;      // 전체 노트 수(빌드타임 집계)
-
-// 푸터 '새로워진 점' 링크는 로그인 사용자에게만(비로그인 GNB/푸터 정리, docs/36) — 로그인 컨텍스트로 검증
-await ctx.request.post(BASE + "/api/app/auth/login", { data: { username: "admintest", password: "admtest123" } });
 
 // ⓑ 배너: 최신 노트 노출 → 닫기 → 재방문 미노출 → '새 노트'(id 변경) 재노출
 const p = await ctx.newPage();
@@ -68,6 +67,7 @@ check("추가 기능 허브에 새로워진 점 바로가기", (await p.locator(
 
 // ⓓ flag off — 새 컨텍스트 + flags 응답 고정(localStorage 캐시 회피 — help_hub 검증 교훈 재사용)
 const ctxOff = await b.newContext();
+await ctxOff.request.post(BASE + "/api/app/auth/login", { data: { username: "admintest", password: "admtest123" } }); // docs/44 게이트
 await ctxOff.route("**/api/app/flags**", async (route) => {
   const r = await route.fetch();
   const j = await r.json();

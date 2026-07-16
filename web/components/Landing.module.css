@@ -172,7 +172,7 @@
   padding: var(--space-4);
   color: var(--color-text);
 }
-.featCard:hover { border-color: var(--color-primary); }
+/* 카드 hover 강조 제거 — 외부 공개 대비 프레젠테이션 전용(클릭 아님) */
 .featEmoji { display: block; font-size: 22px; margin-bottom: 8px; }
 .featCard b { font-size: 15.5px; }
 .featCard p { margin: 6px 0 0; font-size: 13px; line-height: 1.6; color: var(--color-text-secondary); }

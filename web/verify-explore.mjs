@@ -5,6 +5,8 @@ const fails = [];
 const ok = (c, m) => { console.log((c ? "✅ " : "❌ ") + m); if (!c) fails.push(m); };
 const b = await chromium.launch();
 const p = await b.newPage({ viewport: { width: 1440, height: 1100 } });
+await p.context().request.post(BASE + "/api/app/auth/login", { data: { username: "admintest", password: "admtest123" } }); // docs/44 게이트
+
 
 // ① 딥링크: ?doc= 진입 → 드로어 자동 오픈
 await p.goto(`${BASE}/browse/?doc=3400_복무규정`, { waitUntil: "networkidle" });
