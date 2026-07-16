@@ -158,7 +158,7 @@ export default function Landing({
     // 오른쪽 로그인 카드는 sticky로 제자리에 떠 있다(스크롤해도 이동 X). 소개를 숨기지 않는다.
     return (
       <div className={styles.mergedWrap}>
-        <div className={styles.mergedIntro} ref={rootRef}>
+        <div className={`${styles.mergedIntro} ${styles.page}`} ref={rootRef}>{/* .page = 리빌 CSS 스코프 */}
           {/* 히어로 */}
           <header className={styles.mHero}>
             <p className={styles.heroKicker} data-reveal>

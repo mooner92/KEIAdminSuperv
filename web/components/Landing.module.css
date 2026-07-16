@@ -53,6 +53,11 @@
 .page .heroCtas[data-reveal] { transition-delay: 260ms; }
 .page .heroMeta[data-reveal] { transition-delay: 350ms; }
 .page .scrollCue[data-reveal] { transition-delay: 450ms; }
+/* 통합 홈(mergedIntro=.page) 히어로 스태거 — 클래스가 달라 별도 매핑(docs/47 v2) */
+.page .mTitle[data-reveal] { transition-delay: 80ms; }
+.page .mLead[data-reveal] { transition-delay: 170ms; }
+.page .exampleChips[data-reveal] { transition-delay: 260ms; }
+.page .slideCue[data-reveal] { transition-delay: 450ms; }
 .page [data-reveal] .featCard, .page [data-reveal] .stat {
   opacity: 0; transition: opacity 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
@@ -68,6 +73,8 @@
     transition: opacity 0.9s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
   }
   .page [data-reveal].vis { transform: none; }
+  /* 스냅 슬라이드 자체는 fade 전용 — transform이 스냅 좌표·클리핑과 간섭하지 않게 */
+  .page .mSection[data-reveal], .page .mHero[data-reveal] { transform: none; }
   .page [data-reveal] .featCard, .page [data-reveal] .stat {
     transform: translateY(18px);
     transition: opacity 0.7s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
@@ -328,9 +335,11 @@
   letter-spacing: -0.045em; line-height: 1.05; color: var(--color-text);
 }
 .mLead { margin: 0 0 20px; font-size: clamp(15px, 2vw, 18px); line-height: 1.75; color: var(--color-text-secondary); max-width: 540px; }
-.mHero .heroKicker { color: var(--color-text-tertiary); opacity: 1; }
+/* ⚠ opacity 선언 금지 — 리빌 초기값(.page [data-reveal]{opacity:0})과 동특이도 후순위로 이겨서
+   페이드가 죽는다(실측). 최종 표시는 .vis(opacity:1)가 담당. */
+.mHero .heroKicker { color: var(--color-text-tertiary); }
 .mHero .heroMeta {
-  border-top-color: var(--color-border); color: var(--color-text-secondary); opacity: 1;
+  border-top-color: var(--color-border); color: var(--color-text-secondary);
   margin-top: 30px;
 }
 .mHero .heroMeta b { color: var(--color-text); }
