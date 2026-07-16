@@ -3,7 +3,7 @@
 .page { width: 100%; }
 .section {
   width: 100%;
-  padding: 104px 0; /* 애플식 넉넉한 여백 */
+  padding: 128px 0; /* 애플식 넉넉한 여백(docs/46 상향) */
   scroll-margin-top: calc(var(--header-h) + 8px); /* sticky 헤더 가림 방지(레일 점프) */
 }
 .alt { background: var(--color-bg-subtle); }
@@ -19,7 +19,13 @@
 }
 
 /* 섹션 아이브로 — 작은 액센트 라벨 */
-.eyebrow { margin: 0 0 12px; font-size: 13px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+.eyebrow {
+  margin: 0 0 14px; font-size: 12.5px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; /* SpaceX식 모노 라벨(docs/46) */
+  display: flex; align-items: baseline; gap: 10px;
+}
+.eyebrowNum { font-weight: 600; opacity: 0.55; font-variant-numeric: tabular-nums; }
+.eyebrowNum::after { content: " —"; }
 .tBlue { color: var(--sec-blue-fg); }
 .tGreen { color: var(--sec-green-fg); }
 .tOrange { color: var(--sec-orange-fg); }
@@ -42,6 +48,15 @@
     transition: opacity 0.5s ease, transform 0.5s ease;
   }
   .page [data-reveal].vis { opacity: 1; transform: none; }
+  /* 카드류는 60ms 계단(Apple식 미세 스태거 — docs/46 §2-7) */
+  .page [data-reveal] .featCard, .page [data-reveal] .stat {
+    opacity: 0; transform: translateY(10px);
+    transition: opacity 0.45s ease, transform 0.45s ease;
+  }
+  .page [data-reveal].vis .featCard, .page [data-reveal].vis .stat { opacity: 1; transform: none; }
+  .page [data-reveal].vis .featCard:nth-child(2), .page [data-reveal].vis .stat:nth-child(2) { transition-delay: 60ms; }
+  .page [data-reveal].vis .featCard:nth-child(3), .page [data-reveal].vis .stat:nth-child(3) { transition-delay: 120ms; }
+  .page [data-reveal].vis .stat:nth-child(4) { transition-delay: 180ms; }
 }
 
 /* ── 히어로 (테마 불변 다크) ── */
@@ -50,37 +65,69 @@
   color: var(--hero-fg);
   padding: 108px 0 96px;
 }
-.heroKicker { margin: 0 0 10px; font-size: 13px; font-weight: 700; letter-spacing: 0.04em; opacity: 0.75; }
-.heroTitle { margin: 0 0 16px; font-size: clamp(38px, 6.5vw, 60px); font-weight: 900; letter-spacing: -0.03em; line-height: 1.08; }
+.heroKicker {
+  margin: 0 0 22px; font-size: 12px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; opacity: 0.66;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.heroTitle { margin: 0 0 22px; font-size: clamp(52px, 8.5vw, 104px); font-weight: 800; letter-spacing: -0.045em; line-height: 1.04; }
+/* docs/46 그라디언트 규율 — 전체에서 이 한 줄만. KEI 블루→퍼플→핑크(다크 토큰 3정지, 주황 금지) */
+.heroGrad {
+  background: linear-gradient(96deg, #7db4ff 0%, #b79bf5 52%, #f06fa8 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
 .homeTitle { margin: 0 0 12px; font-size: clamp(26px, 5vw, 36px); font-weight: 900; letter-spacing: -0.02em; }
-.heroLead { margin: 0; font-size: clamp(15px, 2.2vw, 18px); line-height: 1.7; opacity: 0.9; }
+.heroLead { margin: 0; font-size: clamp(15px, 2.2vw, 19px); line-height: 1.75; opacity: 0.88; max-width: 560px; }
 .heroCtas { display: flex; gap: 12px; margin-top: 28px; flex-wrap: wrap; }
 .ctaPrimary {
   display: inline-block;
   background: var(--color-primary);
   color: var(--color-on-primary);
   border: none;
-  border-radius: 10px;
+  border-radius: 999px; /* Toss 필 */
   font: inherit;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 800;
-  padding: 12px 22px;
+  padding: 14px 28px;
   cursor: pointer;
+  transition: filter 0.15s ease, transform 0.12s ease;
 }
 .ctaPrimary:hover { filter: brightness(1.08); }
+.ctaPrimary:active { transform: scale(0.97); }
 .ctaGhost {
   display: inline-block;
   border: 1px solid var(--hero-fg-dim);
   color: var(--hero-fg);
-  border-radius: 10px;
-  font-size: 15px;
+  border-radius: 999px;
+  font-size: 16px;
   font-weight: 700;
-  padding: 12px 22px;
+  padding: 14px 28px;
+  transition: background 0.15s ease;
 }
 .ctaGhost:hover { background: rgba(255, 255, 255, 0.08); }
 
+/* 히어로 메타 스트립(docs/46 §2-2) — 숫자 우선, 모노 라벨. 수치는 빌드타임 실측만 */
+.heroMeta {
+  display: flex; flex-wrap: wrap; gap: 10px 28px;
+  margin: 44px 0 0; padding-top: 22px;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.78;
+}
+.heroMeta b { font-size: 15px; font-weight: 800; letter-spacing: 0; margin-left: 2px; font-variant-numeric: tabular-nums; }
+.scrollCue {
+  margin: 56px 0 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px; letter-spacing: 0.34em; opacity: 0.5;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .scrollCue { animation: cueFloat 2.4s ease-in-out infinite; }
+  @keyframes cueFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(5px); } }
+}
+
 /* ── 본문 섹션 (애플식 큰 타이포) ── */
-.h2 { margin: 0 0 14px; font-size: clamp(27px, 4.2vw, 42px); font-weight: 850; line-height: 1.15; letter-spacing: -0.02em; color: var(--color-text); }
+.h2 { margin: 0 0 16px; font-size: clamp(32px, 4.4vw, 50px); font-weight: 800; line-height: 1.12; letter-spacing: -0.03em; color: var(--color-text); }
 .lead { margin: 0 0 var(--space-5); font-size: clamp(15px, 1.8vw, 18px); line-height: 1.7; color: var(--color-text-secondary); }
 
 .exampleChips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 var(--space-4); }
@@ -104,7 +151,9 @@
   box-shadow: var(--shadow-card);
 }
 .mockBar { display: flex; gap: 6px; padding: 10px 14px; border-bottom: 1px solid var(--color-border); }
+.mockBar { align-items: center; }
 .mockBar span { width: 10px; height: 10px; border-radius: 50%; background: var(--color-border); }
+.mockTitle { margin-left: 8px; font-style: normal; font-size: 11.5px; font-weight: 600; color: var(--color-text-tertiary); letter-spacing: 0.02em; }
 .mockBody { padding: var(--space-4); display: flex; flex-direction: column; gap: 12px; }
 .mockUser {
   align-self: flex-end;
@@ -226,6 +275,6 @@
 
 @media (max-width: 760px) {
   .homeWrap { grid-template-columns: 1fr; }
-  .section { padding: 52px 0; }
-  .hero { padding: 72px 0 60px; }
+  .section { padding: 64px 0; }
+  .hero { padding: 80px 0 64px; }
 }

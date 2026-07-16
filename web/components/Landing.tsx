@@ -40,9 +40,14 @@ function useReveal(root: React.RefObject<HTMLDivElement>) {
   }, [root]);
 }
 
-/** 섹션 아이브로 — 애플식 작은 액센트 라벨(컬러 모먼트의 포인트 색) */
-function Eyebrow({ tone, children }: { tone: string; children: React.ReactNode }) {
-  return <p className={`${styles.eyebrow} ${styles[tone]}`}>{children}</p>;
+/** 섹션 아이브로 — SpaceX식 모노 넘버링 + 컬러 모먼트 포인트 색(docs/46) */
+function Eyebrow({ tone, num, children }: { tone: string; num?: string; children: React.ReactNode }) {
+  return (
+    <p className={`${styles.eyebrow} ${styles[tone]}`}>
+      {num ? <span className={styles.eyebrowNum}>{num}</span> : null}
+      {children}
+    </p>
+  );
 }
 
 /** 관계 그래프 미니 비주얼 — 노드·엣지 SVG(정적, 커밋 가능). 우리의 가장 강한 시각 자산. */
@@ -73,7 +78,7 @@ function GraphVisual() {
 function ChatMockup() {
   return (
     <figure className={styles.mock} aria-label="채팅 사용 예시 화면(목업)">
-      <div className={styles.mockBar}><span /><span /><span /></div>
+      <div className={styles.mockBar}><span /><span /><span /><i className={styles.mockTitle}>KEI 행정 가이드 — 질문하기</i></div>
       <div className={styles.mockBody}>
         <p className={styles.mockUser}>출장 여비 정산은 어떻게 하나요?</p>
         <div className={styles.mockBot}>
@@ -141,8 +146,13 @@ export default function Landing({
       {/* 1. 히어로 — 테마 불변 다크 그라디언트(§0-4) */}
       <section id="hero" className={`${styles.section} ${styles.hero}`}>
         <div className={styles.inner}>
-          <p className={styles.heroKicker}>KEI 임직원 전용 · 사내 규정 기반</p>
-          <h1 className={styles.heroTitle}>{SITE_NAME}</h1>
+          <p className={styles.heroKicker}>{SITE_NAME} · KEI 임직원 전용 · 사내 규정 기반</p>
+          {/* docs/46: 그라디언트는 전체에서 이 한 줄만(규율) */}
+          <h1 className={styles.heroTitle}>
+            물어보면,
+            <br />
+            <span className={styles.heroGrad}>규정이 답합니다.</span>
+          </h1>
           <p className={styles.heroLead}>
             "이 업무, 어떻게 처리하지?" — 규정을 근거로 답하는 행정 도우미.
             <br />모든 답변에 <b>[규정명 제N조]</b> 출처가 달립니다.
@@ -151,6 +161,19 @@ export default function Landing({
             <button type="button" className={styles.ctaPrimary} onClick={goStart}>지금 시작하기</button>
             <a className={styles.ctaGhost} href="#ask">어떻게 쓰는지 보기 ↓</a>
           </div>
+          {counts ? (
+            <p className={styles.heroMeta} aria-label="코퍼스 규모(빌드타임 실측)">
+              {[
+                { n: counts.regs, label: "규정 원문" },
+                { n: counts.guides, label: "업무 가이드" },
+                { n: counts.terms, label: "행정 용어" },
+              ].filter((x) => x.n > 0).map((x) => (
+                <span key={x.label}>{x.label} <b>{x.n.toLocaleString()}</b></span>
+              ))}
+              <span>출처 표기 <b>100%</b></span>
+            </p>
+          ) : null}
+          <p className={styles.scrollCue} aria-hidden>SCROLL ↓</p>
         </div>
       </section>
 
@@ -158,7 +181,7 @@ export default function Landing({
       <section id="ask" className={`${styles.section} ${styles.mBlue}`}>
         <div className={`${styles.inner} ${styles.split}`} data-reveal>
           <div className={styles.splitText}>
-            <Eyebrow tone="tBlue">질문하기</Eyebrow>
+            <Eyebrow tone="tBlue" num="01">질문하기</Eyebrow>
             <h2 className={styles.h2}>말하듯 물으면,<br />규정이 답합니다</h2>
             <p className={styles.lead}>어려운 규정 용어를 몰라도 괜찮아요. 평소 말하듯 물어보세요.</p>
             <div className={styles.exampleChips} aria-label="예시 질문">
@@ -172,7 +195,7 @@ export default function Landing({
       {/* 3. 모든 답에 근거 + 가드레일 시연(신뢰 자산 1급 — 리뷰 확정) */}
       <section id="sources" className={`${styles.section} ${styles.mGreen}`}>
         <div className={styles.inner} data-reveal>
-          <Eyebrow tone="tGreen">근거</Eyebrow>
+          <Eyebrow tone="tGreen" num="02">근거</Eyebrow>
           <h2 className={styles.h2}>모든 답에<br />근거가 달립니다</h2>
           <p className={styles.lead}>
             답변 옆 근거 패널에서 인용된 조문을 바로 열어볼 수 있고, 금액·한도가 나오면
@@ -192,8 +215,14 @@ export default function Landing({
       {/* 4. 둘러보고 연결해서 — 보라 모먼트 + 그래프 비주얼 */}
       <section id="explore" className={`${styles.section} ${styles.mPurple}`}>
         <div className={styles.inner} data-reveal>
-          <Eyebrow tone="tPurple">둘러보기</Eyebrow>
-          <h2 className={styles.h2}>규정은 서로 연결돼 있어요</h2>
+          <Eyebrow tone="tPurple" num="03">둘러보기</Eyebrow>
+          <h2 className={styles.h2}>
+            {counts ? (
+              <>규정 {counts.regs} · 가이드 {counts.guides} · 용어 {counts.terms} —<br />전부 연결돼 있습니다.</>
+            ) : (
+              "규정은 서로 연결돼 있어요"
+            )}
+          </h2>
           <p className={styles.lead}>하나의 규정에서 관련 규정·가이드·서식으로 자연스럽게 이어집니다.</p>
           <GraphVisual />
           {/* ⛔ 소개 카드는 프레젠테이션 전용 — 이 페이지는 외부 공개될 수 있어 실제 서비스로
@@ -221,7 +250,7 @@ export default function Landing({
       {/* 5. 믿을 수 있게 — 사용자 언어 실측치만(빌드타임 계산, 리뷰 확정). 주황 모먼트 */}
       <section id="trust" className={`${styles.section} ${styles.mOrange}`}>
         <div className={styles.inner} data-reveal>
-          <Eyebrow tone="tOrange">신뢰</Eyebrow>
+          <Eyebrow tone="tOrange" num="04">신뢰</Eyebrow>
           <h2 className={styles.h2}>믿을 수 있게 운영합니다</h2>
           {counts ? (
             <div className={styles.statGrid}>
@@ -246,7 +275,7 @@ export default function Landing({
       {/* 6. 시작하기 */}
       <section id="start" className={styles.section}>
         <div className={styles.inner} data-reveal>
-          <Eyebrow tone="tBlue">시작하기</Eyebrow>
+          <Eyebrow tone="tBlue" num="05">시작하기</Eyebrow>
           <h2 className={styles.h2}>1분이면 충분해요</h2>
           <ol className={styles.steps} aria-label="가입 절차">
             <li><b>1</b> KEI 이메일(@kei.re.kr)로 가입</li>

@@ -22,6 +22,21 @@ check("① 가드레일 시연(거부 문구)", body.includes("규정에서 확�
 check("① 수치 카드(실측치)", /규정 원문/.test(body) && /\d{2,}/.test(body) && !/\b0\s*\n?\s*사람 검수 완료/.test(body));
 check("① 가입 3단계 스텝퍼", body.includes("6자리 코드"));
 check("① 로그인 상태 → 질문하러 가기", body.includes("질문하러 가기"));
+// docs/46 — 시네마틱 타이포 수용 기준
+const heroTypo = await p.locator("h1").first().evaluate((el) => {
+  const cs = getComputedStyle(el);
+  return { size: parseFloat(cs.fontSize), ls: parseFloat(cs.letterSpacing) };
+});
+check("①-46 히어로 초대형 타이포(≥52px·음수 자간)", heroTypo.size >= 52 && heroTypo.ls < 0, JSON.stringify(heroTypo));
+const gradEls = await p.evaluate(() =>
+  [...document.querySelectorAll("h1 span")].filter((el) => {
+    const cs = getComputedStyle(el);
+    return (cs.webkitBackgroundClip === "text" || cs.backgroundClip === "text") && cs.backgroundImage.includes("gradient");
+  }).length);
+check("①-46 그라디언트 규율(정확히 1곳)", gradEls === 1, String(gradEls));
+check("①-46 히어로 메타 스트립(실측 수치)", (await p.locator('[aria-label="코퍼스 규모(빌드타임 실측)"]').innerText()).match(/\d{2,}/) !== null);
+const eyebrowNums = await p.locator('[class*="eyebrowNum"]').allInnerTexts();
+check("①-46 넘버링 아이브로 01~05", eyebrowNums.length === 5 && eyebrowNums[0].includes("01") && eyebrowNums[4].includes("05"), eyebrowNums.join(","));
 await p.screenshot({ path: "verify-landing.png", fullPage: true });
 
 // ② ScrollRail 상호작용 — 클릭 점프 + aria-current + 키보드 Enter
