@@ -10,7 +10,7 @@ await p.goto("http://127.0.0.1:3101/", { waitUntil: "load" });
 await p.waitForTimeout(1500);
 await p.click('button:has-text("새 대화")').catch(() => {});
 await p.fill('textarea[placeholder^="행정 업무"]', "국내출장 신청 어떻게 해?");
-await p.click('button:has-text("보내기")');
+await p.click('button[aria-label="보내기"]');
 await p.waitForSelector('button[title="도움이 됐어요"]', { timeout: 300000 });
 await p.waitForTimeout(700);
 

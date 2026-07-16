@@ -23,7 +23,7 @@ async function ask(q) {
   await p.click('button:has-text("새 대화")').catch(() => {});
   await p.waitForTimeout(500);
   await p.fill('textarea[placeholder^="행정 업무"]', q);
-  await p.click('button:has-text("보내기")');
+  await p.click('button[aria-label="보내기"]');
   await p.waitForSelector('button[title="도움이 됐어요"]', { timeout: 300000 });
   await p.waitForTimeout(800);
   // 근거 패널 펼치기(접힘 상태면 배지가 렌더되지 않음)

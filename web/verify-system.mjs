@@ -6,7 +6,7 @@ const ctx = await browser.newContext({ colorScheme: "light" });
 await ctx.addInitScript(() => localStorage.setItem("kei-theme", "dark"));
 const page = await ctx.newPage();
 
-await page.goto("http://localhost:3100/browse/", { waitUntil: "load" });
+await page.goto("http://localhost:3101/browse/", { waitUntil: "load" });
 await page.waitForTimeout(1200);
 
 // 구분 필터에 'ERP 시스템' 탭 + 카운트
@@ -39,7 +39,7 @@ console.log("드로어 섹션 칩 =", JSON.stringify(chip), "(보라 #a78bfa=rgb
 await page.screenshot({ path: "verify-system-browse.png" });
 
 // 그래프: 범례에 'ERP 시스템' + 보라 노드 픽셀
-await page.goto("http://localhost:3100/graph/", { waitUntil: "load" });
+await page.goto("http://localhost:3101/graph/", { waitUntil: "load" });
 await page.waitForTimeout(3000);
 const legendHasSys = await page.evaluate(() => document.body.innerText.includes("ERP 시스템"));
 const purple = await page.evaluate(() => {

@@ -3,7 +3,7 @@
 // 한글 폰트 설치 후 실행하면 스크린샷에 한글이 정상 표기된다.
 import { chromium } from "playwright";
 
-const BASE = "http://localhost:3100";
+const BASE = "http://localhost:3101";
 const USER = "fb_test";
 const PW = "test1234";
 const fails = [];
@@ -30,7 +30,7 @@ ok(asOf > 0, "1) footer 규정집 기준일 2026.06.19 표시");
 await p.click('button:has-text("새 대화")').catch(() => {});
 await p.waitForTimeout(400);
 await p.fill('textarea[placeholder^="행정 업무"]', "국내 출장 숙박비 한도는 얼마인가요?");
-await p.click('button:has-text("보내기")');
+await p.click('button[aria-label="보내기"]');
 
 // 3) 답변 완료 대기(피드백 버튼=완료 신호)
 await p.waitForSelector('button[title="도움이 됐어요"]', { timeout: 90000 }).catch(() => {});

@@ -89,7 +89,7 @@ export default function Layout({
       {latestNote ? (
         <div className={styles.banner} ref={bannerRef}>
           <Link href={`/changelog/#${latestNote.id}`} className={styles.bannerLink}>
-            🆕 새로워진 점: {latestNote.요약} · <u>자세히 →</u>
+            ✨ 새로워진 점: {latestNote.요약} · <u>자세히 →</u>
           </Link>
           <button className={styles.bannerClose} onClick={dismissNote} aria-label="업데이트 알림 닫기">✕</button>
         </div>

@@ -6,7 +6,7 @@ await p.context().request.post("http://localhost:3101" + "/api/app/auth/login", 
 
 const errs = [];
 p.on("requestfailed", (r) => { if (r.url().includes("/docdata/")) errs.push("REQFAIL " + r.url()); });
-await p.goto("http://localhost:3100/browse/", { waitUntil: "load" });
+await p.goto("http://localhost:3101/browse/", { waitUntil: "load" });
 await p.waitForTimeout(1500);
 // 첫 문서 행 클릭
 await p.evaluate(() => {

@@ -6,7 +6,7 @@ const ctx = await browser.newContext({ colorScheme: "light" });
 await ctx.addInitScript(() => localStorage.setItem("kei-theme", "dark"));
 const page = await ctx.newPage();
 
-await page.goto("http://localhost:3100/browse/", { waitUntil: "load" });
+await page.goto("http://localhost:3101/browse/", { waitUntil: "load" });
 await page.waitForTimeout(1200);
 
 // 분류 필터에 ERP시스템 N 있는지
@@ -42,7 +42,7 @@ console.log("ERP 드로어 머리 =", drawer);
 await page.screenshot({ path: "verify-erp-browse.png" });
 
 // 그래프 문서 수
-await page.goto("http://localhost:3100/graph/", { waitUntil: "load" });
+await page.goto("http://localhost:3101/graph/", { waitUntil: "load" });
 await page.waitForTimeout(2500);
 const lead = await page.evaluate(() => document.querySelector("p")?.textContent.trim());
 console.log("그래프 lead =", lead);

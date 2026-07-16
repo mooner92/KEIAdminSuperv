@@ -17,7 +17,7 @@ await p.waitForTimeout(1200);
 await p.click('button:has-text("새 대화")').catch(() => {});
 await p.waitForTimeout(400);
 await p.fill('textarea[placeholder^="행정 업무"]', "연차휴가는 어떻게 신청하나요?");
-await p.click('button:has-text("보내기")');
+await p.click('button[aria-label="보내기"]');
 await p.waitForSelector('button[title="도움이 됐어요"]', { timeout: 240000 }).catch(() => {});
 await p.waitForTimeout(1000);
 let body = await p.textContent("body");

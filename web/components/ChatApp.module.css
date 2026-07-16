@@ -201,17 +201,25 @@
   padding: 8px 0;
 }
 .send {
+  /* 아이콘 전용 원형(docs/45 UI 폴리시) — 텍스트 제거, 색·모양으로 구분 */
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
   border: none;
   background: var(--color-primary);
   color: var(--color-on-primary);
   font-weight: 700;
   font-size: 14px;
-  border-radius: var(--radius-md);
-  padding: 10px 18px;
+  border-radius: 999px;
+  padding: 0;
+  transition: var(--transition-ui), transform 0.12s ease;
   cursor: pointer;
 }
 .send:disabled { opacity: 0.45; cursor: default; }
+.send:active:not(:disabled) { transform: scale(0.92); }
 .disclaim { margin: 10px 4px 0; font-size: 12px; color: var(--color-text-tertiary); line-height: 1.5; }
 
 /* ── 우측: 근거 조문 ── */
@@ -401,14 +409,19 @@
 
 /* Stop 버튼(docs/34 ③) — 스트리밍 중 보내기 자리를 대체. 시맨틱 토큰만 */
 .stop {
-  padding: 10px 16px;
-  border: 1px solid var(--color-danger, var(--color-border));
-  border-radius: 10px;
+  /* 아이콘 전용 원형 — 빨간 ■(중단), 전송 버튼과 같은 자리·크기 */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1.5px solid var(--color-danger, var(--color-border));
+  border-radius: 999px;
   background: var(--color-surface);
   color: var(--color-danger, var(--color-text));
-  font-size: 14px;
-  font-weight: 700;
   cursor: pointer;
+  transition: var(--transition-ui), transform 0.12s ease;
   white-space: nowrap;
 }
 .stop:hover { background: var(--color-danger-bg, var(--color-surface)); }

@@ -5,7 +5,7 @@ const ctx = await browser.newContext({ colorScheme: "light" });
 await ctx.addInitScript(() => localStorage.setItem("kei-theme", "dark"));
 const page = await ctx.newPage();
 
-await page.goto("http://localhost:3100/browse/", { waitUntil: "load" });
+await page.goto("http://localhost:3101/browse/", { waitUntil: "load" });
 await page.waitForTimeout(1200);
 const facet = await page.evaluate(() => {
   let v = null;
@@ -37,7 +37,7 @@ const drawerHead = await page.evaluate(() => {
 console.log("드로어 용어 =", drawerHead, "| 섹션 칩 =", JSON.stringify(chip), "(주황 기대)");
 await page.screenshot({ path: "verify-terms-browse.png" });
 
-await page.goto("http://localhost:3100/graph/", { waitUntil: "load" });
+await page.goto("http://localhost:3101/graph/", { waitUntil: "load" });
 await page.waitForTimeout(3000);
 const lead = await page.evaluate(() => document.querySelector("p")?.textContent.trim());
 const orange = await page.evaluate(() => {

@@ -1,7 +1,7 @@
 // #4 ERP·서식 연결(채팅) 실렌더 검증: 절차 질의 → 답변에 ERP 경로 + 근거 패널 🖥 ERP 칩.
 import { chromium } from "playwright";
 
-const BASE = "http://localhost:3100";
+const BASE = "http://localhost:3101";
 const USER = "fb_test";
 const PW = "test1234";
 const fails = [];
@@ -22,7 +22,7 @@ await p.waitForTimeout(1200);
 await p.click('button:has-text("새 대화")').catch(() => {});
 await p.waitForTimeout(400);
 await p.fill('textarea[placeholder^="행정 업무"]', "경조사비 신청은 어떻게 하나요? ERP에서 어디서 처리해요?");
-await p.click('button:has-text("보내기")');
+await p.click('button[aria-label="보내기"]');
 
 await p.waitForSelector('button[title="도움이 됐어요"]', { timeout: 90000 }).catch(() => {});
 await p.waitForTimeout(1200);

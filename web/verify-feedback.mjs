@@ -3,7 +3,7 @@
 // 로그인은 폼 대신 API(register/login, 같은 컨텍스트 쿠키)로 결정적으로 처리.
 import { chromium } from "playwright";
 
-const BASE = "http://localhost:3100";
+const BASE = "http://localhost:3101";
 const USER = "fb_test";
 const PW = "test1234";
 const fails = [];
@@ -28,7 +28,7 @@ await p.waitForTimeout(1500);
 await p.click('button:has-text("새 대화")').catch(() => {});
 await p.waitForTimeout(500);
 await p.fill('textarea[placeholder^="행정 업무"]', "연차휴가는 어떻게 신청하나요?");
-await p.click('button:has-text("보내기")');
+await p.click('button[aria-label="보내기"]');
 
 // 3) 답변 완료(=피드백 버튼 등장) 대기 — 스트리밍이 끝나 영속 메시지가 되면 버튼이 뜬다
 const up = 'button[title="도움이 됐어요"]';

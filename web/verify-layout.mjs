@@ -6,7 +6,7 @@ await p.setViewportSize({ width: 1440, height: 900 });
 const fails = [];
 
 // ── BROWSE ──
-await p.goto("http://localhost:3100/browse/", { waitUntil: "load" });
+await p.goto("http://localhost:3101/browse/", { waitUntil: "load" });
 await p.waitForTimeout(1500);
 const biggestUl = () =>
   p.evaluate(() => {
@@ -59,7 +59,7 @@ if (first1 === first2) fails.push("다음 페이지 미동작");
 await p.screenshot({ path: "verify-browse.png" });
 
 // ── GRAPH ──
-await p.goto("http://localhost:3100/graph/", { waitUntil: "load" });
+await p.goto("http://localhost:3101/graph/", { waitUntil: "load" });
 await p.waitForTimeout(3000);
 const graph = await p.evaluate(() => {
   const pageScroll = document.documentElement.scrollHeight - window.innerHeight;

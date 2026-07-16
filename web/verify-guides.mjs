@@ -7,7 +7,7 @@ await ctx.addInitScript(() => localStorage.setItem("kei-theme", "dark"));
 const page = await ctx.newPage();
 
 // 1) 둘러보기: 구분 facet 카운트(연구행정 가이드 N) + 첫 가이드 드로어 열기
-await page.goto("http://localhost:3100/browse/", { waitUntil: "load" });
+await page.goto("http://localhost:3101/browse/", { waitUntil: "load" });
 await page.waitForTimeout(1200);
 const counts = await page.evaluate(() => {
   const out = {};
@@ -43,7 +43,7 @@ console.log("드로어 내용 머리 =", drawer);
 await page.screenshot({ path: "verify-guide-drawer.png" });
 
 // 2) 그래프: 문서/연결 수 + 초록(가이드) 노드 존재 여부
-await page.goto("http://localhost:3100/graph/", { waitUntil: "load" });
+await page.goto("http://localhost:3101/graph/", { waitUntil: "load" });
 await page.waitForTimeout(3000);
 const lead = await page.evaluate(() => {
   const el = document.querySelector("p");

@@ -457,7 +457,7 @@ export default function ChatApp({
           {chats.length === 0 ? <div className={styles.noChats}>아직 대화가 없어요.</div> : null}
         </div>
         <div className={styles.userBar}>
-          <span className={styles.userName}>👤 {user.username}</span>
+          <span className={styles.userName}>🧑 {user.username}</span>
           <button className={styles.logout} onClick={onLogout}>
             로그아웃
           </button>
@@ -530,7 +530,7 @@ export default function ChatApp({
                       )}
                       {m.sources.length ? (
                         <div className={styles.aiSrcHint}>
-                          📎 근거 {m.sources.length}개 {m.id === activeMsgId ? "· 표시 중" : "· 클릭해서 보기"}
+                          📚 근거 {m.sources.length}개 {m.id === activeMsgId ? "· 표시 중" : "· 클릭해서 보기"}
                         </div>
                       ) : null}
                     </div>
@@ -661,13 +661,20 @@ export default function ChatApp({
             rows={1}
             disabled={sending}
           />
+          {/* 아이콘 전용(텍스트 제거) — 색·모양으로 구분, 입력창 공간 확보. 라벨은 aria로 유지 */}
           {sending && chatStopOn ? (
-            <button className={styles.stop} onClick={stop} aria-label="응답 수신 중단">■ 중단</button>
+            <button className={styles.stop} onClick={stop} aria-label="응답 수신 중단" title="중단">
+              <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden>
+                <rect x="5.5" y="5.5" width="13" height="13" rx="2.5" fill="currentColor" />
+              </svg>
+            </button>
           ) : sending ? (
-            <button className={styles.send} disabled>…</button>
+            <button className={styles.send} disabled aria-label="답변 생성 중">…</button>
           ) : (
-            <button className={styles.send} onClick={() => send()} disabled={!input.trim()}>
-              보내기
+            <button className={styles.send} onClick={() => send()} disabled={!input.trim()} aria-label="보내기" title="보내기 (Enter)">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden>
+                <path d="M12 19V6M6 12l6-6 6 6" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </button>
           )}
         </div>
@@ -702,7 +709,7 @@ export default function ChatApp({
         ) : null}
         {approvalHint ? (
           <button className={styles.approvalCta} onClick={() => setApprovalOpen(true)}>
-            🖋 결재 관련 내용이 언급됐어요 — <b>결재선을 알아볼까요?</b>
+            📝 결재 관련 내용이 언급됐어요 — <b>결재선을 알아볼까요?</b>
             {approvalHint.query ? <span className={styles.approvalKw}>{approvalHint.query}</span> : null}
           </button>
         ) : null}
@@ -862,7 +869,7 @@ export default function ChatApp({
       {/* v1 B6: 좁은 화면 근거 접근 플로팅 버튼(CSS가 ≤1080px에서만 노출) */}
       {activeSources.length > 0 && !srcOverlay ? (
         <button className={styles.srcFab} onClick={() => setSrcOverlay(true)}>
-          📎 근거 {activeSources.length}개
+          📚 근거 {activeSources.length}개
         </button>
       ) : null}
 
