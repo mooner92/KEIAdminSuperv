@@ -148,7 +148,7 @@ check("⑦ 비로그인: GNB 앱 메뉴 숨김", !hdr.includes("규정 둘러보
 await pa.screenshot({ path: "verify-landing-home.png" });
 await ctxAnon.close().catch(() => {});
 
-// ⑨ 통합 홈(docs/47): 소개는 스크롤되고 로그인 카드는 sticky로 제자리 — 스크롤 전후 카드 y 불변
+// ⑨ 통합 홈(docs/47 v2): 페이지 무스크롤 + 소개 컬럼 슬라이드 스냅 + 로그인 완전 부동
 for (const vp of [{ width: 1900, height: 983 }, { width: 1440, height: 860 }]) {
   const cno = await b.newContext({ viewport: vp });
   const pno = await cno.newPage();
@@ -156,13 +156,18 @@ for (const vp of [{ width: 1900, height: 983 }, { width: 1440, height: 860 }]) {
   await pno.waitForFunction(() => document.body.innerText.includes("규정이 답합니다"),
     undefined, { timeout: 8000 }).catch(() => {});
   await pno.waitForTimeout(1200);
-  const card = () => pno.locator('[class*="loginSticky"]');
-  const y0 = (await card().boundingBox().catch(() => null))?.y;
-  await pno.evaluate(() => window.scrollBy(0, 700));
-  await pno.waitForTimeout(600);
-  const y1 = (await card().boundingBox().catch(() => null))?.y;
-  const sticky = y0 != null && y1 != null && Math.abs(y0 - y1) < 40;
-  check(`⑨ ${vp.width}×${vp.height} 로그인 sticky(스크롤해도 제자리)`, sticky, `${Math.round(y0)}→${Math.round(y1)}`);
+  const noPageScroll = await pno.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight + 1);
+  const intro = pno.locator('[class*="mergedIntro"]');
+  const card = pno.locator('[class*="mergedLogin"]');
+  const y0 = (await card.boundingBox().catch(() => null))?.y;
+  await intro.hover();
+  await pno.mouse.wheel(0, 120); // 휠 1틱 = 1슬라이드
+  await pno.waitForTimeout(900);
+  const st = await intro.evaluate((el) => ({ top: el.scrollTop, h: el.clientHeight }));
+  const y1 = (await card.boundingBox().catch(() => null))?.y;
+  const okAll = noPageScroll && Math.abs(st.top - st.h) < 6 && y0 != null && Math.round(y0) === Math.round(y1);
+  check(`⑨ ${vp.width}×${vp.height} 슬라이드 스냅+로그인 부동(무페이지스크롤)`, okAll,
+    `pageNoScroll=${noPageScroll} snap=${st.top}/${st.h} loginY=${Math.round(y0)}→${Math.round(y1)}`);
   await cno.close().catch(() => {});
 }
 

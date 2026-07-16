@@ -290,44 +290,79 @@
 .stepNote { margin: 0 0 var(--space-4); font-size: 12.5px; color: var(--color-text-tertiary); }
 .startLogin { margin-top: var(--space-3); }
 
-/* ── 통합 홈(비로그인 '/', docs/47): 소개 스크롤 + sticky 로그인 ── */
+/* ── 통합 홈(비로그인 '/', docs/47 v2): 슬라이드 스냅 소개 + 우중앙 고정 로그인 ──
+   페이지 자체는 스크롤 0(한 화면) — 소개 컬럼만 내부 스크롤(scroll-snap 슬라이드).
+   → 로그인은 레이아웃상 부동(첫 틱 덜컹임이 구조적으로 불가능), 소개는 스코어보드 넘기듯 스냅. */
 .mergedWrap {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 380px;
-  gap: clamp(32px, 5vw, 72px);
-  /* align-items:stretch(기본) — 로그인 컬럼이 소개 높이만큼 늘어나야 sticky가 이동할 공간이 생긴다 */
-  padding: 8px 0 40px;
+  grid-template-columns: minmax(0, 1fr) 360px; /* 소개 폭 확대 + 로그인 우측 밀착 */
+  gap: clamp(28px, 4vw, 56px);
+  height: calc(100vh - var(--header-h) - var(--banner-h, 0px) - 150px); /* 푸터까지 한 화면(구 compact 공식) */
+  min-height: 480px;
+  padding: 0;
 }
-.mergedIntro { min-width: 0; }
+.mergedIntro {
+  min-width: 0;
+  height: 100%;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  overscroll-behavior: contain;
+  scrollbar-width: none; /* 슬라이드형 — 스크롤바 숨김(휠·키·터치는 그대로) */
+}
+.mergedIntro::-webkit-scrollbar { display: none; }
 
-/* 히어로 — 테마 배경 위 초대형 타이포(깔끔·명확: 풀블리드 컬러블록 없이 여백·구분선으로) */
-.mHero { padding: clamp(24px, 5vh, 64px) 0 clamp(40px, 6vh, 72px); }
+/* 슬라이드 = 컨테이너 높이 1장. 내용은 세로 중앙 — 지나간 슬라이드는 잘려서 안 보임(집중) */
+.mHero,
+.mSection {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  scroll-snap-align: start;
+  scroll-snap-stop: always; /* 한 번에 한 슬라이드(스코어보드 느낌) */
+  position: relative;
+  padding: 12px 4px;
+}
 .mTitle {
-  margin: 0 0 20px; font-size: clamp(44px, 6.4vw, 84px); font-weight: 800;
+  margin: 0 0 18px; font-size: clamp(40px, 5.6vw, 76px); font-weight: 800;
   letter-spacing: -0.045em; line-height: 1.05; color: var(--color-text);
 }
-.mLead { margin: 0 0 22px; font-size: clamp(15px, 2vw, 18px); line-height: 1.75; color: var(--color-text-secondary); max-width: 540px; }
+.mLead { margin: 0 0 20px; font-size: clamp(15px, 2vw, 18px); line-height: 1.75; color: var(--color-text-secondary); max-width: 540px; }
 .mHero .heroKicker { color: var(--color-text-tertiary); opacity: 1; }
 .mHero .heroMeta {
   border-top-color: var(--color-border); color: var(--color-text-secondary); opacity: 1;
+  margin-top: 30px;
 }
 .mHero .heroMeta b { color: var(--color-text); }
+/* 슬라이드 힌트 — 히어로 하단 */
+.slideCue {
+  position: absolute; left: 4px; bottom: 6px; margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px; letter-spacing: 0.3em; color: var(--color-text-tertiary);
+}
+.mSection .h2 { margin: 0 0 12px; font-size: clamp(24px, 3vw, 34px); }
+.mSection .lead { font-size: clamp(14px, 1.6vw, 16px); margin-bottom: var(--space-4); }
+/* 슬라이드 안 비주얼 컴팩트(1장에 들어가게) */
+.mSection .graphViz { height: 170px; margin-bottom: var(--space-4); }
+.mSection .mock { max-width: 560px; }
 
-/* 소개 섹션 — 컬러블록 대신 상단 얇은 구분선(정돈감) */
-.mSection { padding: clamp(40px, 6vh, 72px) 0; border-top: 1px solid var(--color-border); }
-.mSection .h2 { margin: 0 0 14px; font-size: clamp(26px, 3.4vw, 38px); }
-.mSection .lead { font-size: clamp(14px, 1.6vw, 16.5px); }
+/* 오른쪽 로그인 — 화면(컨테이너) 세로 중앙 고정. 페이지 무스크롤이라 항상 그 자리 */
+.mergedLogin { min-width: 0; align-self: center; }
+.loginSticky { position: static; }
 
-/* 오른쪽 sticky 로그인 — 스크롤해도 제자리(핵심 요구) */
-.mergedLogin { min-width: 0; }
-.loginSticky { position: sticky; top: calc(var(--header-h) + 20px); }
+/* 낮은 화면: 슬라이드가 1장에 안 들어가면 스냅을 느슨하게(내용 갇힘 방지) */
+@media (max-height: 700px) {
+  .mergedIntro { scroll-snap-type: y proximity; }
+  .mHero, .mSection { height: auto; min-height: 100%; padding: 28px 4px; }
+}
 
-/* 모바일: 단일 컬럼 — 로그인 먼저(바로 로그인 가능), 소개는 아래로. sticky 해제 */
+/* 모바일: 단일 컬럼 — 로그인 먼저, 소개는 일반 세로 스크롤(스냅 해제) */
 @media (max-width: 900px) {
-  .mergedWrap { grid-template-columns: 1fr; gap: 8px; }
-  .mergedLogin { order: -1; }
-  .loginSticky { position: static; }
-  .mHero { padding-top: 12px; }
+  .mergedWrap { grid-template-columns: 1fr; gap: 8px; height: auto; min-height: 0; }
+  .mergedIntro { height: auto; overflow: visible; scroll-snap-type: none; }
+  .mHero, .mSection { height: auto; padding: 40px 0; }
+  .mergedLogin { order: -1; align-self: stretch; }
+  .slideCue { display: none; }
 }
 
 @media (max-width: 760px) {

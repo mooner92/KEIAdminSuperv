@@ -46,6 +46,33 @@ function useReveal(root: React.RefObject<HTMLDivElement>) {
   }, [root]);
 }
 
+/** 슬라이드 휠(docs/47 v2) — 마우스 휠 1틱(~120px)은 CSS 스냅 임계(슬라이드 절반)를 못 넘어
+ * 스냅백된다. 휠을 가로채 한 틱 = 한 슬라이드로 넘긴다(스코어보드 느낌). 터치·키보드는 네이티브 스냅.
+ * mandatory 스냅일 때만 개입(낮은 화면 proximity·모바일 일반 스크롤에선 비개입). */
+function useSlideWheel(root: React.RefObject<HTMLDivElement>, enabled: boolean) {
+  useEffect(() => {
+    const el = root.current;
+    if (!enabled || !el) return;
+    let animating = false;
+    const onWheel = (e: WheelEvent) => {
+      if (!getComputedStyle(el).scrollSnapType.includes("mandatory")) return; // 폴백 모드 비개입
+      e.preventDefault();
+      if (animating || Math.abs(e.deltaY) < 10) return;
+      const h = el.clientHeight;
+      const cur = Math.round(el.scrollTop / h);
+      const max = Math.round((el.scrollHeight - h) / h);
+      const next = Math.min(max, Math.max(0, cur + (e.deltaY > 0 ? 1 : -1)));
+      if (next === cur) return;
+      animating = true;
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      el.scrollTo({ top: next * h, behavior: reduce ? "auto" : "smooth" });
+      window.setTimeout(() => { animating = false; }, reduce ? 80 : 620);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [root, enabled]);
+}
+
 /** 섹션 아이브로 — SpaceX식 모노 넘버링 + 컬러 모먼트 포인트 색(docs/46) */
 function Eyebrow({ tone, num, children }: { tone: string; num?: string; children: React.ReactNode }) {
   return (
@@ -113,6 +140,7 @@ export default function Landing({
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   useReveal(rootRef);
+  useSlideWheel(rootRef, variant === "home"); // 통합 홈: 휠 1틱 = 1슬라이드
   // 로그인 여부는 공유 AuthContext에서(단일 출처) — /about start 섹션의 '이미 로그인됨/폼' 분기용.
   // ready 이전엔 undefined(자리표시)로 둬 하이드레이션 안전.
   const { user, ready } = useAuth();
@@ -161,6 +189,7 @@ export default function Landing({
                 <span>출처 표기 <b>100%</b></span>
               </p>
             ) : null}
+            <p className={styles.slideCue} aria-hidden>SCROLL ▾</p>
           </header>
 
           {/* 01 질문하기 */}
