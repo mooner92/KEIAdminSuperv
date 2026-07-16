@@ -23,7 +23,7 @@ LABEL_LINE = re.compile(r"^[\[〔［(<【]?\s*별\s*지\s*(제?\s*\d+(?:-\d+)?\s
 
 
 def norm_label(raw: str) -> str:
-    m = re.search(r"(\d+(?:-\d+)?)\s*호?(의\s*\d+)?", raw or "")
+    m = re.search(r"(\d+(?:-[0-9A-Za-z]+)?)\s*호?(의\s*\d+)?", raw or "")
     if not m:
         return "별지"
     return f"별지 제{m.group(1)}호{(m.group(2) or '').replace(' ', '')}"
