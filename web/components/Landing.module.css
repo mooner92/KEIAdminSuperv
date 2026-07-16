@@ -41,29 +41,38 @@
 
 /* 등장 애니메이션 — reduced-motion에서는 정의 자체를 안 함(§7: 애니메이션 0).
    CSS 모듈 순수 선택자 규칙 때문에 로컬 클래스(.page)로 스코프 */
+/* docs/46 §2-9: opacity 페이드는 '움직임'이 아니라 접근성상 무해 → 모든 사용자에게 적용
+   (reduce-motion에서도 최소 페이드는 보이게). 이동(translateY)만 모션 허용자에게. */
+.page [data-reveal] {
+  opacity: 0;
+  transition: opacity 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.page [data-reveal].vis { opacity: 1; }
+.page .heroTitle[data-reveal] { transition-delay: 80ms; }
+.page .heroLead[data-reveal] { transition-delay: 170ms; }
+.page .heroCtas[data-reveal] { transition-delay: 260ms; }
+.page .heroMeta[data-reveal] { transition-delay: 350ms; }
+.page .scrollCue[data-reveal] { transition-delay: 450ms; }
+.page [data-reveal] .featCard, .page [data-reveal] .stat {
+  opacity: 0; transition: opacity 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.page [data-reveal].vis .featCard, .page [data-reveal].vis .stat { opacity: 1; }
+.page [data-reveal].vis .featCard:nth-child(2), .page [data-reveal].vis .stat:nth-child(2) { transition-delay: 70ms; }
+.page [data-reveal].vis .featCard:nth-child(3), .page [data-reveal].vis .stat:nth-child(3) { transition-delay: 140ms; }
+.page [data-reveal].vis .stat:nth-child(4) { transition-delay: 210ms; }
+
 @media (prefers-reduced-motion: no-preference) {
-  /* docs/46 §2-9(모션 해부 이식): 빠른 출발→부드러운 안착 이징 + 긴 지속 + 큰 이동 */
+  /* 빠른 출발→부드러운 안착 이징 + 큰 이동(vestibular 모션 — 허용자만) */
   .page [data-reveal] {
-    opacity: 0;
     transform: translateY(30px);
     transition: opacity 0.9s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
   }
-  .page [data-reveal].vis { opacity: 1; transform: none; }
-  /* 히어로 등장 스태거 — kicker→h1→lead→CTA→메타→SCROLL (로드 시 IO 즉발 = 오프닝 연출) */
-  .page .heroTitle[data-reveal] { transition-delay: 80ms; }
-  .page .heroLead[data-reveal] { transition-delay: 170ms; }
-  .page .heroCtas[data-reveal] { transition-delay: 260ms; }
-  .page .heroMeta[data-reveal] { transition-delay: 350ms; }
-  .page .scrollCue[data-reveal] { transition-delay: 450ms; }
-  /* 카드류 계단 */
+  .page [data-reveal].vis { transform: none; }
   .page [data-reveal] .featCard, .page [data-reveal] .stat {
-    opacity: 0; transform: translateY(18px);
+    transform: translateY(18px);
     transition: opacity 0.7s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
   }
-  .page [data-reveal].vis .featCard, .page [data-reveal].vis .stat { opacity: 1; transform: none; }
-  .page [data-reveal].vis .featCard:nth-child(2), .page [data-reveal].vis .stat:nth-child(2) { transition-delay: 70ms; }
-  .page [data-reveal].vis .featCard:nth-child(3), .page [data-reveal].vis .stat:nth-child(3) { transition-delay: 140ms; }
-  .page [data-reveal].vis .stat:nth-child(4) { transition-delay: 210ms; }
+  .page [data-reveal].vis .featCard, .page [data-reveal].vis .stat { transform: none; }
   /* 라이브 펄스 점(kicker) — gomdori 'Selected Works' 신호등 이식 */
   .liveDot { animation: pulseDot 2.2s ease infinite; }
   @keyframes pulseDot {

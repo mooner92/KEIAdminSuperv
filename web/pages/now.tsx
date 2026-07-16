@@ -96,7 +96,7 @@ export default function NowPage({ seasonal, revised, notes, terms, formsCount }:
         ) : null}
         {changelogOn ? (
           <Link className={n.shortcut} href="/changelog/">
-            <span className={n.shortcutIcon}>🆕</span>
+            <span className={n.shortcutIcon}>✨</span>
             <b className={n.shortcutTitle}>새로워진 점</b>
             <span className={n.shortcutDesc}>
               {notes[0] ? `최근: ${notes[0].제목}` : "서비스 업데이트 내역"}
