@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 import Login from "./Login";
-import ScrollRail, { type RailItem } from "./ScrollRail";
 import { type User } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { CORPUS_AS_OF, SITE_NAME } from "../lib/site";
@@ -13,15 +12,6 @@ import styles from "./Landing.module.css";
 // ⛔ 데모는 전부 새니타이즈 목업(§5 폴백 ③) — 실규정 텍스트·수치 0. 실영상은 P3(사내 배포 채널).
 
 export type LandingCounts = { regs: number; guides: number; terms: number; reviewed: number };
-
-const RAIL: RailItem[] = [
-  { id: "hero", label: "소개" },
-  { id: "ask", label: "이렇게 물어보세요" },
-  { id: "sources", label: "모든 답에 근거" },
-  { id: "explore", label: "둘러보고 연결해서" },
-  { id: "trust", label: "믿을 수 있게" },
-  { id: "start", label: "시작하기" },
-];
 
 // 예시 질문 — 배속 영상은 텍스트를 못 읽으니 학습은 칩이 담당(리뷰 확정). 값·기한 없는 질문만.
 const EXAMPLES = ["출장 여비 정산은 어떻게 하나요?", "연차휴가는 어떻게 신청하나요?", "법인카드 사용 원칙이 궁금해요"];
@@ -46,6 +36,23 @@ function useReveal(root: React.RefObject<HTMLDivElement>) {
   }, [root]);
 }
 
+/** 공용 rAF 스크롤(easeOutCubic) — 네이티브 smooth는 OS '동작 줄이기'에서 즉시 점프로 강등되고
+ * 크롬 mandatory 스냅과도 간섭하므로, 스냅을 잠시 끄고 직접 굴린다(docs/47 v2). */
+function animateScrollTo(el: HTMLElement, to: number, dur: number, onDone?: () => void) {
+  const from = el.scrollTop;
+  const prevSnap = el.style.scrollSnapType;
+  el.style.scrollSnapType = "none";
+  const t0 = performance.now();
+  const ease = (t: number) => 1 - Math.pow(1 - t, 3);
+  const step = (now: number) => {
+    const k = Math.min(1, (now - t0) / dur);
+    el.scrollTop = from + (to - from) * ease(k);
+    if (k < 1) requestAnimationFrame(step);
+    else { el.style.scrollSnapType = prevSnap; onDone?.(); }
+  };
+  requestAnimationFrame(step);
+}
+
 /** 슬라이드 휠(docs/47 v2) — 마우스 휠 1틱(~120px)은 CSS 스냅 임계(슬라이드 절반)를 못 넘어
  * 스냅백된다. 휠을 가로채 한 틱 = 한 슬라이드로 넘긴다(스코어보드 느낌). 터치·키보드는 네이티브 스냅.
  * mandatory 스냅일 때만 개입(낮은 화면 proximity·모바일 일반 스크롤에선 비개입). */
@@ -60,23 +67,10 @@ function useSlideWheel(root: React.RefObject<HTMLDivElement>, enabled: boolean) 
     // ② 크롬은 mandatory 스냅 컨테이너에서 smooth를 스냅이 가로채는 이슈가 있어,
     //    애니메이션 동안 스냅을 잠시 끈다(종료 시 정확히 스냅점에 착지시키므로 재보정 없음).
     const animateTo = (to: number) => {
-      const from = el.scrollTop;
       animating = true;
-      const prevSnap = el.style.scrollSnapType;
-      el.style.scrollSnapType = "none";
-      const t0 = performance.now();
-      const dur = 620;
-      const ease = (t: number) => 1 - Math.pow(1 - t, 3);
-      const step = (now: number) => {
-        const k = Math.min(1, (now - t0) / dur);
-        el.scrollTop = from + (to - from) * ease(k);
-        if (k < 1) requestAnimationFrame(step);
-        else {
-          el.style.scrollSnapType = prevSnap;
-          window.setTimeout(() => { animating = false; }, 60); // 관성 휠 잔여 이벤트 흡수
-        }
-      };
-      requestAnimationFrame(step);
+      animateScrollTo(el, to, 620, () => {
+        window.setTimeout(() => { animating = false; }, 60); // 관성 휠 잔여 이벤트 흡수
+      });
     };
     const onWheel = (e: WheelEvent) => {
       // 폴백 모드(낮은 화면 proximity·모바일 스냅 해제) 비개입 — 단 애니메이션 중엔 계속 가로챔
@@ -150,37 +144,11 @@ function ChatMockup() {
   );
 }
 
-export default function Landing({
-  variant,
-  counts,
-  onAuthed,
-}: {
-  variant: "full" | "home";
-  counts?: LandingCounts;
-  /** 비로그인 게이트에서 로그인 성공 시 채팅으로 전환. /about에서는 미로그인 시에만 폼 노출 */
-  onAuthed?: (u: User) => void;
-}) {
-  const rootRef = useRef<HTMLDivElement>(null);
-  useReveal(rootRef);
-  useSlideWheel(rootRef, variant === "home"); // 통합 홈: 휠 1틱 = 1슬라이드
-  // 로그인 여부는 공유 AuthContext에서(단일 출처) — /about start 섹션의 '이미 로그인됨/폼' 분기용.
-  // ready 이전엔 undefined(자리표시)로 둬 하이드레이션 안전.
-  const { user, ready } = useAuth();
-  const me: User | null | undefined = ready ? user : undefined;
-
-  const goStart = () => {
-    const start = document.getElementById("start");
-    start?.scrollIntoView({ behavior: "smooth", block: "start" });
-    // 접근성(§0-5): CTA는 스크롤 + 포커스 이동까지
-    window.setTimeout(() => start?.querySelector("input")?.focus({ preventScroll: true }), 450);
-  };
-
-  if (variant === "home") {
-    // 통합 랜딩(docs/47): 소개를 메인으로 — 왼쪽에 소개가 주르륵 스크롤되고,
-    // 오른쪽 로그인 카드는 sticky로 제자리에 떠 있다(스크롤해도 이동 X). 소개를 숨기지 않는다.
-    return (
-      <div className={styles.mergedWrap}>
-        <div className={`${styles.mergedIntro} ${styles.page}`} ref={rootRef}>{/* .page = 리빌 CSS 스코프 */}
+/** 소개 슬라이드(히어로+01~04) — 통합 홈('/')과 /about이 공유(docs/47 §7 디자인 통일).
+ * ctas: /about 히어로에만 CTA 버튼(시작하기 점프)을 끼워 넣는 슬롯. */
+function IntroSlides({ counts, ctas }: { counts?: LandingCounts; ctas?: React.ReactNode }) {
+  return (
+    <>
           {/* 히어로 */}
           <header className={styles.mHero}>
             <p className={styles.heroKicker} data-reveal>
@@ -211,6 +179,7 @@ export default function Landing({
                 <span>출처 표기 <b>100%</b></span>
               </p>
             ) : null}
+            {ctas}
             <p className={styles.slideCue} aria-hidden>SCROLL ▾</p>
           </header>
 
@@ -278,6 +247,41 @@ export default function Landing({
               🔒 사내 전용 — 모든 데이터는 원내 서버에만 있습니다.
             </p>
           </section>
+    </>
+  );
+}
+
+export default function Landing({
+  variant,
+  counts,
+  onAuthed,
+}: {
+  variant: "full" | "home";
+  counts?: LandingCounts;
+  /** 비로그인 게이트에서 로그인 성공 시 채팅으로 전환. /about에서는 미로그인 시에만 폼 노출 */
+  onAuthed?: (u: User) => void;
+}) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  useReveal(rootRef);
+  useSlideWheel(rootRef, true); // 두 변형 모두 슬라이드(docs/47 §7 통일)
+  // 로그인 여부는 공유 AuthContext에서(단일 출처) — /about start 섹션의 '이미 로그인됨/폼' 분기용.
+  // ready 이전엔 undefined(자리표시)로 둬 하이드레이션 안전.
+  const { user, ready } = useAuth();
+  const me: User | null | undefined = ready ? user : undefined;
+
+  const goStart = () => {
+    const el = rootRef.current;
+    if (!el) return;
+    animateScrollTo(el, el.scrollHeight - el.clientHeight, 750); // 마지막 슬라이드(05 시작하기)로
+  };
+
+  if (variant === "home") {
+    // 통합 랜딩(docs/47): 소개를 메인으로 — 왼쪽에 소개가 주르륵 스크롤되고,
+    // 오른쪽 로그인 카드는 sticky로 제자리에 떠 있다(스크롤해도 이동 X). 소개를 숨기지 않는다.
+    return (
+      <div className={styles.mergedWrap}>
+        <div className={`${styles.mergedIntro} ${styles.page}`} ref={rootRef}>{/* .page = 리빌 CSS 스코프 */}
+          <IntroSlides counts={counts} />
         </div>
 
         {/* 오른쪽 sticky 로그인 — 스크롤해도 제자리 */}
@@ -290,148 +294,22 @@ export default function Landing({
     );
   }
 
+  // /about — 통합 홈과 동일한 슬라이드 디자인(로그인 컬럼 없이 단일 컬럼, docs/47 §7).
+  // 05 시작하기는 가입 절차 안내 + '/'(로그인)로 보내는 CTA만(폼 없음 — 폼은 통합 홈에 있다).
   return (
-    <div className={styles.page} ref={rootRef}>
-      <ScrollRail items={RAIL} />
-
-      {/* 1. 히어로 — 테마 불변 다크 그라디언트(§0-4) */}
-      <section id="hero" className={`${styles.section} ${styles.hero}`}>
-        <div className={styles.inner}>
-          <p className={styles.heroKicker} data-reveal>
-            <span className={styles.liveDot} aria-hidden />
-            {SITE_NAME} · KEI 임직원 전용 · 사내 규정 기반
-          </p>
-          {/* docs/46: 그라디언트는 전체에서 이 한 줄만(규율) */}
-          <h1 className={styles.heroTitle} data-reveal>
-            물어보면,
-            <br />
-            <span className={styles.heroGrad}>규정이 답합니다.</span>
-          </h1>
-          <p className={styles.heroLead} data-reveal>
-            "이 업무, 어떻게 처리하지?" — 규정을 근거로 답하는 행정 도우미.
-            <br />모든 답변에 <b>[규정명 제N조]</b> 출처가 달립니다.
-          </p>
-          <div className={styles.heroCtas} data-reveal>
-            <button type="button" className={styles.ctaPrimary} onClick={goStart}>지금 시작하기</button>
-            <a className={styles.ctaGhost} href="#ask">어떻게 쓰는지 보기 ↓</a>
-          </div>
-          {counts ? (
-            <p className={styles.heroMeta} data-reveal aria-label="코퍼스 규모(빌드타임 실측)">
-              {[
-                { n: counts.regs, label: "규정 원문" },
-                { n: counts.guides, label: "업무 가이드" },
-                { n: counts.terms, label: "행정 용어" },
-              ].filter((x) => x.n > 0).map((x) => (
-                <span key={x.label}>{x.label} <b>{x.n.toLocaleString()}</b></span>
-              ))}
-              <span>출처 표기 <b>100%</b></span>
-            </p>
-          ) : null}
-          <div className={styles.scrollCue} aria-hidden data-reveal>
-            <span>SCROLL</span>
-            <i className={styles.scrollLine} />
-          </div>
-        </div>
-      </section>
-
-      {/* 2. 이렇게 물어보세요 — 파랑 모먼트 + 채팅 목업 나란히 */}
-      <section id="ask" className={`${styles.section} ${styles.mBlue}`}>
-        <div className={`${styles.inner} ${styles.split}`} data-reveal>
-          <div className={styles.splitText}>
-            <Eyebrow tone="tBlue" num="01">질문하기</Eyebrow>
-            <h2 className={styles.h2}>말하듯 물으면,<br />규정이 답합니다</h2>
-            <p className={styles.lead}>어려운 규정 용어를 몰라도 괜찮아요. 평소 말하듯 물어보세요.</p>
-            <div className={styles.exampleChips} aria-label="예시 질문">
-              {EXAMPLES.map((q) => <span key={q} className={styles.exChip}>{q}</span>)}
+    <div className={`${styles.mergedWrap} ${styles.aboutOnly}`}>
+      <div className={`${styles.mergedIntro} ${styles.page}`} ref={rootRef}>
+        <IntroSlides
+          counts={counts}
+          ctas={
+            <div className={styles.heroCtas} data-reveal>
+              <button type="button" className={styles.ctaPrimary} onClick={goStart}>지금 시작하기</button>
             </div>
-          </div>
-          <div className={styles.splitVisual}><ChatMockup /></div>
-        </div>
-      </section>
+          }
+        />
 
-      {/* 3. 모든 답에 근거 + 가드레일 시연(신뢰 자산 1급 — 리뷰 확정) */}
-      <section id="sources" className={`${styles.section} ${styles.mGreen}`}>
-        <div className={styles.inner} data-reveal>
-          <Eyebrow tone="tGreen" num="02">근거</Eyebrow>
-          <h2 className={styles.h2}>모든 답에<br />근거가 달립니다</h2>
-          <p className={styles.lead}>
-            답변 옆 근거 패널에서 인용된 조문을 바로 열어볼 수 있고, 금액·한도가 나오면
-            원문 수치 확인을 안내합니다. 규정집 기준일({CORPUS_AS_OF})도 항상 표시돼요.
-          </p>
-          <div className={styles.guardCard}>
-            <p className={styles.guardLabel}>그리고 가장 중요한 약속 —</p>
-            <p className={styles.guardQuote}>"해당 내용은 규정에서 확인되지 않습니다."</p>
-            <p className={styles.guardDesc}>
-              근거가 없으면 지어내지 않고 이렇게 답합니다. 아는 것과 모르는 것을 구분하는 것이
-              이 서비스의 첫 번째 원칙입니다.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* 4. 둘러보고 연결해서 — 보라 모먼트 + 그래프 비주얼 */}
-      <section id="explore" className={`${styles.section} ${styles.mPurple}`}>
-        <div className={styles.inner} data-reveal>
-          <Eyebrow tone="tPurple" num="03">둘러보기</Eyebrow>
-          <h2 className={styles.h2}>
-            {counts ? (
-              <>규정 {counts.regs} · 가이드 {counts.guides} · 용어 {counts.terms} —<br />전부 연결돼 있습니다.</>
-            ) : (
-              "규정은 서로 연결돼 있어요"
-            )}
-          </h2>
-          <p className={styles.lead}>하나의 규정에서 관련 규정·가이드·서식으로 자연스럽게 이어집니다.</p>
-          <GraphVisual />
-          {/* ⛔ 소개 카드는 프레젠테이션 전용 — 이 페이지는 외부 공개될 수 있어 실제 서비스로
-              이동하지 않는다(링크 금지). 서비스 진입은 로그인(시작하기)을 통해서만. */}
-          <div className={styles.featGrid}>
-            <div className={styles.featCard}>
-              <span className={styles.featEmoji}>📚</span>
-              <b>규정 둘러보기</b>
-              <p>규정·가이드·용어를 분류별로 탐색하고 원문을 그대로 읽어요.</p>
-            </div>
-            <div className={styles.featCard}>
-              <span className={styles.featEmoji}>🕸</span>
-              <b>관계 그래프</b>
-              <p>서로 인용하는 규정들을 연결망으로 — 관련 규정을 한눈에.</p>
-            </div>
-            <div className={styles.featCard}>
-              <span className={styles.featEmoji}>📄</span>
-              <b>서식 찾기</b>
-              <p>별지 서식을 번호·이름으로 찾아 해당 조문으로 바로 이동해요.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 5. 믿을 수 있게 — 사용자 언어 실측치만(빌드타임 계산, 리뷰 확정). 주황 모먼트 */}
-      <section id="trust" className={`${styles.section} ${styles.mOrange}`}>
-        <div className={styles.inner} data-reveal>
-          <Eyebrow tone="tOrange" num="04">신뢰</Eyebrow>
-          <h2 className={styles.h2}>믿을 수 있게 운영합니다</h2>
-          {counts ? (
-            <div className={styles.statGrid}>
-              {/* 값이 0인 지표는 숨긴다 — '0 검수완료'는 신뢰를 되레 깎는다(보안 리뷰 확정, §3-5) */}
-              {[
-                { n: counts.regs, label: "규정 원문" },
-                { n: counts.guides, label: "업무 가이드" },
-                { n: counts.terms, label: "행정 용어" },
-                { n: counts.reviewed, label: "사람 검수 완료" },
-              ].filter((s) => s.n > 0).map((s) => (
-                <div key={s.label} className={styles.stat}><b>{s.n.toLocaleString()}</b><span>{s.label}</span></div>
-              ))}
-            </div>
-          ) : null}
-          <p className={styles.trustNote}>
-            📑 규정집 기준일 {CORPUS_AS_OF} · 답변은 참고용이며 최종 확인은 규정 원문으로 ·
-            🔒 사내 전용 — 모든 데이터는 원내 서버에만 있습니다(외부 반출 없음).
-          </p>
-        </div>
-      </section>
-
-      {/* 6. 시작하기 */}
-      <section id="start" className={styles.section}>
-        <div className={styles.inner} data-reveal>
+        {/* 05 시작하기 */}
+        <section id="start" className={styles.mSection} data-reveal>
           <Eyebrow tone="tBlue" num="05">시작하기</Eyebrow>
           <h2 className={styles.h2}>1분이면 충분해요</h2>
           <ol className={styles.steps} aria-label="가입 절차">
@@ -444,11 +322,11 @@ export default function Landing({
             {me === undefined ? null : me ? (
               <Link href="/" className={styles.ctaPrimary}>이미 로그인됨 — 질문하러 가기 →</Link>
             ) : (
-              <Login onAuthed={onAuthed ?? (() => { window.location.href = "/"; })} embedded />
+              <Link href="/" className={styles.ctaPrimary}>로그인하고 시작하기 →</Link>
             )}
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
     </div>
   );
 }

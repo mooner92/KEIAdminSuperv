@@ -355,6 +355,9 @@
 .mSection .graphViz { height: 170px; margin-bottom: var(--space-4); }
 .mSection .mock { max-width: 560px; }
 
+/* /about — 로그인 컬럼 없는 단일 중앙 컬럼(docs/47 §7 디자인 통일) */
+.aboutOnly { grid-template-columns: minmax(0, 920px); justify-content: center; }
+
 /* 오른쪽 로그인 — 화면(컨테이너) 세로 중앙 고정. 페이지 무스크롤이라 항상 그 자리 */
 .mergedLogin { min-width: 0; align-self: center; }
 .loginSticky { position: static; }

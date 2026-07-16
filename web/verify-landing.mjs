@@ -13,10 +13,11 @@ await p.goto(BASE + "/about/", { waitUntil: "load" });
 await p.waitForTimeout(2000);
 const body = await p.innerText("body");
 check("① 히어로 렌더", body.includes("지금 시작하기") && body.includes("출처가 달립니다"));
-const sections = await p.locator("section[id]").count();
-check("① 섹션 6개", sections === 6, String(sections));
-const railBtns = await p.locator('nav[aria-label="페이지 섹션 이동"] button').count();
-check("① ScrollRail 라벨 6개", railBtns === 6, String(railBtns));
+// docs/47 §7: /about = 통합 홈과 같은 슬라이드(히어로+01~05), 레일·로그인 폼 없음
+const slideN = await p.locator('[class*="mSection"]').count();
+check("① 슬라이드 5+히어로", slideN === 5 && (await p.locator('[class*="mHero"]').count()) === 1, String(slideN));
+check("① ScrollRail 제거", (await p.locator('nav[aria-label="페이지 섹션 이동"]').count()) === 0);
+check("① /about 로그인 폼 없음", (await p.locator('input[autocomplete="username"]').count()) === 0);
 check("① 가드레일 시연(거부 문구)", body.includes("규정에서 확인되지 않습니다"));
 // 수치 카드 — 규정 원문 건수는 항상, '사람 검수 완료'는 값>0일 때만(0이면 숨김: 신뢰 역효과 방지)
 check("① 수치 카드(실측치)", /규정 원문/.test(body) && /\d{2,}/.test(body) && !/\b0\s*\n?\s*사람 검수 완료/.test(body));
@@ -39,21 +40,18 @@ const eyebrowNums = await p.locator('[class*="eyebrowNum"]').allInnerTexts();
 check("①-46 넘버링 아이브로 01~05", eyebrowNums.length === 5 && eyebrowNums[0].includes("01") && eyebrowNums[4].includes("05"), eyebrowNums.join(","));
 await p.screenshot({ path: "verify-landing.png", fullPage: true });
 
-// ② ScrollRail 상호작용 — 클릭 점프 + aria-current + 키보드 Enter
-const y0 = await p.evaluate(() => window.scrollY);
-await p.locator('nav[aria-label="페이지 섹션 이동"] button', { hasText: "시작하기" }).click();
+// ② 슬라이드 상호작용(docs/47 §7) — 휠 1틱=1슬라이드 + CTA '지금 시작하기'→마지막 슬라이드
+const aIntro = p.locator('[class*="mergedIntro"]');
+await aIntro.hover();
+await p.mouse.wheel(0, 120);
 await p.waitForTimeout(900);
-const y1 = await p.evaluate(() => window.scrollY);
-check("② 레일 클릭 → 점프", y1 > y0 + 400, `${y0}→${y1}`);
-const cur = await p.waitForFunction(() => {
-  const el = document.querySelector('nav[aria-label="페이지 섹션 이동"] [aria-current="true"]');
-  return el && el.textContent.includes("시작하기");
-}, undefined, { timeout: 4000 }).then(() => true).catch(() => false);
-check("② aria-current 하이라이트", cur);
-await p.locator('nav[aria-label="페이지 섹션 이동"] button', { hasText: "소개" }).focus();
-await p.keyboard.press("Enter");
-await p.waitForTimeout(900);
-check("② 키보드 Enter 점프", (await p.evaluate(() => window.scrollY)) < y1);
+const aSt = await aIntro.evaluate((el) => ({ top: el.scrollTop, h: el.clientHeight, max: el.scrollHeight - el.clientHeight }));
+check("② 휠 1틱 → 슬라이드 스냅", Math.abs(aSt.top - aSt.h) < 6, `${aSt.top}/${aSt.h}`);
+check("② 페이지 무스크롤", await p.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight + 1));
+await p.locator('button:has-text("지금 시작하기")').click();
+await p.waitForTimeout(1100);
+const aEnd = await aIntro.evaluate((el) => el.scrollTop);
+check("② CTA → 마지막 슬라이드(05 시작하기)", Math.abs(aEnd - aSt.max) < 8, `${aEnd}/${aSt.max}`);
 
 // ③ 다크 실측 — 본문 h2 밝음 + 히어로는 테마 불변 다크
 const pd = await ctx.newPage();

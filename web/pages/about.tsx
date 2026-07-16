@@ -13,7 +13,7 @@ import styles from "../styles/Home.module.css";
 export default function AboutPage({ counts }: { counts: LandingCounts }) {
   const on = useFlag("landing_page");
   return (
-    <Layout bleed={on}>
+    <Layout>{/* docs/47 §7: 슬라이드 통일 — full-bleed 불필요 */}
       <Head>
         <title>{`소개 · ${SITE_NAME}`}</title>
         <meta name="robots" content="noindex, nofollow" />
