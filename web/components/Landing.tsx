@@ -32,7 +32,13 @@ function useReveal(root: React.RefObject<HTMLDivElement>) {
     const els = root.current?.querySelectorAll("[data-reveal]");
     if (!els?.length) return;
     const io = new IntersectionObserver(
-      (ents) => ents.forEach((e) => { if (e.isIntersecting) e.target.classList.add(styles.vis); }),
+      (ents) => ents.forEach((e) => {
+        if (!e.isIntersecting) return;
+        const el = e.target;
+        // 이중 rAF: 초기 상태(opacity 0)가 최소 1프레임 페인트된 뒤 .vis — 빠른 기기에서
+        // 마운트와 같은 프레임에 .vis가 붙어 전환이 통째로 생략되는 레이스 방지(docs/46 §2-9)
+        requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add(styles.vis)));
+      }),
       { threshold: 0.15 }
     );
     els.forEach((el) => io.observe(el));
