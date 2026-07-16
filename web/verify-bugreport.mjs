@@ -22,10 +22,10 @@ check("① 🐛 버그리포트 탭 노출", (await tab.count()) === 1);
 await tab.click();
 await p.waitForTimeout(300);
 
-// ② 카드 목록 — 6건 백필, 최신·심각도 순
+// ② 카드 목록 — 최신·심각도 순(개수는 노트 수만큼, 하드코딩 금지 — 드리프트 방지)
 const cards = p.locator("details");
 const n = await cards.count();
-check("② 버그리포트 카드 6건", n === 6, `${n}건`);
+check("② 버그리포트 카드 노출(≥6)", n >= 6, `${n}건`);
 const firstText = await cards.first().innerText();
 check("② 첫 카드 = 높음 심각도(정렬)", firstText.includes("높음"));
 
