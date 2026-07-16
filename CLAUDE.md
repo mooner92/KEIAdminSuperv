@@ -97,7 +97,7 @@ KEI(한국환경연구원) 행정 초보(신입·전입자)가 "이 업무 어�
 - 수치 스토어: `python tools/01q_table_store.py --vault KEI-행정가이드`  (⛔검수완료+비손상 표만 → value_store.json, 값 질문 결정적 조회 — docs/24)
 - 형식 진단: `python tools/01t_format_scan.py --vault KEI-행정가이드`  (표 밖 형식 붕괴 — 제어문자·항/호/목 인라인 병합·초장문 → format_scan.json, docs/28)
 - 형식 복원: `python tools/01u_format_restore.py --vault KEI-행정가이드 --ctrl --rebreak [--dry]`  (결정적·LLM 미사용. ⛔내용 불변(정규화 동일) 통과 시에만 기록, 백업 자동)
-- 별지 분리: `python tools/01p_byeolji_pdf.py [--only <stem>] [--force]`  (HWP→ODT(한글서체→나눔+줄간격×0.87 보정, docs/50 §8)→PDF → 별지별 분리 PDF(`web/public/forms-pdf/`)+PNG(복원·검수용)+원본 HWP 사본+manifest. 서식찾기 다운로드·재색인 훅이 증분 소비. ⚠ fontconfig 매핑은 LO가 무시 — ODT 직접 치환만 유효)
+- 별지 분리: `python tools/01p_byeolji_pdf.py [--only <stem>] [--force]`  (HWP→ODT(한글서체→**함초롬(HCR) 우선**·나눔 폴백 + 줄간격×1/메트릭 보정(함초롬 0.769·나눔 0.87), docs/50 §8)→PDF → 별지별 분리 PDF(`web/public/forms-pdf/`)+PNG(복원·검수용)+원본 HWP 사본+manifest. 서식찾기 다운로드·재색인 훅이 증분 소비. ⚠ fontconfig 매핑은 LO가 무시 — ODT 직접 치환만 유효. 함초롬 TTF=`~/.fonts`(사용자 제공, HWP 표준 서체))
 - 별지 감사: `python tools/01q_byeolji_audit.py`  (볼트 별지 블록 A빈/B구조소실/C표깨짐/D빈약 분류 + manifest 페이지 대조·md 누락 diff → `byeolji_audit.json`. ⛔리포트만 — 복원은 원문 PNG 대조 전사, `byeolji-restored` 마커 + 미검수 유지)
 - 검수 큐:  `python tools/review_queue.py --vault KEI-행정가이드 [--top 30]`  (미검수 우선순위. 읽기 전용·확정은 사람만. 인앱 피드백 신호 있으면 자동 반영)
 - 피드백:  `python tools/feedback_export.py`  (app.db 👍/👎 → `tools/.feedback_signals.json`, 검수 큐가 소비. 매뉴얼 `docs/14-feedback-loop.md`)

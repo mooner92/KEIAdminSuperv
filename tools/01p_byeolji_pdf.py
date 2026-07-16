@@ -28,14 +28,41 @@ import fitz  # PyMuPDF
 HERE = pathlib.Path(__file__).resolve().parent
 # 페이지 팽창 보정(docs/50 §8) — HWP 전용 서체(한양신명조·함초롬 등)가 서버에 없어
 # LO가 Noto CJK(행높이 1.44em)로 폴백 → 줄마다 부풀어 별지 표가 다음 페이지로 밀림.
-# ① 한글 서체 → 나눔(1.15em, 설치 폰트 중 최소 메트릭) 결정적 매핑
-# ② 비율 줄간격 ×(1/1.15): LO 줄높이 = 배율×폰트메트릭 → HWP 산식(배율×글자크기)으로 환산
+# ① 한글 서체 → 결정적 매핑: **함초롬(HCR Batang/Dotum, HWP 표준 서체 — 설치돼 있으면 1순위)**
+#    → 없으면 나눔(1.15em) 폴백. A/B 실측(6540·3100): 페이지 수·라벨-단독 페이지 동률,
+#    함초롬은 글꼴 모양까지 HWP 원문과 동일(서식 다운로드 충실도).
+# ② 비율 줄간격 ×(1/대체서체 단일행 메트릭): LO 줄높이 = 배율×폰트메트릭 →
+#    HWP 산식(배율×글자크기)으로 환산. 함초롬 1.30em→0.769 · 나눔 1.15em→0.870.
 # 실측(6540 개인정보보호지침): 44p(Noto) → 35p, 라벨-단독 페이지 6→…(경계 케이스만 잔존).
 FONT_FIX = os.environ.get("BYEOLJI_FONT_FIX", "1") != "0"
-LH_FACTOR = float(os.environ.get("BYEOLJI_LH_FACTOR", "0.87"))
+
+
+def _resolve_font_targets() -> tuple:
+    """(세리프, 고딕, 줄간격 계수) — env 강제 > 함초롬 설치 시 함초롬 > 나눔 폴백."""
+    s = os.environ.get("BYEOLJI_FONT_SERIF", "")
+    g = os.environ.get("BYEOLJI_FONT_GOTHIC", "")
+    f = os.environ.get("BYEOLJI_LH_FACTOR", "")
+    if not s:
+        try:
+            has_hcr = bool(subprocess.run(["fc-list", "HCR Batang"], capture_output=True,
+                                          text=True, timeout=10).stdout.strip())
+        except Exception:  # noqa: BLE001
+            has_hcr = False
+        s, g, auto = ("HCR Batang", "HCR Dotum", 1 / 1.30) if has_hcr \
+            else ("NanumMyeongjo", "NanumGothic", 1 / 1.15)
+    else:
+        g = g or "NanumGothic"
+        auto = 1 / 1.15
+    return s, g, float(f) if f else auto
+
+
+SERIF_TARGET, GOTHIC_TARGET, LH_FACTOR = _resolve_font_targets()
 GOTHIC_PAT = re.compile(r"고딕|돋움|굴림|디나루|시스템|엑스포|헤드라인|안상수|태나무|Gothic|Dotum|Gulim|\bSans\b", re.I)
 KOREAN_PAT = re.compile(r"[가-힣]|CJK|Batang|Myeongjo|Myungjo|Dotum|Gulim|Malgun|Gungsuh|Haeso|\bHY", re.I)
-KEEP_PAT = re.compile(r"^(NanumMyeongjo|NanumGothic)$")
+# 함초롬 계열 pass-through는 HCR이 실제 설치된 경우에만 — 미설치 서버에서 keep하면 Noto 폴백 재발
+KEEP_PAT = re.compile(
+    r"^(NanumMyeongjo|NanumGothic|HCR Batang|HCR Dotum|함초롬바탕|함초롬돋움)$"
+    if SERIF_TARGET == "HCR Batang" else r"^(NanumMyeongjo|NanumGothic)$")
 LABEL = re.compile(r"[\[〔［(]?\s*별\s*지\s*(제?\s*\d+(?:-\d+)?\s*호(?:의\s*\d+)?)?\s*(?:서\s*식)?\s*[\]〕］)]?")
 # 줄 시작이 괄호+별지 라벨(호 생략·'10-A' 영문 가지번호 허용) — 개정이력 꼬리가 붙은 실서식 라벨용
 LABEL_ANCHOR = re.compile(
@@ -61,7 +88,7 @@ def _map_family(name: str) -> str:
     bare = name.replace("&apos;", "").strip().strip("'")
     if KEEP_PAT.match(bare) or not KOREAN_PAT.search(bare):
         return name
-    return "NanumGothic" if GOTHIC_PAT.search(bare) else "NanumMyeongjo"
+    return GOTHIC_TARGET if GOTHIC_PAT.search(bare) else SERIF_TARGET
 
 
 def _rewrite_odt(odt: pathlib.Path) -> None:
