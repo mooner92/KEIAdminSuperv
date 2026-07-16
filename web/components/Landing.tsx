@@ -82,7 +82,7 @@ function ChatMockup() {
       <div className={styles.mockBody}>
         <p className={styles.mockUser}>출장 여비 정산은 어떻게 하나요?</p>
         <div className={styles.mockBot}>
-          <p>여비 정산 절차를 규정 근거와 함께 단계별로 안내해요. 금액·한도 같은 수치는 아래 근거의 원문에서 바로 확인할 수 있어요.</p>
+          <p>여비 정산 절차를 규정 근거와 함께 단계별로 안내해요. 금액·한도 같은 수치는 아래 근거의 원문에서 바로 확인할 수 있어요.<span className={styles.mockCursor} aria-hidden /></p>
           <div className={styles.mockChips}>
             <span className={styles.mockChip}>📜 규정명 제N조</span>
             <span className={styles.mockChip}>📘 업무 가이드</span>
@@ -146,23 +146,26 @@ export default function Landing({
       {/* 1. 히어로 — 테마 불변 다크 그라디언트(§0-4) */}
       <section id="hero" className={`${styles.section} ${styles.hero}`}>
         <div className={styles.inner}>
-          <p className={styles.heroKicker}>{SITE_NAME} · KEI 임직원 전용 · 사내 규정 기반</p>
+          <p className={styles.heroKicker} data-reveal>
+            <span className={styles.liveDot} aria-hidden />
+            {SITE_NAME} · KEI 임직원 전용 · 사내 규정 기반
+          </p>
           {/* docs/46: 그라디언트는 전체에서 이 한 줄만(규율) */}
-          <h1 className={styles.heroTitle}>
+          <h1 className={styles.heroTitle} data-reveal>
             물어보면,
             <br />
             <span className={styles.heroGrad}>규정이 답합니다.</span>
           </h1>
-          <p className={styles.heroLead}>
+          <p className={styles.heroLead} data-reveal>
             "이 업무, 어떻게 처리하지?" — 규정을 근거로 답하는 행정 도우미.
             <br />모든 답변에 <b>[규정명 제N조]</b> 출처가 달립니다.
           </p>
-          <div className={styles.heroCtas}>
+          <div className={styles.heroCtas} data-reveal>
             <button type="button" className={styles.ctaPrimary} onClick={goStart}>지금 시작하기</button>
             <a className={styles.ctaGhost} href="#ask">어떻게 쓰는지 보기 ↓</a>
           </div>
           {counts ? (
-            <p className={styles.heroMeta} aria-label="코퍼스 규모(빌드타임 실측)">
+            <p className={styles.heroMeta} data-reveal aria-label="코퍼스 규모(빌드타임 실측)">
               {[
                 { n: counts.regs, label: "규정 원문" },
                 { n: counts.guides, label: "업무 가이드" },
@@ -173,7 +176,10 @@ export default function Landing({
               <span>출처 표기 <b>100%</b></span>
             </p>
           ) : null}
-          <p className={styles.scrollCue} aria-hidden>SCROLL ↓</p>
+          <div className={styles.scrollCue} aria-hidden data-reveal>
+            <span>SCROLL</span>
+            <i className={styles.scrollLine} />
+          </div>
         </div>
       </section>
 

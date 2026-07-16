@@ -42,21 +42,46 @@
 /* 등장 애니메이션 — reduced-motion에서는 정의 자체를 안 함(§7: 애니메이션 0).
    CSS 모듈 순수 선택자 규칙 때문에 로컬 클래스(.page)로 스코프 */
 @media (prefers-reduced-motion: no-preference) {
+  /* docs/46 §2-9(모션 해부 이식): 빠른 출발→부드러운 안착 이징 + 긴 지속 + 큰 이동 */
   .page [data-reveal] {
     opacity: 0;
-    transform: translateY(14px);
-    transition: opacity 0.5s ease, transform 0.5s ease;
+    transform: translateY(30px);
+    transition: opacity 0.9s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
   }
   .page [data-reveal].vis { opacity: 1; transform: none; }
-  /* 카드류는 60ms 계단(Apple식 미세 스태거 — docs/46 §2-7) */
+  /* 히어로 등장 스태거 — kicker→h1→lead→CTA→메타→SCROLL (로드 시 IO 즉발 = 오프닝 연출) */
+  .page .heroTitle[data-reveal] { transition-delay: 80ms; }
+  .page .heroLead[data-reveal] { transition-delay: 170ms; }
+  .page .heroCtas[data-reveal] { transition-delay: 260ms; }
+  .page .heroMeta[data-reveal] { transition-delay: 350ms; }
+  .page .scrollCue[data-reveal] { transition-delay: 450ms; }
+  /* 카드류 계단 */
   .page [data-reveal] .featCard, .page [data-reveal] .stat {
-    opacity: 0; transform: translateY(10px);
-    transition: opacity 0.45s ease, transform 0.45s ease;
+    opacity: 0; transform: translateY(18px);
+    transition: opacity 0.7s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
   }
   .page [data-reveal].vis .featCard, .page [data-reveal].vis .stat { opacity: 1; transform: none; }
-  .page [data-reveal].vis .featCard:nth-child(2), .page [data-reveal].vis .stat:nth-child(2) { transition-delay: 60ms; }
-  .page [data-reveal].vis .featCard:nth-child(3), .page [data-reveal].vis .stat:nth-child(3) { transition-delay: 120ms; }
-  .page [data-reveal].vis .stat:nth-child(4) { transition-delay: 180ms; }
+  .page [data-reveal].vis .featCard:nth-child(2), .page [data-reveal].vis .stat:nth-child(2) { transition-delay: 70ms; }
+  .page [data-reveal].vis .featCard:nth-child(3), .page [data-reveal].vis .stat:nth-child(3) { transition-delay: 140ms; }
+  .page [data-reveal].vis .stat:nth-child(4) { transition-delay: 210ms; }
+  /* 라이브 펄스 점(kicker) — gomdori 'Selected Works' 신호등 이식 */
+  .liveDot { animation: pulseDot 2.2s ease infinite; }
+  @keyframes pulseDot {
+    0% { box-shadow: 0 0 0 0 rgba(45, 208, 143, 0.55); }
+    70% { box-shadow: 0 0 0 8px rgba(45, 208, 143, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(45, 208, 143, 0); }
+  }
+  /* 목업 커서 blink — steps(1)로 딱딱 끊기는 터미널 느낌 */
+  .mockCursor { animation: cursorBlink 1s steps(1) infinite; }
+  @keyframes cursorBlink { 50% { opacity: 0; } }
+  /* SCROLL 흐르는 세로선 — scaleY 0→1→0, origin top→bottom 전환 */
+  .scrollLine { animation: cueSlide 2.2s ease infinite; }
+  @keyframes cueSlide {
+    0% { transform: scaleY(0); transform-origin: center top; }
+    50% { transform: scaleY(1); transform-origin: center top; }
+    50.01% { transform-origin: center bottom; }
+    100% { transform: scaleY(0); transform-origin: center bottom; }
+  }
 }
 
 /* ── 히어로 (테마 불변 다크) ── */
@@ -119,11 +144,17 @@
 .heroMeta b { font-size: 15px; font-weight: 800; letter-spacing: 0; margin-left: 2px; font-variant-numeric: tabular-nums; }
 .scrollCue {
   margin: 56px 0 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px; letter-spacing: 0.34em; opacity: 0.5;
+  font-size: 11px; letter-spacing: 0.34em; opacity: 0.55;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 10px;
 }
-@media (prefers-reduced-motion: no-preference) {
-  .scrollCue { animation: cueFloat 2.4s ease-in-out infinite; }
-  @keyframes cueFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(5px); } }
+.scrollLine { width: 1.5px; height: 30px; background: rgba(255, 255, 255, 0.4); margin-left: 2px; }
+.liveDot {
+  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--color-success); margin-right: 10px; vertical-align: 1px;
+}
+.mockCursor {
+  display: inline-block; width: 7px; height: 14px; margin-left: 3px; vertical-align: -2px;
+  background: var(--color-primary); border-radius: 1.5px;
 }
 
 /* ── 본문 섹션 (애플식 큰 타이포) ── */

@@ -86,11 +86,16 @@ const pr = await ctx.newPage();
 await pr.emulateMedia({ reducedMotion: "reduce" });
 await pr.goto(BASE + "/about/", { waitUntil: "load" });
 await pr.waitForTimeout(800);
-const rmOpacity = await pr.evaluate(() => {
-  const el = document.querySelector("[data-reveal]");
-  return el ? getComputedStyle(el).opacity : "?";
-});
-check("⑤ reduced-motion: 즉시 표시(opacity 1)", rmOpacity === "1", rmOpacity);
+// 히어로 kicker는 정적 디자인 opacity(0.66)를 가지므로 '숨김(0) 아님 + 이동 없음'으로 판정
+// (docs/46 §2-9: reduced-motion에서는 리빌 트랜지션 자체가 정의되지 않는다)
+const rm = await pr.evaluate(() =>
+  [...document.querySelectorAll("[data-reveal]")].slice(0, 6).map((el) => {
+    const cs = getComputedStyle(el);
+    return { op: parseFloat(cs.opacity), tf: cs.transform };
+  }));
+check("⑤ reduced-motion: 전 요소 즉시 표시(op>0.5·이동 없음)",
+  rm.length > 0 && rm.every((x) => x.op > 0.5 && (x.tf === "none" || x.tf === "matrix(1, 0, 0, 1, 0, 0)")),
+  JSON.stringify(rm.map((x) => x.op)));
 await pr.close();
 
 // ⑥ flag off(새 컨텍스트 + 평면 dict 응답 고정) — /about 준비 중 + '/' 기존 Login 폼
