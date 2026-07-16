@@ -30,6 +30,12 @@ def norm_label(raw: str) -> str:
 
 
 def classify(block: str) -> tuple:
+    # 삭제된 서식(라벨 줄에 '삭제 <YYYY…>')은 내용 없음이 정상 — 복원 대상 아님(워크플로 실측 오탐 26건)
+    first = block.splitlines()[0] if block.splitlines() else ""
+    if re.search(r"삭\s*제", first):
+        return "OK", "삭제된 서식(원문도 라벨만)"
+    if "byeolji-restored" in block:
+        return "OK", "복원됨(비전 전사 — 검수 대기)"
     body = "\n".join(block.splitlines()[1:]).strip()
     compact = re.sub(r"\s+", "", body)
     table_rows = [l for l in body.splitlines() if l.strip().startswith("|")]
@@ -83,7 +89,9 @@ def main() -> int:
                 if b["label"] == label:
                     pdf_pages = b["pages"][1] - b["pages"][0] + 1
                     # 원문이 여러 페이지인데 md가 빈약 → 심각도 승격
-                    if grade in ("D", "OK") and pdf_pages >= 2 and len(re.sub(r"\s+", "", block)) < 400:
+                    if (grade in ("D", "OK") and pdf_pages >= 2
+                            and len(re.sub(r"\s+", "", block)) < 400
+                            and "byeolji-restored" not in block):  # 복원본은 원문 대조 전사 — 승격 제외
                         grade, why = "B", f"원문 {pdf_pages}p인데 md 빈약"
                     break
             counts[grade] += 1
