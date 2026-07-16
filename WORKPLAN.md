@@ -21,10 +21,13 @@
 > 단계는 의존성 순서이지 엄격한 워터폴이 아닙니다. P2 검수와 P3 평가셋 구축은 병행해도 됩니다. 다만 **앞 단계의 DoD를 깨면서 다음 단계로 넘어가지 않습니다.**
 
 > [!warning]
-> 두 화면([뇌] Next.js+TDS 웹앱 / [LLM] 멀티턴 RAG 채팅) 모두 **사내 전용**입니다. 어떤 단계에서도 인터넷에 공개하지 않습니다. (P0/P4 참조)
+> 두 화면([뇌] Next.js 14(KRDS 자체 토큰 — TDS 제거, docs/37) 웹앱 / [LLM] 멀티턴 RAG 채팅) 모두 **사내 전용**입니다. 어떤 단계에서도 인터넷에 공개하지 않습니다. (P0/P4 참조)
 
 > [!note]
 > **진행 상태(2026-06-20):** 코퍼스 4개 섹션·**271문서** 적재 완료(규정집 111 / 연구행정 가이드 64 / 용어집 84 / ERP 시스템 12), 교차링크(ERP↔규정·용어↔ERP/규정) 완료. P2 임베딩 완료(약 **3,973 청크**: regulation 3044 · guide 718 · system 127 · term 84 · KURE-v1·GPU·클린 리빌드). P3 RAG는 **Ollama**(Qwen2.5-14B-Instruct Q4_K_M, keep_alive=-1 상주+워밍업)로 **생성까지 검증** 완료. P4 LLM 화면 가동: 백엔드 `kei-rag-api`(127.0.0.1:9000, rag_core/app_api/04_rag_api 3분리) + 웹앱 `web/`(Next.js+TDS) — 멀티턴 RAG 채팅·메시지별 근거·문서 드로어, 둘러보기 필터, 관계 그래프(271 노드·275 연결·4색), 인증(bcrypt+PyJWT)·채팅기록 영속·**스트리밍 SSE**·**다크모드**, PM2 서빙(0.0.0.0:3100 정적 out/ + RAG API 리버스 프록시), Playwright 실렌더 검증. 남은 작업: 원문 검수(전부 미검수, 미분류 28 번호 배정), 외부 접속 안정화(Cloudflare 엣지·pm2 startup), 번들 경량화·컬러 토큰 교체, 변환 실패 2건(여비 QnA HWP timeout·예산운용가이드 이미지PDF) 폴백.
+
+> [!note]
+> **진행 상태 갱신(2026-07-16):** LLM은 **Qwen3.5-9B(Q4_K_M GGUF)** — 격리 Ollama v0.31.1(`127.0.0.1:11436/v1`, Vulkan)로 교체(docs/15, vLLM 아님). 웹은 **TDS 제거·KRDS 전환 완료**(Pretendard GOV, docs/37). 코퍼스 = 문서 363(용어집 88→**119**, docs/49)·청크 **4,830**. `server.js`에 **서버 로그인 게이트**(JWT·fail-closed)+CSP, 레이트리밋·`[SECURITY]` 보안로그는 app_api(모두 docs/44). 신규 화면: 업무 캘린더 연간 그리드(docs/43)·서식 찾기 별지 PDF/HWP 다운로드·페이지네이션(docs/50)·용어 인라인 툴팁(docs/45)·통합 랜딩(docs/47)·모바일 개편(docs/48). 별지 MD 복원 누적 **179건**(비전 전사, 최종 감사 A 0, docs/50). 운영은 dev(3101/9001, PM2 `kei-guide-dev`/`kei-rag-api-dev`)/prod(3100/9000) 이중 구동.
 
 ---
 
@@ -36,7 +39,7 @@
 | **P1 원문 변환** | HWP/PDF/PPTX/MD → 4개 섹션 적재 | `20_규정원문/`·`10_업무가이드/`·`30_용어집/`·`40_시스템/` 노트(검수상태: 미검수) | 271문서가 섹션·분류별로 적재·교차링크됨 |
 | **P2 청킹·임베딩** | 제N조/헤딩 청킹 + KURE-v1 임베딩 | `kei_regs` Chroma 컬렉션(약 3,973 청크), 검수 진행 | 검색 가능한 벡터DB 존재 |
 | **P3 RAG 질의·평가** | 근거 기반 답변 품질 확보 | 가드레일 튜닝, 평가셋, 측정값 | 출처정확도/거부율 목표 도달 |
-| **P4 배포** | 두 화면 사내 공개 | `kei-rag-api`, 웹앱(Next.js+TDS, LLM/둘러보기/그래프), Zero Trust | 사내에서 두 화면 접속 가능 |
+| **P4 배포** | 두 화면 사내 공개 | `kei-rag-api`, 웹앱(Next.js 14(KRDS 자체 토큰 — TDS 제거, docs/37), LLM/둘러보기/그래프), Zero Trust | 사내에서 두 화면 접속 가능 |
 | **P5 운영·유지보수** | 개정 반영 순환 운영 | 재임베딩·백업·모니터링 루틴 | 운영 절차가 문서화·자동화됨 |
 
 ---
@@ -49,7 +52,7 @@ flowchart TD
     P1["P1 · 원문 변환<br/>01·01c·01d·01f → 4개 섹션 (271문서, 미검수)"]
     P2["P2 · 청킹·임베딩<br/>02_chunk_and_embed → kei_regs (KURE-v1)"]
     P3["P3 · RAG 질의·평가<br/>03_rag_query · 가드레일 · 평가셋"]
-    P4["P4 · 배포<br/>kei-rag-api · 웹앱(Next.js+TDS) · Zero Trust"]
+    P4["P4 · 배포<br/>kei-rag-api · 웹앱(Next.js 14 · KRDS 자체 토큰, TDS 제거) · Zero Trust"]
     P5["P5 · 운영·유지보수<br/>개정 반영 · 재임베딩 · 백업 · 모니터링"]
 
     P0 --> P1 --> P2 --> P3 --> P4 --> P5
@@ -83,8 +86,8 @@ flowchart TD
 - [ ] `python -m venv tools/.venv && source tools/.venv/bin/activate`
 - [ ] `pip install -r tools/requirements.txt` (hwp-hwpx-parser, sentence-transformers, chromadb, openai, fastapi, uvicorn 등)
 - [ ] GPU(Quadro RTX 6000 24GB×2) 접근 확인: `nvidia-smi`로 가용 메모리/사용 현황 확인
-- [x] LLM 엔드포인트 확인: **Ollama**(`http://127.0.0.1:11434/v1`, OpenAI 호환)의 `/v1/models`가 instruct 모델(`Qwen2.5-14B-Instruct Q4_K_M`)을 응답하는지 — keep_alive=-1 상주 + 기동 워밍업으로 콜드스타트 제거. (vLLM은 대안 표기.)
-- [x] Node v22+ 설치 확인 (`node -v`) — [뇌] Next.js+TDS 웹앱용
+- [x] LLM 엔드포인트 확인: **격리 Ollama v0.31.1**(`http://127.0.0.1:11436/v1`, OpenAI 호환, PM2 `kei-ollama-v031`)의 `/v1/models`가 instruct 모델(`Qwen3.5-9B (Q4_K_M, GGUF)` = `hf.co/unsloth/Qwen3.5-9B-GGUF:Q4_K_M`)을 응답하는지 — keep_alive=-1 상주 + 기동 워밍업으로 콜드스타트 제거. 드라이버 535라 CUDA 대신 Vulkan로 GPU 사용. ⚠ 공유 Ollama 11434(v0.24.0, 동료 운용)는 qwen3.5 미지원 — 미사용·건드리지 말 것. 교체 근거 = docs/15. (vLLM 아님.)
+- [x] Node v22+ 설치 확인 (`node -v`) — [뇌] Next.js 14(KRDS 자체 토큰 — TDS 제거, docs/37) 웹앱용
 - [ ] Docker / `docker compose` 동작 확인 — (참고) Open WebUI 등 컨테이너 옵션용. 현 배포는 PM2 호스트 서빙
 - [ ] Cloudflare Zero Trust 접근 권한 및 기존 Tunnel 존재 확인
 - [ ] (선택) LibreOffice + H2Orestart 사전 설치: `deploy/setup_ubuntu_hwp.sh` 검토
@@ -191,6 +194,9 @@ soffice --headless --convert-to pdf:writer_pdf_Export <규정파일>.hwp
 > [!warning]
 > 변환 결과는 **의역 금지**입니다. 표가 깨졌다고 임의로 요약·재서술하지 말고, 원문 구조를 그대로 복원합니다. 수치(금액·한도·기한)는 원문대로 옮기되, 확인 불가하면 본문에 손대지 말고 검수 대상으로 남깁니다.
 
+> [!note]
+> **실행 결과(2026-07-16, docs/50):** 별지(서식)에 대해 이 fallback을 대규모 실행 — `01p_byeolji_pdf`(HWP→ODT 서체·줄간격 보정→PDF·PNG·manifest, 규정 110건·별지 288건 분리) + `01q_byeolji_audit`(A빈/B구조소실/C표깨짐/D빈약 감사) + 원문 PNG 대조 **비전 전사로 깨진 별지 MD 누적 179건 복원**(`byeolji-restored` 마커·`검수상태: 미검수` 유지, 최종 감사 A 0). 재색인 훅이 01p를 증분 실행. 잔여 = 별지 트랙의 원본 HWP 미보유분(상조회규약 제2호 등)과 P1 변환 실패 2건(여비 QnA HWP timeout·예산운용가이드 이미지PDF)은 여전히 미해결.
+
 > [!todo]
 > 확인 필요: 실제 규정 제목/번호/내용(금액·한도·기한 포함). 이 문서에서는 어떤 구체 조문도 단정하지 않습니다.
 
@@ -230,7 +236,7 @@ soffice --headless --convert-to pdf:writer_pdf_Export <규정파일>.hwp
 - [x] regulation 노트는 조문별 청크 `{text, 규정명, 규정번호, 조, type, path}` 생성 확인
 - [x] guide/system/term 노트는 헤딩 단위 청크인지 확인, `_templates`는 제외되는지 확인
 - [x] 임베딩 모델 `nlpai-lab/KURE-v1` 사용, `normalize_embeddings=True`, 양자화하지 않음
-  - 실측: KURE-v1 = XLM-RoBERTa(BGE-M3 계열), 컨텍스트 8192. GPU `cuda:0`, ~32초. 큰 batch(64)+긴 조문에서 **CUDA OOM** → `batch 8 + max_seq_len 2048`(+ `expandable_segments`)로 해결. **2048 토큰 초과 41개는 임베딩 시 잘림**(긴 조문/일부 머리말) → 향후 하위청킹 과제.
+  - 실측: KURE-v1 = XLM-RoBERTa(BGE-M3 계열), 컨텍스트 8192. GPU `cuda:0`, ~32초. 큰 batch(64)+긴 조문에서 **CUDA OOM** → `batch 8 + max_seq_len 2048`(+ `expandable_segments`)로 해결. **2048 토큰 초과 41개는 임베딩 시 잘림**(긴 조문/일부 머리말) → **해결(P2.3, docs/12)**: `subsplit_long_chunks`가 초과 청크를 항(①②…)→호→문단→줄 순으로 분할(토글 `CHUNK_SUBSPLIT`, 조 라벨·메타 유지, 별표/별지는 분할 안 함). A/B로 잘린 꼬리 질의 회수 입증.
 - [x] Chroma `get_or_create_collection("kei_regs", hnsw:space=cosine)` 확인
   - 실측: 컬렉션 `kei_regs`, **약 3,973 items**, `hnsw:space=cosine`. **클린 리빌드 기본**(`--no-reset`로 해제): id=`경로#순번`(위치기반)이라 조문 가감 시 stale 방지를 위해 컬렉션을 비우고 전체 재적재.
   - 메타데이터 키: `규정명, 규정번호, 조, 분류, 개정일, 검수상태, type, path`(볼트 상대경로).
@@ -279,7 +285,7 @@ soffice --headless --convert-to pdf:writer_pdf_Export <규정파일>.hwp
 
 ### 선행조건
 - P2 완료(`kei_regs` 존재)
-- Ollama에 instruct 모델 가동(Qwen2.5-14B-Instruct Q4_K_M, keep_alive=-1 상주). vLLM은 대안.
+- 격리 Ollama v0.31.1(`http://127.0.0.1:11436/v1`, PM2 `kei-ollama-v031`)에 instruct 모델 가동(`Qwen3.5-9B (Q4_K_M, GGUF)`, keep_alive=-1 상주). 교체 근거 = docs/15.
 
 ### 작업 체크리스트
 - [x] `python tools/03_rag_query.py --db ./tools/chroma --q "<예시 질문>" --k 5 --retrieve-only` 실행 — 검색만(LLM 없이) 검증 완료. 커밋 `fa18378`.
@@ -292,13 +298,13 @@ soffice --headless --convert-to pdf:writer_pdf_Export <규정파일>.hwp
     - "법인카드 분실하면?" → 법인카드관리및사용규칙 제3조 (0.354)
   - 03 신규: `--retrieve-only`(LLM 없이 검색만), 거리 표시, 환경변수 `VLLM_BASE`/`LLM_MODEL` 오버라이드, LLM 실패 시 친절 안내.
 - [x] 검색 → `[규정명 조]` 블록으로 컨텍스트 구성(`---` 구분) → LLM chat 흐름 확인 (검색·근거주입·생성까지 검증)
-- [x] LLM 설정 확인: `VLLM_BASE=http://127.0.0.1:11434/v1`(Ollama), `LLM_MODEL=qwen2.5:14b-instruct-q4_K_M`, `temperature=0.1`, `api_key=EMPTY` — Ollama로 생성 검증 완료(keep_alive=-1 상주 + 기동 워밍업으로 콜드스타트 제거).
+- [x] LLM 설정 확인: `VLLM_BASE=http://127.0.0.1:11436/v1`(격리 Ollama v0.31.1), `LLM_MODEL=hf.co/unsloth/Qwen3.5-9B-GGUF:Q4_K_M`, `temperature=0.1`, `api_key=EMPTY` — Ollama로 생성 검증 완료(keep_alive=-1 상주 + 기동 워밍업으로 콜드스타트 제거). 교체 근거 = docs/15.
 - [x] 출력에 답변 + 회수된 조 목록이 함께 나오는지 확인 — 회수 목록·답변 생성 모두 검증. 응답 스트리밍 SSE(meta→delta→done).
 - [x] 평가셋 구축: `eval/golden.jsonl` 31문항/9개 카테고리, 각 항목 `질문 → 기대 출처(규정명 제N조)` — **P1.1 완료**. ⛔정답·기대출처는 실제 청크에서만 도출, 전부 `verified:false`(미검수). 보안상 gitignore(로컬 전용), 코드/스키마만 추적([eval/README](../eval/README.md)).
 - [x] **출처정확도** 측정: 기대 출처가 top-k에 회수되는가 — `eval/run_eval.py`로 Hit@k·Recall@k·MRR(strict/relaxed). 베이스라인 strict Hit@1 0.677·@3 0.935·@5 1.000, MRR 0.803.
 - [ ] **거부율** 측정: 근거 없는(코퍼스 밖) 질문에 "규정에서 확인되지 않습니다"로 올바르게 거부하는가 — 평가셋에 **부정 케이스(out-of-corpus) 추가 필요**. (현 golden은 적중 케이스 위주)
 - [ ] **가드레일 검증**(아래 4개 약화 금지) — `eval/run.sh --judge`로 근거충실·출처표기·면책 정량화(LLM-judge). 부정 케이스 보강 후 정식 측정.
-- [ ] 프롬프트/`k`값/컨텍스트 길이·**리랭커/하이브리드(P1.4)** 튜닝 후 재측정(before/after) — 품질 트랙 [docs/12](../docs/12-품질강화.md) P1.2~P1.4로 진행.
+- [x] 리랭커 적용·재측정 완료(P1.4): 밀집 top-20 → `BAAI/bge-reranker-v2-m3` 재점수 → top-5, strict Hit@1 **0.600→0.829**(실패 시 밀집 강등). 하이브리드(BM25+RRF)는 평가상 이득 없어 기본 off(opt-in). 상세 = docs/12.
 
 ### 가드레일 (03/04 공통 — 약화 금지)
 
@@ -314,7 +320,7 @@ sequenceDiagram
     participant U as 사용자(행정 초보)
     participant R as 03_rag_query / 04_rag_api
     participant C as Chroma(kei_regs)
-    participant L as Ollama(Qwen2.5-14B-Instruct Q4_K_M)
+    participant L as 격리 Ollama v0.31.1(Qwen3.5-9B Q4_K_M GGUF, :11436)
 
     U->>R: 질문
     R->>C: KURE-v1 임베딩으로 top-k 검색
@@ -351,7 +357,7 @@ sequenceDiagram
 ## P4 — 배포
 
 ### 목표
-두 화면을 사내에 띄운다. 한 웹앱(`web/`, Next.js 14 + TDS, `output:export`)이 **LLM(/) · 둘러보기(/browse) · 관계 그래프(/graph)**를 모두 제공하고, 백엔드 `kei-rag-api`(127.0.0.1:9000)가 검색·생성·인증·채팅을 담당한다. 둘 다 같은 오리진(PM2 server.js 리버스 프록시)으로 묶여 Cloudflare Zero Trust 뒤에 둔다. (Open WebUI는 `/v1/chat/completions`로 등록 가능한 옵션으로 유지.)
+두 화면을 사내에 띄운다. 한 웹앱(`web/`, Next.js 14(KRDS 자체 토큰 — TDS 제거, docs/37), `output:export`)이 **LLM(/) · 둘러보기(/browse) · 관계 그래프(/graph)**를 모두 제공하고, 백엔드 `kei-rag-api`(127.0.0.1:9000)가 검색·생성·인증·채팅을 담당한다. 둘 다 같은 오리진(PM2 server.js 리버스 프록시)으로 묶여 Cloudflare Zero Trust 뒤에 둔다. (Open WebUI는 `/v1/chat/completions`로 등록 가능한 옵션으로 유지.)
 
 ### 백엔드 구조 (한 프로세스 `kei-rag-api`, 3분리)
 
@@ -364,7 +370,7 @@ sequenceDiagram
 - 표면: `/v1/chat/completions`(무상태, Open WebUI용) + `/app/*`(인증·채팅·멀티턴·메시지별 근거).
 - 멀티턴은 세션 메시지 재생(근거는 매 턴 새 검색). 응답 스트리밍 SSE(meta→delta→done).
 
-### 웹앱 구조 (`web/`, Next.js 14 + TDS, Pages Router, `output:export`)
+### 웹앱 구조 (`web/`, Next.js 14(KRDS 자체 토큰 — TDS 제거, docs/37), Pages Router, `output:export`)
 
 | 화면 | 경로 | 내용 |
 |---|---|---|
@@ -373,7 +379,7 @@ sequenceDiagram
 | 관계 그래프 | `/graph` | 271 노드·275 연결, 4색(규정집 파랑 #3182f6 · 가이드 초록 · 용어집 주황 · ERP 보라 #8b5cf6). 교차링크로 ERP 모듈이 허브 |
 
 - 인증: bcrypt+PyJWT httpOnly 쿠키, SQLModel/SQLite `tools/app.db`, JWT 키 `tools/.app_secret`(0600). 채팅기록 영속·멀티턴·메시지별 근거 저장.
-- 다크모드/테마(라이트·다크·시스템): `lib/theme.tsx` + ThemeToggle, `[data-theme]` 토큰 분기, `_document` 인라인 스크립트로 FOUC 방지, TDS는 ColorSchemeArea. 인증 게이트에 타임아웃(지연 시 무한 로딩 방지).
+- 다크모드/테마(라이트·다크·시스템): `lib/theme.tsx` + ThemeToggle, `[data-theme]` 토큰 분기, `_document` 인라인 스크립트로 FOUC 방지. 인증 게이트에 타임아웃(지연 시 무한 로딩 방지).
 - 서빙: `server.js`(PM2 `kei-guide`, 0.0.0.0:3100)가 정적 `out/`를 서빙 + `/api/rag/*`·`/api/app/*` → 127.0.0.1:9000 리버스 프록시(같은 오리진, RAG API LAN 비노출).
 
 ### 선행조건
@@ -384,7 +390,7 @@ sequenceDiagram
 
 | 컴포넌트 | 포트 | 비고 |
 |---|---|---|
-| Ollama (LLM) | 11434 | `/v1`, instruct 모델(Qwen2.5-14B-Instruct Q4_K_M). vLLM은 대안 |
+| Ollama (LLM, 격리 v0.31.1) | 11436 | `/v1`, Qwen3.5-9B(Q4_K_M GGUF, Vulkan). ⚠ 공유 11434(v0.24.0, 동료 운용)는 qwen3.5 미지원 — 미사용·건드리지 말 것. 교체 근거 = docs/15 |
 | kei-rag-api (FastAPI) | 9000 | 127.0.0.1, `/v1/*`(OpenAI 호환) + `/app/*`(인증·채팅), `MODEL_ID=kei-admin-rag` |
 | 웹앱 (PM2 server.js) | 3100 | `kei-guide`, 0.0.0.0, 정적 `out/` + `/api/rag/*`·`/api/app/*` 리버스 프록시 |
 | Open WebUI (옵션) | 3000→8080 | 컨테이너 `kei-webui`, `/v1/chat/completions` 등록 |
@@ -401,7 +407,7 @@ uvicorn 04_rag_api:app --host 127.0.0.1 --port 9000
 
 - 동작: 진입점 `04_rag_api.py`가 `rag_core`(검색·생성)와 `app_api`(인증·채팅 `/app/*`)를 묶어 `/v1/*`(OpenAI 호환, 무상태)과 `/app/*`(인증·멀티턴·메시지별 근거)을 함께 제공하고 `init_db`로 SQLite를 초기화한다. 응답 스트리밍 SSE(meta→delta→done).
 - 실측(2026-06-20): **Ollama로 생성까지 검증 완료**(검색·근거주입·출처·면책·스트리밍). Ollama 미연결이어도 회수 출처는 반환하며 그레이스풀. 환경변수: `CHROMA_DIR / RAG_COLLECTION / EMBED_MODEL / VLLM_BASE(Ollama /v1) / LLM_MODEL / RAG_MODEL_ID / RAG_TOPK`.
-  - 서빙 주의: 현 서빙은 Ollama(Qwen2.5-14B-Instruct **Q4_K_M**, keep_alive=-1 상주+워밍업). vLLM 대안 시 fp16(약 28GB)은 RTX 6000 단일 24GB 초과 → 2장 텐서병렬(`tensor-parallel-size=2`) 또는 더 작은/양자화 서빙 필요. 임베딩(KURE-v1)은 1장으로 충분(실측).
+  - 서빙 주의: 현 서빙은 **격리 Ollama v0.31.1**(`127.0.0.1:11436/v1`, PM2 `kei-ollama-v031`)의 `Qwen3.5-9B (Q4_K_M, GGUF)`(keep_alive=-1 상주+워밍업, 드라이버 535라 Vulkan GPU). 교체 근거 = docs/15. 임베딩(KURE-v1)은 1장으로 충분(실측).
 - **Open WebUI 등록(옵션)** (설정 > 연결 > OpenAI API):
 
   | 항목 | 값 |
@@ -427,7 +433,7 @@ docker compose up -d        # open-webui (+ 선택: 임베딩 TEI)
 - `kei-rag-api` 블록은 주석 처리 상태 → 우선 호스트에서 위 `uvicorn`으로 띄워도 됨
 - `embeddings-tei`(`--model-id nlpai-lab/KURE-v1`)는 **내장 RAG를 쓸 때만** 필요. 권장 경로(04_rag_api)에서는 불필요
 
-### P4-c · [뇌] 웹앱(Next.js + TDS) → PM2
+### P4-c · [뇌] 웹앱(Next.js 14 — KRDS 자체 토큰, TDS 제거, docs/37) → PM2
 
 ```bash
 # Node v22+ 필요. 볼트를 빌드타임 read-only 소비(web/lib/vault.ts)
@@ -437,7 +443,7 @@ VAULT_DIR=../KEI-행정가이드 npm run build    # output:export → out/ 정�
 pm2 start server.js --name kei-guide        # out/ 서빙(0.0.0.0:3100) + RAG API 리버스 프록시
 ```
 
-- LLM/둘러보기/관계 그래프 3화면이 한 앱. `server.js`가 정적 `out/`와 `/api/rag/*`·`/api/app/*`(→127.0.0.1:9000) 리버스 프록시를 같은 오리진으로 묶는다(RAG API LAN 비노출).
+- LLM/둘러보기/관계 그래프 3화면이 한 앱. `server.js`가 정적 `out/`와 `/api/rag/*`·`/api/app/*`(→127.0.0.1:9000) 리버스 프록시를 같은 오리진으로 묶는다(RAG API LAN 비노출). 또한 `server.js`에 **서버 로그인 게이트 내장**(app_api와 동일 JWT를 fail-closed로 검증 — 비로그인은 랜딩 허용 목록 외 302, `/api/rag/chat` 401, docs/44). ⚠ nginx 단독 서빙으로 대체하면 게이트가 소멸하므로 금지(auth_request 재현 전).
 
 ### P4-d · Cloudflare Zero Trust 라우트
 
@@ -534,10 +540,10 @@ flowchart LR
 | 임베딩 모델 불일치(P2≠P3/P4) | 검색 품질 저하 | `EMBED_MODEL` 단일화(KURE-v1), 모델 교체 시 전체 재임베딩 |
 | 조문 정규식 오분할 | 조문 누락/혼합 | 청크 수 ↔ 조문 수 대조, 표본 검수 |
 | Docker 연결 URL 오용 | LLM 화면 미작동 | 실제 IP 사용, `localhost`/`host.docker.internal` 금지 |
-| 인터넷 노출 | 내부 규정 유출 | Cloudflare Zero Trust Access(이메일 인증) + 웹앱 자체 인증(bcrypt+PyJWT), 온프레미스. RAG API는 같은 오리진 리버스 프록시(LAN 비노출) |
+| 인터넷 노출 | 내부 규정 유출 | Cloudflare Zero Trust Access(이메일 인증) + 웹앱 자체 인증(bcrypt+PyJWT) + server.js 로그인 게이트(fail-closed, docs/44), 온프레미스. RAG API는 같은 오리진 리버스 프록시(LAN 비노출) |
 | 규정 개정 미반영 | 옛 규정 인용 | P5 순환 루틴, 개정 알림·반영 책임자 지정 |
 | GPU 자원 경합 | OOM/지연 | P0 가용량 측정, 임베딩/서빙 스케줄 조율 |
-| 긴 조문 임베딩 잘림(>2048 토큰) | 일부 조문 검색 정밀도 저하 | `max_seq_len=2048`로 OOM 회피 중, 41개 잘림 → 향후 하위청킹 |
+| 긴 조문 임베딩 잘림(>2048 토큰) | 일부 조문 검색 정밀도 저하 | P2.3 하위청킹 적용 완료(`subsplit_long_chunks`) — 재발 시 토글(`CHUNK_SUBSPLIT`)로 회귀 확인 |
 | 기본 PyPI torch가 드라이버와 CUDA 불일치 | CUDA 인식 실패·임베딩 GPU 미사용 | 기본 휠은 최신 CUDA(cu130) → 구형 드라이버(R535/CUDA 12.2)에서 인식 실패. 드라이버가 12.x면 cu124 휠 설치(CUDA 12.x 마이너 호환), `nvidia-smi`의 CUDA Version으로 드라이버 한도 확인 |
 | 응답 지연(콜드스타트) | 사용자 체감 저하 | SSE 스트리밍(meta→delta→done) 적용 완료 + Ollama keep_alive=-1 상주·기동 워밍업으로 첫 질문 콜드스타트 제거 |
 
@@ -559,4 +565,4 @@ flowchart LR
 
 ---
 
-최종 수정: 2026-06-20
+최종 수정: 2026-07-16

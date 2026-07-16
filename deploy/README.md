@@ -7,31 +7,33 @@
    둘 다 data05lx(우분투)에서 서빙 · 둘 다 Cloudflare Zero Trust 뒤 (사내 전용)
 ```
 
-> 참고: [뇌] 화면은 **Quartz에서 Next.js 14 + Toss Design System(`web/`)으로 교체**되었고,
-> [LLM]은 **vLLM 대신 Ollama(Qwen2.5-14B-Instruct)** 로 서빙한다. 아래 Quartz/vLLM 절은 초기 설계 기록이며,
-> 실제 현행 실행은 PM2 + `web/server.js`(정적 export 서빙 + `/api/*` 리버스 프록시)다.
+> 참고: [뇌] 화면은 **Quartz에서 Next.js 14(`web/`, KRDS 참고 자체 토큰 — TDS·유료 폰트는 라이선스 문제로 제거, Pretendard GOV self-host, docs/37)로 교체**되었고,
+> [LLM]은 **vLLM 대신 격리 Ollama v0.31.1(`127.0.0.1:11436`, PM2 `kei-ollama-v031`)의 Qwen3.5-9B(Q4_K_M GGUF)** 로 서빙한다. 아래 Quartz/vLLM/Open WebUI 절은 초기 설계 기록이며,
+> 실제 현행 실행은 PM2 + `web/server.js`(정적 export 서빙 + `/api/*` 리버스 프록시 + **로그인 게이트 내장: JWT 쿠키 검증·CSP·XFF 위조 차단 — 레이트리밋·`[SECURITY]` 로그는 백엔드 `app_api.py`와 한 세트(docs/44) + `/forms-pdf/*` 별지 PDF 직결 서빙(docs/50)** — ⛔ nginx 단독 서빙으로 대체 금지)다.
 
-## 운영: 현행(개발) + 레거시 v1.0.0 — 두 포트 동시 운영
+## 운영: 프로덕션 v1.0.0 + 개발(feat/krds) — 두 포트 동시 운영
 
-같은 서버에서 두 버전을 PM2로 나란히 띄운다. **완전 격리**(코드·벡터DB·채팅DB·세션키까지 분리)라 서로 영향이 없다.
+같은 서버에서 두 버전을 PM2로 나란히 띄운다. **완전 격리**(볼트 사본·chroma·app.db·세션키까지 분리)라 서로 영향이 없다.
 
 | 버전 | 프론트 | RAG API | 소스 | PM2 프로세스 |
 |---|---|---|---|---|
-| **현행(개발)** `feat/<날짜>` | `3100` | `9000` | `web/` · `tools/` (작업 중인 트리) | `kei-guide` · `kei-rag-api` |
-| **레거시 운영** `v1.0.0` | `3101` | `9001` | `/.legacy-v1/` (동결 사본, gitignore) | `kei-guide-legacy` · `kei-rag-api-legacy` |
+| **프로덕션** `v1.0.0`(feat/0620 동결) | `3100` | `9000` | `/KEIAdminSuperv` (`web/`·`tools/`) | `kei-guide` · `kei-rag-api` |
+| **개발** worktree `feat/krds` | `3101` | `9001` | `/home/mhchoi/kei-dev-0703` | `kei-guide-dev` · `kei-rag-api-dev` |
 
-둘 다 같은 Ollama(`127.0.0.1:11434`)를 공유한다 — 모델 가중치는 Ollama가 1벌만 GPU에 상주시키므로 GPU 추가 부담 없음(임베딩 KURE-v1만 프로세스별 1벌).
+둘 다 같은 **격리 Ollama v0.31.1(`127.0.0.1:11436`, PM2 `kei-ollama-v031`, Qwen3.5-9B)** 를 공유한다 — 모델 가중치는 1벌만 GPU 상주(임베딩 KURE-v1만 프로세스별 1벌). ⚠ 공유 Ollama `11434`(v0.24.0, 동료 운용)는 qwen3_5 아키텍처 미지원 — 미사용·변경 금지.
 
 ```bash
-# 현행
+# 프로덕션
 pm2 start tools/ecosystem.config.js      # kei-rag-api  (9000)
 pm2 start web/ecosystem.config.js        # kei-guide    (3100)
-# 레거시 v1.0.0 (동결 사본 .legacy-v1/ 가 있어야 함 — 아래 '동결' 참조)
-pm2 start deploy/ecosystem.legacy-v1.config.js   # kei-*-legacy (3101/9001)
+# 개발 (worktree feat/krds)
+pm2 start /home/mhchoi/kei-dev-0703/deploy/ecosystem.dev-0703.config.js   # kei-*-dev (3101/9001)
 pm2 save                                 # 프로세스 목록 영속화
 ```
 
 ### 레거시 v1.0.0 동결(재현 절차)
+
+> ⚠ **기록용.** 레거시 슬롯(`kei-guide-legacy`/`kei-rag-api-legacy`, 3101/9001)은 회수됐고 그 포트는 현재 **개발(feat/krds)** 슬롯이 쓴다(위 표). v1.0.0은 `/KEIAdminSuperv` 메인 트리(3100/9000)가 그대로 운영 중이므로, 아래 동결 절차는 별도 스냅샷이 다시 필요할 때만 참고.
 
 `v1.0.0` 태그(= `main` 36dc3fc) 시점을 통째로 `/.legacy-v1/`에 굽는다. 동결 사본은 런타임 산출물
 (out/docdata 규정 원문 · chroma · app.db · 세션키 포함)이라 **`.gitignore` 처리**되고, 설정 파일
@@ -51,6 +53,24 @@ pm2 start deploy/ecosystem.legacy-v1.config.js && pm2 save
 
 검증: `curl 127.0.0.1:9001/health` → `{"status":"ok"...}`, `curl -o/dev/null -w '%{http_code}' 127.0.0.1:3101/` → `200`,
 그리고 `web/verify-legacy.mjs`(Playwright 실제 렌더 — 라이트/다크/그래프 픽셀 판정).
+
+## HWP→PDF 툴체인 (별지 파이프라인 `tools/01p_byeolji_pdf.py` 필수 의존)
+
+별지 분리 PDF·PNG·manifest(docs/50)는 LibreOffice 변환 경로를 쓴다. `deploy/setup_ubuntu_hwp.sh`가 LibreOffice+H2Orestart를 설치하지만, **JRE와 나눔 폰트는 스크립트에 없어 별도 설치**해야 한다.
+
+```bash
+bash deploy/setup_ubuntu_hwp.sh   # LibreOffice + H2Orestart(.oxt)
+# ⚠ H2Orestart는 반드시 공유 설치: sudo unopkg add --shared /tmp/H2Orestart.oxt
+#   (사용자 설치는 01p의 커스텀 LO 프로필에서 인식 안 됨 — 실측, docs/50 §1)
+
+# 1) Java(JRE) — H2Orestart 구동에 필요. 사내망이 대용량 HTTP를 차단하면
+#    openjdk deb을 HTTPS 미러(kakao)로 수동 설치하거나 Adoptium(Temurin) JRE tar를 쓴다.
+sudo apt-get install -y default-jre
+
+# 2) 나눔 폰트 — 01p 서체 보정(한글 서체→나눔명조/나눔고딕 ODT 치환, BYEOLJI_FONT_FIX=1 기본)의 필수 의존.
+#    없으면 LO가 Noto CJK(행높이 1.44em)로 폴백해 별지 페이지가 부풀고 분리 경계가 깨진다(docs/50 §8).
+sudo apt-get install -y fonts-nanum && fc-cache -f
+```
 
 ## 볼트 동기화 = Syncthing (비공개, git 아님)
 
@@ -85,6 +105,9 @@ npx quartz build                  # → public/ 정적 산출물
 한국어(CJK) 검색·그래프·백링크 기본 지원. 규정 개정 → 볼트 갱신 → 재빌드.
 
 ## [LLM] 채팅 = Open WebUI (+ 기존 vLLM)
+
+> ⚠ 초기 설계 기록. 현행 기본 채팅은 `web/`(Next.js)에 통합된 RAG 채팅(로그인·채팅기록·SSE 스트리밍)이며, Open WebUI는 같은 RAG API를 쓰는 **선택적 폴백**이다(브랜딩 라이선스 이슈로 기본 채택 아님).
+
 ```bash
 docker compose up -d        # open-webui + (선택)임베딩
 ```
@@ -96,4 +119,4 @@ docker compose up -d        # open-webui + (선택)임베딩
 
 ## 보안 (중요)
 KEI 내부 규정입니다. **두 화면 모두 인터넷 공개 금지.** 기존 Cloudflare Zero Trust Access 정책 뒤에 두고,
-Open WebUI 자체 인증(RBAC/SSO)으로 한 겹 더. 모델·임베딩 전부 온프레미스라 데이터는 망 밖으로 안 나갑니다.
+`web/server.js` 로그인 게이트(JWT 쿠키 검증 + CSP + XFF 위조 차단, 레이트리밋·`[SECURITY]` 로그는 백엔드 `app_api.py`와 한 세트 — docs/44)로 한 겹 더 — ⛔ 게이트 없는 nginx 단독 서빙으로 대체 금지. (폴백 Open WebUI를 띄울 경우에만 그 자체 인증(RBAC/SSO) 사용.) 모델·임베딩 전부 온프레미스라 데이터는 망 밖으로 안 나갑니다.

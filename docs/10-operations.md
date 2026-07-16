@@ -17,8 +17,9 @@
 | 정적 사이트 `web/out/` | [뇌]+[LLM] 통합 앱(빌드 산출물) | ❌ 파생물 | `npm run build`(nvm Node 22) |
 | 격리 Ollama v0.31.1 (`kei-ollama-v031`) | [LLM] LLM 서빙(OpenAI 호환, `:11436`) | ❌ 서빙 프로세스 | `pm2 restart kei-ollama-v031` |
 | `04_rag_api.py` (`kei-rag-api`) | 통제형 RAG API + `/app/*` 마운트 | ❌ 코드 | PM2 재기동 |
-| `web/server.js` (`kei-guide`) | 정적 서빙 + `/api/rag/*` 프록시 | ❌ 코드 | PM2 재기동 |
-| nginx + Cloudflare ZT | 사내 라우팅·노출 통제 | ❌ 설정 | 설정 reload |
+| `web/server.js` (`kei-guide`) | 정적 서빙 + **서버 로그인 게이트**(JWT 검증, docs/44) + `/api/rag/*` 프록시 + `/forms-pdf/*` 직결 서빙 | ❌ 코드 | PM2 재기동 |
+| 별지 산출물 (`web/public/forms-pdf/`·`tools/byeolji_png/`·`tools/index/byeolji_manifest.json`) | 서식 다운로드·복원 검수 원판 | ❌ 파생물 | `01p_byeolji_pdf.py` 재실행(재색인 훅이 증분 실행) |
+| nginx + Cloudflare ZT | 사내 라우팅·노출 통제. ⛔ 단독 정적 서빙 금지 — 게이트 소멸(server.js 앞단 프록시로만, docs/44) | ❌ 설정 | 설정 reload |
 
 > [!note]
 > 파생물(`chroma/`·`out/`)은 백업하지 않아도 된다 — **재생성 절차가 자동화·문서화돼 있으면** 충분하다(그게 이 문서다). 단 `app.db`는 사용자가 만든 운영 상태(채팅·피드백)라 파생물이 아니다(§10.5).
@@ -74,6 +75,9 @@ python tools/01_hwp_to_md.py --src <개정HWP폴더> --vault KEI-행정가이드
 
 > [!warning]
 > **원문층은 의역 금지.** 변환 결과는 HWP 문구를 보존하고, 깨진 표·별표와 명백한 변환 오타만 교정한다. 조문(제N조) 구조를 임의로 합치거나 나누지 않는다 — 청킹이 조문 단위라서 구조가 깨지면 검색 단위가 깨진다. 표·별표가 깨졌으면 §10.7 트러블슈팅의 LibreOffice+VLM 경로(표 3번)로 표만 재추출한다.
+
+> [!warning] 복원본 보호 (docs/50)
+> `01_hwp_to_md.py`는 `byeolji-restored` 마커(비전 전사로 복원된 별지)가 있는 md를 기본으로 **건너뛴다**. 개정 HWP를 반영하려고 그 규정을 강제 재변환할 때만 `--overwrite-restored`를 명시하고, 재변환 후 별지 블록을 원문 PNG와 다시 대조한다(복원분이 변환본으로 되돌아가므로).
 
 #### 2) 검수
 
@@ -138,7 +142,7 @@ git push origin <branch>
 ```
 
 > [!warning]
-> 공개 레포에는 **코드만** 올라간다. `KEI-행정가이드/`·`research_rule_files/`·`*.hwp`·`*.pdf`·`tools/chroma/`·`tools/app.db`·`.app_secret`·`.feedback_signals.json` 등은 모두 gitignore다. 볼트는 별도 사내 리모트/미러로만 보관한다(§10.5의 [!todo]).
+> 공개 레포에는 **코드만** 올라간다. `KEI-행정가이드/`·`research_rule_files/`·`*.hwp`·`*.pdf`·`tools/chroma/`·`tools/app.db`·`.app_secret`·`.feedback_signals.json`, 그리고 별지 산출물 `web/public/forms-pdf/`·`tools/byeolji_png/`·`tools/.byeolji_cache/`(내부 규정 콘텐츠 — docs/50) 등은 모두 gitignore다. 볼트는 별도 사내 리모트/미러로만 보관한다(§10.5의 [!todo]).
 
 > [!todo] 확인 필요: 개정이력 노트의 정확한 경로/파일명
 > `90_관리/` 안의 개정이력 노트 이름과 양식(테이블 컬럼)은 [03 콘텐츠 모델](03-content-model.md)의 `90_관리` 정의를 따른다. 실제 파일명이 확정되면 위 경로를 갱신한다.
@@ -175,6 +179,10 @@ git push origin <branch>
 | 임베딩 모델 교체(KURE-v1 ↔ bge-m3) | ✅ 전체 재생성 | 클린 리빌드면 자동 처리(§10.7 모델 불일치) |
 | 청킹 토글 변경(`CHUNK_BYEOLPYO`·`CHUNK_SUBSPLIT`) | ✅ 전체 재생성 | 청크 경계가 바뀌므로 02 전체로 |
 | Chroma 손상/소실 | ✅ 전체 재생성 | 볼트만 있으면 언제든 복구(§10.8) |
+| 별지 원문(HWP) 변경 | △ 01p만 | 재색인 훅이 자동 수행. 수동은 `python tools/01p_byeolji_pdf.py [--only <stem>]` |
+
+> [!note] 관리자 재색인 훅 — 별지 PDF 동반 갱신 (docs/50)
+> 관리자 화면의 재색인(`POST /app/corpus/reindex`, 동시 1개)은 백업 뒤, 02→reload에 앞서 **01p_byeolji_pdf를 증분 실행**한다(HWP mtime 캐시 + per-규정 manifest 재사용, 무변경 시 ~8초; 실패해도 재색인은 계속). 규정 업데이트 후 재색인만 해도 별지 분리 PDF·manifest가 함께 갱신되고, `server.js`가 `/forms-pdf/*`를 `web/public`에서 직결 서빙하므로 **웹 재빌드 없이** 다운로드에 즉시 반영된다.
 
 > [!note]
 > 정기 크론 주기가 따로 있는 게 아니라 **변경 발생 시점이 곧 트리거**다. 규정 개정은 이벤트성이라 배치보다 런북이 맞다. 운영 인원이 늘어 정기 점검을 돌린다면 "주 1회 볼트 변경분 재임베딩" 정도가 합리적이지만, 그건 정책 결정 사항이다.
@@ -376,9 +384,9 @@ pm2 restart kei-rag-api
 | 트랙 | 위치(브랜치) | 프론트 포트 | RAG API 포트 | PM2 |
 | --- | --- | --- | --- | --- |
 | 운영(prod) | 레포 본체 `/KEIAdminSuperv` (`feat/0620`) | 3100 | 9000 | `kei-guide`·`kei-rag-api` |
-| 개발(dev) | git worktree `/home/mhchoi/kei-dev-0703` (`feat/0703`) | 3101 | 9001 | `kei-guide-dev`·`kei-rag-api-dev` |
+| 개발(dev) | git worktree `/home/mhchoi/kei-dev-0703` (`feat/krds`) | 3101 | 9001 | `kei-guide-dev`·`kei-rag-api-dev` |
 
-개발(dev) worktree는 자체 `chroma/`·`app.db`·`.app_secret`·볼트 사본을 가진 **완전 격리** 환경이다(운영과 db·시크릿 분리). 기동은 `pm2 start deploy/ecosystem.dev-0703.config.js`. ⚠ 운영(3100/9000)은 병합 승인 전까지 동결 — 개발은 dev(3101/9001)에서만 한다.
+개발(dev) worktree는 자체 `chroma/`·`app.db`·`.app_secret`·볼트 사본을 가진 **완전 격리** 환경이다(운영과 db·시크릿 분리). 기동은 `pm2 start deploy/ecosystem.dev-0703.config.js`(파일명의 0703은 worktree 경로 유래 — 브랜치는 feat/krds). ⚠ 운영(3100/9000)은 병합 승인 전까지 동결 — 개발은 dev(3101/9001)에서만 한다.
 
 **심층 롤백(아키텍처 통째 회귀)의 안전망**은 이제 **git 태그 스냅샷**이다: 병합 전 운영 시점을 `git tag`(예: `v1.0.0`·`v1.1.0`)로 고정한다. ⚠ 태그는 **코드만** 담으므로, 진짜 스냅샷은 태그 + **볼트·`chroma`·`app.db` 파일 복사**(콘텐츠·데이터는 gitignore)가 함께여야 한다.
 
@@ -413,7 +421,7 @@ pm2 restart kei-rag-api
 | 1 | 채팅이 답을 못 받음 / 근거 패널 빔 | `kei-rag-api` Down, 또는 `kei-guide` 프록시가 9000에 못 닿음 | `pm2 status`로 두 프로세스 Up 확인 → `curl 127.0.0.1:9000/v1/models` → 프록시 헬스 `curl 127.0.0.1:3100/api/rag/health`. 쿠키 인증은 same-origin(server.js 프록시)만 통한다 |
 | 2 | 문서 드로어가 "문서를 불러오지 못했습니다" | 빌드를 node18로 돌려 `out/docdata/*.json` 미생성 | **nvm Node 22**로 `VAULT_DIR=... npm run build` 재실행 → `out/docdata/`에 JSON 생겼는지 확인 → `pm2 reload kei-guide` |
 | 3 | 특정 HWP가 변환 결과에 안 나옴 | **암호화 HWP**·빈 본문, 또는 **파서 무한루프 timeout** → `01_hwp_to_md.py`가 skip | 암호화면 해제본 재변환. timeout 파일은 §10.7→아래 "timeout 파일 fallback 절차"로 격리 처리. skip 로그로 누락 규정 추적 |
-| 4 | 표·별표가 깨져서 마크다운에 들어옴 | hwp-hwpx-parser가 복잡한 표·별표를 평탄화 못함 | LibreOffice + H2Orestart(`ebandal/H2Orestart` oxt) → `soffice --headless --convert-to pdf` → 해당 PDF 페이지를 VLM(**Qwen2.5-VL**)에 넘겨 **표만** 마크다운으로 재추출. 원문 문구는 의역하지 않음 |
+| 4 | 표·별표가 깨져서 마크다운에 들어옴 | hwp-hwpx-parser가 복잡한 표·별표를 평탄화 못함 | LibreOffice + H2Orestart(`ebandal/H2Orestart` oxt) → `soffice --headless --convert-to pdf` → 해당 PDF 페이지를 VLM(**Qwen2.5-VL**)에 넘겨 **표만** 마크다운으로 재추출. 원문 문구는 의역하지 않음. 별지(서식)는 정식 트랙이 있다 — `01q_byeolji_audit.py`로 A/B/C/D 감사 후 `01p` PNG를 원판 삼아 비전 전사 복원(`byeolji-restored` 마커 + 미검수 유지). 상세 docs/50 |
 | 5 | RAG 답변이 엉뚱하거나 검색이 비어 옴(`x_sources` 빈약) | **02(임베딩)와 03/04(질의)의 임베딩 모델 불일치** — 한쪽 KURE-v1, 다른 쪽 bge-m3 | 양쪽 `EMBED_MODEL`을 **반드시 동일하게**(현행 `nlpai-lab/KURE-v1`). 모델을 바꿨다면 클린 리빌드로 **전체 재임베딩**(§10.4). 벡터 공간이 다르면 코사인 거리 자체가 무의미 |
 | 6 | `kei_regs` 컬렉션 없음 / Chroma 조회 실패 | 02를 한 번도 안 돌렸거나 `--db`/`CHROMA_DIR` 경로 불일치, 또는 `tools/chroma/`가 지워짐(gitignore) | 02·03·04의 `--db`/`CHROMA_DIR`가 같은 경로인지 확인 후 02 재실행해 재생성. 볼트만 있으면 항상 복구됨(§10.11) |
 | 7 | 02 실행 시 torch가 GPU를 못 잡음(`is_available()`=False, CPU로 느리게) | 기본 PyPI `torch` 휠이 **최신 CUDA(cu130)** 빌드 → 구형 드라이버(R535/CUDA 12.2)에서 CUDA 인식 실패 | 드라이버가 12.x면 **cu124 휠** 설치(CUDA 12.x 마이너 호환). `nvidia-smi` 우상단 `CUDA Version`으로 상한 확인. 아래 "torch CUDA 함정" 참조 |

@@ -1,13 +1,13 @@
 # 06 배포
 
-> 하나의 볼트, 두 개의 화면을 운영 서버에 올린다. [뇌] Next.js + TDS 정적 사이트와 [LLM] 통합 채팅(같은 Next 앱)을 같은 마크다운 볼트 위에서 서빙하고, 둘 다 Cloudflare Zero Trust 뒤에 둔다. 답변 LLM은 현재 Ollama(OpenAI 호환)로 구동한다. LLM에는 로그인/회원가입, 채팅기록 영속화, 멀티턴 기억, 메시지별 근거 저장이 추가되어 SQLite DB(`tools/app.db`)와 JWT 서명키(`tools/.app_secret`)를 운영 자산으로 함께 관리한다.
+> 하나의 볼트, 두 개의 화면을 운영 서버에 올린다. [뇌] Next.js(KRDS) 정적 사이트와 [LLM] 통합 채팅(같은 Next 앱)을 같은 마크다운 볼트 위에서 서빙하고, 둘 다 Cloudflare Zero Trust 뒤에 둔다. 답변 LLM은 현재 Ollama(OpenAI 호환)로 구동한다. LLM에는 로그인/회원가입, 채팅기록 영속화, 멀티턴 기억, 메시지별 근거 저장이 추가되어 SQLite DB(`tools/app.db`)와 JWT 서명키(`tools/.app_secret`)를 운영 자산으로 함께 관리한다.
 > 이 문서는 운영 배포의 토폴로지·포트·절차를 정리한다. 실제 소스는 [`../deploy/README.md`](../deploy/README.md), [`../deploy/docker-compose.yml`](../deploy/docker-compose.yml), [`../deploy/setup_ubuntu_hwp.sh`](../deploy/setup_ubuntu_hwp.sh)이다.
 
 ---
 
 ## 1. 배포 토폴로지
 
-단일 진실원천(Source of Truth)인 git 볼트 `KEI-행정가이드/`가 두 갈래로 흐른다. [뇌]는 같은 마크다운을 정적 사이트로 빌드해 사람이 탐색하고, [LLM]은 같은 마크다운을 임베딩 검색해 출처를 단 답변을 만든다. LLM(채팅)는 별도 Open WebUI가 아니라 같은 Next.js 14 + TDS 앱에 통합된 커스텀 채팅 UI로, 같은 오리진에서 우리 RAG API를 호출한다. 두 화면 모두 사내 GPU(Quadro RTX 6000 24GB×2) 서버 `data05lx`(Ubuntu)에서 서빙되며, 인터넷에는 노출하지 않고 Cloudflare Zero Trust 뒤에만 둔다.
+단일 진실원천(Source of Truth)인 git 볼트 `KEI-행정가이드/`가 두 갈래로 흐른다. [뇌]는 같은 마크다운을 정적 사이트로 빌드해 사람이 탐색하고, [LLM]은 같은 마크다운을 임베딩 검색해 출처를 단 답변을 만든다. LLM(채팅)는 별도 Open WebUI가 아니라 같은 Next.js 14(KRDS) 앱에 통합된 커스텀 채팅 UI로, 같은 오리진에서 우리 RAG API를 호출한다. 두 화면 모두 사내 GPU(Quadro RTX 6000 24GB×2) 서버 `data05lx`(Ubuntu)에서 서빙되며, 인터넷에는 노출하지 않고 Cloudflare Zero Trust 뒤에만 둔다.
 
 ```mermaid
 flowchart LR
@@ -61,7 +61,7 @@ flowchart LR
 
 | 서비스 | 컨테이너/프로세스 | 바인드 주소:포트 | 비고 |
 | --- | --- | --- | --- |
-| kei-guide ([뇌]+[LLM]) | `web/server.js` (PM2) | `0.0.0.0:3100` | 정적 `out/` 서빙 + `/api/rag/*`·`/api/app/*` → `127.0.0.1:9000` 리버스 프록시(쿠키 전달). 사용자 진입점 |
+| kei-guide ([뇌]+[LLM]) | `web/server.js` (PM2) | `0.0.0.0:3100` | 정적 `out/` 서빙 + **서버 로그인 게이트**(JWT `kei_session` 검증 — 비로그인은 랜딩 셸 `/`·`/about`만, 문서·docdata·search-index·`/api/rag/chat` 전부 차단, fail-closed, 해제는 `REQUIRE_LOGIN=0` 비상용) + 보안 헤더(CSP·X-Frame-Options 등) + `/api/rag/*`·`/api/app/*` → `127.0.0.1:9000` 리버스 프록시(쿠키 전달) + `/forms-pdf/*` 직결 서빙(01p 산출물 `web/public` 우선 — 재빌드 없이 반영). 사용자 진입점 |
 | kei-rag-api | `04_rag_api` (PM2 · uvicorn) | `127.0.0.1:9000` | 통제형 RAG. OpenAI 호환 `/v1` + 인증·채팅 `/app`. **로컬 전용(LAN 비노출)**. 기동 시 워밍업(임베딩 로드 + LLM `keep_alive=-1` 상주) + 주기 keep-alive(`OLLAMA_PING_SECONDS`)로 첫 질문 콜드스타트 제거 |
 | Ollama | `kei-ollama-v031` (PM2 · 격리 v0.31.1) | `127.0.0.1:11436` | OpenAI 호환 `/v1`. 답변 LLM(ctx 8K). 동료 운용 공유 Ollama(`11434`)와 분리 |
 | Open WebUI | `kei-webui` (docker, **선택**) | `3000:8080` | 같은 RAG API를 쓰는 관리자 폴백(§4) |
@@ -69,24 +69,27 @@ flowchart LR
 | Next dev ([뇌]) | `cd web && npm run dev` | `127.0.0.1:3100` | 로컬 미리보기 전용 |
 
 > [!note] [뇌]+[LLM] 운영은 정적 export + PM2 정적 서버
-> Next dev(`3100`)는 검수용 미리보기 전용이다. 운영은 dev 서버가 아니라 `npm run build`의 `web/out/`을 서빙한다. 운영 정석은 nginx(`127.0.0.1`) + Cloudflare Zero Trust이며, 사내망 직접 서빙은 의존성 0의 Node 정적 서버 `web/server.js`(PM2 프로세스 `kei-guide`, `0.0.0.0:3100`)로도 가능하다. 둘 다 서버 런타임이 필요 없는 정적 산출물을 서빙한다. RAG API(`9000`)는 같은 서버의 프록시 뒤에 두고 LAN에 직접 열지 않는다.
+> Next dev(`3100`)는 검수용 미리보기 전용이다. 운영은 dev 서버가 아니라 `npm run build`의 `web/out/`을 의존성 0의 Node 정적 서버 `web/server.js`(PM2 프로세스 `kei-guide`, `0.0.0.0:3100`)로 서빙한다 — 서버 로그인 게이트가 여기 살아 있으므로 server.js가 유일한 서빙 경로다(아래 경고). 앞단은 Cloudflare Zero Trust, 사내망 직접 서빙은 ufw로 `3100`만 연다. RAG API(`9000`)는 같은 서버의 프록시 뒤에 두고 LAN에 직접 열지 않는다.
+
+> [!warning] ⛔ nginx 단독 정적 서빙 금지(docs/44)
+> 로그인 게이트가 `server.js`에 살아 있으므로 nginx가 `web/out/`을 직접 서빙하면 게이트가 소멸한다. nginx를 앞단에 두려면 server.js(`3100`)로 프록시하고, `auth_request`로 게이트를 재현하기 전까지 server.js를 유지한다. 레이트리밋(로그인 실패 8회/5분→429, 가입 IP 10회/시간)·`[SECURITY]` 보안 이벤트 로그는 app_api가 담당한다(XFF는 server.js가 소켓 주소로 덮어써 위조 차단).
 
 ---
 
-## 3. [뇌] Next.js + TDS 배포
+## 3. [뇌] Next.js(KRDS) 배포
 
-[뇌] 화면(사람이 탐색하는 목록·문서·관계 그래프)과 [LLM] 채팅은 모두 **Next.js 14 + Toss Design System(TDS)** 한 앱으로 만든다. 코드는 레포의 [`../web/`](../web/) 디렉터리에 있다. Next.js 정적 export로 빌드해 `web/out/`을 nginx(`127.0.0.1`)로 서빙하거나 `web/server.js`(PM2)로 사내망에 직접 서빙하고, 기존 [LLM]와 같은 Cloudflare Zero Trust 뒤에 둔다 — 서버 런타임이 필요 없다.
+[뇌] 화면(사람이 탐색하는 목록·문서·관계 그래프)과 [LLM] 채팅은 모두 **Next.js 14** 한 앱으로 만든다(KRDS 참고 자체 토큰 디자인 — TDS는 라이선스 무명시로 제거, Pretendard GOV self-host, [docs/37](37-KRDS-전환-계획.md)). 코드는 레포의 [`../web/`](../web/) 디렉터리에 있다. Next.js 정적 export로 빌드해 `web/out/`을 `web/server.js`(PM2, 서버 로그인 게이트 내장)로 서빙하고, 기존 [LLM]와 같은 Cloudflare Zero Trust 뒤에 둔다 — Next 서버 런타임이 필요 없다(⛔ nginx 단독 정적 서빙 금지, §2 경고 — nginx는 server.js 앞단 프록시로만).
 
 > [!note] Quartz는 superseded
-> 이전 방식([Quartz](adr/0004-quartz-graph-site.md))은 [뇌]의 목록·문서·관계 그래프를 Next.js + TDS가 대체하면서 superseded되었다. 아래는 현재 방식(Next.js + TDS)이다. 기존 Quartz가 차지하던 nginx/Zero Trust 자리를 그대로 대체한다.
+> 이전 방식([Quartz](adr/0004-quartz-graph-site.md))은 [뇌]의 목록·문서·관계 그래프를 Next.js(KRDS)가 대체하면서 superseded되었다. 아래는 현재 방식(Next.js(KRDS))이다. 기존 Quartz가 차지하던 nginx/Zero Trust 자리를 그대로 대체한다.
 
 ### 3.1 구성 요약
 
-- **서빙:** Next.js 정적 export([`../web/next.config.mjs`](../web/next.config.mjs)의 `output: "export"`) → `web/out/` → nginx `127.0.0.1` → Cloudflare Zero Trust(사내 전용, 운영 정석) 또는 `web/server.js`(PM2 · 사내망 직접 서빙/nginx 백엔드). 서버 런타임 불필요.
+- **서빙:** Next.js 정적 export([`../web/next.config.mjs`](../web/next.config.mjs)의 `output: "export"`) → `web/out/` → `web/server.js`(PM2 · 서버 로그인 게이트 내장) → Cloudflare Zero Trust(사내 전용) 또는 사내망 직접 서빙. Next 서버 런타임 불필요. ⛔ nginx 단독 정적 서빙 금지 — nginx는 server.js 앞단 프록시로만(§2 경고).
 - **LLM 통합:** 채팅 화면이 별도 Open WebUI가 아니라 같은 Next 앱의 커스텀 UI다. 클라이언트가 같은 오리진 `/api/rag/chat`(무상태) 또는 `/api/app/*`(로그인·채팅기록·멀티턴)를 fetch하면 `web/server.js`가 `127.0.0.1:9000`(RAG API)으로 리버스 프록시한다. `/api/app/*` 프록시는 요청 쿠키와 응답 `set-cookie`를 그대로 전달하고 쿼리스트링을 보존하므로, httpOnly JWT 쿠키 기반 로그인 세션이 같은 오리진에서 유지된다. 같은 오리진이라 CORS가 불필요하고 RAG API가 LAN에 직접 노출되지 않는다. 정적 export에서도 클라이언트 fetch로 동작한다. 답변은 `?stream=1`일 때 **SSE로 토큰 스트리밍**되며(`meta`→`delta`→`done`), `web/server.js`는 hop-by-hop 헤더(`transfer-encoding`·`content-length`·`connection`)를 제거한 뒤 파이프해 버퍼링 없이 흘려보낸다.
-- **인증 게이트(클라이언트):** `Assistant.tsx`가 `/api/app/auth/me`로 세션을 확인해 미인증이면 `Login.tsx`(로그인/회원가입), 인증되면 `ChatApp.tsx`(좌측 대화목록 사이드바 · 중앙 멀티턴 채팅 · 우측 메시지별 근거 패널 · 문서 드로어)를 렌더한다. 정적 export를 유지한 채 게이트는 클라이언트 렌더로 동작한다. 프론트는 plain fetch + React hooks(React Query 미도입, 번들 경량)이며 타입 클라이언트는 `web/lib/api.ts`에 있다. 지난 답변을 클릭하면 그때 저장된 근거를 우측에 다시 표시한다.
-- **라우터:** Pages Router. TDS(=emotion 기반)와 정적 사이트 생성(SSG) 호환이 매끄럽다. React 18 고정(TDS peer · Next 14).
-- **TDS:** `@toss/tds-mobile` v2.5.0 + `TDSMobileAITProvider`(`@toss/tds-mobile-ait`). TDS 팔레트를 KEI 시맨틱 토큰([`../web/styles/globals.css`](../web/styles/globals.css)의 CSS 변수)으로 매핑한다 — KEI 메인 컬러는 나중에 그 한 블록만 교체한다. `ThemeProvider`(seed token)로 TDS 컴포넌트 색도 재정의할 수 있다.
+- **인증 게이트:** 1차 게이트는 **서버**(server.js JWT 검증, [docs/44](44-보안-로그인게이트.md))이고, 클라이언트 게이트(`Assistant.tsx`)는 UX용 2차다. `Assistant.tsx`가 세션을 확인해(`/api/app/auth/me`) 미인증이면 랜딩(`Landing.tsx`) 또는 `Login.tsx`(로그인/회원가입), 인증되면 `ChatApp.tsx`(좌측 대화목록 사이드바 · 중앙 멀티턴 채팅 · 우측 메시지별 근거 패널 · 문서 드로어)를 렌더한다. 정적 export를 유지한 채 클라이언트 게이트는 클라이언트 렌더로 동작한다. 프론트는 plain fetch + React hooks(React Query 미도입, 번들 경량)이며 타입 클라이언트는 `web/lib/api.ts`에 있다. 지난 답변을 클릭하면 그때 저장된 근거를 우측에 다시 표시한다.
+- **라우터:** Pages Router. 정적 사이트 생성(SSG)·정적 export와 호환이 매끄럽다. React 18 고정(Next 14).
+- **디자인 시스템:** KRDS 참고 자체 토큰(원자 팔레트 = KRDS 공식 토큰 값, [`../web/styles/globals.css`](../web/styles/globals.css)) + Pretendard GOV self-host(`web/public/fonts/`, SIL OFL). `@toss/tds-mobile` 등 TDS 패키지·Toss 폰트는 저작권 문제(license 필드 무명시 = all rights reserved)로 전부 제거([docs/37](37-KRDS-전환-계획.md)), 외부 UI 컴포넌트 라이브러리 0(검색 입력 등 전부 자체 컴포넌트, `grep @toss` 0건).
 - **스타일:** CSS 변수 토큰 + CSS Modules(SSG 안전). 콘텐츠 렌더는 `react-markdown` + `remark-gfm`.
 - **볼트 소비:** [`../web/lib/vault.ts`](../web/lib/vault.ts)가 볼트(`KEI-행정가이드/`, git 비추적·Syncthing 동기화)를 **빌드타임 read-only**로 읽는다. `VAULT_DIR` 환경변수로 볼트 경로를 지정하며 기본값은 레포 루트다. 빌드 시 `web/scripts/emit-docdata.mts`가 `lib/vault.ts`를 그대로 재사용(`node --experimental-strip-types`)해 문서별 JSON(`out/docdata/<slug>.json`)을 생성하므로, 전체화면 페이지와 문서 드로어가 동일한 본문·링크를 보장한다. `web/node_modules`·`.next`·`out`(및 `out/docdata/*.json`, 규정 본문 포함 → 커밋 금지)은 `.gitignore`.
 
@@ -99,7 +102,7 @@ VAULT_DIR=<볼트경로> npm run dev         # 로컬 미리보기 → http://12
 VAULT_DIR=<볼트경로> npm run build       # → web/out/ (정적 export) + out/docdata/*.json (emit-docdata)
 ```
 
-산출된 `web/out/`을 nginx 루트로 지정하고 기존 Cloudflare Tunnel에 라우트를 추가하거나(운영 정석), `web/server.js`(PM2)로 사내망에 직접 서빙한다. PM2 서빙은 §4에 정리한다.
+산출된 `web/out/`은 `web/server.js`(PM2)가 서빙한다(로그인 게이트 내장 — ⛔ nginx가 `out/`을 직접 서빙하면 게이트가 소멸하므로 금지, §2 경고). 기존 Cloudflare Tunnel 라우트나 nginx는 server.js(`3100`) 앞단 프록시로만 둔다. PM2 서빙은 §4에 정리한다.
 
 ```mermaid
 sequenceDiagram
@@ -107,13 +110,13 @@ sequenceDiagram
     participant W as web/lib/vault.ts
     participant B as Next build (web/)
     participant O as web/out/ (+ out/docdata/*.json)
-    participant N as nginx (127.0.0.1) / server.js (PM2 · 3100)
+    participant N as server.js (PM2 · 3100 · 로그인 게이트)
     participant T as Cloudflare Tunnel / 사내망
 
     V->>W: VAULT_DIR (빌드타임 read-only)
     W->>B: 목록·문서·그래프 데이터
     B->>O: npm run build (output: export + emit-docdata)
-    O->>N: nginx 루트 또는 server.js 정적 서빙
+    O->>N: server.js 정적 서빙 (⛔ nginx 단독 서빙 금지)
     N->>T: Tunnel 라우트(정석) 또는 ufw allow 3100/tcp(사내망)
     Note over T: Zero Trust Access 정책 뒤 (사내 전용)
 ```
@@ -122,14 +125,19 @@ sequenceDiagram
 
 단일 앱·단일 볼트 안에서 섹션(규정집 / 연구행정 가이드 / 용어집 / 사내 시스템)을 분리한다. 가이드는 볼트의 `10_업무가이드/`에 문서를 추가하면 자동으로 합류한다. 라우트는 다음과 같다.
 
-- **`/` LLM(Assistant):** 로그인 게이트 뒤의 멀티턴 RAG 채팅. 좌측 대화목록 사이드바(새 대화/선택/삭제) · 중앙 채팅 · 우측 '메시지별' 근거 패널(`x_sources` 카드)로 구성된다. 근거 카드를 클릭하면 Notion형 문서 드로어가 해당 조(`제N조` 앵커)로 펼쳐지고, 지난 답변을 클릭하면 그때 저장된 근거가 우측에 다시 뜬다. 미인증이면 로그인/회원가입 화면을 보여준다. 무상태 호출은 같은 오리진 `/api/rag/chat`, 로그인·기록·멀티턴은 `/api/app/*`를 클라이언트 fetch로 호출(정적 export에서 동작). 답변은 `?stream=1`일 때 SSE 토큰 스트리밍(§3.1)으로 흘러온다. 답변마다 👍/👎 피드백 + 사유 입력이 붙는다(P2.1).
+- **`/` LLM(Assistant):** 로그인 게이트 뒤의 멀티턴 RAG 채팅. 좌측 대화목록 사이드바(새 대화/선택/삭제) · 중앙 채팅 · 우측 '메시지별' 근거 패널(`x_sources` 카드)로 구성된다. 근거 카드를 클릭하면 Notion형 문서 드로어가 해당 조(`제N조` 앵커)로 펼쳐지고, 지난 답변을 클릭하면 그때 저장된 근거가 우측에 다시 뜬다. 미인증이면 통합 랜딩(아래)을 보여준다. 무상태 호출은 같은 오리진 `/api/rag/chat`, 로그인·기록·멀티턴은 `/api/app/*`를 클라이언트 fetch로 호출(정적 export에서 동작). 답변은 `?stream=1`일 때 SSE 토큰 스트리밍(§3.1)으로 흘러온다. 답변마다 👍/👎 피드백 + 사유 입력이 붙는다(P2.1).
+- **비로그인 `/` = 통합 랜딩([docs/47](47-랜딩-로그인-통합.md)):** 소개 슬라이드(스냅 스크롤) + 로그인 시트 우측 고정. `/about`은 같은 디자인의 소개 페이지(로그인 폼 없음, 외부 공유용)로 서버 게이트의 비로그인 허용 경로다. 로그인 후 `/`가 RAG 채팅이 된다.
 - **`/browse` 둘러보기(Explorer):** 좌측 체크박스 필터(구분=규정집/가이드/용어집/사내 시스템, 분류=category, 검수상태) + 검색 + 결과 목록. 행 클릭 시 페이지 이동 없이 우측 Notion형 드로어로 본문이 열린다. 패싯 카운트(다른 필터 반영)를 제공한다.
 - **`/graph` 관계 그래프:** `react-force-graph-2d`(노드 클릭 → 문서 이동, 코드 스플릿).
+- **`/forms` 서식찾기:** 별지(서식) 목록 + 페이지네이션(10/30/50) + **PDF↓**(별지별 분리 PDF)·**HWP↓**(규정 원문 HWP 사본) 다운로드 컬럼. 서식명은 01p manifest의 원문 제목 기준이며 폐지(삭제) 서식은 목록에서 제외한다. 파일은 `/forms-pdf/*` 직결 서빙(로그인 게이트 뒤). 상세 [docs/50](50-별지-정확도-다운로드.md).
+- **`/calendar` 업무 캘린더**(이번 달 히어로 + 4×3 연간 그리드, [docs/43](43-캘린더-연간그리드.md)) · **`/journey` 업무 한 장**(여정 13종) · **`/approval` 결재선** · **`/now` 추가 기능 허브** · **`/admin` 운영자 대시보드**.
 - **`/d/[slug]` 전체화면 문서:** 드로어의 '전체화면' 폴백(기존 SSG 페이지 유지). 메타 칩 · 본문 · 백링크 · `제N조` 앵커로 조 단위 점프. 위키링크 `[[ ]]`(규정 상호참조)는 내부 라우트로 연결되고, 이름 변이(공백·가운뎃점 `·`·`.`·`및`)도 정규화로 자동 흡수한다.
 - **DocDrawer:** 우측 슬라이드인. `out/docdata/<slug>.json`(빌드 산출물)을 지연 로드한다. `emit-docdata.mts`가 `lib/vault.ts`를 재사용해 생성하므로 드로어와 전체화면 페이지가 동일 본문/링크를 보장한다.
 
+모바일(≤640px)은 채팅·조문 중심 GNB 3탭(질문하기·규정 둘러보기·추가 기능) + 채팅 사이드바 좌측 드로어로 재구성된다([docs/48](48-모바일-개편.md)).
+
 > [!note] 실측
-> `npm run build` 성공, 문서 293개(규정집 111 · 연구행정 가이드 65 · 용어집 84 · 사내 시스템 33)에 대해 전체화면 페이지 `out/d/<slug>/`와 드로어 데이터 `out/docdata/<slug>.json` 각 293개 생성. 한글 mojibake 0, 위키링크 내부 네비 + `제N조` 앵커 동작, TDS 컬러(라이트/다크 토큰) 적용. 번들 경량화는 기존 로드맵 항목이다. 디자인 원칙·토큰·컴포넌트 규약은 [design-system.md](design-system.md) 참조.
+> `npm run build` 성공, 문서 293개(규정집 111 · 연구행정 가이드 65 · 용어집 84 · 사내 시스템 33)에 대해 전체화면 페이지 `out/d/<slug>/`와 드로어 데이터 `out/docdata/<slug>.json` 각 293개 생성. 한글 mojibake 0, 위키링크 내부 네비 + `제N조` 앵커 동작, 컬러 토큰(라이트/다크) 적용. 번들 경량화는 기존 로드맵 항목이다. 디자인 원칙·토큰·컴포넌트 규약은 [design-system.md](design-system.md) 참조.
 >
 > [!todo] 확인 필요: `/graph` 노드·연결 수, `/`의 first-load JS 정확값
 > 코퍼스가 4섹션 293문서로 커지면서 그래프 노드/엣지 수와 번들 사이즈는 빌드마다 변한다. 정확값은 최신 빌드 로그에서 확정한다.
@@ -179,7 +187,7 @@ pm2 startup                       # 부팅 자동시작(systemd) — 별도 1회
 ```
 
 > [!note] 운영(prod) · 개발(dev) 병행
-> 운영(prod)은 포트 `3100`/`9000`(`kei-guide`·`kei-rag-api`, 레포 본체 `/KEIAdminSuperv`, `feat/0620`)으로 돌고, 개발(dev)은 포트 `3101`/`9001`(`kei-guide-dev`·`kei-rag-api-dev`)으로 **완전히 격리**해 병행한다. 개발은 git worktree `/home/mhchoi/kei-dev-0703`(`feat/0703`, 자체 chroma·app.db·.app_secret·볼트 사본)에서 서빙하며 [`../deploy/ecosystem.dev-0703.config.js`](../deploy/ecosystem.dev-0703.config.js)로 기동한다. ⚠ 운영(3100/9000)은 병합 승인 전까지 동결 — 개발은 dev에서만. 상세는 [`../deploy/README.md`](../deploy/README.md) 참조.
+> 운영(prod)은 포트 `3100`/`9000`(`kei-guide`·`kei-rag-api`, 레포 본체 `/KEIAdminSuperv`, `feat/0620`)으로 돌고, 개발(dev)은 포트 `3101`/`9001`(`kei-guide-dev`·`kei-rag-api-dev`)으로 **완전히 격리**해 병행한다. 개발은 git worktree `/home/mhchoi/kei-dev-0703`(`feat/krds`, 자체 chroma·app.db·.app_secret·볼트 사본)에서 서빙하며 [`../deploy/ecosystem.dev-0703.config.js`](../deploy/ecosystem.dev-0703.config.js)로 기동한다(worktree 경로 `/home/mhchoi/kei-dev-0703`와 ecosystem 파일명 `deploy/ecosystem.dev-0703.config.js`는 브랜치가 feat/krds로 바뀐 뒤에도 그대로다). ⚠ 운영(3100/9000)은 병합 승인 전까지 동결 — 개발은 dev에서만. 상세는 [`../deploy/README.md`](../deploy/README.md) 참조.
 
 > [!note] 같은 오리진 프록시
 > 채팅 UI가 같은 오리진 `/api/rag/*`·`/api/app/*`만 호출하므로 CORS가 불필요하고, RAG API(`9000`)는 `127.0.0.1`에만 바인드되어 LAN에 직접 노출되지 않는다. `/api/app/*` 프록시는 요청 쿠키와 응답 `set-cookie`를 전달하고 쿼리를 보존하므로 로그인 세션이 같은 오리진에서 유지된다. `kei-guide`가 유일한 외부 진입점이다.
@@ -218,8 +226,8 @@ sudo ufw allow 3100/tcp                     # 사내망 전체에 3100 허용
 sudo ufw allow from 192.168.1.0/24 to any port 3100 proto tcp
 ```
 
-> [!note] 운영 정석은 그대로 nginx + Zero Trust
-> PM2 + `server.js`(`0.0.0.0:3100`)는 사내망 직접 서빙(또는 nginx 백엔드) 경로다. 인터넷 비공개 원칙상 운영 정석은 여전히 nginx(`127.0.0.1`) + Cloudflare Zero Trust이며(§3·§5), PM2 직접 서빙은 사내망 한정으로 ufw로 막아 둔다.
+> [!note] 앞단은 Zero Trust, nginx는 server.js 앞단 프록시로만
+> PM2 + `server.js`(`0.0.0.0:3100`)가 서빙 본체다(서버 로그인 게이트 내장). 인터넷 비공개 원칙상 앞단은 Cloudflare Zero Trust이며(§3·§5), nginx를 쓰더라도 server.js 앞단 프록시로만 둔다(⛔ nginx 단독 정적 서빙 금지, §2 경고). PM2 직접 서빙은 사내망 한정으로 ufw로 막아 둔다.
 
 ### 4.3 Ollama 답변 LLM
 
@@ -365,7 +373,7 @@ KEI 내부 규정이다. **두 화면([뇌]/[LLM]) 모두 인터넷 공개 금�
 ```mermaid
 flowchart LR
     USER(["사내 사용자"]) --> CF["Cloudflare Zero Trust Access<br/>(운영 정석: 조직 인증 / SSO)"]
-    CF --> SITE["통합 Next.js + TDS 앱<br/>(web/out/ · nginx 127.0.0.1<br/>또는 server.js · PM2 0.0.0.0:3100)"]
+    CF --> SITE["통합 Next.js(KRDS) 앱<br/>(web/out/ · server.js · PM2 0.0.0.0:3100<br/>서버 로그인 게이트 내장)"]
     SITE -->|/api/rag/* · /api/app/* 프록시| RAG["04_rag_api (127.0.0.1:9000)<br/>/v1/* + /app/*<br/>→ Chroma / Ollama / app.db"]
 
     classDef block fill:#fee,stroke:#c33;
@@ -378,7 +386,7 @@ flowchart LR
 모델·임베딩은 전부 온프레미스(GPU Quadro RTX 6000 24GB×2, `data05lx`)에서 구동되므로 데이터는 망 밖으로 나가지 않는다. 상세 보안·거버넌스 정책은 [07 보안·거버넌스](07-security-governance.md)와 [ADR 0005](adr/0005-on-prem-zero-trust.md)를 따른다.
 
 > [!warning] 공개 금지 원칙
-> 어떤 화면도 인터넷에 공개하지 않는다. 이 원칙을 약화시키는 설정(공개 도메인 직결, Access 정책 우회, RAG API의 LAN 직노출 등)은 운영에서 금지한다. `web/out/`·`out/docdata/*.json`은 규정 본문을 포함하므로 커밋 금지(gitignore). LLM DB `tools/app.db`(사용자·채팅·근거 스니펫)와 JWT 키 `tools/.app_secret`도 커밋 금지(gitignore). 볼트/HWP/rule_files 커밋 금지 원칙도 불변. Cloudflare ZT/HTTPS를 도입하면 인증 쿠키를 `secure=True`로 전환한다(§4.1.1).
+> 어떤 화면도 인터넷에 공개하지 않는다. 이 원칙을 약화시키는 설정(공개 도메인 직결, Access 정책 우회, RAG API의 LAN 직노출 등)은 운영에서 금지한다. `web/out/`·`out/docdata/*.json`은 규정 본문을 포함하므로 커밋 금지(gitignore). LLM DB `tools/app.db`(사용자·채팅·근거 스니펫)와 JWT 키 `tools/.app_secret`도 커밋 금지(gitignore). 별지 트랙 산출물 `web/public/forms-pdf/`(분리 PDF·원본 HWP 사본)·`tools/byeolji_png/`·`tools/.byeolji_cache/`도 내부 규정 콘텐츠이므로 커밋 금지(gitignore, [docs/50](50-별지-정확도-다운로드.md)). 볼트/HWP/rule_files 커밋 금지 원칙도 불변. Cloudflare ZT/HTTPS를 도입하면 인증 쿠키를 `secure=True`로 전환한다(§4.1.1).
 
 > [!todo] 확인 필요: Cloudflare 팀/도메인명, Access 정책 그룹
 > 정확한 Cloudflare 팀명·도메인·접근 그룹은 본 브리프에 없다. [07 보안·거버넌스](07-security-governance.md)에서 확정한다.
@@ -389,7 +397,7 @@ flowchart LR
 
 규정이 개정되면 볼트를 갱신하고 두 화면을 다시 만든다. 흐름은 동일하게 "볼트 → 재처리"다.
 
-- **[뇌] Next.js + TDS:** 볼트 갱신 → `cd web && npm run build`(`VAULT_DIR`) → `web/out/`(및 `out/docdata/*.json`) 교체 → nginx 반영 또는 `pm2 reload kei-guide`.
+- **[뇌] Next.js(KRDS):** 볼트 갱신 → `cd web && npm run build`(`VAULT_DIR`) → `web/out/`(및 `out/docdata/*.json`) 교체 → `pm2 reload kei-guide`.
 - **[LLM] RAG:** 볼트 갱신 → [`../tools/02_chunk_and_embed.py`](../tools/02_chunk_and_embed.py)로 제N조 청킹·재임베딩 → Chroma `kei_regs` upsert → 필요 시 `pm2 reload kei-rag-api`.
 
 변환·생성물은 검수 전까지 프론트매터 `검수상태: 미검수`를 유지한다(원문층 의역 금지 원칙은 [03 콘텐츠 모델](03-content-model.md) 참조).
@@ -413,8 +421,8 @@ flowchart LR
 | 5 | PM2 기동: `tools/ecosystem.config.js`(`kei-rag-api` `127.0.0.1:9000`, `/v1/*`+`/app/*`) + `web/ecosystem.config.js`(`kei-guide` `0.0.0.0:3100`) | §4.1 · [`../tools/ecosystem.config.js`](../tools/ecosystem.config.js) · [`../web/ecosystem.config.js`](../web/ecosystem.config.js) |
 | 6 | `pm2 save` + `pm2 startup`(부팅 자동시작 1회) | §4.1 |
 | 6b | LLM 의존성 설치(`sqlmodel`·`pyjwt`·`bcrypt`) · `init_db()`로 `tools/app.db` 생성 · `tools/.app_secret`(`0600`) 자동 생성 확인 · `APP_ADMINS`에 운영자 계정 설정(fail-closed) | §4 · §4.1.1 · [`../tools/requirements.txt`](../tools/requirements.txt) |
-| 6c | (선택) 개발(dev) 병행: git worktree `feat/0703` + `deploy/ecosystem.dev-0703.config.js`(`3101`/`9001`, `kei-*-dev`) | §4.1 · [`../deploy/README.md`](../deploy/README.md) |
-| 7 | 운영 정석 nginx(`127.0.0.1`) + Cloudflare Tunnel + Access **또는** 사내망 `sudo ufw allow 3100/tcp`(RAG `9000` 비개방) | §4.2 · §5 · [07 보안·거버넌스](07-security-governance.md) |
+| 6c | (선택) 개발(dev) 병행: git worktree `feat/krds` + `deploy/ecosystem.dev-0703.config.js`(`3101`/`9001`, `kei-*-dev`) | §4.1 · [`../deploy/README.md`](../deploy/README.md) |
+| 7 | server.js(`3100`) 앞단에 Cloudflare Tunnel + Access **또는** 사내망 `sudo ufw allow 3100/tcp`(RAG `9000` 비개방). nginx는 server.js 앞단 프록시로만(⛔ 단독 정적 서빙 금지, §2) | §4.2 · §5 · [07 보안·거버넌스](07-security-governance.md) |
 | 8 | (선택) Open WebUI 폴백: `docker compose up -d` + 연결 등록(실제 IP, key=EMPTY) | §4.5 |
 | 9 | 백업 대상에 `tools/app.db`·`tools/.app_secret` 포함(커밋 금지) · ZT/HTTPS 시 쿠키 `secure=True` | §4.1.1 · §6 |
 
@@ -429,4 +437,4 @@ flowchart LR
 관련: [02 아키텍처](02-architecture.md) · [04 파이프라인](04-pipeline.md) · [10 운영](10-operations.md) · [ADR 0003 통제형 RAG API](adr/0003-controlled-rag-api.md) · [ADR 0004 Quartz 그래프 사이트](adr/0004-quartz-graph-site.md) · [ADR 0005 온프레미스 Zero Trust](adr/0005-on-prem-zero-trust.md)
 루트: [../README.md](../README.md) · [../CLAUDE.md](../CLAUDE.md) · [../WORKPLAN.md](../WORKPLAN.md)
 
-최종 수정: 2026-06-21 (PM2 ecosystem 2파일 분리·레거시 v1.0.0 병행(3101/9001)·DB 6테이블·피드백/플래그/통계 엔드포인트·SSE 스트리밍·APP_ADMINS fail-closed·GPU 공유 주의 반영)
+최종 수정: 2026-07-16 (KRDS 전환(TDS 제거, docs/37)·서버 로그인 게이트+nginx 단독 서빙 금지(docs/44)·통합 랜딩(docs/47)·서식찾기/캘린더/여정/결재선/허브 라우트·dev 브랜치 feat/krds·별지 트랙 산출물 커밋 금지(docs/50) 반영)

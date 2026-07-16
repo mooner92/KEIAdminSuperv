@@ -5,8 +5,8 @@
 
 이 문서는 `tools/`의 01~04 스크립트를 실행·운영하는 개발자/운영자를 위한 상세 레퍼런스다. 설계 배경은 [02-architecture.md](02-architecture.md), 콘텐츠 모델은 [03-content-model.md](03-content-model.md), RAG 검색 설계는 [05-rag-design.md](05-rag-design.md)를 참고한다.
 
-> [!note] 현재 상태 (2026-07-06)
-> 코퍼스는 **4개 섹션 293문서**(규정집 111 · 연구행정 가이드 65 · 용어집 84 · 사내 시스템 33)로 확장됐다. 사내 시스템은 **7개 시스템**(ERP·통합정보시스템(EIP)·연구관리시스템(PMS)·웹메일·그룹웨어·웹디스크·전자도서관). P1 변환 완료(규정 111, 가이드 PDF/PPTX 포함, 시스템·용어 자동초안), 교차링크(01e·01g·01b) 완료, P2 임베딩 완료(별표/별지 1급 청크 분리·긴 조문 하위청킹 반영, 약 4,545 청크), P3 검색·API 완료. **답변 생성**은 격리 Ollama v0.31.1(Qwen3.5-9B GGUF Q4_K_M)로 동작하며 SSE 스트리밍·멀티턴까지 구현됐다. 변환·생성물은 검수 전까지 프론트매터 `검수상태: 미검수`를 유지한다(전부 미검수). 실측 수치는 문서 맨 끝 [실측 결과(2026-07-06)](#-실측-결과-2026-07-06) 참고.
+> [!note] 현재 상태 (2026-07-16)
+> 코퍼스는 **5개 섹션(50_대외업무 신설) 363문서**로 확장됐다(규정집 111 · 연구행정 가이드 65 · **용어집 119**(`01h_defs_to_terms` 규정 정의 추출 +31, docs/49) · 사내 시스템 54 · 대외업무 14, 2026-07-16 실측). 임베딩 청크는 **4,830개**(용어집 확충 + 별지 MD 복원 179건 반영 재색인, docs/49·50). 사내 시스템은 **7개 시스템**(ERP·통합정보시스템(EIP)·연구관리시스템(PMS)·웹메일·그룹웨어·웹디스크·전자도서관). P1 변환 완료(규정 111, 가이드 PDF/PPTX 포함, 시스템·용어 자동초안), 교차링크(01e·01g·01b) 완료, P2 임베딩 완료(별표/별지 1급 청크 분리·긴 조문 하위청킹 반영), P3 검색·API 완료. **답변 생성**은 격리 Ollama v0.31.1(Qwen3.5-9B GGUF Q4_K_M)로 동작하며 SSE 스트리밍·멀티턴까지 구현됐다. 변환·생성물은 검수 전까지 프론트매터 `검수상태: 미검수`를 유지한다(전부 미검수). 실측 수치는 문서 맨 끝 [실측 결과(2026-07-06)](#-실측-결과-2026-07-06) 참고.
 
 ---
 
@@ -49,9 +49,14 @@ flowchart LR
 | 그래프 분석 (Track C) | `01l_graph_analytics.py` | `clause_xref.json` | `tools/index/graph_analytics.json`(개정 파급·공동인용·고립) |
 | 기한 (Track B) | `01m_deadlines.py` | 규정 원문 | `tools/index/deadlines.json`(상대기한: 기준·오프셋·방향·의무) |
 | 결재선 (Track B) | `01n_approval.py` | 위임전결규정 별표 | `tools/index/approval.json`(업무·직급→전결권자 335) |
+| 별지 분리 PDF (별지 트랙) | `01p_byeolji_pdf.py` | rule_files HWP(볼트 `원본파일` 매핑) | `web/public/forms-pdf/`(별지별 분리 PDF + 원본 HWP 사본) · `tools/byeolji_png/`(복원·검수 PNG) · `tools/index/byeolji_manifest.json` |
+| 별지 감사 (별지 트랙) | `01q_byeolji_audit.py` | 볼트 별지 블록 + manifest | `tools/index/byeolji_audit.json`(A빈/B구조소실/C표깨짐/D빈약 분류 + md 누락 diff — 리포트만) |
 | 청킹·임베딩 | `02_chunk_and_embed.py` | 볼트(`KEI-행정가이드/`) | Chroma `kei_regs` |
 | 질의(CLI) | `03_rag_query.py` | Chroma + 질문 | 콘솔 답변 + 회수 조문 |
 | RAG API | `04_rag_api.py` | Chroma + HTTP 요청 | OpenAI 호환 + `/app/*` 응답 |
+
+> [!note] 별지 트랙(01p/01q) — 원문 다운로드·복원 (상세: [50-별지-정확도-다운로드.md](50-별지-정확도-다운로드.md))
+> 임베딩과 병행하는 별도 트랙이다. HWP→ODT(한글서체→나눔 치환 + 줄간격 ×0.87 보정)→PDF로 변환해 별지별 분리 PDF·PNG·원본 HWP 사본·manifest를 만든다(실측 규정 110건·별지 288건, 폐지 서식은 다운로드 미제공). 관리자 재색인(`POST /app/corpus/reindex`)이 02 실행 전에 01p를 **증분 실행**(HWP mtime 캐시, 무변경 시 ~8초, 실패해도 재색인 계속)하고, 산출물은 `web/server.js`가 `/forms-pdf/*`로 **직결 서빙**한다(웹 재빌드 불필요, 로그인 게이트 뒤).
 
 ---
 
@@ -164,6 +169,9 @@ def reg_num_from_name(stem: str):
 > - 규정번호가 파일명에 없는 문서는 `0000_미분류`로 떨어진다 → **사람이 번호 배정** 필요(실측 28개, 핵심 규정 다수 포함 — 아래 실측 결과 참고).
 > - 파서 무한루프 1건(`여비업무처리기준및QnA개선`)은 타임아웃 격리됐고 fallback으로 별도 처리한다.
 
+> [!warning] 복원본 보호 (docs/50 §6)
+> 비전 전사로 복원된 별지가 재변환으로 깨진 변환본으로 되돌아가는 사고를 막기 위해, `01_hwp_to_md.py`는 `byeolji-restored` 마커가 있는 기존 md를 **건너뛴다**. 원본 HWP 기준으로 강제 재변환하려면 `--overwrite-restored`를 명시한다(원본 HWP가 진실원천이므로 언제든 변환본 상태로 복귀 가능).
+
 ---
 
 ## 📚 01c · `01c_guides_to_md.py` — 가이드(HWP/HWPX/PDF/PPTX) → Markdown
@@ -237,7 +245,7 @@ ERP 모듈 노트와 관련 규정을 `[[ ]]`로 잇는다. **키워드 매칭**
 소스: [`../tools/01f_terms_to_md.py`](../tools/01f_terms_to_md.py)
 
 ### 목적
-행정 용어 정의(`KEI_admin_terms.md`)를 **용어 1개 = 노트 1개**로 풀어 `30_용어집/`에 적재한다(type:term, 실측 84개).
+행정 용어 정의(`KEI_admin_terms.md`)를 **용어 1개 = 노트 1개**로 풀어 `30_용어집/`에 적재한다(type:term — 01f 초기 적재 84개 → 이후 `01h_defs_to_terms.py`(규정 정의 조항 추출, `30_용어집/규정정의/`)로 119개 확충, docs/49).
 
 ### 입력 · 출력
 
@@ -279,7 +287,7 @@ ERP 모듈 노트와 관련 규정을 `[[ ]]`로 잇는다. **키워드 매칭**
 | | 내용 |
 |---|---|
 | 입력 | `--vault` 볼트의 `*.md`(단, `_templates` 제외) — 4섹션(regulation·guide·system·term) |
-| 출력 | Chroma `PersistentClient(path=--db)`의 collection `kei_regs` (실측 약 4,545 items — 별표 분리·하위청킹 + 사내 시스템 7종 적재 후) |
+| 출력 | Chroma `PersistentClient(path=--db)`의 collection `kei_regs` (실측 4,830 items(2026-07-16 재색인) — 별표 분리·하위청킹 + 사내 시스템 7종 적재 후) |
 | 메타 | `hnsw:space=cosine` |
 | 산출물 위치 | `tools/chroma/`(`.gitignore`·재생성 가능) |
 
@@ -555,8 +563,8 @@ wget -O H2Orestart.oxt <H2Orestart 릴리스 oxt URL>
 unopkg add H2Orestart.oxt
 ```
 
-> [!todo] 확인 필요: H2Orestart 릴리스 URL/버전
-> `ebandal/H2Orestart`의 정확한 oxt 다운로드 URL과 버전 핀은 설치 시점에 확정해 `setup_ubuntu_hwp.sh`에 박는다.
+> [!note] 설치 완료 (2026-07-16, docs/50 §1)
+> LibreOffice(Writer) + H2Orestart 설치 완료 — 사내망 대용량 HTTP 차단으로 openjdk는 HTTPS 미러(kakao), JRE는 Adoptium tar로 수동 설치했고, H2Orestart는 `unopkg add --shared`(커스텀 LO 프로필에서도 인식되게 공유 설치 필수 — 실측)로 등록했다.
 
 ### headless 변환
 
@@ -569,6 +577,9 @@ soffice --headless --convert-to pdf --outdir ./pdf_out ./hwp_inbox/규정.hwp
 
 > [!note] 모델 역할 분리
 > 본문 QA(03/04)는 일반 instruct(`Qwen3.5-9B` GGUF Q4_K_M)가, 표 재추출은 비전 모델(`Qwen2.5-VL`)이 담당한다. 둘은 용도가 다른 별개 모델이다.
+
+> [!note] 별지 복원 실행 결과 (2026-07-16)
+> 이 fallback은 별지 트랙(01p PNG 렌더 → 원문 대조 비전 전사)으로 정식화되어 **누적 179건**(1차 138 + 2차 38 + 3차 3)을 복원했다(최종 감사 A 0). 복원 블록은 `byeolji-restored` 마커 + `검수상태: 미검수` 유지(확정은 사람). 잔여 실복원 대상은 원본 HWP 미보유분뿐이다. 상세·감사 기준(A/B/C/D)은 [50-별지-정확도-다운로드.md](50-별지-정확도-다운로드.md).
 
 ---
 
@@ -618,6 +629,8 @@ cd tools && uvicorn 04_rag_api:app --host 127.0.0.1 --port 9000
 ---
 
 ## 📊 실측 결과 (2026-07-06)
+
+> 이 절은 **2026-07-06 시점 스냅샷**이다. 최신 수치(5개 섹션 363문서 · 4,830 청크)는 문서 맨 위 '현재 상태 (2026-07-16)' 노트가 정본이다.
 
 > [!note] 실측 환경
 > 서버(data05lx): GPU Quadro RTX 6000 24GB×2(총 48GB, 단일 통합 메모리 아님; 공유·변동적이라 배치 전 `nvidia-smi` 확인), 드라이버 R535 / CUDA 12.2, Python 3.13, torch 2.6.0+cu124. 코퍼스 **4개 섹션 293문서**(규정집 111 · 연구행정 가이드 65 · 용어집 84 · 사내 시스템 33). 답변 생성은 격리 Ollama v0.31.1(Qwen3.5-9B GGUF Q4_K_M).
@@ -691,4 +704,4 @@ cd tools && uvicorn 04_rag_api:app --host 127.0.0.1 --port 9000
 
 ---
 
-최종 수정: 2026-07-06
+최종 수정: 2026-07-16

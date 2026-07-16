@@ -16,6 +16,9 @@
 | 합성 예시 볼트 (`vault-example/`) | 공개 — **가짜 데이터** | git | ✅ 공개 |
 | **규정 볼트 (`KEI-행정가이드/`, 변환된 규정 원문)** | **내부 전용** | 디스크 + Syncthing | ⛔ 비공개 |
 | **원본 HWP (`rule_files/`)** | **내부 전용** | 디스크 + Syncthing | ⛔ 비공개 (git에 커밋된 적 없음) |
+| **연구행정 가이드 원본 (`research_rule_files/`, PDF·PPTX)** | **내부 전용** | 디스크 | ⛔ 비공개 (gitignore) |
+| **별지 산출물 (`web/public/forms-pdf/` 분리 PDF·원본 HWP 사본, `tools/byeolji_png/`, `tools/.byeolji_cache/`)** | 내부 전용 · 규정 원문 파생물 | 디스크 (웹 서빙은 로그인 게이트 뒤 `/forms-pdf/*`) | ⛔ 비공개 (gitignore, 재생성 가능 — `01p_byeolji_pdf`) |
+| 앱 DB(`tools/app.db` — 계정·채팅기록)·JWT 서명키(`tools/.app_secret`, 0600) | 비밀 | 디스크 | ⛔ 비공개 (gitignore) |
 | 벡터DB (`tools/chroma/`) | 내부 전용 · 파생물 | 디스크 | ⛔ 비공개 (재생성 가능) |
 | 모델·임베딩 가중치 | 온프레미스 | 사내 GPU(Quadro RTX 6000) | ⛔ 비공개 |
 | 시크릿(`.env`, 키) | 비밀 | 로컬/시크릿 매니저 | ⛔ 비공개 |
@@ -38,6 +41,7 @@
 - **주요 위협:** 내부 규정이 **공개 git 히스토리**에 남아 외부에서 클론·검색·캐시됨. `.gitignore` 추가만으로는 **과거 커밋에서 사라지지 않음**.
 - **신뢰 경계:** 공개 GitHub(신뢰하지 않음) ↔ 사내 온프레미스(Cloudflare Zero Trust 뒤). 모델·임베딩이 온프레미스라 추론 데이터가 망 밖으로 나가지 않음.
 - **부차 위협:** 코드·설정에 시크릿(키/토큰) 혼입 → gitleaks로 차단.
+- **서빙 위협(2026-07 신설):** 랜딩(`/`·`/about`)이 외부 공개될 수 있는 시나리오에서는 비로그인 접근으로 정적 규정 데이터(`/docdata/*.json`·검색인덱스)와 익명 RAG 질의(`/api/rag/chat`)를 통한 규정 내용 추출이 가능 → `web/server.js`의 **서버 로그인 게이트**(JWT·fail-closed·허용 목록)가 실질 방어선. 위협 매트릭스·잔여 리스크·외부 공개 전 체크리스트 = [docs/44-보안-로그인게이트.md](docs/44-보안-로그인게이트.md).
 
 ---
 
@@ -51,7 +55,8 @@
 | **탐지** | CI — `git ls-files`로 내부 콘텐츠 존재 검사 + gitleaks 시크릿 스캔 | `.github/workflows/security-scan.yml` |
 | **탐지** | (선택) pre-commit 프레임워크 gitleaks 훅 | `.pre-commit-config.yaml` |
 | **교정** | `git-filter-repo`로 전 히스토리에서 볼트·HWP 제거 후 force-push | (유지관리자 실행) |
-| **서빙 보안** | 두 화면([뇌] Quartz / [LLM] Open WebUI) 모두 Cloudflare Zero Trust Access 뒤 + Open WebUI RBAC/SSO | `docs/07-security-governance.md` |
+| **서빙 보안** | 단일 웹앱(`web/server.js`)에 **서버 로그인 게이트 내장** — app_api와 동일 JWT(HS256·쿠키)를 Node crypto로 검증, **fail-closed**(세션키 없으면 전부 차단), 비로그인은 랜딩 허용 목록(`/`·`/about`·정적 에셋·auth 등) 외 302/401. 규정 콘텐츠(docdata·검색인덱스·`/forms-pdf/*`)와 RAG 프록시(`/api/rag/chat`)는 로그인 필수. ⚠ nginx 단독 서빙으로 바꾸면 게이트 소멸 — 금지. 바깥 방벽은 Cloudflare Zero Trust 유지 | `web/server.js` · [docs/44-보안-로그인게이트.md](docs/44-보안-로그인게이트.md) |
+| **서빙 보안(부가)** | CSP(`default-src 'self'`)·COOP/CORP·X-Frame-Options 등 보안 헤더, 로그인 실패 8회/5분·가입 IP 10회/시간 레이트리밋(XFF는 소켓 주소로 덮어써 위조 차단), `[SECURITY]` 이벤트 로그(실패 로그인·차단 — PM2 로그) | `web/server.js` · `tools/app_api.py` · docs/44 §1~2 |
 | **데이터 비유출** | 모델·임베딩 온프레미스(사내 GPU) → 추론 데이터 망 밖 유출 없음 | `docs/adr/0005-on-prem-zero-trust.md` |
 | **비공개 동기화** | 볼트는 git이 아니라 Syncthing(내부 전용, GUI는 로컬 바인딩)으로 서버↔PC 동기화 | `deploy/syncthing-compose.yml` |
 
@@ -84,5 +89,6 @@
 - 거버넌스(접근통제·검수·감사): [docs/07-security-governance.md](docs/07-security-governance.md)
 - 온프레미스·Zero Trust 결정 근거: [docs/adr/0005-on-prem-zero-trust.md](docs/adr/0005-on-prem-zero-trust.md)
 - 공개용 데이터 분리 예시: [vault-example/](vault-example/)
+- 서빙 보안 명세(로그인 게이트·위협 모델·외부 공개 체크리스트): [docs/44-보안-로그인게이트.md](docs/44-보안-로그인게이트.md)
 
-> 최종 수정: 2026-06-19
+> 최종 수정: 2026-07-16

@@ -1,7 +1,7 @@
 # 02. 아키텍처 — 시스템 구조 · 데이터 흐름 · 토폴로지
 
 > KEI 행정 가이드 / 행정 LLM의 시스템 구조를 다룹니다.
-> 핵심은 **하나의 볼트, 두 개의 화면**: 단일 마크다운 볼트를 [뇌] 탐색(그래프·둘러보기·문서)과 [LLM] RAG 채팅이 함께 먹습니다. 두 화면은 모두 한 개의 Next.js 14 + Toss Design System 앱(`web/`)에 통합되어 있습니다.
+> 핵심은 **하나의 볼트, 두 개의 화면**: 단일 마크다운 볼트를 [뇌] 탐색(그래프·둘러보기·문서)과 [LLM] RAG 채팅이 함께 먹습니다. 두 화면은 모두 한 개의 Next.js 14 앱(`web/`, KRDS 참고 자체 토큰 디자인 — TDS는 라이선스 무명시로 제거, Pretendard GOV self-host, docs/37)에 통합되어 있습니다.
 
 이 문서는 개발자·운영자를 1차 독자로 하며, 일부 절(원칙·데이터 흐름)은 행정 담당자도 읽을 수 있게 풀어 씁니다.
 
@@ -11,11 +11,11 @@
 
 이 시스템에는 **단 하나의 진실원천(Source of Truth)** 만 존재합니다 — 레포 안의 마크다운 볼트 `KEI-행정가이드/`. 모든 화면은 이 볼트에서 파생되며, 볼트가 바뀌면 두 화면이 따라옵니다.
 
-두 화면은 별도 앱이 아니라 **한 개의 Next.js 14 + TDS 앱(`web/`)에 통합된 두 경로**입니다. 같은 볼트를, 한쪽은 사람이 탐색하고 한쪽은 RAG로 답합니다.
+두 화면은 별도 앱이 아니라 **한 개의 Next.js 14 앱(`web/`, KRDS 참고 자체 토큰 디자인 — docs/37)에 통합된 두 경로**입니다. 같은 볼트를, 한쪽은 사람이 탐색하고 한쪽은 RAG로 답합니다.
 
 | 화면 | 정체 | 무엇을 하나 | 누가 쓰나 | 어떻게 답하나 |
 | --- | --- | --- | --- | --- |
-| **[뇌]** | Next.js 14 + TDS 앱의 둘러보기(`/browse`)·관계 그래프(`/graph`)·문서 드로어 (`web/`, Node v22+) | 노드/링크 그래프 + 검색으로 규정·가이드를 **탐색** | 구조를 파악하려는 사람 | 사람이 직접 읽고 링크를 따라감 |
+| **[뇌]** | Next.js 14 앱의 둘러보기(`/browse`)·관계 그래프(`/graph`)·문서 드로어 (`web/`, Node v22+) | 노드/링크 그래프 + 검색으로 규정·가이드를 **탐색** | 구조를 파악하려는 사람 | 사람이 직접 읽고 링크를 따라감 |
 | **[LLM]** | 같은 앱의 RAG 채팅(`/`) — 같은 오리진 `/api/*`로 RAG API 호출 | 질문에 `[규정명 제N조]` 출처를 달아 **답변** | 행정 초보(신입·전입자) | 텍스트 + 임베딩 검색(RAG) |
 
 > [!note] 채팅은 통합 앱의 한 경로
@@ -36,11 +36,11 @@
 flowchart TD
     VAULT["📁 마크다운 볼트<br/>KEI-행정가이드/<br/>(단일 진실원천)"]
 
-    subgraph APP["통합 앱 — Next.js 14 + TDS (web/)"]
+    subgraph APP["통합 앱 — Next.js 14 (web/) · KRDS 참고 자체 토큰"]
         direction TB
         NEXT["next build · output:export<br/>(Node v22+)"]
         OUT["web/out/<br/>(정적 export 산출물)"]
-        SERVER["server.js (PM2 kei-guide)<br/>0.0.0.0:3100<br/>정적 서빙 + /api/* 프록시"]
+        SERVER["server.js (PM2 kei-guide)<br/>0.0.0.0:3100<br/>정적 서빙 + 서버 로그인 게이트(JWT kei_session)<br/>+ 보안 헤더(CSP) + /api/* 프록시<br/>+ /forms-pdf/* 직결 서빙"]
         NEXT --> OUT --> SERVER
     end
 
@@ -48,7 +48,7 @@ flowchart TD
         direction TB
         CONV["01 변환<br/>HWP/HWPX/PDF/PPTX → MD"]
         EMBED["02 청킹·임베딩<br/>제N조/헤딩 단위 · KURE-v1"]
-        CHROMA[("Chroma<br/>collection: kei_regs<br/>~4,545 items · hnsw:space=cosine")]
+        CHROMA[("Chroma<br/>collection: kei_regs<br/>4,830 items · hnsw:space=cosine")]
         CONV --> EMBED --> CHROMA
     end
 
@@ -80,12 +80,12 @@ flowchart TD
 > [!note] 컴포넌트 책임 분리 (백엔드 3분리)
 > 백엔드는 세 모듈로 나뉩니다 — `rag_core.py`(검색·생성 공용: retrieve/answer/answer_stream/condense_query/warmup) · `app_api.py`(인증·채팅·플래그·피드백·통계 `/app/*` 라우터) · `04_rag_api.py`(진입점: OpenAI호환 `/v1/*` + `/app/*` 마운트 + `init_db`). PM2는 이 진입점 1프로세스를 띄워 모델을 1회만 로드합니다. `04_rag_api.py`가 제N조 검색 + 근거주입 + `[규정명 제N조]` 출처 강제를 담당합니다(결정 근거: [adr/0003-controlled-rag-api.md](adr/0003-controlled-rag-api.md)). Open WebUI를 선택적 폴백으로 쓸 때도 같은 RAG API를 등록합니다.
 
-> [!note] 통합 앱 구성 — Next.js 14 + TDS (이전 방식 Quartz 대체)
-> 두 화면은 레포의 `web/` 디렉터리에 있는 한 개의 **Next.js 14 + Toss Design System(TDS)** 앱입니다. 서버 런타임 없이 `next.config`의 `output: 'export'`로 정적 export(`web/out/`)만 산출하고, `server.js`(의존성0 정적 서버 + `/api/*` 프록시) 또는 nginx(127.0.0.1) → Cloudflare Zero Trust(사내 전용)로 노출합니다.
-> - **경로**: LLM RAG 채팅(`/`, 근거 패널·문서 드로어) · 둘러보기(`/browse`, 좌측 체크박스 필터) · 관계 그래프(`/graph`) · 운영자 대시보드/플래그(`/admin`).
-> - **라우터·런타임**: Pages Router(TDS=emotion 기반과 SSG 호환), React 18 고정(TDS peer · Next 14).
-> - **TDS**: `@toss/tds-mobile` v2.5.0 + `TDSMobileAITProvider`(`@toss/tds-mobile-ait`). TDS 팔레트를 KEI 시맨틱 토큰(`web/styles/globals.css`의 CSS 변수)으로 매핑해, 나중에 KEI 메인 컬러는 그 한 블록만 교체합니다(메인 컬러는 미정). `ThemeProvider`(seed token)로 TDS 컴포넌트 색도 재정의 가능합니다.
-> - **다크모드**: 라이트/다크/시스템 토글(`lib/theme.tsx` + `ThemeToggle`). 다크 토큰은 `[data-theme="dark"]`로 분기하고, FOUC 방지용 인라인 스크립트를 `_document`에 둡니다(TDS는 `ColorSchemeArea`로 동기화).
+> [!note] 통합 앱 구성 — Next.js 14 (이전 방식 Quartz 대체)
+> 두 화면은 레포의 `web/` 디렉터리에 있는 한 개의 **Next.js 14** 앱입니다. 서버 런타임 없이 `next.config`의 `output: 'export'`로 정적 export(`web/out/`)만 산출하고, `server.js`(의존성0 — 정적 서빙 + **서버 로그인 게이트**(JWT `kei_session` 검증 — 비로그인은 랜딩 셸 `/`·`/about`만, fail-closed, docs/44) + 보안 헤더(CSP) + `/api/*` 프록시 + `/forms-pdf/*` 직결 서빙(01p 별지 PDF, 재빌드 불필요)) → Cloudflare Zero Trust(사내 전용)로 노출합니다.
+> - **경로**: LLM RAG 채팅(`/`, 근거 패널·문서 드로어 — 비로그인 시 `/`는 소개 슬라이드 + 로그인 시트 통합 랜딩, docs/47) · 둘러보기(`/browse`) · 관계 그래프(`/graph`) · 결재선(`/approval`) · 업무 한 장(`/journey`) · 업무 캘린더(`/calendar`, docs/43) · **서식 찾기(`/forms` — 별지 분리 PDF↓·원문 HWP↓ 다운로드, docs/50)** · 추가 기능 허브(`/now`) · 소개(`/about`) · 운영자 대시보드/플래그(`/admin`). 모바일은 채팅·조문 중심 GNB 3탭(docs/48).
+> - **라우터·런타임**: Pages Router·React 18 고정(Next 14).
+> - **디자인 시스템**: KRDS 참고 자체 토큰(원자 팔레트 = KRDS 공식 토큰 값, `web/styles/globals.css`) + Pretendard GOV self-host(`web/public/fonts/`, OFL). TDS 패키지·`TDSMobileAITProvider`·`ColorSchemeArea`는 제거(라이선스 무명시), 외부 UI(디자인시스템) 라이브러리 0 — docs/37.
+> - **다크모드**: 라이트/다크/시스템 토글(`lib/theme.tsx` + `ThemeToggle`). 다크 토큰은 `[data-theme="dark"]`로 분기하고, FOUC 방지용 인라인 스크립트를 `_document`에 둡니다.
 > - **스타일·콘텐츠**: CSS 변수 토큰 + CSS Modules(SSG 안전). 본문은 `react-markdown` + `remark-gfm`로 렌더합니다.
 > - **볼트 소비**: `web/lib/vault.ts`가 볼트(`KEI-행정가이드/`, git 비추적·Syncthing)를 **빌드타임 read-only**로 읽습니다(`VAULT_DIR` 환경변수, 기본 레포 루트). 드로어용 `out/docdata/*.json`도 빌드 때 함께 산출됩니다. `web/node_modules`·`.next`·`out`은 `.gitignore` 대상입니다.
 > - **기능**: 둘러보기(검색/섹션 필터 + 원문 내용 전문검색) / 문서(메타 칩·본문·백링크·제N조 앵커로 조 단위 점프) / 관계 그래프(`react-force-graph-2d`, 노드 클릭 → 문서 이동, 코드 스플릿). 단일 앱·단일 볼트 안에서 섹션(규정집/연구행정 가이드/용어집/사내 시스템)을 분리하며, 가이드는 `10_업무가이드/`에 문서 추가 시 자동 합류합니다.
@@ -94,8 +94,8 @@ flowchart TD
 >
 > 디자인 원칙·토큰·컴포넌트 규약은 [design-system.md](design-system.md)를 참고하세요.
 
-> [!note] 코퍼스 규모 (2026-06-21)
-> 볼트는 4섹션·293문서입니다 — 규정집(`20_규정원문/`) 111 · 연구행정 가이드(`10_업무가이드/`) 65 · 용어집(`30_용어집/`) 84 · 사내 시스템(`40_시스템/`) 33. `40_시스템/`은 전사 시스템 적재(2026-07)로 ERP(행정관리) 외 통합정보시스템(EIP)·연구관리시스템(PMS)·웹메일·그룹웨어(전자결재·문서수발·기록물·PIMS·게시판)·웹디스크·전자도서관까지 **7개 사내 시스템**으로 확장되었습니다. 임베딩 청크는 약 4,545개(긴 조문 하위분할·별표 1급 청크·전사 시스템 반영)이며, 전건 `검수상태: 미검수`(사람 검수 전)입니다. 프론트 실렌더 검증은 `web/verify-*.mjs`(Playwright)로 합니다(headless 한글은 Noto Sans KR·나눔고딕·Noto Color Emoji 설치 + `fc-cache` 후 정상). 남은 일(미정): KEI 메인 컬러 토큰 블록 교체, first-load 번들 경량화, TDS 컴포넌트 확대.
+> [!note] 코퍼스 규모 (2026-07-16)
+> 볼트는 **5섹션 363문서**입니다(2026-07-16 실측, 섹션 README 제외: 규정집(`20_규정원문/`) 111 · 연구행정 가이드(`10_업무가이드/`) 65 · **용어집(`30_용어집/`) 119**(규정 정의 추출 확충, docs/49) · 사내 시스템(`40_시스템/`) 54 · **대외업무(`50_대외업무/`) 14**(신설, docs/39)). `40_시스템/`은 전사 시스템 적재(2026-07)로 ERP(행정관리) 외 통합정보시스템(EIP)·연구관리시스템(PMS)·웹메일·그룹웨어(전자결재·문서수발·기록물·PIMS·게시판)·웹디스크·전자도서관까지 **7개 사내 시스템**으로 확장되었습니다. 임베딩 청크는 **4,830개**(별지 MD 복원 179건 반영 재색인, docs/50)이며, 전건 `검수상태: 미검수`(사람 검수 전)입니다. 프론트 실렌더 검증은 `web/verify-*.mjs`(Playwright)로 합니다(headless 한글은 Noto Sans KR·나눔고딕·Noto Color Emoji 설치 + `fc-cache` 후 정상). 남은 일(미정): KEI 메인 컬러 토큰 블록 교체, first-load 번들 경량화.
 
 > [!warning] 변환 단계는 일회성 적재 흐름
 > `01 변환`은 실시간 경로가 아니라 HWP/HWPX 원문을 볼트의 `20_규정원문/`에 적재하는 **파이프라인 작업**입니다. 평상시 임베딩(`02`)은 볼트의 마크다운을 직접 읽습니다. 점선은 이 적재 관계를 나타냅니다.
@@ -112,9 +112,9 @@ flowchart TD
 | 구분 | A. 탐색용 그래프 ([뇌]) | B. 질의응답 RAG ([LLM]) |
 | --- | --- | --- |
 | 입력 | 볼트 마크다운 + 위키링크 | 볼트 마크다운(조문·헤딩) |
-| 변환 | Next.js+TDS 정적 export → 노드/링크/검색 페이지 | 규정=제N조 단위, 가이드/시스템=헤딩 단위 청킹 → KURE-v1 임베딩 |
+| 변환 | Next.js 정적 export → 노드/링크/검색 페이지 | 규정=제N조 단위, 가이드/시스템=헤딩 단위 청킹 → KURE-v1 임베딩 |
 | 저장 | `web/out/` 정적 파일 | Chroma 벡터(`kei_regs`) |
-| 서빙 | `server.js`(또는 nginx) | `server.js` `/api/*` 프록시 → `04_rag_api.py`(rag_core) |
+| 서빙 | `server.js`(로그인 게이트·CSP 포함) | `server.js` `/api/*` 프록시 → `04_rag_api.py`(rag_core) |
 | 소비 방식 | 사람이 링크/그래프를 탐색 | 임베딩 유사도 검색 → 리랭커 재점수로 조문 회수 |
 | 출력 형태 | 백링크·그래프 시각화·검색 결과 | `[규정명 제N조]` 출처 포함 답변(SSE 스트리밍) |
 
@@ -122,7 +122,7 @@ flowchart TD
 flowchart LR
     V["📁 볼트 마크다운"]
 
-    V --> A1["Next.js+TDS 정적 export<br/>(web/)"]
+    V --> A1["Next.js 정적 export<br/>(web/)"]
     A1 --> A2["노드/링크 그래프<br/>+ 목록/검색 페이지"]
     A2 --> A3["사람이 탐색<br/>(읽고 링크 따라감)"]
 
@@ -206,11 +206,11 @@ flowchart TB
             EMB["임베딩 KURE-v1"]
             RERANK["리랭커 bge-reranker-v2-m3<br/>(주로 cuda:1)"]
         end
-        SERVER["server.js (PM2 kei-guide)<br/>0.0.0.0:3100<br/>정적 서빙 + /api/* 프록시"]
+        SERVER["server.js (PM2 kei-guide)<br/>0.0.0.0:3100<br/>정적 서빙 + 로그인 게이트 + /api/* 프록시"]
         RAG["04_rag_api.py (PM2 kei-rag-api)<br/>127.0.0.1:9000 (uvicorn)<br/>rag_core + app_api"]
         CHR[("Chroma<br/>PersistentClient(path)")]
         DB[("SQLite app.db")]
-        DEV["개발 worktree (dev, feat/0703)<br/>/home/mhchoi/kei-dev-0703<br/>kei-guide :3101 · kei-rag-api :9001<br/>격리 chroma/app.db/볼트/세션키"]
+        DEV["개발 worktree (dev, feat/krds)<br/>/home/mhchoi/kei-dev-0703<br/>kei-guide :3101 · kei-rag-api :9001<br/>격리 chroma/app.db/볼트/세션키"]
     end
 
     CFT["Cloudflare Tunnel /<br/>Zero Trust Access"]
@@ -228,24 +228,24 @@ flowchart TB
 
 ### 포트·엔드포인트 요약
 
-현행 운영(prod, feat/0620, 3100/9000)과 개발(dev, feat/0703 worktree, 3101/9001)이 서로 다른 포트로 완전 격리되어 공존합니다.
+현행 운영(prod, feat/0620, 3100/9000)과 개발(dev, feat/krds worktree, 3101/9001)이 서로 다른 포트로 완전 격리되어 공존합니다.
 
 | 컴포넌트 | 포트 | 비고 |
 | --- | --- | --- |
 | 격리 Ollama v0.31.1 (OpenAI 호환, 생성) | `127.0.0.1:11436/v1` | PM2 `kei-ollama-v031`, ctx 8K, `VLLM_BASE=http://127.0.0.1:11436/v1`, 모델 `Qwen3.5-9B Q4_K_M`. ⚠ 공유 Ollama(`11434`, v0.24.0, 동료 운용)는 qwen3.5 미지원이라 미사용 |
 | `04_rag_api.py` (PM2 `kei-rag-api`) | `127.0.0.1:9000` | `uvicorn 04_rag_api:app --host 127.0.0.1 --port 9000`. `/v1/*` + `/app/*` |
 | 통합 앱 `server.js` (PM2 `kei-guide`) | `0.0.0.0:3100` | `web/out/` 정적 서빙 + `/api/*` → 9000 프록시 |
-| 개발 RAG API (dev, feat/0703) | `127.0.0.1:9001` | `/home/mhchoi/kei-dev-0703` worktree, 격리 chroma/app.db(완전 격리) |
-| 개발 앱 (dev, feat/0703) | `3101` | dev worktree `out/`, → 9001 프록시 |
+| 개발 RAG API (dev, feat/krds) | `127.0.0.1:9001` | `/home/mhchoi/kei-dev-0703` worktree, 격리 chroma/app.db(완전 격리) |
+| 개발 앱 (dev, feat/krds) | `3101` | dev worktree `out/`, → 9001 프록시 |
 
 > [!note] 개발 미리보기
-> 개발 중에는 `cd web && VAULT_DIR=<볼트> npm run dev`로 미리보기를 띄울 수 있습니다(⚠️ 빌드는 반드시 nvm Node 22 — 기본 node18은 docdata emit이 조용히 실패해 드로어가 깨집니다). 운영 서빙은 `server.js`(PM2 `kei-guide`) 또는 nginx 127.0.0.1 + Cloudflare Zero Trust로 합니다.
+> 개발 중에는 `cd web && VAULT_DIR=<볼트> npm run dev`로 미리보기를 띄울 수 있습니다(⚠️ 빌드는 반드시 nvm Node 22 — 기본 node18은 docdata emit이 조용히 실패해 드로어가 깨집니다). 운영 서빙은 `server.js`(PM2 `kei-guide`) + Cloudflare Zero Trust로 합니다(nginx 단독 정적 서빙은 게이트 소멸로 금지 — 아래 보안 경고).
 
 > [!warning] 연결 URL / CORS 함정
 > 브라우저는 백엔드를 **같은 오리진 `/api/*`로만** 호출하고, `server.js`가 로컬 RAG API(127.0.0.1:9000)로 프록시합니다 → CORS 불필요 + API가 LAN에 직접 노출되지 않습니다(쿠키 인증은 same-origin 전제). `allow_credentials=True`를 와일드카드 오리진과 함께 켜지 마세요. SSE 스트리밍은 `server.js`가 hop-by-hop 헤더(`transfer-encoding`·`content-length`·`connection`)를 제거한 뒤 파이프해 버퍼링/중복청크 없이 흐릅니다. Open WebUI를 선택적 폴백으로 등록할 때는 컨테이너 네트워크 함정에 유의해 `localhost`가 아니라 서버 실제 IP/서비스명을 쓰세요(Base URL `http://<서버IP>:9000/v1`, API Key=`EMPTY`).
 
 > [!warning] 보안 — 인터넷 공개 금지
-> 두 화면 모두 **KEI 내부 규정**을 다룹니다. 어떤 화면도 인터넷에 공개하지 않습니다. Cloudflare Zero Trust Access 정책 뒤에 두고, 통합 앱 자체 인증(bcrypt+PyJWT 쿠키 로그인, 관리자 기능은 `APP_ADMINS` fail-closed)으로 한 겹 더 보호합니다. 모델·임베딩이 전부 온프레미스라 데이터는 망 밖으로 나가지 않습니다(상세: [06-deployment.md](06-deployment.md), [07-security-governance.md](07-security-governance.md), [adr/0005-on-prem-zero-trust.md](adr/0005-on-prem-zero-trust.md)).
+> 두 화면 모두 **KEI 내부 규정**을 다룹니다. 어떤 화면도 인터넷에 공개하지 않습니다. Cloudflare Zero Trust Access 정책 뒤에 두고, 통합 앱 자체 인증(bcrypt+PyJWT 쿠키 로그인, 관리자 기능은 `APP_ADMINS` fail-closed)으로 한 겹 더 보호합니다. server.js 서버 게이트가 비로그인 콘텐츠(문서·docdata·검색인덱스·챗 API)를 전면 차단하며(docs/44), 이 때문에 **nginx 단독 정적 서빙은 금지**입니다(게이트 소멸). 모델·임베딩이 전부 온프레미스라 데이터는 망 밖으로 나가지 않습니다(상세: [06-deployment.md](06-deployment.md), [07-security-governance.md](07-security-governance.md), [adr/0005-on-prem-zero-trust.md](adr/0005-on-prem-zero-trust.md)).
 
 > [!todo] 확인 필요: 인프라 상세
 > 다음 값은 본 문서에서 단정하지 않습니다(정본 사실에 없거나 변동적) — 정해지면 채울 것.
@@ -265,19 +265,19 @@ flowchart TB
 | 임베딩 모델 | `nlpai-lab/KURE-v1` (대안 `BAAI/bge-m3`) | 한국어 규정 검색 품질 · 양자화 안 함 · `normalize_embeddings=True` | [adr/0001-embedding-kure-v1.md](adr/0001-embedding-kure-v1.md) |
 | 청킹 단위 | 규정=제N조 단위 · 가이드/시스템=헤딩 단위 · 별표/별지=1급 청크 | 고정 길이 청킹 금지 → `[규정명 제N조]` 출처 정확도 | [adr/0002-article-level-chunking.md](adr/0002-article-level-chunking.md) |
 | RAG 방식 | 통제형 RAG API(`04_rag_api.py` + `rag_core`) | 출처 강제·근거주입·가드레일을 우리가 통제(UI는 통합 앱, Open WebUI는 선택적 폴백) | [adr/0003-controlled-rag-api.md](adr/0003-controlled-rag-api.md) |
-| 탐색 화면 | Next.js 14 + TDS 정적 사이트(`web/`) — 이전 방식(Quartz) 대체 | 정적 export로 그래프·목록·검색·문서 제공 + TDS 디자인 일관성 + KEI 시맨틱 토큰 | [adr/0004-quartz-graph-site.md](adr/0004-quartz-graph-site.md)(이전 방식 배경), [design-system.md](design-system.md) |
+| 탐색 화면 | Next.js 14 정적 사이트(`web/`, KRDS 토큰) — 이전 방식(Quartz) 대체 | 정적 export로 그래프·목록·검색·문서 제공 + KRDS 기반 공공 디자인 일관성 + KEI 시맨틱 토큰 | [adr/0004-quartz-graph-site.md](adr/0004-quartz-graph-site.md)(이전 방식 배경), [design-system.md](design-system.md) |
 | 노출·보안 | 온프레미스 + Cloudflare Zero Trust | 내부 규정 비공개 · 데이터 망 밖 미유출 | [adr/0005-on-prem-zero-trust.md](adr/0005-on-prem-zero-trust.md) |
 
 부수 선택(추가 ADR 없이 본문 사실로 고정):
 
 | 영역 | 선택 |
 | --- | --- |
-| 벡터DB | Chroma `PersistentClient(path)`, collection `kei_regs`(약 4,545 items), 컬렉션 메타 `hnsw:space=cosine`. 청크 메타데이터 키: `규정명`·`규정번호`·`조`·`분류`·`개정일`·`검수상태`·`type`·`path`(볼트 상대경로) |
+| 벡터DB | Chroma `PersistentClient(path)`, collection `kei_regs`(4,830 items), 컬렉션 메타 `hnsw:space=cosine`. 청크 메타데이터 키: `규정명`·`규정번호`·`조`·`분류`·`개정일`·`검수상태`·`type`·`path`(볼트 상대경로) |
 | LLM 서빙 | **격리 Ollama v0.31.1**(OpenAI 호환, `127.0.0.1:11436/v1`, PM2 `kei-ollama-v031`, ctx 8K), 모델 `Qwen3.5-9B Q4_K_M`(GGUF, ~5.7GB, unsloth, apache-2.0). vLLM 아님(이전 vLLM 계획 대체). 드라이버 535라 Vulkan로 GPU 사용 |
 | 리랭커 | `BAAI/bge-reranker-v2-m3`(cross-encoder, 온프레미스). 밀집 top-20 → top-5 재점수. 실패 시 밀집 강등 |
 | HWP 변환 | `hwp-hwpx-parser`(.hwp/.hwpx). 표/별표 깨지면 LibreOffice + H2Orestart → PDF → Qwen2.5-VL로 표만 재추출. 가이드(PDF/PPTX)는 PyMuPDF/python-pptx |
 | 앱 영속화 | bcrypt(직접)+PyJWT 쿠키 + SQLModel/SQLite(`tools/app.db`). 테이블 `User`·`ChatSession`·`Message`·`Feedback`·`Flag`·`FlagAudit` |
-| LLM UI | 통합 Next.js+TDS 앱(`web/` `/`). `04_rag_api.py`를 같은 오리진 `/api/*`로 호출. Open WebUI는 같은 RAG API를 쓰는 선택적 폴백 |
+| LLM UI | 통합 Next.js 앱(`web/` `/`). `04_rag_api.py`를 같은 오리진 `/api/*`로 호출. Open WebUI는 같은 RAG API를 쓰는 선택적 폴백 |
 
 > [!note] ADR 인덱스
 > ADR 목록과 작성 규약은 [adr/README.md](adr/README.md)를 참고하세요.
@@ -293,4 +293,4 @@ flowchart TB
 
 ---
 
-최종 수정: 2026-07-06
+최종 수정: 2026-07-16
