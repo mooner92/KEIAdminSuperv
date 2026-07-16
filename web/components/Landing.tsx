@@ -126,21 +126,115 @@ export default function Landing({
   };
 
   if (variant === "home") {
-    // 컴팩트: 로그인 카드가 첫 화면에 함께 보인다(세션 만료 사용자 2클릭·2탭 이내 — §7)
+    // 통합 랜딩(docs/47): 소개를 메인으로 — 왼쪽에 소개가 주르륵 스크롤되고,
+    // 오른쪽 로그인 카드는 sticky로 제자리에 떠 있다(스크롤해도 이동 X). 소개를 숨기지 않는다.
     return (
-      <div className={styles.homeWrap} ref={rootRef}>
-        <div className={styles.homeHero}>
-          <p className={styles.heroKicker}>KEI 임직원 전용</p>
-          <h1 className={styles.homeTitle}>{SITE_NAME}</h1>
-          <p className={styles.heroLead}>사내 규정을 근거로 답하는 행정 도우미 — 모든 답변에 출처가 달립니다.</p>
-          <div className={styles.exampleChips} aria-label="예시 질문">
-            {EXAMPLES.map((q) => <span key={q} className={styles.exChip}>{q}</span>)}
+      <div className={styles.mergedWrap}>
+        <div className={styles.mergedIntro} ref={rootRef}>
+          {/* 히어로 */}
+          <header className={styles.mHero}>
+            <p className={styles.heroKicker} data-reveal>
+              <span className={styles.liveDot} aria-hidden />
+              {SITE_NAME} · KEI 임직원 전용
+            </p>
+            <h1 className={styles.mTitle} data-reveal>
+              물어보면,
+              <br />
+              <span className={styles.heroGrad}>규정이 답합니다.</span>
+            </h1>
+            <p className={styles.mLead} data-reveal>
+              "이 업무, 어떻게 처리하지?" — 규정을 근거로 답하는 행정 도우미.
+              <br />모든 답변에 <b>[규정명 제N조]</b> 출처가 달립니다.
+            </p>
+            <div className={styles.exampleChips} data-reveal aria-label="예시 질문">
+              {EXAMPLES.map((q) => <span key={q} className={styles.exChip}>{q}</span>)}
+            </div>
+            {counts ? (
+              <p className={styles.heroMeta} data-reveal aria-label="코퍼스 규모(빌드타임 실측)">
+                {[
+                  { n: counts.regs, label: "규정 원문" },
+                  { n: counts.guides, label: "업무 가이드" },
+                  { n: counts.terms, label: "행정 용어" },
+                ].filter((x) => x.n > 0).map((x) => (
+                  <span key={x.label}>{x.label} <b>{x.n.toLocaleString()}</b></span>
+                ))}
+                <span>출처 표기 <b>100%</b></span>
+              </p>
+            ) : null}
+          </header>
+
+          {/* 01 질문하기 */}
+          <section className={styles.mSection} data-reveal>
+            <Eyebrow tone="tBlue" num="01">질문하기</Eyebrow>
+            <h2 className={styles.h2}>말하듯 물으면, 규정이 답합니다</h2>
+            <p className={styles.lead}>어려운 규정 용어를 몰라도 괜찮아요. 평소 말하듯 물어보세요.</p>
+            <ChatMockup />
+          </section>
+
+          {/* 02 근거 */}
+          <section className={styles.mSection} data-reveal>
+            <Eyebrow tone="tGreen" num="02">근거</Eyebrow>
+            <h2 className={styles.h2}>모든 답에 근거가 달립니다</h2>
+            <p className={styles.lead}>
+              답변 옆 근거 패널에서 인용된 조문을 바로 열어볼 수 있고, 금액·한도가 나오면 원문 확인을 안내합니다.
+            </p>
+            <div className={styles.guardCard}>
+              <p className={styles.guardLabel}>그리고 가장 중요한 약속 —</p>
+              <p className={styles.guardQuote}>"해당 내용은 규정에서 확인되지 않습니다."</p>
+              <p className={styles.guardDesc}>
+                근거가 없으면 지어내지 않고 이렇게 답합니다. 아는 것과 모르는 것을 구분하는 것이 첫 번째 원칙입니다.
+              </p>
+            </div>
+          </section>
+
+          {/* 03 둘러보기 */}
+          <section className={styles.mSection} data-reveal>
+            <Eyebrow tone="tPurple" num="03">둘러보기</Eyebrow>
+            <h2 className={styles.h2}>
+              {counts ? (
+                <>규정 {counts.regs} · 가이드 {counts.guides} · 용어 {counts.terms} — 전부 연결돼 있습니다.</>
+              ) : (
+                "규정은 서로 연결돼 있어요"
+              )}
+            </h2>
+            <p className={styles.lead}>하나의 규정에서 관련 규정·가이드·서식으로 자연스럽게 이어집니다.</p>
+            <GraphVisual />
+            <div className={styles.featGrid}>
+              <div className={styles.featCard}><span className={styles.featEmoji}>📚</span><b>규정 둘러보기</b><p>분류별로 탐색하고 원문을 그대로 읽어요.</p></div>
+              <div className={styles.featCard}><span className={styles.featEmoji}>🕸</span><b>관계 그래프</b><p>서로 인용하는 규정을 연결망으로 한눈에.</p></div>
+              <div className={styles.featCard}><span className={styles.featEmoji}>📄</span><b>서식 찾기</b><p>별지 서식을 번호·이름으로 찾아 바로 이동.</p></div>
+            </div>
+          </section>
+
+          {/* 04 신뢰 */}
+          <section className={styles.mSection} data-reveal>
+            <Eyebrow tone="tOrange" num="04">신뢰</Eyebrow>
+            <h2 className={styles.h2}>믿을 수 있게 운영합니다</h2>
+            {counts ? (
+              <div className={styles.statGrid}>
+                {[
+                  { n: counts.regs, label: "규정 원문" },
+                  { n: counts.guides, label: "업무 가이드" },
+                  { n: counts.terms, label: "행정 용어" },
+                  { n: counts.reviewed, label: "사람 검수 완료" },
+                ].filter((s) => s.n > 0).map((s) => (
+                  <div key={s.label} className={styles.stat}><b>{s.n.toLocaleString()}</b><span>{s.label}</span></div>
+                ))}
+              </div>
+            ) : null}
+            <p className={styles.trustNote}>
+              📑 규정집 기준일 {CORPUS_AS_OF} · 답변은 참고용이며 최종 확인은 규정 원문으로 ·
+              🔒 사내 전용 — 모든 데이터는 원내 서버에만 있습니다.
+            </p>
+          </section>
+        </div>
+
+        {/* 오른쪽 sticky 로그인 — 스크롤해도 제자리 */}
+        <aside className={styles.mergedLogin}>
+          <div className={styles.loginSticky}>
+            {onAuthed ? <Login onAuthed={onAuthed} embedded /> : null}
           </div>
-          <Link href="/about/" className={styles.aboutLink}>서비스 소개 자세히 보기 →</Link>
-        </div>
-        <div className={styles.homeLogin}>
-          {onAuthed ? <Login onAuthed={onAuthed} embedded /> : null}
-        </div>
+        </aside>
       </div>
     );
   }

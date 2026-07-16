@@ -85,17 +85,17 @@ await pm.close();
 const pr = await ctx.newPage();
 await pr.emulateMedia({ reducedMotion: "reduce" });
 await pr.goto(BASE + "/about/", { waitUntil: "load" });
-await pr.waitForTimeout(800);
-// 히어로 kicker는 정적 디자인 opacity(0.66)를 가지므로 '숨김(0) 아님 + 이동 없음'으로 판정
-// (docs/46 §2-9: reduced-motion에서는 리빌 트랜지션 자체가 정의되지 않는다)
+await pr.waitForTimeout(1600); // 페이드(0.9s)+스태거(0.45s) 완료 대기
+// docs/46 §2-9: reduce-motion에서는 '이동(translateY) 없음'만 보장(페이드 opacity는 접근성상 허용).
+// 완료 후 전 요소가 보이고(op>0.9) transform none이어야 한다.
 const rm = await pr.evaluate(() =>
   [...document.querySelectorAll("[data-reveal]")].slice(0, 6).map((el) => {
     const cs = getComputedStyle(el);
     return { op: parseFloat(cs.opacity), tf: cs.transform };
   }));
-check("⑤ reduced-motion: 전 요소 즉시 표시(op>0.5·이동 없음)",
-  rm.length > 0 && rm.every((x) => x.op > 0.5 && (x.tf === "none" || x.tf === "matrix(1, 0, 0, 1, 0, 0)")),
-  JSON.stringify(rm.map((x) => x.op)));
+check("⑤ reduced-motion: 이동 없음 + 최종 표시(op>0.9)",
+  rm.length > 0 && rm.every((x) => x.op > 0.9 && (x.tf === "none" || x.tf === "matrix(1, 0, 0, 1, 0, 0)")),
+  JSON.stringify(rm.map((x) => x.op.toFixed(2))));
 await pr.close();
 
 // ⑥ flag off(새 컨텍스트 + 평면 dict 응답 고정) — /about 준비 중 + '/' 기존 Login 폼
@@ -116,7 +116,7 @@ check("⑥ flag off: /about 준비 중", offAbout);
 await poff.goto(BASE + "/", { waitUntil: "load" });
 const offHome = await poff.waitForFunction(() => {
   const t = document.body.innerText;
-  return t.includes("로그인") && !t.includes("서비스 소개 자세히 보기");
+  return t.includes("로그인") && !t.includes("규정이 답합니다");  // 랜딩 히어로 문구 미노출
 }, undefined, { timeout: 8000 }).then(() => true).catch(() => false);
 check("⑥ flag off: '/' 기존 Login 폼(랜딩 미노출)", offHome);
 await ctxOff.close().catch(() => {});
@@ -127,14 +127,17 @@ const pa = await ctxAnon.newPage();
 let anonTracks = 0;
 pa.on("request", (r) => { if (r.url().includes("/api/app/track")) anonTracks++; });
 await pa.goto(BASE + "/", { waitUntil: "load" });
-const compact = await pa.waitForFunction(() => document.body.innerText.includes("서비스 소개 자세히 보기"),
-  undefined, { timeout: 8000 }).then(() => true).catch(() => false);
-check("⑦ 비로그인 '/': 컴팩트 랜딩", compact);
+// docs/47 통합 홈: 소개(히어로 문구)와 로그인 폼이 한 화면에 함께
+const merged = await pa.waitForFunction(() => {
+  const t = document.body.innerText;
+  return t.includes("규정이 답합니다") && t.includes("로그인");
+}, undefined, { timeout: 8000 }).then(() => true).catch(() => false);
+check("⑦ 비로그인 '/': 통합 랜딩(소개+로그인)", merged);
 const loginVisible = await pa.evaluate(() => {
   const input = document.querySelector('input[autocomplete="username"]');
   if (!input) return false;
   const r = input.getBoundingClientRect();
-  return r.top > 0 && r.bottom < window.innerHeight; // 스크롤 없이 첫 화면에서 로그인 도달(§7)
+  return r.top > 0 && r.bottom < window.innerHeight; // 첫 화면에서 로그인 도달
 });
 check("⑦ 로그인 카드 첫 화면 가시(2클릭 이내 도달)", loginVisible);
 await pa.waitForTimeout(1500);
@@ -145,22 +148,21 @@ check("⑦ 비로그인: GNB 앱 메뉴 숨김", !hdr.includes("규정 둘러보
 await pa.screenshot({ path: "verify-landing-home.png" });
 await ctxAnon.close().catch(() => {});
 
-// ⑨ 시작페이지 스크롤 0(사용자 요청) — 비로그인 '/'에서 푸터까지 한 화면(1900×983·1512×860)
-for (const vp of [{ width: 1900, height: 983 }, { width: 1512, height: 860 }]) {
+// ⑨ 통합 홈(docs/47): 소개는 스크롤되고 로그인 카드는 sticky로 제자리 — 스크롤 전후 카드 y 불변
+for (const vp of [{ width: 1900, height: 983 }, { width: 1440, height: 860 }]) {
   const cno = await b.newContext({ viewport: vp });
   const pno = await cno.newPage();
   await pno.goto(BASE + "/", { waitUntil: "load" });
-  await pno.waitForFunction(() => document.body.innerText.includes("서비스 소개") || document.body.innerText.includes("로그인"),
+  await pno.waitForFunction(() => document.body.innerText.includes("규정이 답합니다"),
     undefined, { timeout: 8000 }).catch(() => {});
-  await pno.waitForTimeout(800);
-  const fit = await pno.evaluate(() => {
-    const footer = document.querySelector("footer");
-    return {
-      noScroll: document.documentElement.scrollHeight <= window.innerHeight + 1,
-      footerVisible: footer ? footer.getBoundingClientRect().bottom <= window.innerHeight + 1 : false,
-    };
-  });
-  check(`⑨ ${vp.width}×${vp.height} 비로그인 '/': 스크롤 0 + 푸터 가시`, fit.noScroll && fit.footerVisible, JSON.stringify(fit));
+  await pno.waitForTimeout(1200);
+  const card = () => pno.locator('[class*="loginSticky"]');
+  const y0 = (await card().boundingBox().catch(() => null))?.y;
+  await pno.evaluate(() => window.scrollBy(0, 700));
+  await pno.waitForTimeout(600);
+  const y1 = (await card().boundingBox().catch(() => null))?.y;
+  const sticky = y0 != null && y1 != null && Math.abs(y0 - y1) < 40;
+  check(`⑨ ${vp.width}×${vp.height} 로그인 sticky(스크롤해도 제자리)`, sticky, `${Math.round(y0)}→${Math.round(y1)}`);
   await cno.close().catch(() => {});
 }
 
