@@ -108,7 +108,11 @@ export default function ChatApp({
   const [trending, setTrending] = useState<{ k: string; n: number }[]>([]);
   useEffect(() => {
     if (!trendingOn) return;
-    api.trending(7).then((r) => setTrending(r.keywords)).catch(() => {}); // k-익명 집계 — 실패 시 조용히 생략
+    // k-익명 집계 — 용어집 등재어만(docs/49). 7일 창이 비면 30일로 폴백(칩 공백 방지). 실패 시 조용히 생략
+    api.trending(7).then((r) => {
+      if (r.keywords.length > 0) { setTrending(r.keywords); return; }
+      return api.trending(30).then((r2) => setTrending(r2.keywords));
+    }).catch(() => {});
   }, [trendingOn]);
   const actionsOn = useFlag("answer_actions"); // v1 ⑫(S6): 복사·인용 칩·수치 대조 // v1 ⑧·⑨(S3·S4): 배지 3단 위계·미검수 집계·거부 리프레임
   const [approvalOpen, setApprovalOpen] = useState(false); // 결재선 드로어(우측 슬라이드인)

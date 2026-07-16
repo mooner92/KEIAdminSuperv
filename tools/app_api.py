@@ -1464,20 +1464,31 @@ _TREND_STOP = {"연구원", "규정", "기관", "업무", "관리", "제도", "�
 
 
 def _trend_lexicon() -> list:
-    """키워드 사전 = 여정 트리거 + 용어집(defterms) 용어명. 최장 우선 정렬(부분 문자열 중복 방지)."""
+    """키워드 사전 = **용어집(30_용어집) 노트 제목만**(docs/49 — '사용' 같은 일반어 유입 차단,
+    칩이 곧 용어집 등재어가 되도록). 볼트 없으면 기존 소스(여정 트리거+defterms) 폴백.
+    최장 우선 정렬(부분 문자열 중복 방지)."""
     if _TREND["lex"] is None:
         kws = set()
-        try:
-            for t in rag_core._ensure_journey_triggers():
-                kws.update(k for k in t.get("kws", []) if len(k) >= 2)
-        except Exception:  # noqa: BLE001
-            pass
-        try:
-            dp = os.path.join(os.path.dirname(os.path.abspath(__file__)), "index", "defterms.json")
-            terms = json.loads(open(dp, encoding="utf-8").read()).get("terms", {})
-            kws.update(k for k in terms if 2 <= len(k) <= 12)
-        except Exception:  # noqa: BLE001
-            pass
+        gdir = os.path.join(os.environ.get("VAULT_DIR", ""), "30_용어집")
+        if os.path.isdir(gdir):
+            for root, _dirs, files in os.walk(gdir):
+                for fn in files:
+                    if fn.endswith(".md") and fn != "README.md":
+                        t = os.path.splitext(fn)[0].strip()
+                        if 2 <= len(t) <= 12:
+                            kws.add(t)
+        if not kws:  # 폴백 — 볼트 미접근 환경
+            try:
+                for t in rag_core._ensure_journey_triggers():
+                    kws.update(k for k in t.get("kws", []) if len(k) >= 2)
+            except Exception:  # noqa: BLE001
+                pass
+            try:
+                dp = os.path.join(os.path.dirname(os.path.abspath(__file__)), "index", "defterms.json")
+                terms = json.loads(open(dp, encoding="utf-8").read()).get("terms", {})
+                kws.update(k for k in terms if 2 <= len(k) <= 12)
+            except Exception:  # noqa: BLE001
+                pass
         _TREND["lex"] = sorted((k for k in kws if k not in _TREND_STOP), key=len, reverse=True)
     return _TREND["lex"]
 
