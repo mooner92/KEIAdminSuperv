@@ -5,6 +5,7 @@ const fails = [];
 const ok = (c, m) => { console.log((c ? "✅ " : "❌ ") + m); if (!c) fails.push(m); };
 const b = await chromium.launch();
 const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
+await p.context().request.post(BASE + "/api/app/auth/login", { data: { username: "admintest", password: "admtest123" } }); // docs/44 게이트
 
 // 1) 타이틀 통일 + 파비콘
 await p.goto(`${BASE}/browse/`, { waitUntil: "networkidle" });
