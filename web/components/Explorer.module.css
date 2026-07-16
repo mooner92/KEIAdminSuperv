@@ -253,10 +253,28 @@
   font-size: 14px;
 }
 
+/* 모바일 필터 토글 — 데스크톱 숨김 */
+.filterToggle { display: none; }
+
 @media (max-width: 880px) {
   /* 모바일: 고정 그리드 해제 → 일반 흐름(페이지 스크롤). fill 모바일 폴백과 짝 */
   .wrap { grid-template-columns: 1fr; grid-template-rows: auto; overflow: visible; }
-  .side { overflow-y: visible; }
+  /* docs/48: 필터(체크박스 30개)가 첫 화면을 다 먹던 것 → 기본 접힘, 목록(조문) 우선 */
+  .side { display: none; overflow-y: visible; }
+  .sideOpenM { display: block; }
+  .filterToggle {
+    display: block;
+    width: 100%;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font: inherit; font-size: 13.5px; font-weight: 700;
+    border-radius: var(--radius-md);
+    padding: 10px 14px;
+    margin-bottom: var(--space-3);
+    cursor: pointer;
+    text-align: left;
+  }
   .content { display: block; }
   .list { overflow-y: visible; }
 }

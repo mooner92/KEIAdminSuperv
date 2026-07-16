@@ -40,6 +40,7 @@ export default function Explorer({ docs }: { docs: DocMeta[] }) {
   const contentSearchOn = useFlag("content_search");
   const upgrades = useFlag("explore_upgrades"); // v1 ⑬(S7): URL 딥링크 등
   const [q, setQ] = useState("");
+  const [filterOpen, setFilterOpen] = useState(false); // 모바일(≤880px): 필터 기본 접힘 — 목록(조문)이 첫 화면(docs/48)
   const [f, setF] = useState<Filters>({ section: new Set(), category: new Set(), reviewed: new Set() });
   const [openSlug, setOpenSlugRaw] = useState<string | null>(null);
   // v1 ⑬(S7-#27): 드로어 상태 URL 동기화(?doc=슬러그) — 딥링크 공유·브라우저 뒤로가기 연동(flag)
@@ -196,7 +197,15 @@ export default function Explorer({ docs }: { docs: DocMeta[] }) {
 
   return (
     <div className={styles.wrap}>
-      <aside className={styles.side}>
+      {/* 모바일 전용 필터 토글 — 데스크톱에선 숨김(사이드바 상시) */}
+      <button
+        className={styles.filterToggle}
+        onClick={() => setFilterOpen(!filterOpen)}
+        aria-expanded={filterOpen}
+      >
+        {filterOpen ? "필터 접기 ▴" : `필터 열기 ▾${activeCount > 0 ? ` · ${activeCount}개 적용 중` : ""}`}
+      </button>
+      <aside className={`${styles.side} ${filterOpen ? styles.sideOpenM : ""}`}>
         <div className={styles.sideHead}>
           <span className={styles.sideTitle}>필터</span>
           {activeCount > 0 ? (

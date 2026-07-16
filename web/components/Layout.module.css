@@ -140,6 +140,9 @@
   .inner { padding: 0 var(--space-4); }
   .innerFill { padding: var(--space-3) var(--space-4); }
   .brandText { display: none; }
+  /* 모바일 GNB = 핵심 3탭(질문하기·규정 둘러보기·추가 기능) — 채팅·조문 중심(docs/48).
+     그래프·결재선·업무 한 장·캘린더는 '추가 기능' 허브 바로가기로 도달(도달성 유지) */
+  .navSecondary { display: none; }
   /* GNB 6탭(리뷰 확정: ≤390px 오버플로) — 페이지 대신 nav 내부만 가로 스크롤 */
   .nav {
     gap: var(--space-3);

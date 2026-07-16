@@ -105,10 +105,10 @@ export default function Layout({
             <nav className={styles.nav}>
               <Link href="/" className={nav("/")} aria-current={pathname === "/" ? "page" : undefined}>질문하기</Link>
               <Link href="/browse/" className={nav("/browse")} aria-current={pathname.startsWith("/browse") ? "page" : undefined}>규정 둘러보기</Link>
-              <Link href="/graph/" className={nav("/graph")} aria-current={pathname.startsWith("/graph") ? "page" : undefined}>관계 그래프</Link>
-              {approvalNav ? <Link href="/approval/" className={nav("/approval")} aria-current={pathname.startsWith("/approval") ? "page" : undefined}>결재선</Link> : null}
-              {journeyNav ? <Link href="/journey/" className={nav("/journey")} aria-current={pathname.startsWith("/journey") ? "page" : undefined}>업무 한 장</Link> : null}
-              {eventsOn ? <Link href="/calendar/" className={nav("/calendar")} aria-current={pathname.startsWith("/calendar") ? "page" : undefined}>업무 캘린더</Link> : null}
+              <Link href="/graph/" className={`${styles.navSecondary} ${nav("/graph") || ""}`} aria-current={pathname.startsWith("/graph") ? "page" : undefined}>관계 그래프</Link>
+              {approvalNav ? <Link href="/approval/" className={`${styles.navSecondary} ${nav("/approval") || ""}`} aria-current={pathname.startsWith("/approval") ? "page" : undefined}>결재선</Link> : null}
+              {journeyNav ? <Link href="/journey/" className={`${styles.navSecondary} ${nav("/journey") || ""}`} aria-current={pathname.startsWith("/journey") ? "page" : undefined}>업무 한 장</Link> : null}
+              {eventsOn ? <Link href="/calendar/" className={`${styles.navSecondary} ${nav("/calendar") || ""}`} aria-current={pathname.startsWith("/calendar") ? "page" : undefined}>업무 캘린더</Link> : null}
               {eventsOn ? <Link href="/now/" className={nav("/now")} aria-current={pathname.startsWith("/now") ? "page" : undefined}>추가 기능</Link> : null}
             </nav>
           ) : (

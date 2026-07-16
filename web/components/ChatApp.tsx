@@ -432,12 +432,15 @@ export default function ChatApp({
   };
 
   const empty = messages.length === 0 && !sending;
+  // 모바일(≤720px): 대화 목록을 위에 쌓지 않고 드로어로(docs/48 — 채팅이 첫 화면)
+  const [sideOpen, setSideOpen] = useState(false);
 
   return (
     <div className={styles.app}>
-      {/* ── 좌측: 대화 목록 ── */}
-      <aside className={styles.sidebar}>
-        <button className={styles.newBtn} onClick={newChat}>
+      {/* ── 좌측: 대화 목록(모바일에선 드로어) ── */}
+      {sideOpen ? <div className={styles.sideBackdrop} onClick={() => setSideOpen(false)} aria-hidden /> : null}
+      <aside className={`${styles.sidebar} ${sideOpen ? styles.sidebarOpen : ""}`}>
+        <button className={styles.newBtn} onClick={() => { newChat(); setSideOpen(false); }}>
           ＋ 새 대화
         </button>
         <div className={styles.chatList}>
@@ -445,7 +448,7 @@ export default function ChatApp({
             <button
               key={c.id}
               className={`${styles.chatItem} ${c.id === activeId ? styles.chatItemActive : ""}`}
-              onClick={() => selectChat(c.id)}
+              onClick={() => { selectChat(c.id); setSideOpen(false); }}
             >
               <span className={styles.chatTitle}>{c.title}</span>
               <span className={styles.chatTime}>{fmtT(c.updated_at)}</span>
@@ -466,6 +469,11 @@ export default function ChatApp({
 
       {/* ── 중앙: 채팅 ── */}
       <div className={styles.main}>
+        {/* 모바일 전용 바 — 대화 목록·새 대화(≤720px에서만 표시) */}
+        <div className={styles.mobileBar}>
+          <button onClick={() => setSideOpen(true)} aria-label="대화 목록 열기">☰ 대화 목록</button>
+          <button onClick={newChat}>＋ 새 대화</button>
+        </div>
         <div className={styles.thread} ref={threadRef}>
           {empty ? (
             <div className={styles.welcome}>

@@ -29,6 +29,8 @@ export default function NowPage({ seasonal, revised, notes, terms, formsCount }:
   const on = useFlag("events_tab");
   const formsOn = useFlag("forms_registry"); // 서식 찾기 바로가기 게이트
   const changelogOn = useFlag("changelog");  // 새로워진 점 바로가기 게이트
+  const approvalOn = useFlag("approval_finder"); // 결재선 — 모바일 GNB에서 빠진 화면의 허브 도달(docs/48)
+  const journeyOn = useFlag("journey_map"); // 업무 한 장 — 〃
   const [month, setMonth] = useState<number | null>(null); // 이번 달 — null = 클라이언트 미확정(SSG 안전)
   const [trending, setTrending] = useState<{ k: string; n: number }[] | null>(null);
   const [trendErr, setTrendErr] = useState<number | null>(null); // HTTP status(401=로그인 필요) | 0=기타
@@ -101,6 +103,26 @@ export default function NowPage({ seasonal, revised, notes, terms, formsCount }:
             <span className={n.shortcutDesc}>
               {notes[0] ? `최근: ${notes[0].제목}` : "서비스 업데이트 내역"}
             </span>
+          </Link>
+        ) : null}
+        {/* docs/48: 모바일 GNB에서 뺀 화면들 — 허브에서 항상 도달 가능하게 */}
+        <Link className={n.shortcut} href="/graph/">
+          <span className={n.shortcutIcon}>🕸️</span>
+          <b className={n.shortcutTitle}>관계 그래프</b>
+          <span className={n.shortcutDesc}>규정 간 상호참조를 연결망으로 — 관련 규정을 한눈에</span>
+        </Link>
+        {approvalOn ? (
+          <Link className={n.shortcut} href="/approval/">
+            <span className={n.shortcutIcon}>✅</span>
+            <b className={n.shortcutTitle}>결재선</b>
+            <span className={n.shortcutDesc}>이 업무 전결권자가 누구인지 규정 근거로 판정</span>
+          </Link>
+        ) : null}
+        {journeyOn ? (
+          <Link className={n.shortcut} href="/journey/">
+            <span className={n.shortcutIcon}>🗺️</span>
+            <b className={n.shortcutTitle}>업무 한 장</b>
+            <span className={n.shortcutDesc}>출장·연차·법인카드 등 13개 업무의 처음부터 끝까지</span>
           </Link>
         ) : null}
       </div>
