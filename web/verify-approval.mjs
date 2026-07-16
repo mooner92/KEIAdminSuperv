@@ -14,7 +14,7 @@ await p.waitForTimeout(1500);
 await p.locator("button", { hasText: "회원가입" }).first().click();
 await p.waitForTimeout(400);
 await p.locator('input[autocomplete="username"]').fill(email);
-await p.locator('input[type="password"]').fill("pw1234");
+await p.locator('input[type="password"]').fill("pw123456");
 await p.locator('button[type="submit"]', { hasText: "가입 신청" }).click();
 const pending = await p.waitForFunction(() => document.body.innerText.includes("가입 신청이 접수") || document.body.innerText.includes("관리자 승인"),
   undefined, { timeout: 6000 }).then(() => true).catch(() => false);
@@ -25,7 +25,7 @@ check("① 코드 입력칸 없음", (await p.locator('input[inputmode="numeric"
 await p.locator("button", { hasText: "로그인 화면으로" }).first().click();
 await p.waitForTimeout(400);
 await p.locator('input[autocomplete="username"]').fill(email);
-await p.locator('input[type="password"]').fill("pw1234");
+await p.locator('input[type="password"]').fill("pw123456");
 await p.locator('button[type="submit"]', { hasText: "로그인" }).click();
 const waitMsg = await p.waitForFunction(() => document.body.innerText.includes("승인 대기 중"),
   undefined, { timeout: 6000 }).then(() => true).catch(() => false);
@@ -49,7 +49,7 @@ await adm.close();
 
 // ④ 승인 후 실제 로그인 성공
 const c2 = await b.newContext();
-const r = await c2.request.post(BASE + "/api/app/auth/login", { data: { username: email, password: "pw1234" } });
+const r = await c2.request.post(BASE + "/api/app/auth/login", { data: { username: email, password: "pw123456" } });
 check("④ 승인 후 로그인 성공", r.ok(), String(r.status()));
 await adm.close?.();
 

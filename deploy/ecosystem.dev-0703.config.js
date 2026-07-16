@@ -63,6 +63,7 @@ module.exports = {
         // 가입 정책(docs/29 §3): dev는 SMTP 없이 인증 코드를 응답에 동봉해 E2E 가능.
         // ⛔ 운영(prod) 병합 시 이 변수는 절대 켜지 말 것 — 대신 SMTP_HOST/PORT/FROM 설정.
         APP_DEV_ECHO_CODE: "1",
+        APP_REG_RL_MAX: "100", // docs/44: 가입 RL(기본 10/시간) — dev는 E2E 스위트가 소진하지 않게 완화. 공개 배포 시 제거(기본 10)
         PYTHONUNBUFFERED: "1",
       },
     },

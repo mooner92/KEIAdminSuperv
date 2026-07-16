@@ -429,11 +429,20 @@ def _migrate_user_verified():
 _LOGIN_FAILS: dict = {}  # key(user|ip) → [timestamps]
 _RL_MAX, _RL_WINDOW = 8, 300.0
 
-def _rl_check(key: str) -> bool:
+
+def _client_ip(request: Request) -> str:
+    """실 클라이언트 IP(docs/44 §2) — server.js가 소켓 주소로 '덮어쓴' X-Forwarded-For를 신뢰.
+    이 API는 127.0.0.1 바인딩이라 XFF를 붙일 수 있는 건 로컬 프록시뿐(위조 불가).
+    프록시 없이 직접 호출(로컬 스크립트)은 헤더가 없어 소켓 주소 폴백."""
+    xff = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    return xff or (request.client.host if request.client else "?")
+
+
+def _rl_check(key: str, max_n: int = _RL_MAX, window: float = _RL_WINDOW) -> bool:
     now = time.time()
-    fails = [t for t in _LOGIN_FAILS.get(key, []) if now - t < _RL_WINDOW]
+    fails = [t for t in _LOGIN_FAILS.get(key, []) if now - t < window]
     _LOGIN_FAILS[key] = fails
-    return len(fails) < _RL_MAX
+    return len(fails) < max_n
 
 def _rl_fail(key: str):
     _LOGIN_FAILS.setdefault(key, []).append(time.time())
@@ -530,10 +539,13 @@ def make_token(uid: int) -> str:
     return jwt.encode({"uid": uid, "exp": exp}, SECRET, algorithm="HS256")
 
 
+COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "") == "1"  # HTTPS(외부 공개) 배포 시 1
+
+
 def set_cookie(resp: Response, token: str):
-    # 내부망 HTTP이므로 secure=False. (Cloudflare ZT/HTTPS 도입 시 secure=True 권장)
+    # 내부망 HTTP은 secure=False(기본). 외부 공개(HTTPS) 시 COOKIE_SECURE=1 필수 — docs/44 체크리스트.
     resp.set_cookie(COOKIE, token, max_age=TOKEN_DAYS * 86400,
-                    httponly=True, samesite="lax", path="/")
+                    httponly=True, samesite="lax", secure=COOKIE_SECURE, path="/")
 
 
 def current_user(request: Request) -> User:
@@ -594,14 +606,21 @@ class VerifyIn(BaseModel):
 
 
 @router.post("/auth/register")
-def register(body: AuthIn):
+def register(body: AuthIn, request: Request):
     """가입 1단계(docs/29 §3): ID=이메일(@kei.re.kr만) + 인증 코드 발송.
     쿠키는 여기서 발급하지 않는다 — /auth/verify 성공 시에만 로그인된다."""
+    # docs/44: IP당 가입 시도 10회/시간 — 계정 대량 생성·코드 발송 남용 차단.
+    # dev는 E2E 스위트가 소진하지 않게 env로 완화(APP_REG_RL_MAX) — 공개 배포 시 기본(10) 유지.
+    rl_key = f"reg|{_client_ip(request)}"
+    reg_max = int(os.environ.get("APP_REG_RL_MAX", "10"))
+    if not _rl_check(rl_key, max_n=reg_max, window=3600.0):
+        raise HTTPException(429, "가입 시도가 너무 많습니다. 잠시 후 다시 시도해 주세요.")
+    _rl_fail(rl_key)
     email = body.username.strip().lower()
     if not valid_signup_email(email):
         raise HTTPException(400, "KEI 이메일(@kei.re.kr)로만 가입할 수 있습니다.")
-    if len(body.password) < 4:
-        raise HTTPException(400, "비밀번호는 4자 이상이어야 합니다.")
+    if len(body.password) < 8:  # docs/44: 4→8자(외부 공개 대비 최소 강도)
+        raise HTTPException(400, "비밀번호는 8자 이상이어야 합니다.")
     approval = bool(effective_flags().get("signup_approval"))  # 관리자 승인제(메일 서버 불가 시)
     with Session(engine) as s:
         exists = s.exec(select(User).where(User.username == email)).first()
@@ -660,7 +679,8 @@ def resend_code(body: AuthIn):
 @router.post("/auth/login")
 def login(body: AuthIn, request: Request, response: Response):
     # v1 ⑮(#51): 사용자+IP 기준 실패 8회/5분 초과 시 429(무차별 대입 방어)
-    rl_key = f"{body.username.strip()}|{request.client.host if request.client else '?'}"
+    # docs/44: 프록시 뒤에서 IP가 전부 127.0.0.1로 붕괴하던 것 → 신뢰 XFF(_client_ip)로 교정
+    rl_key = f"{body.username.strip()}|{_client_ip(request)}"
     if not _rl_check(rl_key):
         raise HTTPException(429, "로그인 시도가 너무 많습니다. 5분 후 다시 시도해 주세요.")
     with Session(engine) as s:

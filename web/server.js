@@ -89,21 +89,52 @@ const API_ROUTES = {
 // LLM 앱(상태형): /api/app/* → /app/*  (로그인/채팅기록, 쿠키 전달)
 const APP_PREFIX = "/api/app/";
 
-// v1 ⑮(#51): 기본 보안 헤더(사내 전용이지만 최소 방어선). CSP는 Next 인라인 스크립트와 충돌해 보류(문서화).
+// v1 ⑮(#51) + docs/44 §2: 기본 보안 헤더.
+// CSP: Next 정적 export는 인라인 부트스트랩 스크립트가 필요해 'unsafe-inline'을 허용하되,
+// 외부 오리진 로드(script/style/img/font/connect)는 전부 차단 — XSS 시 유출 경로를 막는다.
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data:",
+  "font-src 'self'",
+  "connect-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join("; ");
 function secureHeaders(res) {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("Referrer-Policy", "same-origin");
   res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  res.setHeader("Content-Security-Policy", CSP);
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+  res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
 }
 
+// 프록시 요청 본문 상한(docs/44 §2) — 채팅/로그인 JSON은 수 KB면 충분. 초대형 본문 DoS 차단.
+const MAX_BODY = parseInt(process.env.MAX_BODY_BYTES || String(2 * 1024 * 1024), 10); // 2MB
+
 function proxyToRag(req, res, upstreamPath) {
+  // 본문 상한 — Content-Length 선차단(스트리밍 초과는 아래 카운터가 차단)
+  const declared = parseInt(req.headers["content-length"] || "0", 10);
+  if (declared > MAX_BODY) {
+    return send(res, 413, JSON.stringify({ error: "요청 본문이 너무 큽니다." }),
+      { "Content-Type": "application/json; charset=utf-8" });
+  }
   const opts = {
     host: RAG_HOST,
     port: RAG_PORT,
     path: upstreamPath,
     method: req.method,
-    headers: { ...req.headers, host: `${RAG_HOST}:${RAG_PORT}` },
+    headers: {
+      ...req.headers,
+      host: `${RAG_HOST}:${RAG_PORT}`,
+      // 실제 소켓 IP로 '덮어씀'(브라우저가 보낸 XFF 위조 차단) — FastAPI 레이트리밋이 사용(docs/44)
+      "x-forwarded-for": req.socket.remoteAddress || "?",
+    },
   };
   const up = http.request(opts, (upRes) => {
     // hop-by-hop 헤더 제거 → Node가 프레이밍을 다시 잡게(SSE 스트리밍이 버퍼링/중복청크 없이 흐르도록)
@@ -121,6 +152,12 @@ function proxyToRag(req, res, upstreamPath) {
       JSON.stringify({ error: "RAG API에 연결하지 못했습니다.", detail: String(e.code || e.message) }),
       { "Content-Type": "application/json; charset=utf-8" }
     );
+  });
+  // 청크 전송(Content-Length 없음)도 상한 적용
+  let received = 0;
+  req.on("data", (chunk) => {
+    received += chunk.length;
+    if (received > MAX_BODY) { up.destroy(); req.destroy(); }
   });
   req.pipe(up);
 }
@@ -185,6 +222,11 @@ const server = http.createServer((req, res) => {
     return send(res, 400, "Bad Request", { "Content-Type": "text/plain" });
   }
 
+  // robots.txt — 파일 없이 서버가 직접(공개 경로). 외부 공개돼도 색인 금지(내부 서비스).
+  if (pathname === "/robots.txt") {
+    return send(res, 200, "User-agent: *\nDisallow: /\n", { "Content-Type": "text/plain; charset=utf-8" });
+  }
+
   const authed = isAuthed(req);
 
   // RAG/LLM API 리버스 프록시 (정적 라우팅보다 먼저 가로챈다)
@@ -231,6 +273,10 @@ const server = http.createServer((req, res) => {
     serveFile(res, target);
   });
 });
+
+// 슬로우로리스 대비 명시적 타임아웃(docs/44 §2) — SSE 응답 시간에는 영향 없음(요청 수신 단계만)
+server.headersTimeout = 30_000;
+server.requestTimeout = 120_000;
 
 server.listen(PORT, HOST, () => {
   console.log(`KEI 행정 가이드 static server → http://${HOST}:${PORT}  (root: ${ROOT})`);

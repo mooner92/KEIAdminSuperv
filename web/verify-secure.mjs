@@ -53,6 +53,31 @@ for (const p of ["/browse/", "/journey/", "/calendar/", "/search-index.json"]) {
   check(`④ 로그인: ${p} 200`, (await acode(p)) === 200);
 }
 
+// ── ⑤ 보안 헤더·robots (docs/44 §2 추가 조치) ──
+const hres = await anon.request.fetch(BASE + "/");
+const csp = hres.headers()["content-security-policy"] || "";
+check("⑤ CSP 적용(외부 오리진 차단)", csp.includes("default-src 'self'") && csp.includes("frame-ancestors 'none'"), csp.slice(0, 60));
+check("⑤ COOP/CORP 헤더", hres.headers()["cross-origin-opener-policy"] === "same-origin" && hres.headers()["cross-origin-resource-policy"] === "same-origin");
+const robots = await anon.request.fetch(BASE + "/robots.txt");
+check("⑤ robots.txt 색인 금지", robots.status() === 200 && (await robots.text()).includes("Disallow: /"));
+
+// ── ⑥ 브루트포스·입력 정책 ──
+// 로그인 RL: 실패 8회/5분(사용자+IP) — 무작위 계정으로 검사(admintest 잠금·상태 오염 방지)
+const rnd = `rl-test-${Math.random().toString(36).slice(2, 8)}`;
+let last = 0;
+for (let i = 0; i < 9; i++) {
+  last = (await anon.request.post(BASE + "/api/app/auth/login", { data: { username: rnd, password: "wrong-pw-xx" } })).status();
+}
+check("⑥ 로그인 브루트포스 → 429", last === 429, String(last));
+// 비밀번호 정책 8자
+const shortPw = await anon.request.post(BASE + "/api/app/auth/register", { data: { username: "policy-test@kei.re.kr", password: "short" } });
+check("⑥ 비밀번호 8자 미만 가입 거부", shortPw.status() === 400);
+// 요청 본문 상한(2MB) → 413
+const big = await anon.request.post(BASE + "/api/app/auth/login", {
+  data: { username: "x", password: "y".repeat(3 * 1024 * 1024) },
+}).then((r) => r.status()).catch(() => 413);
+check("⑥ 초대형 본문(3MB) → 413", big === 413, String(big));
+
 console.log(`\n${pass}/${pass + fail} 판정 통과`);
 await b.close();
 process.exit(fail ? 1 : 0);
