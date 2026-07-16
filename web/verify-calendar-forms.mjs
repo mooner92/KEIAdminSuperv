@@ -12,14 +12,20 @@ const p = await ctx.newPage();
 await p.goto(BASE + "/calendar/", { waitUntil: "load" });
 await p.waitForTimeout(1800);
 check("① GNB '업무 캘린더' 탭", (await p.innerText("header")).includes("업무 캘린더"));
-check("① 매월 챙길 일 블록", (await p.locator('section[aria-label="매월 챙길 일"] li').count()) === 5);
-check("① 12개월 카드", (await p.locator('section[aria-label$="업무"]').count()) === 12);
+// docs/43: 매월(상시)은 슬림 스트립(기본 접힘·인라인 제목) → 펼치면 5건 상세
+const stripInline = await p.locator('section[aria-label="매월 챙길 일"] a').count();
+check("① 매월 스트립 인라인 제목 링크", stripInline >= 4, String(stripInline));
+await p.locator('section[aria-label="매월 챙길 일"] button').click();
+await p.waitForTimeout(300);
+check("① 매월 펼치기 → 5건 상세", (await p.locator('section[aria-label="매월 챙길 일"] li').count()) === 5);
+check("① 12개월 그리드 셀", (await p.locator('section[aria-label$="업무"]').count()) === 12);
 const month = new Date().getMonth() + 1;
 check(`① 이번 달(${month}월) 배지`, (await p.innerText("body")).includes("이번 달"));
+check("① 이번 달 히어로", (await p.locator('section[aria-label="이번 달 하이라이트"]').count()) === 1);
 const calLinks = await p.locator('a[href^="/d/"]').count();
-check("① 관련 문서 링크 다수", calLinks >= 15, String(calLinks));
-// 매월 항상 펼침(details 아님)
-check("① 매월 항목 항상 펼침(접힘 아님)", (await p.locator("details").count()) === 0);
+check("① 제목=문서 링크 다수", calLinks >= 15, String(calLinks));
+// docs/43: 그리드에서 칩·'관련 문서→' 반복 제거(제목 자체가 링크)
+check("① 그리드에 '관련 문서 →' 반복 없음", !(await p.innerText("body")).includes("관련 문서 →"));
 await p.screenshot({ path: "shot-calendar.png", fullPage: true });
 
 // ── /now 캘린더 카드 컴팩트 + 링크 ──

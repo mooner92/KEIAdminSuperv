@@ -1,79 +1,112 @@
-/* 업무 캘린더(docs/40) — 시맨틱 토큰만 */
+/* 업무 캘린더(docs/43) — 이번 달 중심 + 연간 4×3 그리드. 시맨틱 토큰만 */
 
-.everyBlock {
+/* ── 🔁 매월(상시) 슬림 스트립 ── */
+.strip {
   border: 1px solid var(--color-border);
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   background: var(--color-surface);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+}
+.stripHead { display: flex; align-items: baseline; gap: var(--space-3); flex-wrap: wrap; }
+.stripTitle { margin: 0; font-size: 14px; font-weight: 800; color: var(--color-text); white-space: nowrap; }
+.count { font-size: 12px; font-weight: 600; color: var(--color-text-tertiary); }
+.stripInline {
+  margin: 0; flex: 1; min-width: 0; font-size: 13px; color: var(--color-text-secondary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.stripLink { color: var(--color-text-secondary); transition: var(--transition-ui); }
+.stripLink:hover { color: var(--color-primary); }
+.dot { color: var(--color-text-disabled); }
+.stripToggle {
+  border: none; background: none; font: inherit; font-size: 12.5px; font-weight: 700;
+  color: var(--color-primary); cursor: pointer; padding: 0 2px; white-space: nowrap;
+  transition: var(--transition-ui);
+}
+.stripToggle:hover { color: var(--color-primary-strong); }
+.stripList {
+  margin: var(--space-3) 0 0; padding: var(--space-3) 0 0; list-style: none;
+  border-top: 1px solid var(--color-border);
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--space-3);
+}
+.stripItem { min-width: 0; }
+.stripItemTitle { font-size: 13.5px; font-weight: 700; color: var(--color-text); transition: var(--transition-ui); }
+a.stripItemTitle:hover { color: var(--color-primary); }
+
+/* ── ⭐ 이번 달 히어로 ── */
+.hero {
+  border: 1.5px solid var(--color-primary);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
   padding: var(--space-4) var(--space-5);
   margin-bottom: var(--space-5);
 }
-.everyTitle { margin: 0 0 var(--space-3); font-size: 16px; font-weight: 800; color: var(--color-text); }
-.count { font-size: 12.5px; font-weight: 600; color: var(--color-text-tertiary); }
-.everyGrid {
-  margin: 0; padding: 0; list-style: none;
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-3);
+.heroHead {
+  margin: 0 0 var(--space-3); font-size: 22px; font-weight: 800; color: var(--color-text);
+  display: flex; align-items: center; gap: var(--space-2);
 }
-
-.monthGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: var(--space-3);
+.heroEmpty { margin: 0; font-size: 13.5px; color: var(--color-text-secondary); }
+.heroList { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--space-3); }
+.heroItem { display: flex; gap: var(--space-3); align-items: flex-start; min-width: 0; }
+.bullet {
+  flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--color-primary); margin-top: 7px;
 }
-.monthCard {
-  border: 1px solid var(--color-border);
-  border-radius: 14px;
-  background: var(--color-surface);
-  padding: var(--space-4);
-  min-width: 0;
-}
-.monthNow { border-color: var(--color-primary); box-shadow: 0 0 0 1px var(--color-primary) inset; }
-.monthHead {
-  margin: 0 0 var(--space-3); font-size: 17px; font-weight: 800; color: var(--color-text);
-  display: flex; align-items: center; gap: 8px;
-  border-bottom: 1px solid var(--color-border); padding-bottom: 8px;
-}
-.nowBadge {
-  font-size: 11px; font-weight: 800; padding: 1px 8px; border-radius: 999px;
-  background: var(--color-primary); color: var(--color-on-primary);
-}
-.emptyMonth { margin: 0; font-size: 12.5px; color: var(--color-text-tertiary); }
-.monthList, .everyGrid { }
-.monthList { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--space-3); }
-
-/* 공통 항목 — 업무 1건 = 카드(docs/41 가독성). 테두리로 구분 + 호버 시 그림자·살짝 떠오름 */
-.item {
-  min-width: 0;
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  background: var(--color-bg-subtle);
-  padding: 10px 12px;
-  transition: box-shadow 0.15s ease, border-color 0.15s ease, transform 0.15s ease, background 0.15s ease;
-}
-.item:hover {
-  border-color: var(--color-primary);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-pop);
-  transform: translateY(-1px);
-}
-.itemHead { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px; }
-.itemTitle { font-size: 14px; font-weight: 700; color: var(--color-text); }
-.kindChip {
-  font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 6px;
-  color: var(--accent-대외업무); border: 1px solid var(--accent-대외업무);
-}
-.when { font-size: 11.5px; color: var(--color-text-secondary); }
+.heroBody { min-width: 0; }
+.heroTitleRow { display: flex; align-items: baseline; gap: var(--space-2); flex-wrap: wrap; }
+.heroTitle { font-size: 15px; font-weight: 700; color: var(--color-text); transition: var(--transition-ui); }
+a.heroTitle:hover { color: var(--color-primary); }
+.when { font-size: 12px; color: var(--color-text-tertiary); }
 .draft {
   font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 6px;
   color: var(--color-warning); border: 1px solid var(--color-warning);
 }
-.desc { margin: 3px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--color-text-secondary); }
-.link { display: inline-block; margin-top: 3px; font-size: 12px; font-weight: 700; color: var(--color-primary); }
-.link:hover { text-decoration: underline; }
+.desc { margin: 2px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--color-text-secondary); }
+
+/* ── 🗓 연간 그리드: 고정 4열 × 균일 높이 — '달력다움'의 핵심 ── */
+.yearGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: 1fr; /* 빈 달도 같은 크기 → 12칸 달력 */
+  gap: var(--space-3);
+}
+.cell {
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: var(--space-3) var(--space-4);
+  display: flex; flex-direction: column;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.cell:hover { border-color: var(--color-border-strong); box-shadow: var(--shadow-card); }
+.cellNow { border: 1.5px solid var(--color-primary); }
+.cellHead {
+  margin: 0 0 var(--space-2); display: flex; align-items: baseline; gap: 3px;
+  color: var(--color-text);
+}
+.cellNum { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; }
+.cellWol { font-size: 12px; font-weight: 700; color: var(--color-text-tertiary); }
+.nowBadge {
+  font-size: 10.5px; font-weight: 800; padding: 1px 8px; border-radius: 999px;
+  background: var(--color-primary); color: var(--color-on-primary); margin-left: 4px;
+  align-self: center;
+}
+.cellEmpty { margin: auto 0; font-size: 13px; color: var(--color-text-disabled); text-align: center; }
+.cellList { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.cellItem { min-width: 0; display: flex; }
+.cellLink {
+  min-width: 0; font-size: 13px; line-height: 1.5; color: var(--color-text-secondary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  transition: var(--transition-ui);
+}
+a.cellLink:hover { color: var(--color-primary); }
+.cellItem::before { content: "·"; margin-right: 5px; color: var(--color-text-disabled); flex: 0 0 auto; }
+.draftMark { color: var(--color-warning); font-size: 11px; margin-left: 1px; }
 
 .foot { margin: var(--space-5) 0 0; font-size: 12px; line-height: 1.6; color: var(--color-text-tertiary); }
 
-/* 접근성: 모션 최소화 사용자는 전환·떠오름 없이 즉시(그림자만 유지) */
-@media (prefers-reduced-motion: reduce) {
-  .item { transition: none; }
-  .item:hover { transform: none; }
-}
+@media (max-width: 1024px) { .yearGrid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 760px) { .yearGrid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 480px) { .yearGrid { grid-template-columns: 1fr; grid-auto-rows: auto; } }
