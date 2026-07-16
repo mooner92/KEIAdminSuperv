@@ -141,6 +141,14 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-12-31",
     },
+    "bug_reports": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on(changelog 관례)
+        "description": "🐛 버그리포트(docs/32 §7) — /changelog에 탭 추가: 고친 버그를 증상→원인→해결→"
+                       "개선 효과 순으로 버전 표기(vYYYY.MM.DD)와 함께 공개. 원문 = 볼트 90_관리/_changelog의 "
+                       "type: bugreport 노트(비공개, 빌드타임에 굽기). changelog 플래그와 독립 토글.",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
     "graph_expand_regs": {
         "default": False,  # ⛔ off로 배포 — top-k 희석 위험이라 평가로 이득 입증 후 on(하이브리드·다양성과 동일 규율)
         "description": "검색 시 회수 조문이 준용/참조하는 다른 규정 조문을 근거에 자동 첨부(규정↔규정 1홉 확장). "

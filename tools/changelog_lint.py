@@ -19,6 +19,14 @@ from pathlib import Path
 
 REQUIRED = ["제목", "날짜", "분류", "요약"]
 CATEGORIES = {"신규", "개선", "수정", "데이터"}
+# 🐛 버그리포트(docs/32 §7) — 같은 디렉터리의 type: bugreport 노트. 규약:
+#   필수: 제목·날짜·버전(vYYYY.MM.DD)·영역·심각도(높음|보통|낮음)·요약
+#   본문: ## 증상 / ## 원인 / ## 해결 / ## 개선 효과 섹션 필수(재발 방지는 선택)
+#   ⛔ 규정 값·인프라 정보 금지는 changelog와 동일(같은 스캔 적용)
+BUG_REQUIRED = ["제목", "날짜", "버전", "영역", "심각도", "요약"]
+BUG_SEVERITIES = {"높음", "보통", "낮음"}
+BUG_SECTIONS = ["## 증상", "## 원인", "## 해결", "## 개선 효과"]
+BUG_VERSION_RE = re.compile(r"^v\d{4}\.\d{2}\.\d{2}$")
 MONEY_RE = re.compile(
     r"\d{1,3}(?:,\d{3})+\s*원"        # 500,000원
     r"|\d+\s*[만천억]\s*원"            # 50만 원
@@ -65,13 +73,22 @@ def lint(vault: Path) -> list:
         raw = md.read_text(encoding="utf-8")
         meta, body = split_fm(raw)
         name = md.name
-        if not meta or meta.get("type") != "changelog":
-            errs.append(f"{name}: type: changelog 프론트매터 필요")
+        if not meta or meta.get("type") not in ("changelog", "bugreport"):
+            errs.append(f"{name}: type: changelog|bugreport 프론트매터 필요")
             continue
-        for k in REQUIRED:
+        is_bug = meta.get("type") == "bugreport"
+        for k in (BUG_REQUIRED if is_bug else REQUIRED):
             if not meta.get(k):
                 errs.append(f"{name}: 필수 필드 누락 — {k}")
-        if meta.get("분류") and meta["분류"] not in CATEGORIES:
+        if is_bug:
+            if meta.get("버전") and not BUG_VERSION_RE.match(meta["버전"]):
+                errs.append(f"{name}: 버전은 vYYYY.MM.DD — 현재 '{meta['버전']}'")
+            if meta.get("심각도") and meta["심각도"] not in BUG_SEVERITIES:
+                errs.append(f"{name}: 심각도는 {sorted(BUG_SEVERITIES)} 중 하나 — 현재 '{meta['심각도']}'")
+            for sec in BUG_SECTIONS:
+                if sec not in body:
+                    errs.append(f"{name}: 버그리포트 필수 섹션 누락 — '{sec}'")
+        if not is_bug and meta.get("분류") and meta["분류"] not in CATEGORIES:
             errs.append(f"{name}: 분류는 {sorted(CATEGORIES)} 중 하나 — 현재 '{meta['분류']}'")
         if meta.get("날짜") and not re.match(r"^\d{4}-\d{2}-\d{2}$", meta["날짜"]):
             errs.append(f"{name}: 날짜는 YYYY-MM-DD — 현재 '{meta['날짜']}'")

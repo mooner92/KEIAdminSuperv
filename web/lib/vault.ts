@@ -210,6 +210,50 @@ export function loadChangelog(): ChangelogEntry[] {
   return out;
 }
 
+// ── 버그리포트(docs/32 §7) — 볼트 90_관리/_changelog/*.md 중 type: bugreport ──
+// 트러블슛 원문 = md 파일(단일 출처), 페이지는 빌드타임에 굽는다. 상세 기술 원문은
+// 레포 docs/*(버전관리)가 소유하고, 여기 노트는 사용자용 서술(문제→원인→해결→개선).
+// ⛔ 규정 값·내부 인프라(경로·포트) 금지 — changelog_lint가 bugreport 규약도 강제.
+export type BugReport = {
+  id: string;
+  제목: string;
+  날짜: string;      // YYYY-MM-DD
+  버전: string;      // vYYYY.MM.DD — 릴리스 일자 기반 표기(docs/32 §7)
+  영역: string;      // 서식 다운로드 | 검색 품질 | 답변 품질 | 화면 | 빌드·배포 …
+  심각도: string;    // 높음 | 보통 | 낮음
+  요약: string;      // 카드 접힘 상태에서 보이는 한 줄(증상 요약)
+  body: string;      // ## 증상 / ## 원인 / ## 해결 / ## 개선 효과 (+ ## 재발 방지)
+};
+
+export function loadBugReports(): BugReport[] {
+  const dir = path.join(VAULT_DIR, "90_관리", "_changelog");
+  if (!fs.existsSync(dir)) return [];
+  const out: BugReport[] = [];
+  for (const f of fs.readdirSync(dir).filter((x) => x.endsWith(".md"))) {
+    try {
+      const raw = fs.readFileSync(path.join(dir, f), "utf-8");
+      const m = raw.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+      if (!m) continue;
+      const meta: Record<string, string> = {};
+      for (const ln of m[1].split("\n")) {
+        const i = ln.indexOf(":");
+        if (i > 0) meta[ln.slice(0, i).trim()] = ln.slice(i + 1).trim().replace(/^["']|["']$/g, "");
+      }
+      if (meta.type !== "bugreport" || !meta["제목"] || !meta["날짜"] || !meta["버전"] || !meta["요약"]) continue;
+      out.push({
+        id: f.replace(/\.md$/, ""),
+        제목: meta["제목"], 날짜: meta["날짜"], 버전: meta["버전"],
+        영역: meta["영역"] || "일반", 심각도: meta["심각도"] || "보통",
+        요약: meta["요약"], body: m[2].trim(),
+      });
+    } catch {
+      /* 손상 노트는 건너뜀 */
+    }
+  }
+  out.sort((a, b) => (a.날짜 === b.날짜 ? (a.id < b.id ? 1 : -1) : a.날짜 < b.날짜 ? 1 : -1));
+  return out;
+}
+
 // ── 이벤트탭 "지금 KEI에서"(docs/35) — 시즌 캘린더·최근 개정·용어 목록(빌드타임) ──
 export type SeasonalItem = {
   month: number; // 0=매월(상시, docs/39) · 1~12=해당 월
