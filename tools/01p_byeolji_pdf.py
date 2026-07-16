@@ -15,6 +15,7 @@
 """
 import argparse
 import json
+import os
 import pathlib
 import re
 import shutil
@@ -111,7 +112,10 @@ def find_byeolji_pages(doc) -> list:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--src", default="/KEIAdminSuperv/rule_files")
+    ap.add_argument("--src", default="/KEIAdminSuperv/rule_files,"
+                    + str(pathlib.Path(os.path.expanduser(
+                        os.environ.get("KEI_UPLOAD_DIR", "~/kei-uploads"))) / "originals"),
+                    help="HWP 원본 디렉터리(콤마 구분 다중 — 업로드 편입 규정 지원, docs/50 §6)")
     ap.add_argument("--vault", default=str(HERE.parent / "KEI-행정가이드"))
     ap.add_argument("--out", default=str(HERE.parent / "web" / "public" / "forms-pdf"))
     ap.add_argument("--png", default=str(HERE / "byeolji_png"))
@@ -120,7 +124,7 @@ def main() -> int:
     ap.add_argument("--force", action="store_true")
     args = ap.parse_args()
 
-    src = pathlib.Path(args.src)
+    src_dirs = [pathlib.Path(d.strip()) for d in args.src.split(",") if d.strip()]
     vault = pathlib.Path(args.vault) / "20_규정원문"
     cache = HERE / ".byeolji_cache" / "pdf"
     manifest = {}
@@ -141,8 +145,13 @@ def main() -> int:
         if args.only and args.only not in stem:
             continue
         srcname = frontmatter_source(md)
-        hwp = src / srcname if srcname else None
-        if not srcname or not hwp.exists():
+        hwp = None
+        if srcname:
+            for d in src_dirs:
+                if (d / srcname).exists():
+                    hwp = d / srcname
+                    break
+        if hwp is None:
             stats["no_src"].append(stem)
             continue
         stats["regs"] += 1

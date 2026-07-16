@@ -1245,6 +1245,16 @@ def corpus_upload_approve(uid: str, body: ApproveIn, admin: User = Depends(curre
     dest = os.path.join(dest_dir, slug + ".md")
     with open(dest, "w", encoding="utf-8") as f:
         f.write(fm + f"# {title}\n\n> [!warning] 업로드 자동 변환 — 미리보기 승인본. 표/서식 확인 후 `검수상태: 검수완료`로.\n\n" + md)
+    # docs/50 §6: 별지 PDF 파이프라인(01p)이 원본파일명으로 HWP를 찾는다 —
+    # 스테이징 파일(uid 개명)을 원본명 그대로 originals/에 보존(01p 2차 소스).
+    try:
+        raw_src = it.get("raw") or ""
+        if raw_src and os.path.exists(raw_src):
+            orig_dir = os.path.join(UPLOAD_DIR, "originals")
+            os.makedirs(orig_dir, exist_ok=True)
+            shutil.copy2(raw_src, os.path.join(orig_dir, it["name"]))
+    except Exception as e_cp:  # noqa: BLE001
+        print(f"⚠ 업로드 원본 보존 실패(별지 PDF 미생성 가능): {e_cp}")
     PENDING.pop(uid, None)
     _corpus_cache["t"] = 0
     with Session(engine) as s:
