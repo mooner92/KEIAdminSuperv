@@ -73,6 +73,7 @@ function useSlideWheel(root: React.RefObject<HTMLDivElement>, enabled: boolean) 
       });
     };
     const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey) return; // 핀치 줌(Ctrl+휠)은 브라우저에 양보
       // 폴백 모드(낮은 화면 proximity·모바일 스냅 해제) 비개입 — 단 애니메이션 중엔 계속 가로챔
       if (!animating && !getComputedStyle(el).scrollSnapType.includes("mandatory")) return;
       e.preventDefault();
@@ -84,8 +85,10 @@ function useSlideWheel(root: React.RefObject<HTMLDivElement>, enabled: boolean) 
       if (next === cur) return;
       animateTo(next * h);
     };
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
+    // window 레벨 — 여백·로그인 카드 등 페이지 어디서 굴려도 슬라이드 동작(사용자 요청).
+    // 이 페이지는 자체 스크롤이 없어 가로챌 다른 스크롤이 없다. 언마운트 시 해제.
+    window.addEventListener("wheel", onWheel, { passive: false });
+    return () => window.removeEventListener("wheel", onWheel);
   }, [root, enabled]);
 }
 
