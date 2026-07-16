@@ -80,6 +80,22 @@ export type FeedbackRow = {
   sources: { 규정명: string; 조: string }[];
 };
 
+// 의견 보내기(능동 제보, docs/51)
+export type ReportRow = {
+  id: number;
+  유형: string;
+  대상규정: string;
+  대상조문: string;
+  내용: string;
+  상태: string;
+  admin_note: string;
+  제보자?: string; // 관리자 목록에만
+  group?: string;
+  at: number;
+};
+
+export type MaintNoticeRow = { id: number; kind: string; summary: string; at: number; unread: boolean };
+
 const BASE = "/api/app";
 
 export class ApiError extends Error {
@@ -246,6 +262,18 @@ export const api = {
     j<{ message_id: number; feedback: null }>(`/messages/${mid}/feedback`, { method: "DELETE" }),
   feedbackList: (rating?: "up" | "down") =>
     j<FeedbackRow[]>(`/feedback${rating ? `?rating=${rating}` : ""}`), // 관리자 전용
+
+  // 의견 보내기(능동 제보, docs/51)
+  createReport: (body: { 유형: string; 대상규정?: string; 대상조문?: string; 내용: string }) =>
+    j<{ id: number; 상태: string }>("/reports", { method: "POST", body: JSON.stringify(body) }),
+  myReports: () => j<ReportRow[]>("/reports"),
+  allReports: (상태?: string) =>
+    j<ReportRow[]>(`/reports/all${상태 ? `?상태=${encodeURIComponent(상태)}` : ""}`), // 관리자
+  patchReport: (id: number, body: { 상태?: string; admin_note?: string }) =>
+    j<{ id: number; 상태: string; admin_note: string }>(`/reports/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  maintNotices: () => j<{ unread: number; notices: MaintNoticeRow[] }>("/maint/notices"), // 관리자
+  maintNoticesRead: () => j<{ ok: boolean }>("/maint/notices/read", { method: "POST" }),
+  maintPlanLatest: () => j<{ name: string; md: string }>("/maint/plan/latest"), // 관리자(404=계획 없음)
 
   // 기능 플래그
   flags: () => j<Record<string, boolean>>("/flags", undefined, 6000), // 공개(UI 토글), 짧은 타임아웃

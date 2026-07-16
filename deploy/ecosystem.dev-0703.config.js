@@ -68,6 +68,27 @@ module.exports = {
       },
     },
     {
+      // 제보 자동 분석(docs/51 §5·6) — 매시 5분에 1회 실행 후 종료(autorestart:false).
+      // 신규 제보 0건이면 LLM 호출 없이 run_log에 '없음'만 기록. ⛔ 볼트·검수상태 불변(계획·알림만).
+      name: "kei-feedback-analyzer-dev",
+      script: "/KEIAdminSuperv/tools/.venv/bin/python", // venv 공유(절대경로)
+      args: "feedback_analyze.py",
+      interpreter: "none",
+      cwd: "/home/mhchoi/kei-dev-0703/tools",
+      instances: 1,
+      exec_mode: "fork",
+      autorestart: false, // 1회 실행 후 종료 — cron_restart가 다음 시각에 다시 띄움
+      cron_restart: "5 * * * *", // 매시 5분
+      watch: false,
+      env: {
+        VLLM_BASE: "http://127.0.0.1:11436/v1", // kei-rag-api-dev와 동일 LLM 스택
+        LLM_MODEL: "hf.co/unsloth/Qwen3.5-9B-GGUF:Q4_K_M",
+        APP_DB: "/home/mhchoi/kei-dev-0703/tools/app.db",
+        // SMTP_URL: "smtp://user:pass@spam.kei.re.kr:25?to=mhchoi@kei.re.kr", // 방화벽 개방 시(§5-6)
+        PYTHONUNBUFFERED: "1",
+      },
+    },
+    {
       name: "kei-guide-dev",
       script: "/home/mhchoi/kei-dev-0703/web/server.js", // 의존성0 정적 서버(빌드 out/ 서빙)
       interpreter: "node",

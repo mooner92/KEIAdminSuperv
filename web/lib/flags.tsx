@@ -33,6 +33,8 @@ export const FLAG_DEFAULTS: Record<string, boolean> = {
   journey_map: false, // docs/25: 업무 한 장(스윔레인 여정) 페이지+GNB (release, 만료 2026-12-31)
   followup_suggest: false, // docs/26: 답변 후속 질문 칩(무LLM) (release, 만료 2026-12-31)
   select_ask: false, // docs/26: 원문 선택 질문 팝오버 (release, 만료 2026-12-31)
+  bug_reports: false, // docs/32 §7: /changelog 🐛 버그리포트 탭 (release, 만료 2026-12-31)
+  feedback_center: false, // docs/51: 의견 보내기(/feedback+진입점 3곳+관리자 의견함) (release, 만료 2026-12-31)
 };
 const CACHE_KEY = "kei-flags";
 

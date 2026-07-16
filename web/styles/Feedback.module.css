@@ -1,0 +1,90 @@
+/* 의견 보내기(docs/51) — 시맨틱 토큰만(다크모드 호환) */
+
+.wrap { max-width: 860px; display: flex; flex-direction: column; gap: var(--space-4); }
+
+.formCard {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  padding: var(--space-4);
+}
+.typeRow { display: flex; gap: 8px; flex-wrap: wrap; }
+.typeChip {
+  padding: 5px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.typeChip:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.typeOn { border-color: var(--color-primary); color: var(--color-primary); background: var(--color-primary-weak, var(--color-surface)); }
+.typeHint { margin: 8px 0 var(--space-3); font-size: 13px; color: var(--color-text-tertiary); }
+
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+@media (max-width: 640px) { .row2 { grid-template-columns: 1fr; } }
+.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: var(--space-3); }
+.label { font-size: 13px; font-weight: 700; color: var(--color-text); }
+.input, .textarea {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 14px;
+  padding: 9px 12px;
+  font-family: inherit;
+}
+.input:focus, .textarea:focus { outline: 2px solid var(--color-primary); outline-offset: -1px; }
+.textarea { resize: vertical; min-height: 110px; line-height: 1.6; }
+
+.actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+.count { font-size: 12px; color: var(--color-text-tertiary); font-variant-numeric: tabular-nums; }
+.submit {
+  padding: 9px 22px;
+  border: none; border-radius: 8px;
+  background: var(--color-primary); color: #fff;
+  font-size: 14px; font-weight: 700; cursor: pointer;
+}
+.submit:disabled { opacity: 0.45; cursor: default; }
+.ok { margin: 10px 0 0; font-size: 13.5px; color: var(--color-success, #1b8a5a); font-weight: 600; }
+.err { margin: 10px 0 0; font-size: 13.5px; color: var(--color-danger, #d6455c); font-weight: 600; }
+
+.mine { display: flex; flex-direction: column; gap: var(--space-2); }
+.h2 { margin: var(--space-2) 0 0; font-size: 16px; color: var(--color-text); }
+.dim { color: var(--color-text-tertiary); font-size: 13.5px; }
+.mineCard {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  padding: var(--space-3) var(--space-4);
+}
+.mineHead { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.mineType { font-size: 12px; font-weight: 700; color: var(--color-primary); border: 1px solid var(--color-primary); border-radius: 6px; padding: 1px 7px; }
+.mineDoc { font-size: 12.5px; color: var(--color-text-secondary); }
+.mineState { font-size: 12px; font-weight: 700; color: var(--color-text-secondary); margin-left: auto; }
+.mineState[data-state="처리완료"] { color: var(--color-success, #1b8a5a); }
+.mineState[data-state="계획반영"] { color: var(--color-primary); }
+.mineDate { font-size: 12px; color: var(--color-text-tertiary); }
+.mineBody { margin: 8px 0 0; font-size: 13.5px; color: var(--color-text); white-space: pre-wrap; }
+.mineNote { margin: 8px 0 0; font-size: 13px; color: var(--color-text-secondary); background: var(--color-bg); border-radius: 8px; padding: 8px 10px; }
+
+/* ── 관리자 의견함(docs/51 §7) ── */
+.unreadBadge { display: inline-block; min-width: 18px; text-align: center; background: var(--color-danger, #d6455c); color: #fff; border-radius: 999px; font-size: 12px; padding: 1px 6px; }
+.noticeList { display: flex; flex-direction: column; gap: 6px; margin-bottom: var(--space-3); }
+.noticeRow { display: flex; justify-content: space-between; gap: 12px; font-size: 13.5px; color: var(--color-text-secondary); border: 1px solid var(--color-border); border-radius: 8px; padding: 8px 12px; background: var(--color-surface); }
+.noticeRow[data-unread="true"] { border-color: var(--color-primary); color: var(--color-text); }
+.noticeRow time { font-size: 12px; color: var(--color-text-tertiary); white-space: nowrap; }
+.readAll { padding: 6px 14px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); color: var(--color-text-secondary); font-size: 13px; font-weight: 600; cursor: pointer; align-self: flex-start; }
+.readAll:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.planBox { border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface); margin-bottom: var(--space-3); }
+.planToggle { width: 100%; text-align: left; padding: 10px 14px; border: none; background: none; color: var(--color-text); font-size: 14px; font-weight: 700; cursor: pointer; }
+.planMd { padding: 0 var(--space-4) var(--space-3); border-top: 1px dashed var(--color-border); }
+.planMd :global(h1) { font-size: 16px; }
+.planMd :global(h2) { font-size: 14px; }
+.planMd :global(h3) { font-size: 13.5px; }
+.planMd :global(p), .planMd :global(li) { font-size: 13.5px; color: var(--color-text-secondary); }
+.filterRow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: var(--space-3); }
+.adminMsg { font-size: 12.5px; color: var(--color-success, #1b8a5a); margin-left: auto; }
+.stateSel { margin-left: auto; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-bg); color: var(--color-text); font-size: 12.5px; padding: 3px 6px; }
+.noteRow { display: flex; gap: 8px; margin-top: 8px; }
+.noteRow .input { flex: 1; font-size: 13px; padding: 6px 10px; }

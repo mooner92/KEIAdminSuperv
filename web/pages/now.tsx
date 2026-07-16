@@ -31,6 +31,7 @@ export default function NowPage({ seasonal, revised, notes, terms, formsCount }:
   const changelogOn = useFlag("changelog");  // 새로워진 점 바로가기 게이트
   const approvalOn = useFlag("approval_finder"); // 결재선 — 모바일 GNB에서 빠진 화면의 허브 도달(docs/48)
   const journeyOn = useFlag("journey_map"); // 업무 한 장 — 〃
+  const feedbackOn = useFlag("feedback_center"); // 의견 보내기(docs/51) — 허브 카드
   const [month, setMonth] = useState<number | null>(null); // 이번 달 — null = 클라이언트 미확정(SSG 안전)
   const [trending, setTrending] = useState<{ k: string; n: number }[] | null>(null);
   const [trendErr, setTrendErr] = useState<number | null>(null); // HTTP status(401=로그인 필요) | 0=기타
@@ -123,6 +124,13 @@ export default function NowPage({ seasonal, revised, notes, terms, formsCount }:
             <span className={n.shortcutIcon}>🗺️</span>
             <b className={n.shortcutTitle}>업무 한 장</b>
             <span className={n.shortcutDesc}>출장·연차·법인카드 등 13개 업무의 처음부터 끝까지</span>
+          </Link>
+        ) : null}
+        {feedbackOn ? (
+          <Link className={n.shortcut} href="/feedback/">
+            <span className={n.shortcutIcon}>📮</span>
+            <b className={n.shortcutTitle}>의견 보내기</b>
+            <span className={n.shortcutDesc}>원문 오류·빠진 개정본·개선 의견을 제보하고 처리 상태 확인</span>
           </Link>
         ) : null}
       </div>

@@ -128,6 +128,33 @@ class Feedback(SQLModel, table=True):
     updated_at: float = Field(default_factory=time.time)
 
 
+class Report(SQLModel, table=True):
+    """능동 제보(의견 보내기, docs/51) — 답변 단위 👍/👎와 별개의 콘텐츠·서비스 제보.
+    상태 전이: 사용자=생성만 · 분석기=접수→분석됨|중복만 · 계획반영/처리완료/보류=관리자만.
+    ⛔ 이 워크플로 상태는 볼트 문서의 검수상태와 무관(자동 검수 승격 없음)."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(index=True)
+    유형: str  # 오류신고 | 누락신고 | 개선의견 | 버그신고 | 기타
+    대상규정: str = ""   # 규정명/문서 제목(자유, 드로어 프리필)
+    대상조문: str = ""   # 제N조·별지 제N호 등(자유)
+    내용: str
+    상태: str = Field(default="접수", index=True)  # 접수|분석됨|중복|계획반영|처리완료|보류
+    analysis_group: str = ""  # 분석 배치·그룹 키(plan_YYYYMMDD_HHMM#g1)
+    admin_note: str = ""
+    created_at: float = Field(default_factory=time.time, index=True)
+    updated_at: float = Field(default_factory=time.time)
+
+
+class MaintNotice(SQLModel, table=True):
+    """유지보수 알림(docs/51 §5) — 분석기가 계획을 만들었을 때만 생성('없음'은 run_log에만)."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    created_at: float = Field(default_factory=time.time, index=True)
+    kind: str = "plan"
+    summary: str = ""
+    detail_path: str = ""  # tools/index/feedback_plans/plan_*.md
+    unread: bool = Field(default=True, index=True)
+
+
 # ───────────────────────── 기능 플래그 ─────────────────────────
 # 메타데이터(기본값·설명·소유자·만료)는 '코드 레지스트리'에, 현재 값은 DB(Flag)에 둔다.
 # → 프론트가 알 수 있는 플래그 목록·안전 기본값은 코드가 단일 출처. DB는 런타임 오버라이드.
@@ -349,6 +376,15 @@ FLAG_REGISTRY: dict = {
                        "프론트 표시 전용·재임베딩 불필요.",
         "owner": "platform",
         "expires": "2026-10-15",
+    },
+    "feedback_center": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "의견 보내기(docs/51) — 콘텐츠·서비스 능동 제보: /feedback 페이지(폼+내 제보 내역) + "
+                       "진입점 3곳(푸터·문서 드로어 '의견' 버튼·추가기능 허브 카드) + /admin 📮 의견함(접수함·상태 처리· "
+                       "🔔 유지보수 알림·최신 계획안). 백엔드 분석기(feedback_analyze.py, 매시)가 접수 제보를 로컬 LLM으로 "
+                       "그룹·중복 제거해 로컬조치/코드작업 계획안을 생성. ⛔ 분석기는 계획·알림만 — 볼트·검수상태 불변.",
+        "owner": "platform",
+        "expires": "2026-12-31",
     },
 }
 
@@ -627,6 +663,18 @@ class RenameIn(BaseModel):
 class FeedbackIn(BaseModel):
     rating: str            # up | down
     reason: str = ""       # 선택(👎일 때 무엇이 부족했는지)
+
+
+class ReportIn(BaseModel):
+    유형: str              # 오류신고 | 누락신고 | 개선의견 | 버그신고 | 기타
+    대상규정: str = ""
+    대상조문: str = ""
+    내용: str
+
+
+class ReportPatch(BaseModel):
+    상태: str = ""         # 관리자: 계획반영 | 처리완료 | 보류 | 접수(되돌림)
+    admin_note: Optional[str] = None
 
 
 router = APIRouter(prefix="/app")
@@ -1484,6 +1532,108 @@ def list_feedback(admin: User = Depends(current_admin), rating: str = "", limit:
                 "sources": [{"규정명": x.get("규정명", ""), "조": x.get("조", "")} for x in srcs],
             })
     return out
+
+
+# ───────────────────── 의견 보내기(능동 제보, docs/51) ─────────────────────
+REPORT_TYPES = {"오류신고", "누락신고", "개선의견", "버그신고", "기타"}
+REPORT_ADMIN_STATES = {"접수", "계획반영", "처리완료", "보류"}  # 분석됨/중복은 분석기 전용
+
+
+@router.post("/reports")
+def create_report(body: ReportIn, request: Request, user: User = Depends(current_user)):
+    if body.유형 not in REPORT_TYPES:
+        raise HTTPException(400, "유형이 올바르지 않습니다")
+    content = (body.내용 or "").strip()
+    if not (5 <= len(content) <= 4000):
+        raise HTTPException(400, "내용은 5~4000자로 적어주세요")
+    rl_key = f"report:{user.id}"
+    if not _rl_check(rl_key, max_n=10, window=3600.0):
+        _seclog.warning(f"report-blocked user={user.id} ip={_client_ip(request)} (rate-limit)")
+        raise HTTPException(429, "제보가 너무 잦습니다 — 잠시 후 다시 시도해주세요")
+    _rl_fail(rl_key)  # 성공 제출도 카운트(스팸 상한)
+    with Session(engine) as s:
+        r = Report(user_id=user.id, 유형=body.유형, 대상규정=(body.대상규정 or "").strip()[:120],
+                   대상조문=(body.대상조문 or "").strip()[:60], 내용=content)
+        s.add(r)
+        s.commit()
+        s.refresh(r)
+        return {"id": r.id, "상태": r.상태}
+
+
+@router.get("/reports")
+def my_reports(user: User = Depends(current_user), limit: int = 50):
+    limit = max(1, min(limit, 200))
+    with Session(engine) as s:
+        rows = s.exec(select(Report).where(Report.user_id == user.id)
+                      .order_by(Report.created_at.desc()).limit(limit)).all()
+        return [{"id": r.id, "유형": r.유형, "대상규정": r.대상규정, "대상조문": r.대상조문,
+                 "내용": r.내용, "상태": r.상태, "admin_note": r.admin_note,
+                 "at": r.created_at} for r in rows]
+
+
+@router.get("/reports/all")
+def all_reports(admin: User = Depends(current_admin), 상태: str = "", limit: int = 300):
+    limit = max(1, min(limit, 1000))
+    with Session(engine) as s:
+        q = select(Report).order_by(Report.created_at.desc()).limit(limit)
+        if 상태:
+            q = select(Report).where(Report.상태 == 상태).order_by(Report.created_at.desc()).limit(limit)
+        rows = s.exec(q).all()
+        users = {u.id: u.username for u in s.exec(select(User)).all()}
+        return [{"id": r.id, "유형": r.유형, "대상규정": r.대상규정, "대상조문": r.대상조문,
+                 "내용": r.내용, "상태": r.상태, "admin_note": r.admin_note,
+                 "제보자": users.get(r.user_id, f"#{r.user_id}"), "group": r.analysis_group,
+                 "at": r.created_at} for r in rows]
+
+
+@router.patch("/reports/{rid}")
+def patch_report(rid: int, body: ReportPatch, admin: User = Depends(current_admin)):
+    with Session(engine) as s:
+        r = s.get(Report, rid)
+        if not r:
+            raise HTTPException(404, "제보가 없습니다")
+        if body.상태:
+            if body.상태 not in REPORT_ADMIN_STATES:
+                raise HTTPException(400, "상태가 올바르지 않습니다")
+            r.상태 = body.상태
+        if body.admin_note is not None:
+            r.admin_note = body.admin_note.strip()[:2000]
+        r.updated_at = time.time()
+        s.add(r)
+        s.commit()
+        return {"id": r.id, "상태": r.상태, "admin_note": r.admin_note}
+
+
+@router.get("/maint/notices")
+def maint_notices(admin: User = Depends(current_admin)):
+    with Session(engine) as s:
+        rows = s.exec(select(MaintNotice).order_by(MaintNotice.created_at.desc()).limit(30)).all()
+        unread = len([n for n in rows if n.unread])
+        return {"unread": unread,
+                "notices": [{"id": n.id, "kind": n.kind, "summary": n.summary,
+                             "at": n.created_at, "unread": n.unread} for n in rows]}
+
+
+@router.post("/maint/notices/read")
+def maint_notices_read(admin: User = Depends(current_admin)):
+    with Session(engine) as s:
+        for n in s.exec(select(MaintNotice).where(MaintNotice.unread == True)).all():  # noqa: E712
+            n.unread = False
+            s.add(n)
+        s.commit()
+        return {"ok": True}
+
+
+@router.get("/maint/plan/latest")
+def maint_plan_latest(admin: User = Depends(current_admin)):
+    from pathlib import Path as _P
+    plans_dir = _P(__file__).parent / "index" / "feedback_plans"
+    if plans_dir.is_dir():
+        mds = sorted(plans_dir.glob("plan_*.md"))
+        if mds:
+            p = mds[-1]
+            return {"name": p.name, "md": p.read_text(encoding="utf-8")}
+    raise HTTPException(404, "생성된 계획이 없습니다")
 
 
 # ── 인기 검색 키워드(docs/29 §1) — ⛔ 무LLM·결정적: 사전(여정 트리거+용어집) 매칭 집계 ──

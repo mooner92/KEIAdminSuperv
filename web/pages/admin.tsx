@@ -4,6 +4,7 @@ import Link from "next/link";
 import Layout from "../components/Layout";
 import AdminCorpus from "../components/AdminCorpus";
 import AdminFlags from "../components/AdminFlags";
+import AdminReports from "../components/AdminReports";
 import AdminTableRestore from "../components/AdminTableRestore";
 import AdminTrust from "../components/AdminTrust";
 import AdminUsers from "../components/AdminUsers";
@@ -14,12 +15,13 @@ import styles from "../styles/Admin.module.css";
 
 // 관리자 페이지(v1.1 UX 개편, docs/21) — 탭 셸: 대시보드 / 코퍼스 관리 / 기능 플래그.
 // 탭 상태는 URL 해시(#corpus 등)와 동기화(새로고침·딥링크 유지). 접근은 백엔드 403이 방어.
-type Tab = "dash" | "corpus" | "restore" | "trust" | "users" | "flags";
+type Tab = "dash" | "corpus" | "restore" | "trust" | "reports" | "users" | "flags";
 const TABS: { k: Tab; label: string }[] = [
   { k: "dash", label: "📊 대시보드" },
   { k: "corpus", label: "📚 코퍼스 관리" },
   { k: "restore", label: "🔧 표 복원" },
   { k: "trust", label: "🛡 신뢰" },
+  { k: "reports", label: "📮 의견함" },
   { k: "users", label: "👥 사용자" },
   { k: "flags", label: "🚩 기능 플래그" },
 ];
@@ -29,6 +31,7 @@ export default function AdminPage() {
   const restoreOn = useFlag("table_restore");
   const usersOn = useFlag("user_directory");
   const trustOn = useFlag("trust_ops");
+  const reportsOn = useFlag("feedback_center"); // docs/51: 📮 의견함
   const [tab, setTab] = useState<Tab>("dash");
   const [gate, setGate] = useState<"loading" | "ok" | string>("loading");
   const [stats, setStats] = useState<Stats | null>(null);
@@ -40,7 +43,7 @@ export default function AdminPage() {
   useEffect(() => {
     const fromHash = () => {
       const h = window.location.hash.replace("#", "") as Tab;
-      if (["dash", "corpus", "restore", "trust", "users", "flags"].includes(h)) setTab(h);
+      if (["dash", "corpus", "restore", "trust", "reports", "users", "flags"].includes(h)) setTab(h);
     };
     fromHash();
     window.addEventListener("hashchange", fromHash);
@@ -79,7 +82,8 @@ export default function AdminPage() {
         <>
           <nav className={styles.tabBar} role="tablist" aria-label="관리자 메뉴">
             {TABS.filter((t) => (t.k !== "corpus" || corpusOn) && (t.k !== "restore" || restoreOn)
-              && (t.k !== "users" || usersOn) && (t.k !== "trust" || trustOn)).map((t) => (
+              && (t.k !== "users" || usersOn) && (t.k !== "trust" || trustOn)
+              && (t.k !== "reports" || reportsOn)).map((t) => (
               <button key={t.k} role="tab" aria-selected={tab === t.k}
                 className={`${styles.tabBtn} ${tab === t.k ? styles.tabOn : ""}`}
                 onClick={() => go(t.k)}>
@@ -185,6 +189,7 @@ export default function AdminPage() {
           {tab === "corpus" && corpusOn ? <AdminCorpus /> : null}
           {tab === "restore" && restoreOn ? <AdminTableRestore /> : null}
           {tab === "trust" && trustOn ? <AdminTrust /> : null}
+          {tab === "reports" && reportsOn ? <AdminReports /> : null}
           {tab === "users" && usersOn ? <AdminUsers /> : null}
           {tab === "flags" ? <AdminFlags /> : null}
         </>

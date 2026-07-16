@@ -64,6 +64,7 @@ export default function DocDrawer({
   const deadlineOn = useFlag("deadline_calc"); // Track B: 기한 역산 계산기 패널
   const approvalOn = useFlag("approval_finder"); // Track B: 결재선 판정기(위임전결)
   const selectAskOn = useFlag("select_ask"); // docs/26: 원문 선택 질문 팝오버
+  const feedbackOn = useFlag("feedback_center"); // docs/51: 읽던 문서 그대로 제보(프리필)
   const [selAsk, setSelAsk] = useState<{ x: number; y: number; text: string } | null>(null);
   const articleRef = useRef<HTMLElement>(null);
   const onBodyMouseUp = () => {
@@ -229,6 +230,13 @@ export default function DocDrawer({
           ) : null}
           <span className={styles.barTitle}>{doc ? doc.title : "문서"}</span>
           <div className={styles.barRight}>
+            {feedbackOn && doc ? (
+              <a className={styles.expand}
+                href={`/feedback/?type=${encodeURIComponent("오류신고")}&doc=${encodeURIComponent(doc.title)}${anchor ? `&anchor=${encodeURIComponent(decodeURIComponent(anchor).replace(/^#/, ""))}` : ""}`}
+                title="이 문서의 이상한 부분을 제보(문서명 자동 입력)">
+                📮 의견
+              </a>
+            ) : null}
             {current ? (
               <a className={styles.expand} href={`/d/${encodeURIComponent(current)}/${upgrades ? anchor : ""}`} title="전체 화면으로 열기(조문 위치 유지)">
                 ↗ 전체화면

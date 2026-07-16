@@ -75,6 +75,7 @@ export default function Layout({
   const helpHub = useFlag("help_hub"); // 도움말 허브·FAQ(docs/31) — 푸터 FAQ 링크 게이트
   const eventsOn = useFlag("events_tab"); // 추가 기능·업무 캘린더(docs/35·41) — GNB 탭
   const landingOn = useFlag("landing_page"); // 소개 페이지(docs/36) — footer '소개' 진입
+  const feedbackOn = useFlag("feedback_center"); // 의견 보내기(docs/51) — footer 진입
   // 인증 상태는 공유 AuthContext에서 — 로그인/로그아웃이 여기 반영돼 GNB가 즉시 갱신된다(새로고침 불필요).
   const { user, ready: authKnown } = useAuth();
   const isAuthed = !!user;
@@ -138,6 +139,7 @@ export default function Layout({
             <Link href="/help/" className={styles.adminLink} onClick={closeHelp}
               aria-pressed={onHelp}>{onHelp ? "✕ 도움말 닫기" : "도움말"}</Link>
             {helpHub ? <Link href="/help/#faq" className={styles.adminLink}>FAQ</Link> : null}
+            {feedbackOn && isAuthed ? <Link href="/feedback/" className={styles.adminLink}>의견 보내기</Link> : null}{/* docs/51 — 전역 진입점 */}
             {landingOn && isAuthed ? <Link href="/about/" className={styles.adminLink}>소개</Link> : null}{/* 비로그인 홈은 소개가 인라인 — 중복 제거(사용자 요청) */}
             {/* 서식 찾기·새로워진 점은 '추가 기능'(/now) 허브로 이전(docs/41) — 푸터 정리 */}
             <span className={styles.asOf} title="배포 빌드 식별자">v.{BUILD_ID}</span>
