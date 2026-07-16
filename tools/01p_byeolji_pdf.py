@@ -139,7 +139,7 @@ def main() -> int:
 
     mds = sorted(vault.rglob("*.md"))
     for md in mds:
-        if md.name == "README.md" or md.parent.name == "0000_미분류":
+        if md.name == "README.md" or md.name == "목차.md":
             continue
         stem = md.stem
         if args.only and args.only not in stem:
@@ -176,9 +176,12 @@ def main() -> int:
         doc = fitz.open(pdf)
         hits = find_byeolji_pages(doc)
         entries = []
+        reg_name = stem.split("_", 1)[-1]
         for n, (pidx, label, name) in enumerate(hits):
             end = (hits[n + 1][0] - 1) if n + 1 < len(hits) else len(doc) - 1
-            safe = re.sub(r"[^\w가-힣-]", "", label)
+            def _fn(t, limit):
+                return re.sub(r"[\\/:*?\"<>|\s]+", "", t)[:limit]
+            safe = _fn(reg_name, 30) + "_" + _fn(label, 12) + (("_" + _fn(name, 30)) if name else "")
             # ① 분리 PDF(다운로드)
             out_pdf_dir = pathlib.Path(args.out) / stem
             out_pdf_dir.mkdir(parents=True, exist_ok=True)
@@ -204,7 +207,19 @@ def main() -> int:
             })
             stats["byeolji"] += 1
         if entries:
-            manifest[stem] = {"규정명": stem.split("_", 1)[-1], "원본": srcname,
+            # 원본 HWP 사본 — 사람이 실제 편집·작성할 수 있게(별지만 HWP 분리는 포맷상 불가 →
+            # 규정 원문 전체 한글파일 제공, docs/50 §7)
+            hwp_rel = None
+            try:
+                out_pdf_dir = pathlib.Path(args.out) / stem
+                out_pdf_dir.mkdir(parents=True, exist_ok=True)
+                hwp_dst = out_pdf_dir / hwp.name
+                if not hwp_dst.exists() or hwp_dst.stat().st_mtime < hwp.stat().st_mtime:
+                    shutil.copy2(hwp, hwp_dst)
+                hwp_rel = f"forms-pdf/{stem}/{hwp.name}"
+            except Exception as e_h:  # noqa: BLE001
+                print(f"  ⚠ 원본 HWP 복사 실패: {e_h}")
+            manifest[stem] = {"규정명": stem.split("_", 1)[-1], "원본": srcname, "hwp": hwp_rel,
                               "총페이지": len(doc), "pdf_mtime": pmt, "별지": entries}
         doc.close()
         print(f"  {stem}: 별지 {len(entries)}건")

@@ -138,7 +138,7 @@ export default function Layout({
             <Link href="/help/" className={styles.adminLink} onClick={closeHelp}
               aria-pressed={onHelp}>{onHelp ? "✕ 도움말 닫기" : "도움말"}</Link>
             {helpHub ? <Link href="/help/#faq" className={styles.adminLink}>FAQ</Link> : null}
-            {landingOn ? <Link href="/about/" className={styles.adminLink}>소개</Link> : null}
+            {landingOn && isAuthed ? <Link href="/about/" className={styles.adminLink}>소개</Link> : null}{/* 비로그인 홈은 소개가 인라인 — 중복 제거(사용자 요청) */}
             {/* 서식 찾기·새로워진 점은 '추가 기능'(/now) 허브로 이전(docs/41) — 푸터 정리 */}
             <span className={styles.asOf} title="배포 빌드 식별자">v.{BUILD_ID}</span>
             {isAdmin ? (

@@ -143,6 +143,8 @@ check("⑦ 비로그인 track 전송 0건(401 노이즈 근절)", anonTracks ===
 // 비로그인엔 앱 메뉴(GNB) 숨김 — 사용자 요청
 const hdr = await pa.innerText("header");
 check("⑦ 비로그인: GNB 앱 메뉴 숨김", !hdr.includes("규정 둘러보기") && !hdr.includes("관계 그래프") && !hdr.includes("지금 KEI"), hdr.replace(/\s+/g, " ").slice(0, 80));
+// 비로그인 푸터 '소개' 제거(홈에 소개 인라인 — 중복, 사용자 요청)
+check("⑦ 비로그인: 푸터 소개 링크 없음", (await pa.locator('footer a[href="/about/"]').count()) === 0);
 await pa.screenshot({ path: "verify-landing-home.png" });
 await ctxAnon.close().catch(() => {});
 

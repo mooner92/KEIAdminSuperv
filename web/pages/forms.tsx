@@ -161,14 +161,15 @@ export default function FormsPage({ forms }: { forms: FormEntry[] }) {
                     <td className={f.name}>{e.서식명}</td>
                     <td>{e.규정명}</td>
                     <td className={f.no}>{e.호}</td>
-                    <td>
+                    <td className={f.dlCell}>
                       {e.pdf ? (
-                        <a className={f.dl} href={e.pdf} download onClick={() => track("forms_search")}>
-                          PDF ↓
-                        </a>
+                        <a className={f.dl} href={e.pdf} download title="이 별지만 담긴 원문 PDF">PDF ↓</a>
                       ) : (
                         <span className={f.dlNone}>—</span>
                       )}
+                      {e.hwp ? (
+                        <a className={f.dl} href={e.hwp} download title="규정 원문 전체 한글파일 — 서식 편집·작성용">HWP ↓</a>
+                      ) : null}
                     </td>
                     <td>
                       <Link className={f.go} href={`/d/${encodeURIComponent(e.slug)}/#${encodeURIComponent(e.anchor)}`}

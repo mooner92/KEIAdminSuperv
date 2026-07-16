@@ -271,10 +271,11 @@ export type FormEntry = {
   서식명: string;       // ①01p manifest의 원문 제목(PDF 최대 폰트) ②라벨 줄 잔여 ③다음 의미 줄
   anchor: string;       // 문서 내 앵커 id(=호) — Markdown 렌더러의 별지 id 규칙과 동기(적대 검증 확정)
   pdf: string | null;   // 별지 원문 PDF 다운로드 경로(01p 분리본, git-external — 없으면 null)
+  hwp: string | null;   // 규정 원문 HWP(전체) — 실편집용. 별지만 HWP 분리는 포맷상 불가(docs/50 §7)
 };
 
 // 01p_byeolji_pdf.py manifest — 규정↔별지↔원문 PDF·서식명(원문 제목). git-external(없으면 빈 객체).
-type ByeoljiManifest = Record<string, { 별지: { label: string; name: string; pdf: string }[] }>;
+type ByeoljiManifest = Record<string, { hwp?: string | null; 별지: { label: string; name: string; pdf: string }[] }>;
 let _byeoljiMf: ByeoljiManifest | null = null;
 function byeoljiManifest(): ByeoljiManifest {
   if (_byeoljiMf) return _byeoljiMf;
@@ -332,13 +333,15 @@ export function loadForms(): FormEntry[] {
         }
       }
       seen.add(key);
-      // 01p manifest 조인 — 깨진 md 휴리스틱 제목('10일 이내'류)을 원문 제목으로 교정 + 다운로드 PDF
-      const mfe = (byeoljiManifest()[meta.slug]?.별지 || []).find((b) => b.label === label);
+      // 01p manifest 조인 — 깨진 md 휴리스틱 제목('10일 이내'류)을 원문 제목으로 교정 + 다운로드 PDF/HWP
+      const mf = byeoljiManifest()[meta.slug];
+      const mfe = (mf?.별지 || []).find((b) => b.label === label);
       const mfName = (mfe?.name || "").trim();
       if (mfName && /[가-힣A-Za-z]{2,}/.test(mfName)) title = mfName.slice(0, 40);
       out.push({ 규정명: doc.title, slug: meta.slug, 호: label, 호수: Number(m[1].split("-")[0]),
                  서식명: title || "(서식명 미기재)", anchor: label,
-                 pdf: mfe ? `/${mfe.pdf}` : null });
+                 pdf: mfe ? `/${mfe.pdf}` : null,
+                 hwp: mf?.hwp ? `/${mf.hwp}` : null });
     }
   }
   out.sort((a, b) => (a.규정명 === b.규정명

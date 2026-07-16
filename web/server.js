@@ -180,6 +180,9 @@ const MIME = {
   ".woff2": "font/woff2",
   ".ttf": "font/ttf",
   ".txt": "text/plain; charset=utf-8",
+  ".hwp": "application/x-hwp",
+  ".hwpx": "application/vnd.hancom.hwpx",
+  ".pdf": "application/pdf",
   ".webmanifest": "application/manifest+json",
   ".xml": "application/xml; charset=utf-8",
 };
