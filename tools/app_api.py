@@ -425,6 +425,24 @@ def _migrate_user_verified():
 
 
 # ───────────────────────── 인증 ─────────────────────────
+# docs/44 §4-7: 보안 이벤트 로그(실패 로그인·차단) — stderr → PM2 로그로 수집.
+# 침해 조사용 최소 필드(계정·IP·시각)만. ⛔ 비밀번호·토큰은 절대 기록하지 않는다.
+import logging
+
+_seclog = logging.getLogger("kei.security")
+if not _seclog.handlers:
+    _h = logging.StreamHandler()
+    _h.setFormatter(logging.Formatter("%(asctime)s [SECURITY] %(message)s"))
+    _seclog.addHandler(_h)
+    _seclog.setLevel(logging.INFO)
+    _seclog.propagate = False
+
+
+def _log_id(s: str) -> str:
+    """로그 인젝션 방지 — 개행 제거 + 길이 제한(계정명은 공격자 입력값이다)."""
+    return (s or "").replace("\n", " ").replace("\r", " ").strip()[:80]
+
+
 # v1 ⑮(#51): 로그인 레이트리밋 — 무차별 대입 방어(인메모리, 프로세스 단일이라 충분)
 _LOGIN_FAILS: dict = {}  # key(user|ip) → [timestamps]
 _RL_MAX, _RL_WINDOW = 8, 300.0
@@ -614,6 +632,7 @@ def register(body: AuthIn, request: Request):
     rl_key = f"reg|{_client_ip(request)}"
     reg_max = int(os.environ.get("APP_REG_RL_MAX", "10"))
     if not _rl_check(rl_key, max_n=reg_max, window=3600.0):
+        _seclog.warning(f"register-blocked ip={_client_ip(request)} (rate-limit)")
         raise HTTPException(429, "가입 시도가 너무 많습니다. 잠시 후 다시 시도해 주세요.")
     _rl_fail(rl_key)
     email = body.username.strip().lower()
@@ -682,6 +701,7 @@ def login(body: AuthIn, request: Request, response: Response):
     # docs/44: 프록시 뒤에서 IP가 전부 127.0.0.1로 붕괴하던 것 → 신뢰 XFF(_client_ip)로 교정
     rl_key = f"{body.username.strip()}|{_client_ip(request)}"
     if not _rl_check(rl_key):
+        _seclog.warning(f"login-blocked user={_log_id(body.username)} ip={_client_ip(request)} (rate-limit)")
         raise HTTPException(429, "로그인 시도가 너무 많습니다. 5분 후 다시 시도해 주세요.")
     with Session(engine) as s:
         u = s.exec(select(User).where(User.username == body.username.strip().lower())).first()
@@ -696,7 +716,9 @@ def login(body: AuthIn, request: Request, response: Response):
         uid, un, adm = (u.id, u.username, is_admin(u)) if ok else (None, None, False)
     if not ok:
         _rl_fail(rl_key)
+        _seclog.warning(f"login-fail user={_log_id(body.username)} ip={_client_ip(request)}")
         raise HTTPException(401, "아이디 또는 비밀번호가 올바르지 않습니다.")
+    _seclog.info(f"login-ok user={_log_id(un)} uid={uid} ip={_client_ip(request)}")
     set_cookie(response, make_token(uid))
     return {"id": uid, "username": un, "is_admin": adm}  # /auth/me와 동일 셰이프(관리자 링크 즉시 반영)
 
