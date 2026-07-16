@@ -293,6 +293,13 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-12-31",
     },
+    "term_tooltips": {
+        "default": True,  # 안전 부가 기능(무LLM·표현층만) — on 배포, 문제 시 /admin에서 즉시 off
+        "description": "용어 인라인 툴팁(docs/45) — 본문·답변 속 행정 용어에 점선 밑줄 → 용어집 정의 팝오버. "
+                       "off면 즉시 평문 복귀. 미검수 용어는 '검수 전 초안' 배지.",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
     "forms_registry": {
         "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
         "description": "서식 찾기 /forms(docs/34 ①) — 규정 별지 서식 대장(빌드타임 추출)·검색·원문 앵커 바로보기. "

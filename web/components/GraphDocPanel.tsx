@@ -90,7 +90,7 @@ export default function GraphDocPanel({
               </span>
             </div>
             <h1 className={styles.docH1}>{doc.title}</h1>
-            <Markdown source={doc.body} onNavigate={(s) => onSelect(s)} />
+            <Markdown source={doc.body} onNavigate={(s) => onSelect(s)} selfSlug={doc.slug} />
             {doc.backlinks?.length > 0 ? (
               <aside className={styles.docBacklinks}>
                 <h2 className={styles.docBlTitle}>이 문서를 인용한 문서 · {doc.backlinks.length}</h2>

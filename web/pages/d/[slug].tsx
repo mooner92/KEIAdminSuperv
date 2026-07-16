@@ -86,7 +86,7 @@ export default function DocPage({ doc, backlinks }: { doc: Doc; backlinks: DocMe
           <h1 className={styles.h1}>{doc.title}</h1>
         </header>
 
-        <Markdown source={doc.body} />
+        <Markdown source={doc.body} selfSlug={doc.slug} />
       </article>
 
       {backlinks.length > 0 ? (

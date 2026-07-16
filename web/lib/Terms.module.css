@@ -1,0 +1,47 @@
+/* 용어 인라인 툴팁(docs/45) — 시맨틱 토큰만 */
+
+.hit {
+  cursor: help;
+  text-decoration: underline dotted var(--color-primary);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+  border-radius: 2px;
+}
+.hit:hover { color: var(--color-primary); }
+.hit:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+
+/* position:fixed — 드로어(overflow) 안에서도 잘리지 않는다 */
+.pop {
+  position: fixed;
+  z-index: 120;
+  width: 288px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-pop);
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.6;
+  text-align: left;
+  white-space: normal;
+  cursor: auto;
+}
+.popHead { display: flex; align-items: baseline; gap: 8px; }
+.popHead b { font-size: 14px; font-weight: 800; }
+.draft {
+  font-style: normal;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 6px;
+  color: var(--color-warning);
+  border: 1px solid var(--color-warning);
+}
+.def { color: var(--color-text-secondary); }
+.more { font-size: 12.5px; font-weight: 700; color: var(--color-primary); align-self: flex-start; }
+.more:hover { text-decoration: underline; }

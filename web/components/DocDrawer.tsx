@@ -273,7 +273,7 @@ export default function DocDrawer({
                 <h1 className={styles.h1}>{doc.title}</h1>
               </header>
 
-              <Markdown source={doc.body} onNavigate={goInternal} />
+              <Markdown source={doc.body} onNavigate={goInternal} selfSlug={doc.slug} />
 
               {integrityOn && doc.trackA ? (
                 <aside className={styles.trackA}>

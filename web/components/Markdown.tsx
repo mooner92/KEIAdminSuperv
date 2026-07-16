@@ -2,6 +2,8 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { useFlag } from "../lib/flags";
+import { annotateTerms, useTerms, type TermCtx } from "../lib/terms";
 import styles from "./Markdown.module.css";
 
 // hast 노드에서 텍스트만 추출(제N조 감지용)
@@ -35,11 +37,22 @@ function withBreaks(children: ReactNode): ReactNode {
 export default function Markdown({
   source,
   onNavigate,
+  selfSlug,
 }: {
   source: string;
   // 드로어 안에서 내부 문서 링크(/d/<slug>/#조)를 가로채 페이지 이동 없이 전환
   onNavigate?: (slug: string, anchor: string) => void;
+  // 용어 툴팁: 자기 용어 노트에서 자기 자신 밑줄 금지(docs/45)
+  selfSlug?: string;
 }) {
+  // 용어 인라인 툴팁(docs/45, flag term_tooltips) — 문서·드로어·채팅 답변 공통(같은 컴포넌트).
+  // 사전 로드 전/실패/flag off엔 termCtx=null → 평문 그대로(안전 폴백).
+  const termsOn = useFlag("term_tooltips");
+  const termsData = useTerms(termsOn);
+  // 렌더 패스당 새 Set — '문서당 용어별 첫 등장만 밑줄'(재렌더·스트리밍에도 결정적)
+  const termCtx: TermCtx | null =
+    termsOn && termsData ? { data: termsData, seen: new Set<string>(), selfSlug, onNavigate } : null;
+  const terms = (ch: ReactNode) => (termCtx ? annotateTerms(ch, termCtx) : ch);
   // 1) 01이 넣은 머리 H1(중복 제목) 제거
   // 2) 각 제N조가 별도 단락이 되도록 앞에 빈 줄 삽입 → 단락별 id 부여 가능
   // 3) HTML 주석 제거 — <!--outdated …-->(docs/28) 등 메타데이터는 화면에 노출하지 않는다
@@ -89,13 +102,13 @@ export default function Markdown({
       );
     },
     td({ children }) {
-      return <td>{withBreaks(children)}</td>;
+      return <td>{terms(withBreaks(children))}</td>;
     },
     th({ children }) {
       return <th>{withBreaks(children)}</th>;
     },
     li({ children }) {
-      return <li>{withBreaks(children)}</li>;
+      return <li>{terms(withBreaks(children))}</li>;
     },
     p({ node, children }) {
       // 제N조 + 별표 N + 별지 제N호 단락에 id 부여 → 출처(s.조)로 앵커 스크롤·하이라이트
@@ -110,11 +123,11 @@ export default function Markdown({
         seen.add(id);
         return (
           <p id={id} className={styles.article}>
-            {children}
+            {terms(children)}
           </p>
         );
       }
-      return <p>{children}</p>;
+      return <p>{terms(children)}</p>;
     },
   };
 

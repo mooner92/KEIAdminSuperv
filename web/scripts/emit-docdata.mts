@@ -181,3 +181,37 @@ fs.writeFileSync(idxPath, JSON.stringify(searchIndex), "utf-8");
 const kb = Math.round(fs.statSync(idxPath).size / 1024);
 console.log(`docdata: ${n}개 문서 JSON → ${OUT}`);
 console.log(`search-index: ${n}개 본문 → ${idxPath} (${kb}KB, 내용검색 lazy-load)`);
+
+// ── 용어 인라인 툴팁(docs/45, flag term_tooltips) — 용어집 전체를 단일 소형 JSON으로.
+// 본문/답변 렌더러가 런타임 1회 fetch해 용어에 점선 밑줄+정의 팝오버를 단다(무LLM).
+function termDef(body: string): string {
+  // crosslink 블록 제거 → 헤딩/콜아웃/리스트 줄 제외 → 첫 실질 문단
+  const stripped = body.replace(/<!--\s*terms-crosslink\s*-->[\s\S]*?<!--\s*terms-crosslink\s*-->/g, "");
+  const lines = stripped.split("\n").map((l) => l.trim());
+  const para: string[] = [];
+  for (const l of lines) {
+    if (!l || l.startsWith("#") || l.startsWith(">") || l.startsWith("-") || l.startsWith("|")) {
+      if (para.length) break; // 문단 종료
+      continue;
+    }
+    if (/^\*관련\s*:/.test(l)) break;
+    para.push(l);
+  }
+  return para
+    .join(" ")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/[*_`~]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 220);
+}
+const termEntries = getAllDocs()
+  .filter((d) => d.section === "용어집")
+  .map((d) => {
+    const doc = getDoc(d.slug);
+    return { t: d.title, s: d.slug, d: termDef(doc?.body || ""), r: d.reviewed === "검수완료" };
+  })
+  .filter((x) => x.t.length >= 2 && x.t.length <= 20);
+const termsPath = path.resolve(process.cwd(), "out", "terms-tooltip.json");
+fs.writeFileSync(termsPath, JSON.stringify(termEntries), "utf-8");
+console.log(`terms-tooltip: ${termEntries.length}개 용어 → ${termsPath}`);
