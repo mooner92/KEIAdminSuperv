@@ -1240,6 +1240,40 @@ def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None
             ranked = sorted(zip(cand, (float(s) for s in scores)), key=lambda x: -x[1])
             order = [i for i, _ in ranked]
             rscore = {i: s for i, s in ranked}
+            # 밀집 상위 안전석(RAG_RERANK_KEEP_DENSE, 기본 2) — 실측 결함 방어:
+            # cross-encoder가 표면 어휘(예: '수당 지급 기준')에 끌려 밀집 정답(보수규정
+            # 제15조의3)을 top-k 밖으로 퇴출한 사례(초과근무 수당 질의, 2026-07-16).
+            # 리랭커의 재정렬 이득(strict Hit@1 0.600→0.829)은 유지하되, 밀집 상위 N개는
+            # 최종 top-k에서 '퇴출만' 금지한다(순위는 리랭커 존중 — 뒤쪽 좌석으로 삽입).
+            keep_n = int(os.environ.get("RAG_RERANK_KEEP_DENSE", "2"))
+            if keep_n > 0 and len(order) > k:
+                dense_top = list(cand[:keep_n])
+                dense_topk = set(cand[:k])  # 밀집 top-k도 희생자 선정에서 보호(연장 제6조 퇴출 사례)
+                final = order[:k]
+                protected = set(dense_top)
+                missing = [di for di in dense_top if di not in final]
+                if len(missing) >= len(dense_top) and missing:
+                    # 완전 충돌: 리랭커가 밀집 1·2위를 전부 퇴출 — 어휘 함정 신호(실측:
+                    # '수당 지급 기준' 표면 일치에 끌려 가족수당·명예퇴직수당이 초과근무
+                    # 질의를 점령, 2026-07-16). 밀집 순서로 강등하되 리랭크 최고점(밀집
+                    # 밖) 1석은 남긴다 — 리랭커가 발굴한 문서일 가능성 보존.
+                    rer_pick = [i for i in final if i not in dense_topk][:1]
+                    final = list(cand[: k - len(rer_pick)]) + rer_pick
+                elif missing:
+                    # 부분 충돌: 뒤(리랭크 저점수)부터 ① 밀집 top-k에도 없는 항목 → ② 나머지 교체
+                    tier1 = [j for j in range(k - 1, -1, -1)
+                             if final[j] not in protected and final[j] not in dense_topk]
+                    tier2 = [j for j in range(k - 1, -1, -1)
+                             if final[j] not in protected and j not in tier1]
+                    victims = tier1 + tier2
+                    for di in missing:
+                        if not victims:
+                            break
+                        final[victims.pop(0)] = di
+                    # 충돌 시 밀집 top-k 문서를 컨텍스트 앞줄로(안정 정렬) — 집합 불변,
+                    # LLM 주의 앵커만 주제 정합 문서로 교정.
+                    final.sort(key=lambda i: 0 if i in dense_topk else 1)
+                order = final + [i for i in order if i not in final]
         except Exception as e:  # noqa: BLE001 — 리랭커 실패(예: GPU OOM)는 밀집 순서로 우아하게 강등
             print(f"⚠ 리랭커 실패 → 밀집 순서로 강등: {e}")
             order = list(cand)
