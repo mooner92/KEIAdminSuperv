@@ -34,6 +34,9 @@ PROMPT = """당신은 KEI 행정 가이드 서비스의 유지보수 계획 담�
 ## 신규 제보 (id: 유형/대상/내용)
 {new_reports}
 
+## 코퍼스 대조 — 오류/누락 제보의 관련 근거 (검색 결과)
+{rag_context}
+
 ## 이미 계획·처리된 항목(이것과 같은 사안이면 중복입니다)
 {known_items}
 
@@ -41,6 +44,12 @@ PROMPT = """당신은 KEI 행정 가이드 서비스의 유지보수 계획 담�
 - 같은 사안의 신규 제보는 하나의 그룹으로 묶는다.
 - duplicates는 **'이미 계획·처리된 항목' 목록에 실제로 같은 사안이 존재할 때만** 넣는다.
   목록에 비슷한 항목이 없으면 중복이 아니다 — 확신이 없으면 그룹으로 만든다.
+- **'코퍼스 대조'를 근거로 신빙성을 판단한다**:
+  - 오류신고: 관련 근거가 검색되면 그 문서/조문이 실존한다는 뜻 → 화면·표 문제로 다룬다.
+    관련 근거가 전혀 없으면 대상 문서명이 틀렸을 수 있으니 요약에 그 점을 적는다.
+  - 누락신고: 관련 근거가 **검색되지 않으면** 코퍼스에 없을 가능성이 높다 → 개정본/문서 반입(로컬조치)
+    신빙성 높음. 반대로 이미 검색되면 '있는데 사용자가 못 찾은' 경우일 수 있으니 안내·검색 개선으로 본다.
+  - ⛔ 근거의 규정 내용(금액·기한 등)을 계획에 옮겨 적지 말 것 — 실존/부재 판단에만 쓴다.
 - 각 그룹의 조치구분:
   - "로컬조치": 서버·관리 화면에서 운영으로 해결(예: 부서에 개정본 요청 후 관리자 업로드→재색인,
     검수 우선순위 조정, 기능 켜기/끄기, 안내 문구). 코드 수정 불필요.
@@ -51,6 +60,39 @@ PROMPT = """당신은 KEI 행정 가이드 서비스의 유지보수 계획 담�
 {{"groups": [{{"제목": str, "조치구분": "로컬조치"|"코드작업", "요약": str,
   "제안절차": [str], "report_ids": [int], "우선순위": "높음"|"보통"|"낮음"}}],
  "duplicates": [{{"report_id": int, "이유": str}}]}}"""
+
+
+RAG_TYPES = {"오류신고", "누락신고"}  # 코퍼스 대조가 신빙성 판단에 필요한 유형(docs/51 §5)
+
+
+def _rag_context(reports) -> str:
+    """오류/누락 제보를 볼트에서 검색해 '실존/부재' 근거를 프롬프트에 붙인다(docs/51 §5).
+    ⚠ 임베더 로딩이 무거우므로 해당 유형 제보가 있을 때만 backend를 깨운다. 검색만(리랭커 off).
+    실패(chroma 없음 등)해도 파이프라인은 계속 — 그 경우 빈 대조로 진행(구 동작)."""
+    if os.environ.get("FB_ANALYZE_RAG", "1") == "0" or os.environ.get("FB_ANALYZE_STUB"):
+        return "(코퍼스 대조 비활성)"  # 스텁 테스트는 결정적 유지 — 임베더 로딩·검색 생략
+    targets = [r for r in reports if r.유형 in RAG_TYPES]
+    if not targets:
+        return "(오류/누락 제보 없음 — 대조 불필요)"
+    try:
+        sys.path.insert(0, str(HERE))
+        import rag_core  # noqa: PLC0415
+    except Exception as e:  # noqa: BLE001
+        return f"(코퍼스 대조 불가: {e})"
+    lines = []
+    for r in targets:
+        query = f"{r.대상규정} {r.대상조문} {r.내용[:200]}".strip()
+        try:
+            _, srcs = rag_core.retrieve(query, k=3, rerank=False)
+        except Exception as e:  # noqa: BLE001
+            lines.append(f"- 제보 #{r.id}: (검색 실패: {e})")
+            continue
+        if not srcs:
+            lines.append(f"- 제보 #{r.id} [{r.유형}] '{r.대상규정}': 관련 근거 0건 — 코퍼스에 없음(부재 신호)")
+            continue
+        ev = " · ".join(f"{s.get('규정명', '')} {s.get('조', '')}".strip() for s in srcs[:3])
+        lines.append(f"- 제보 #{r.id} [{r.유형}] '{r.대상규정}': 관련 근거 {len(srcs)}건 → {ev}")
+    return "\n".join(lines) or "(대조 결과 없음)"
 
 
 def _llm_call(prompt: str) -> str:
@@ -154,7 +196,8 @@ def main() -> int:
         new_txt = "\n".join(f"- id={r.id}: {r.유형} / {r.대상규정} {r.대상조문} / {r.내용[:300]}"
                             for r in new)
         known_txt = "\n".join(f"- {k}" for k in known) or "- (없음)"
-        prompt = PROMPT.format(new_reports=new_txt, known_items=known_txt)
+        rag_txt = _rag_context(new)  # 오류/누락 제보만 볼트 대조(실존/부재) — docs/51 §5
+        prompt = PROMPT.format(new_reports=new_txt, rag_context=rag_txt, known_items=known_txt)
 
         plan = None
         for attempt in (1, 2):
