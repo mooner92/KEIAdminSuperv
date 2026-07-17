@@ -1538,6 +1538,40 @@ def list_feedback(admin: User = Depends(current_admin), rating: str = "", limit:
 REPORT_TYPES = {"오류신고", "누락신고", "개선의견", "버그신고", "기타"}
 REPORT_ADMIN_STATES = {"접수", "계획반영", "처리완료", "보류"}  # 분석됨/중복은 분석기 전용
 
+# 이벤트 트리거(docs/51 §5): 제보 제출 시 디바운스 후 분석기 실행 — 고정 시각(cron)만으로는
+# 늦다는 요구. 연속 제출을 묶기 위해 마지막 제출 기준 APP_FB_DEBOUNCE_SECONDS 뒤 1회 실행.
+# 동시 실행은 분석기 자체 파일락이 방어(cron·manual과 겹쳐도 안전). cron은 백스톱으로 유지.
+FB_DEBOUNCE = float(os.environ.get("APP_FB_DEBOUNCE_SECONDS", "180"))
+_FB_TIMER: dict = {"t": None}
+
+
+def _spawn_analyzer(trigger: str) -> None:
+    """분석기를 서브프로세스로 기동(현재 env 상속 — VLLM_BASE·LLM_MODEL·APP_DB 필요).
+    ⛔ 분석기는 읽기 전용 조사+보고서뿐(docs/51 §9 Gate 0) — 여기서 실행해도 쓰기 권한 없음."""
+    import subprocess  # noqa: PLC0415
+    from pathlib import Path as _P  # noqa: PLC0415
+    try:
+        subprocess.Popen(
+            [sys.executable, str(_P(__file__).parent / "feedback_analyze.py")],
+            env={**os.environ, "FB_TRIGGER": trigger},
+            cwd=str(_P(__file__).parent),
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception as e:  # noqa: BLE001
+        _seclog.warning(f"analyzer-spawn-fail trigger={trigger} err={e}")
+
+
+def _schedule_analyzer() -> None:
+    import threading  # noqa: PLC0415
+    try:
+        if _FB_TIMER["t"]:
+            _FB_TIMER["t"].cancel()  # 연속 제출 → 타이머 리셋(마지막 제출 기준 디바운스)
+        t = threading.Timer(FB_DEBOUNCE, _spawn_analyzer, args=("event",))
+        t.daemon = True
+        t.start()
+        _FB_TIMER["t"] = t
+    except Exception:  # noqa: BLE001
+        pass  # 스케줄 실패해도 cron 백스톱이 처리
+
 
 @router.post("/reports")
 def create_report(body: ReportIn, request: Request, user: User = Depends(current_user)):
@@ -1557,6 +1591,7 @@ def create_report(body: ReportIn, request: Request, user: User = Depends(current
         s.add(r)
         s.commit()
         s.refresh(r)
+        _schedule_analyzer()  # 이벤트 트리거(디바운스) — cron을 기다리지 않고 분석(docs/51 §5)
         return {"id": r.id, "상태": r.상태}
 
 
@@ -1622,6 +1657,13 @@ def maint_notices_read(admin: User = Depends(current_admin)):
             s.add(n)
         s.commit()
         return {"ok": True}
+
+
+@router.post("/maint/analyze")
+def maint_analyze(admin: User = Depends(current_admin)):
+    """관리자 '지금 분석' — 디바운스 없이 즉시 분석기 기동(중복은 분석기 파일락이 방어)."""
+    _spawn_analyzer("manual")
+    return {"started": True}
 
 
 @router.get("/maint/plan/latest")

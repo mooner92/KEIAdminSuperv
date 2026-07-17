@@ -77,6 +77,14 @@ export default function AdminReports() {
     await api.maintNoticesRead().catch(() => {});
     load();
   };
+  const analyzeNow = async () => {
+    try {
+      await api.maintAnalyze();
+      setMsg("분석 시작 — 완료되면 🔔 알림이 옵니다(수십 초 소요)");
+    } catch {
+      setMsg("분석 시작 실패");
+    }
+  };
 
   return (
     <section>
@@ -85,8 +93,9 @@ export default function AdminReports() {
         {notices && notices.unread > 0 ? <span className={f.unreadBadge}> {notices.unread}</span> : null}
       </h2>
       <p className={styles.muted}>
-        매시간 로컬 모델이 접수 제보를 분석해 계획을 만들면 여기에 알림이 옵니다(신규 없으면 알림 없음 — 실행 기록만 남음).
-        미확인 알림은 상단 헤더 🔔 배지로도 표시돼요.
+        제보가 오면 잠시 뒤 자동으로, 그리고 매시간(백스톱) 로컬 모델이 분석해 게이트(위험도)별
+        보고서를 만들면 여기에 알림이 옵니다(신규 없으면 실행 기록만 남음). 미확인 알림은 상단 헤더 🔔 배지로도 표시돼요.
+        {" "}<button className={f.readAll} onClick={analyzeNow}>▶ 지금 분석</button>
       </p>
       <NotifyPermission />
       {notices && notices.notices.length > 0 ? (

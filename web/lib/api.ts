@@ -274,6 +274,7 @@ export const api = {
   maintNotices: () => j<{ unread: number; notices: MaintNoticeRow[] }>("/maint/notices"), // 관리자
   maintNoticesRead: () => j<{ ok: boolean }>("/maint/notices/read", { method: "POST" }),
   maintPlanLatest: () => j<{ name: string; md: string }>("/maint/plan/latest"), // 관리자(404=계획 없음)
+  maintAnalyze: () => j<{ started: boolean }>("/maint/analyze", { method: "POST" }), // 관리자 '지금 분석'
 
   // 기능 플래그
   flags: () => j<Record<string, boolean>>("/flags", undefined, 6000), // 공개(UI 토글), 짧은 타임아웃

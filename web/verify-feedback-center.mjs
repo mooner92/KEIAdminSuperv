@@ -104,6 +104,19 @@ if (planResp.ok()) {
   check("⑤ 계획 없음 안내", admBody.includes("아직 생성된 계획이 없습니다"));
 }
 
+// ⑨ 게이트 v2: '지금 분석' 버튼 + API(started) + 최신 보고서에 게이트·확인포인트 섹션
+check("⑨ '지금 분석' 버튼", (await a.locator("button", { hasText: "지금 분석" }).count()) === 1);
+const az = await adm.request.post(BASE + "/api/app/maint/analyze");
+check("⑨ POST /maint/analyze → started", az.ok() && (await az.json()).started === true);
+const latestPlan = await adm.request.get(BASE + "/api/app/maint/plan/latest");
+if (latestPlan.ok()) {
+  const pmd = (await latestPlan.json()).md;
+  check("⑨ 보고서: 게이트 라벨(G0~G3)", /G[0-3] /.test(pmd));
+  check("⑨ 보고서: 초안·무실행 배너", pmd.includes("자동 실행되지 않았습니다"));
+} else {
+  check("⑨ 보고서 게이트 형식(계획 없음 — 스킵 불가)", false, "plan 404");
+}
+
 // ⑥ 레이트리밋(10/시간/사용자) — API 직접으로 소진 → 429
 let rlHit = false;
 for (let i = 0; i < 12; i++) {
