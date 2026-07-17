@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "re
 import ThemeToggle from "./ThemeToggle";
 import { useFlag } from "../lib/flags";
 import { useAuth } from "../lib/auth";
+import { api } from "../lib/api";
 import { BUILD_ID, CORPUS_AS_OF } from "../lib/site";
 import { track } from "../lib/track";
 import styles from "./Layout.module.css";
@@ -85,6 +86,34 @@ export default function Layout({
   // 인증 확인 후에만 발화 — 비로그인 401 노이즈·뮤트 방지(docs/36 §6⑦).
   const { asPath } = router;
   useEffect(() => { if (authKnown) track("page_view", pathname); }, [asPath, pathname, authKnown]);
+  // 🔔 유지보수 알림 배지(docs/51 §5-6, 관리자 전용) — SMTP 불가 환경의 1차 알림 수단.
+  // 5분 폴링으로 미확인 알림 수를 전역 헤더에 표시 + (권한 허용 시) 브라우저 데스크톱 알림.
+  // 외부 서비스 의존 0 — 데이터가 앱 밖으로 나가지 않는다.
+  const [maintUnread, setMaintUnread] = useState(0);
+  useEffect(() => {
+    if (!isAdmin || !feedbackOn) return;
+    let stop = false;
+    const poll = async () => {
+      try {
+        const r = await api.maintNotices();
+        if (stop) return;
+        setMaintUnread(r.unread);
+        const latest = r.notices.find((n) => n.unread);
+        if (latest && typeof Notification !== "undefined" && Notification.permission === "granted") {
+          const seen = localStorage.getItem("kei-maint-notified");
+          if (seen !== String(latest.id)) {
+            localStorage.setItem("kei-maint-notified", String(latest.id));
+            try {
+              new Notification("KEI 행정 가이드 — 유지보수 계획", { body: latest.summary, tag: "kei-maint" });
+            } catch { /* 알림 실패는 배지로 충분 */ }
+          }
+        }
+      } catch { /* 폴링 실패 무시(다음 주기) */ }
+    };
+    poll();
+    const t = setInterval(poll, 5 * 60 * 1000);
+    return () => { stop = true; clearInterval(t); };
+  }, [isAdmin, feedbackOn]);
   return (
     <div className={styles.root} data-fill={fill ? "" : undefined}>
       {latestNote ? (
@@ -116,6 +145,12 @@ export default function Layout({
             <span className={styles.nav} aria-hidden />
           )}
           <div className={styles.headerRight}>
+            {isAdmin && feedbackOn && maintUnread > 0 ? (
+              <Link href="/admin/#reports" className={styles.maintBell}
+                title={`유지보수 알림 ${maintUnread}건 — 의견함에서 확인`} aria-label={`유지보수 알림 ${maintUnread}건`}>
+                🔔<span className={styles.maintBadge}>{maintUnread}</span>
+              </Link>
+            ) : null}
             <ThemeToggle />
             <span className={styles.flag}>🔒 사내 전용</span>
           </div>

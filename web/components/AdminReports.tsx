@@ -9,6 +9,30 @@ import f from "../styles/Feedback.module.css";
 const STATES = ["접수", "분석됨", "중복", "계획반영", "처리완료", "보류"] as const;
 const ADMIN_SET = ["접수", "계획반영", "처리완료", "보류"]; // 관리자가 지정 가능(분석됨/중복=분석기 전용)
 
+// 브라우저 데스크톱 알림 옵트인(SMTP 불가 환경의 보조 수단 — 사이트 탭이 열려 있을 때 동작).
+// 권한 요청은 사용자 제스처에서만(자동 팝업 금지). 거부 상태면 안내만.
+function NotifyPermission() {
+  const [perm, setPerm] = useState<string>("unsupported");
+  useEffect(() => {
+    if (typeof Notification !== "undefined") setPerm(Notification.permission);
+  }, []);
+  if (perm === "unsupported" || perm === "granted") {
+    return perm === "granted"
+      ? <p className={styles.muted}>🖥 브라우저 알림 켜짐 — 새 계획이 생기면 데스크톱 알림이 떠요(사이트 탭이 열려 있을 때).</p>
+      : null;
+  }
+  return (
+    <p className={styles.muted}>
+      {perm === "denied"
+        ? "🔕 브라우저 알림이 차단돼 있어요 — 주소창 옆 사이트 설정에서 허용으로 바꾸면 데스크톱 알림을 받아요."
+        : <button className={f.readAll}
+            onClick={() => Notification.requestPermission().then(setPerm)}>
+            🖥 브라우저 알림 켜기 (새 계획 도착 시 데스크톱 알림)
+          </button>}
+    </p>
+  );
+}
+
 export default function AdminReports() {
   const [reports, setReports] = useState<ReportRow[] | null>(null);
   const [filter, setFilter] = useState<string>("");
@@ -56,7 +80,9 @@ export default function AdminReports() {
       </h2>
       <p className={styles.muted}>
         매시간 로컬 모델이 접수 제보를 분석해 계획을 만들면 여기에 알림이 옵니다(신규 없으면 알림 없음 — 실행 기록만 남음).
+        미확인 알림은 상단 헤더 🔔 배지로도 표시돼요.
       </p>
+      <NotifyPermission />
       {notices && notices.notices.length > 0 ? (
         <div className={f.noticeList}>
           {notices.notices.slice(0, 8).map((n) => (

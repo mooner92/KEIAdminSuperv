@@ -165,3 +165,12 @@
 }
 .bannerClose:hover { opacity: 1; }
 .bannerClose:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; border-radius: 4px; }
+
+/* 🔔 유지보수 알림 배지(docs/51, 관리자 전용) */
+.maintBell { position: relative; display: inline-flex; align-items: center; font-size: 16px; text-decoration: none; padding: 2px 4px; }
+.maintBadge {
+  position: absolute; top: -4px; right: -6px;
+  min-width: 15px; height: 15px; line-height: 15px; text-align: center;
+  background: var(--color-danger, #d6455c); color: #fff;
+  border-radius: 999px; font-size: 10px; font-weight: 800; padding: 0 3px;
+}
