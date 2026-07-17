@@ -155,3 +155,6 @@ web/.report-*.html
 # 랜딩/디자인 스크린샷(산출물 — 커밋 금지)
 web/shot-*.png
 shot-*.png
+
+# 마이그레이션 매뉴얼(내부 경로·호스트·복구절차 — 민감, 새 서버엔 별도 scp)
+manual/

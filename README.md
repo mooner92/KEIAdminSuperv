@@ -8,7 +8,7 @@
 | --- | --- |
 | 상태 | 🟢 파이프라인 + LLM 가동 · 검색(리랭커·쿼리 재작성)·신뢰(피드백·금액·신뢰게이트) 보강 · 화면 9종(채팅·둘러보기·그래프·결재선·업무 한 장·캘린더·서식·허브·소개) + 용어 툴팁 · KRDS 디자인 통일 · 서식찾기 별지 **PDF↓/HWP↓ 다운로드**(별지 288건, docs/50) · 모바일 개편(GNB 3탭, docs/48) |
 | 코퍼스 | **363 문서**(규정집 111 · 연구행정 가이드 65 · **용어집 119** · 사내 시스템 54 · 대외업무 14) · **4,830 청크** 임베딩(KURE-v1) · 관계 그래프 363 노드·515 연결 |
-| 배포 | 🔒 사내 전용 · dev 3101/9001(`feat/krds`, **정착 후보**) · prod 3100/9000(`feat/0620`, 동결) · **서버 로그인 게이트**(비로그인은 랜딩만, docs/44) — 랜딩(`/about`) 외부 공개 대비 |
+| 배포 | 🔒 사내 전용 · dev 3101/9001(`feat/krds`, **정착 확정** — 이전 시에도 이 포트 유지, manual/) · prod 3100/9000(`feat/0620`, 동결) · **서버 로그인 게이트**(비로그인은 랜딩만, docs/44) — 랜딩(`/about`) 외부 공개 대비 |
 | 모델 | 🖥️ 온프레미스 GPU (Quadro RTX 6000 24GB×2, 총 48GB) · 답변 격리 Ollama v0.31.1(Qwen3.5-9B GGUF Q4_K_M) |
 | 조직 | KEI · 한국환경연구원 (Korea Environment Institute) |
 | 레포 | github.com/mooner92/KEIAdminSuperv |
@@ -302,9 +302,24 @@ flowchart LR
 | 트랙 | 프론트 | RAG API | 위치(브랜치) | PM2 |
 | --- | --- | --- | --- | --- |
 | **운영(prod)** | `3100` | `9000` | 레포 본체 `/KEIAdminSuperv` (`feat/0620`) | `kei-guide` · `kei-rag-api` |
-| **개발(dev)** | `3101` | `9001` | git worktree `/home/mhchoi/kei-dev-0703` (`feat/krds`, 정착 후보) | `kei-guide-dev` · `kei-rag-api-dev` |
+| **개발(dev)** | `3101` | `9001` | git worktree `/home/mhchoi/kei-dev-0703` (`feat/krds`, **정착 확정** 3101/9001) | `kei-guide-dev` · `kei-rag-api-dev` |
 
 개발(dev)은 자체 `chroma`·`app.db`·`.app_secret`·볼트 사본을 가진 **완전 격리** worktree로, 개발 작업이 운영 사용자/기록에 영향을 주지 않습니다. 기동은 `pm2 start deploy/ecosystem.dev-0703.config.js`. ⚠ 운영(prod, 3100/9000)은 병합 승인 전까지 동결 — 개발은 dev(3101/9001)에서만. 병합 전 prod 스냅샷은 `git tag`(코드) + 볼트·chroma·app.db 파일 복사(콘텐츠·데이터는 gitignore)로 뜬다.
+
+### 서버 이전(마이그레이션)
+
+다른 사내 서버로 서비스를 통째로 옮길 때의 **전체 복구 런북**은 `manual/`에 있습니다(포트 **3101/9001** 유지 기준). 원리: **`git clone`이 코드를, 런북이 git 밖의 것(볼트·`app.db`·`.app_secret`·벡터DB·폰트·모델)을 복구**합니다.
+
+⚠ **`manual/`은 gitignore**입니다(내부 경로·호스트가 담겨 민감 — 이 레포에는 없음). 따라서 신규 서버에서는 clone에 딸려 오지 않으니, **현재 서버에서 먼저 scp로 끌어와** 시작합니다:
+
+```bash
+# 신규 서버(DST)에서: 코드 clone 후, 현재 서버(SRC)에서 런북만 별도로 가져온다
+git clone git@github.com:mooner92/KEIAdminSuperv.git && cd KEIAdminSuperv
+scp -r <USER>@<SRC_HOST>:<SRC_DIR>/manual ./manual   # ⛔ 커밋 금지(gitignore가 방어)
+# 이후 manual/README.md(이동 지도 + 00→08 순서)를 그대로 따라간다
+```
+
+`manual/README.md`가 **이동 지도**(무엇을 scp로 나르고 무엇을 재생성하는지)와 00~08 단계별 절차·검증을 담은 진입점입니다.
 
 ---
 
