@@ -64,7 +64,7 @@
 .mineState { font-size: 12px; font-weight: 700; color: var(--color-text-secondary); margin-left: auto; }
 .mineState[data-state="처리완료"] { color: var(--color-success, #1b8a5a); }
 .mineState[data-state="계획반영"] { color: var(--color-primary); }
-.mineDate { font-size: 12px; color: var(--color-text-tertiary); }
+.mineDate { font-size: 12px; color: var(--color-text-tertiary); white-space: nowrap; }
 .mineBody { margin: 8px 0 0; font-size: 13.5px; color: var(--color-text); white-space: pre-wrap; }
 .mineNote { margin: 8px 0 0; font-size: 13px; color: var(--color-text-secondary); background: var(--color-bg); border-radius: 8px; padding: 8px 10px; }
 

@@ -9,6 +9,12 @@ import f from "../styles/Feedback.module.css";
 const STATES = ["접수", "분석됨", "중복", "계획반영", "처리완료", "보류"] as const;
 const ADMIN_SET = ["접수", "계획반영", "처리완료", "보류"]; // 관리자가 지정 가능(분석됨/중복=분석기 전용)
 
+// 접수 일시(날짜+시각) — 언제 들어왔는지 관리자가 바로 보게(초 단위 저장, 분까지 표시)
+const fmtAt = (epoch: number) =>
+  new Date(epoch * 1000).toLocaleString("ko-KR", {
+    year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit",
+  });
+
 // 브라우저 데스크톱 알림 옵트인(SMTP 불가 환경의 보조 수단 — 사이트 탭이 열려 있을 때 동작).
 // 권한 요청은 사용자 제스처에서만(자동 팝업 금지). 거부 상태면 안내만.
 function NotifyPermission() {
@@ -135,7 +141,7 @@ export default function AdminReports() {
                 <option key={s} value={s}>{s}</option>
               ))}
             </select>
-            <time className={f.mineDate}>{new Date(r.at * 1000).toLocaleDateString("ko-KR")}</time>
+            <time className={f.mineDate} title="접수 일시">{fmtAt(r.at)}</time>
           </header>
           <p className={f.mineBody}>{r.내용}</p>
           <div className={f.noteRow}>

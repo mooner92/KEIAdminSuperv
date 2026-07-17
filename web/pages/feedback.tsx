@@ -141,7 +141,11 @@ export default function FeedbackPage() {
                 <span className={f.mineType}>{r.유형}</span>
                 {r.대상규정 ? <span className={f.mineDoc}>{r.대상규정}{r.대상조문 ? ` · ${r.대상조문}` : ""}</span> : null}
                 <span className={f.mineState} data-state={r.상태}>{STATE_BADGE[r.상태] || r.상태}</span>
-                <time className={f.mineDate}>{new Date(r.at * 1000).toLocaleDateString("ko-KR")}</time>
+                <time className={f.mineDate} title="접수 일시">
+                  {new Date(r.at * 1000).toLocaleString("ko-KR", {
+                    year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit",
+                  })}
+                </time>
               </header>
               <p className={f.mineBody}>{r.내용}</p>
               {r.admin_note ? <p className={f.mineNote}>💬 처리 메모: {r.admin_note}</p> : null}

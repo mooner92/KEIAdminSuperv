@@ -74,20 +74,34 @@ const savedCard = a.locator("article").filter({ hasText: "verify-feedback" }).fi
 const savedNote = await savedCard.locator('input[placeholder*="처리 메모"]').inputValue();
 const savedState = await savedCard.locator("select").inputValue();
 check("④ 상태 변경+메모 저장", savedState === "처리완료" && savedNote.includes("반영 완료(검증)"));
+// ④-2 메모가 DB에 영속되는지 — 재조회(API)로 확인(리로드해도 남아야 함)
+const persisted = await adm.request.get(BASE + "/api/app/reports/all").then((r) => r.json());
+const dbRow = persisted.find((x) => x.내용 && x.내용.includes("verify-feedback"));
+check("④-2 메모 DB 영속(API 재조회)", !!dbRow && dbRow.admin_note.includes("반영 완료(검증)") && dbRow.상태 === "처리완료");
+// ④-3 접수 시각(날짜+시:분) 표시 — 날짜만이 아니라 시각까지
+const timeText = await savedCard.locator("time").first().innerText();
+check("④-3 접수 일시에 시각(시:분) 표시", /\d{1,2}:\d{2}/.test(timeText), timeText);
 await a.screenshot({ path: "verify-feedback-admin.png" });
 await p.goto(BASE + "/feedback/", { waitUntil: "load" });
 await p.waitForTimeout(1000);
 const mineNow = await p.locator("article").filter({ hasText: "verify-feedback" }).first().innerText();
 check("④ 사용자 쪽 상태·메모 반영", mineNow.includes("처리 완료") && mineNow.includes("반영 완료(검증)"));
 
-// ⑤ 유지보수 알림·계획안(분석기 산출물 — 사전 스모크에서 생성됨)
+// ⑤ 유지보수 알림·계획안(분석기 산출물) — 계획 존재 여부는 API로 판정(카드의 analysis_group
+//    텍스트에 'plan_'이 있어 본문 문자열 검사는 오작동 → 실제 계획 파일 버튼만 본다)
 check("⑤ 계획안 섹션 렌더", admBody.includes("최신 유지보수 계획안"));
-if (admBody.includes("plan_")) {
-  await a.locator("button", { hasText: "plan_" }).first().click();
-  await a.waitForTimeout(500);
-  check("⑤ 계획안 md 펼침(조치구분 섹션)", /코드작업|로컬조치/.test(await a.innerText("body")));
+const planResp = await adm.request.get(BASE + "/api/app/maint/plan/latest");
+if (planResp.ok()) {
+  const planBtn = a.locator("button").filter({ hasText: /plan_\d{8}_\d{4}\.md/ });
+  const hasBtn = (await planBtn.count()) >= 1;
+  check("⑤ 계획안 토글 버튼", hasBtn);
+  if (hasBtn) {
+    await planBtn.first().click();
+    await a.waitForTimeout(500);
+    check("⑤ 계획안 md 펼침(조치구분 섹션)", /코드작업|로컬조치/.test(await a.innerText("body")));
+  }
 } else {
-  check("⑤ 계획안 md 펼침(조치구분 섹션)", false, "계획 파일 없음");
+  check("⑤ 계획 없음 안내", admBody.includes("아직 생성된 계획이 없습니다"));
 }
 
 // ⑥ 레이트리밋(10/시간/사용자) — API 직접으로 소진 → 429
