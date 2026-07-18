@@ -64,6 +64,9 @@ module.exports = {
         // ⛔ 운영(prod) 병합 시 이 변수는 절대 켜지 말 것 — 대신 SMTP_HOST/PORT/FROM 설정.
         APP_DEV_ECHO_CODE: "1",
         APP_REG_RL_MAX: "100", // docs/44: 가입 RL(기본 10/시간) — dev는 E2E 스위트가 소진하지 않게 완화. 공개 배포 시 제거(기본 10)
+        // 오토픽스 Phase A(docs/52 §9): 의견함 🤖 버튼 → 무인 Claude Code(구독 인증) → 격리 브랜치.
+        // ⛔ 라이브 무접촉(worktree+관문+사람 머지). 월 예산 가드 AUTOFIX_BUDGET_USD(기본 20 USD).
+        AUTOFIX_ENABLED: "1",
         PYTHONUNBUFFERED: "1",
       },
     },

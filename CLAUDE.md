@@ -101,6 +101,7 @@ KEI(한국환경연구원) 행정 초보(신입·전입자)가 "이 업무 어�
 - 별지 감사: `python tools/01q_byeolji_audit.py`  (볼트 별지 블록 A빈/B구조소실/C표깨짐/D빈약 분류 + manifest 페이지 대조·md 누락 diff → `byeolji_audit.json`. ⛔리포트만 — 복원은 원문 PNG 대조 전사, `byeolji-restored` 마커 + 미검수 유지)
 - 검수 큐:  `python tools/review_queue.py --vault KEI-행정가이드 [--top 30]`  (미검수 우선순위. 읽기 전용·확정은 사람만. 인앱 피드백 신호 있으면 자동 반영)
 - 제보분석: `python tools/feedback_analyze.py [--db app.db] [--dry]`  (트리거 3종: 제보 제출 디바운스 이벤트(`APP_FB_DEBOUNCE_SECONDS` 기본 180s)·매시 PM2 cron 백스톱·관리자 '지금 분석'(`POST /app/maint/analyze`) — 동시 실행은 파일락 방어. **게이트 보고서 v2**(docs/51 §5·§9): 읽기 전용 수집(RAG 대조+코드 grep+패치노트 이력+조치메모) → 게이트 0~3 분류·원인분석·Claude Code 프롬프트·확인포인트·재발 인용. 회귀=`test_feedback_gates.py` 17종(주입 무해성 포함). ⚠ 수동 실행 시 VLLM_BASE/LLM_MODEL env 필수(기본값은 남의 앱 8000). ⛔ 쓰기 경로 없음 — 볼트·검수상태 불변, LLM은 상태값 지정 불가)
+- 오토픽스: `python tools/maint_executor.py --report-id N`  (Phase A, docs/52 §9 — 격리 worktree에서 무인 Claude Code(구독 인증·Bash 미부여)로 제보 수정 → 결정적 관문(금지구역 diff·SYSTEM 가드레일 AST 비교·구문·회귀·웹빌드) → `autofix/<id>` 브랜치 push+compare URL 🔔. 트리거=의견함 🤖 버튼(`AUTOFIX_ENABLED=1`). ⛔라이브 무접촉·머지는 사람. 월 예산 `AUTOFIX_BUDGET_USD`(기본 20). 회귀=`test_maint_executor.py`)
 - 피드백:  `python tools/feedback_export.py`  (app.db 👍/👎 → `tools/.feedback_signals.json`, 검수 큐가 소비. 매뉴얼 `docs/14-feedback-loop.md`)
 
 ## 작업 방식

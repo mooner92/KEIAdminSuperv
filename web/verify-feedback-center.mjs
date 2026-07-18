@@ -119,6 +119,12 @@ if (latestPlan.ok()) {
   check("⑨ 보고서 게이트 형식(계획 없음 — 스킵 불가)", false, "plan 404");
 }
 
+// ⑩ 오토픽스(docs/52 Phase A): 접수/분석됨 행에 🤖 버튼 노출(클릭은 실 claude 과금이라 미실행)
+await a.goto(BASE + "/admin/#reports", { waitUntil: "load" });
+await a.waitForTimeout(1200);
+const afBtn = a.locator("button", { hasText: "자동 수정" });
+check("⑩ 🤖 자동 수정 버튼 노출(접수/분석됨 행)", (await afBtn.count()) >= 1, `${await afBtn.count()}개`);
+
 // ⑥ 레이트리밋(10/시간/사용자) — API 직접으로 소진 → 429
 // ⚠ admintest로 소진: fb_test 한도를 쓰면 같은 시간대 재실행 시 ①(제출)이 429로 깨져
 //   스위트가 비반복적이 된다(실측). admintest는 본 스위트에서 제보 제출이 없어 안전.

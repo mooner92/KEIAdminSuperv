@@ -1666,6 +1666,36 @@ def maint_analyze(admin: User = Depends(current_admin)):
     return {"started": True}
 
 
+class AutofixIn(BaseModel):
+    report_id: int
+
+
+@router.post("/maint/autofix")
+def maint_autofix(body: AutofixIn, admin: User = Depends(current_admin)):
+    """오토픽스 Phase A(docs/52 §9) — 제보 1건을 무인 Claude Code로 수정해 브랜치 생성.
+    ⛔ 라이브 무접촉: 격리 worktree + 결정적 관문 + 사람 머지. AUTOFIX_ENABLED=1일 때만."""
+    if os.environ.get("AUTOFIX_ENABLED") != "1":
+        raise HTTPException(503, "오토픽스가 비활성입니다(AUTOFIX_ENABLED)")
+    with Session(engine) as s:
+        r = s.get(Report, body.report_id)
+        if not r:
+            raise HTTPException(404, "제보가 없습니다")
+        if r.상태 not in ("접수", "분석됨"):
+            raise HTTPException(400, f"상태 '{r.상태}'는 오토픽스 대상이 아닙니다(접수·분석됨만)")
+    import subprocess  # noqa: PLC0415
+    from pathlib import Path as _P  # noqa: PLC0415
+    try:
+        subprocess.Popen(
+            [sys.executable, str(_P(__file__).parent / "maint_executor.py"),
+             "--report-id", str(body.report_id)],
+            env={**os.environ}, cwd=str(_P(__file__).parent),
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        _seclog.info(f"autofix-start report={body.report_id} by={admin.username}")
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(500, f"실행 실패: {e}") from e
+    return {"started": True, "report_id": body.report_id}
+
+
 @router.get("/maint/plan/latest")
 def maint_plan_latest(admin: User = Depends(current_admin)):
     from pathlib import Path as _P

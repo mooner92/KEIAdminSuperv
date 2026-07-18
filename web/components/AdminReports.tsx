@@ -85,6 +85,16 @@ export default function AdminReports() {
       setMsg("분석 시작 실패");
     }
   };
+  // 오토픽스(docs/52 Phase A): 무인 Claude Code가 격리 브랜치에 수정 — 라이브 무접촉, 머지는 사람
+  const autofix = async (id: number) => {
+    if (!window.confirm(`#${id} 제보를 오토픽스로 처리할까요?\n격리 브랜치에 수정만 만들고, 반영(머지)은 검토 후 직접 하게 됩니다.`)) return;
+    try {
+      await api.maintAutofix(id);
+      setMsg(`#${id} 오토픽스 시작 — 완료되면 🔔 알림에 검토 링크가 옵니다(수 분 소요)`);
+    } catch (e) {
+      setMsg(e instanceof Error ? `오토픽스 시작 실패 — ${e.message}` : "오토픽스 시작 실패");
+    }
+  };
 
   return (
     <section>
@@ -158,6 +168,12 @@ export default function AdminReports() {
               value={noteDraft[r.id] ?? r.admin_note}
               onChange={(e) => setNoteDraft({ ...noteDraft, [r.id]: e.target.value })} />
             <button className={f.readAll} onClick={() => saveNote(r.id)}>저장</button>
+            {(r.상태 === "접수" || r.상태 === "분석됨") ? (
+              <button className={f.readAll} onClick={() => autofix(r.id)}
+                title="무인 Claude Code가 격리 브랜치에 수정을 만듭니다(라이브 무접촉·머지는 사람)">
+                🤖 자동 수정
+              </button>
+            ) : null}
           </div>
         </article>
       ))}
