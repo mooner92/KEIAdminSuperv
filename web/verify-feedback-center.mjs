@@ -98,7 +98,9 @@ if (planResp.ok()) {
   if (hasBtn) {
     await planBtn.first().click();
     await a.waitForTimeout(500);
-    check("⑤ 계획안 md 펼침(조치구분 섹션)", /코드작업|로컬조치/.test(await a.innerText("body")));
+    // v2 게이트 라벨(G0~G3) 또는 구 라벨 어느 쪽이든 — 보고서 본문이 펼쳐졌는지
+    check("⑤ 계획안 md 펼침(게이트/조치 섹션)",
+      /운영조치|코드작업|분석·안내|사람 전용|로컬조치/.test(await a.innerText("body")));
   }
 } else {
   check("⑤ 계획 없음 안내", admBody.includes("아직 생성된 계획이 없습니다"));
@@ -118,9 +120,11 @@ if (latestPlan.ok()) {
 }
 
 // ⑥ 레이트리밋(10/시간/사용자) — API 직접으로 소진 → 429
+// ⚠ admintest로 소진: fb_test 한도를 쓰면 같은 시간대 재실행 시 ①(제출)이 429로 깨져
+//   스위트가 비반복적이 된다(실측). admintest는 본 스위트에서 제보 제출이 없어 안전.
 let rlHit = false;
 for (let i = 0; i < 12; i++) {
-  const r = await usr.request.post(BASE + "/api/app/reports", {
+  const r = await adm.request.post(BASE + "/api/app/reports", {
     data: { 유형: "기타", 내용: `RL 검증용 더미 제보 ${i} — 무시하세요` } });
   if (r.status() === 429) { rlHit = true; break; }
 }
