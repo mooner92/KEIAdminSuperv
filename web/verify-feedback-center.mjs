@@ -141,6 +141,19 @@ await p.waitForTimeout(1500);
 check("⑧ off: 푸터 링크 미노출", (await p.locator('footer a[href="/feedback/"]').count()) === 0);
 await setFlag(true); // 복원
 
+// 🧹 자체 정리: 이 스위트가 만든 테스트 제보(RL 더미·검증용)를 '보류'로 마감 — 접수함에 남아
+// 매시간 분석기(LLM)를 소모하는 실측 사고 방지(2026-07-18: 더미 9건이 밤새 재분석 루프).
+const allR = await adm.request.get(BASE + "/api/app/reports/all").then((r) => r.json()).catch(() => []);
+let cleaned = 0;
+for (const r of allR) {
+  if (/RL 검증용 더미|\(verify-feedback\)/.test(r.내용 || "") && r.상태 !== "보류") {
+    await adm.request.patch(BASE + `/api/app/reports/${r.id}`, {
+      data: { 상태: "보류", admin_note: "[자동] verify 스위트 테스트 더미 — 무시" } }).catch(() => {});
+    cleaned++;
+  }
+}
+console.log(`🧹 테스트 제보 정리: ${cleaned}건 → 보류`);
+
 console.log(`\n${pass}/${pass + fail} 판정 통과`);
 await b.close();
 process.exit(fail ? 1 : 0);

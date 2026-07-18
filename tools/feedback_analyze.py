@@ -68,7 +68,9 @@ PROMPT = """당신은 KEI 행정 가이드 서비스의 유지보수 분석 담�
 - 3: 규정 콘텐츠 수정·삭제 등 파괴적/민감(자동화 금지 — 사람이 원문 검토)
 
 ## 규칙
-- 같은 사안의 신규 제보는 하나의 그룹으로 묶는다.
+- 같은 사안의 신규 제보는 하나의 그룹으로 묶는다. **모든 제보를 groups 또는 duplicates 중
+  하나에 배정하라** — 조치가 필요 없는 제보(무의미·테스트·단순 감상)도 gate 0 그룹("조치 불요"
+  제목)으로 묶어서 배정한다(어디에도 안 넣으면 다음 시간에 또 분석하게 된다).
 - duplicates는 '이미 계획·처리된 항목'에 실제로 같은 사안이 있을 때만. 확신 없으면 그룹으로.
 - **재발 판정**: '패치노트 이력'이나 '처리된 항목'에 같은 문제를 고친 기록이 있으면 재발=true로 하고
   이전조치에 그 기록(제목·조치메모)을 인용한다 — 같은 작업을 반복하지 않도록 이전 조치가 왜
@@ -367,9 +369,28 @@ def main() -> int:
         dups = [d for d in dups if d.get("report_id") in valid_ids]
 
         gate_n = {i: len([g for g in groups if g["gate"] == i]) for i in (0, 1, 2, 3)}
+        n_unassigned = len(new) - len({i for g in groups for i in g["report_ids"]}
+                                      | {d["report_id"] for d in dups})
         summary = (f"신규 {len(new)}건 → 계획 {len(groups)}건"
                    f"(G0 {gate_n[0]}·G1 {gate_n[1]}·G2 {gate_n[2]}·G3 {gate_n[3]})"
-                   + (f" · 중복 {len(dups)}건" if dups else ""))
+                   + (f" · 중복 {len(dups)}건" if dups else "")
+                   + (f" · 미배정 {n_unassigned}건(조치 불요)" if n_unassigned else ""))
+
+        # 전부 미배정(계획·중복 0) → 빈 보고서 파일을 만들지 않는다(파일 쌓임 방지).
+        # 상태 전이(아래 백스톱)는 그대로 수행해 재분석 루프를 끊는다.
+        if not groups and not dups:
+            if not args.dry:
+                for r in new:
+                    if r.상태 == "접수":
+                        r.상태 = "분석됨"
+                        r.analysis_group = f"plan_{stamp}#skip"
+                        r.admin_note = (r.admin_note + "\n[자동] 분석 결과 별도 조치 불요 판단(미배정) — 재분석하려면 상태를 '접수'로").strip()
+                        r.updated_at = time.time()
+                        s.add(r)
+                s.commit()
+            log_run({"result": "미배정만", "new": len(new), "unassigned": n_unassigned})
+            print(f"[{stamp}] {summary} — 계획 파일 생략(전이만)")
+            return 0
 
         # 산출물: JSON + 사람용 md 보고서(게이트별 섹션 — 위험 높은 순)
         pj = PLANS / f"plan_{stamp}.json"
@@ -439,13 +460,25 @@ def main() -> int:
                 r.admin_note = (r.admin_note + f"\n[자동] 중복: {d.get('이유', '')}").strip()
                 r.updated_at = time.time()
                 s.add(r)
+        # ⚠ 미배정 백스톱(무한 재분석 차단 — 실측 결함): LLM이 그룹/중복 어디에도 안 넣은 제보
+        # ("무시하세요" 더미 등 조치 불요 판단)가 '접수'로 남으면 매시간 재분석 루프가 된다.
+        # → 분석됨(#skip)으로 전이해 루프를 끊는다. 관리자는 의견함에서 언제든 '접수'로 되돌려 재분석 가능.
+        assigned = {i for g in groups for i in g["report_ids"]} | {d["report_id"] for d in dups}
+        unassigned = [r for r in new if r.id not in assigned]
+        for r in unassigned:
+            if r.상태 == "접수":
+                r.상태 = "분석됨"
+                r.analysis_group = f"plan_{stamp}#skip"
+                r.admin_note = (r.admin_note + "\n[자동] 분석 결과 별도 조치 불요 판단(미배정) — 재분석하려면 상태를 '접수'로").strip()
+                r.updated_at = time.time()
+                s.add(r)
         if groups:
             s.add(app_api.MaintNotice(kind="plan", summary=summary,
                                       detail_path=str(md.relative_to(HERE))))
         s.commit()
         log_run({"result": "계획", "new": len(new), "groups": len(groups),
                  "gates": {str(k): v for k, v in gate_n.items()},
-                 "dups": len(dups), "plan": md.name})
+                 "dups": len(dups), "unassigned": n_unassigned, "plan": md.name})
         if groups:
             _send_email(summary, md)
     return 0

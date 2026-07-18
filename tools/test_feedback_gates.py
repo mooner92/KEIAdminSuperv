@@ -126,6 +126,27 @@ r2p = subprocess.run([sys.executable, str(HERE / "feedback_analyze.py"), "--db",
 check("⑤ 락 점유 시 후발 스킵(exit 0·미실행)", r2p.returncode == 0 and "스킵" in r2p.stdout)
 fcntl.flock(lockf, fcntl.LOCK_UN)
 
+# ── ⑥ 미배정 백스톱: LLM이 아무 데도 배정 안 한 제보 → 분석됨(#skip) 전이 + 빈 plan 미생성 ──
+with Session(app_api.engine) as s:
+    s.add(app_api.Report(user_id=1, 유형="기타", 내용="테스트 더미 — 무시하세요(미배정 시나리오)"))
+    s.commit()
+stub_empty = TMP / "stub_empty.json"
+stub_empty.write_text(json.dumps({"groups": [], "duplicates": []}), encoding="utf-8")
+n_plans_before = len(list((HERE / "index" / "feedback_plans").glob("plan_*.md")))
+env2 = {**os.environ, "FB_ANALYZE_STUB": str(stub_empty), "FB_TRIGGER": "manual"}
+r3 = subprocess.run([sys.executable, str(HERE / "feedback_analyze.py"), "--db", str(DB)],
+                    capture_output=True, text=True, env=env2, cwd=str(HERE), timeout=120)
+check("⑥ 미배정 실행(exit 0)", r3.returncode == 0, r3.stderr.strip()[:100])
+n_plans_after = len(list((HERE / "index" / "feedback_plans").glob("plan_*.md")))
+check("⑥ 빈 계획 파일 미생성", n_plans_after == n_plans_before)
+with Session(app_api.engine) as s:
+    r_last = s.exec(select(app_api.Report).order_by(app_api.Report.id.desc())).first()
+    check("⑥ 미배정 → 분석됨(#skip) 전이(재분석 루프 차단)",
+          r_last.상태 == "분석됨" and "#skip" in r_last.analysis_group and "조치 불요" in r_last.admin_note)
+last2 = json.loads((HERE / "index" / "feedback_plans" / "run_log.jsonl")
+                   .read_text(encoding="utf-8").splitlines()[-1])
+check("⑥ run_log: 미배정만 기록", last2.get("result") == "미배정만" and last2.get("unassigned") == 1)
+
 # 테스트 산출물 정리(테스트가 만든 plan·log 잔여 제거 — 운영 plans 오염 방지)
 for p in plans[-1:]:
     j = p.with_suffix(".json")
