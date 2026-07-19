@@ -10,7 +10,7 @@ let r = await ctx.request.post(`${BASE}/api/app/auth/login`, { data: { username:
 ok(r.ok(), `0) 관리자 로그인 (${r.status()})`);
 const p = await ctx.newPage({ viewport: { width: 1440, height: 1300 } });
 p.on("dialog", (d) => d.accept("P3 UI 업로드 검증문서")); // prompt 제목 입력
-await p.goto(`${BASE}/admin/`, { waitUntil: "load" });
+await p.goto(`${BASE}/admin/#corpus`, { waitUntil: "load" }); // docs/21 탭 셸
 await p.waitForTimeout(2500);
 ok((await p.getByText("📤 문서 업로드").count()) > 0, "1) 업로드 버튼 렌더");
 

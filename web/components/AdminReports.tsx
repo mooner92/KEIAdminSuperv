@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, type ReportRow, type MaintNoticeRow } from "../lib/api";
 import Markdown from "./Markdown";
 import PagedList from "./PagedList";
+import Section from "./Section";
 import styles from "../styles/Admin.module.css";
 import f from "../styles/Feedback.module.css";
 
@@ -37,28 +38,6 @@ function NotifyPermission() {
             🖥 브라우저 알림 켜기 (새 계획 도착 시 데스크톱 알림)
           </button>}
     </p>
-  );
-}
-
-
-
-// 섹션 컨테이너(사용자 요청: flat 해소) — 패널 톤(--color-bg-subtle) 위에 surface 카드가 떠서
-// "이 묶음이 한 섹션"이 시각적으로 구분된다. 제목은 크고 볼드하게(위계).
-function Section({ icon, title, badge, actions, children }: {
-  icon: string; title: string; badge?: number;
-  actions?: React.ReactNode; children: React.ReactNode;
-}) {
-  return (
-    <section className={f.section}>
-      <header className={f.sectionHead}>
-        <h2 className={f.sectionTitle}>
-          <span aria-hidden>{icon}</span> {title}
-          {badge && badge > 0 ? <span className={f.unreadBadge}>{badge}</span> : null}
-        </h2>
-        {actions ? <div className={f.sectionActions}>{actions}</div> : null}
-      </header>
-      {children}
-    </section>
   );
 }
 

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, type CorpusDoc } from "../lib/api";
+import Section from "./Section";
 import styles from "../styles/Admin.module.css";
 import ex from "./Explorer.module.css";
 
@@ -88,11 +89,9 @@ export default function AdminCorpus() {
   if (!data) return <p className={styles.lead}>불러오는 중…</p>;
   return (
     <section>
-      <p className={styles.privacy}>
-        색인 <b>제외</b>는 파일을 지우지 않는 안전 토글입니다 — 제외한 문서는 <b>🗂 제외 문서함</b>으로 이동하며 언제든 복귀할 수 있어요.
-        토글·업로드 후 <b>⟳ 재색인 실행</b>으로 반영됩니다.
-      </p>
 
+      <Section icon="📥" title="문서 반입 · 재색인"
+        desc={<>업로드 → 변환 미리보기 → <b>승인해야 편입</b>(검수상태 미검수). 색인 <b>제외</b>는 파일을 지우지 않는 안전 토글 — 제외 문서는 🗂 제외 문서함에서 언제든 복귀. 토글·업로드 후 <b>⟳ 재색인 실행</b>으로 반영됩니다.</>}>
       {/* 업로드(P3) */}
       <div className={styles.uploadBar}>
         <label className={styles.uploadBtn}>
@@ -112,7 +111,6 @@ export default function AdminCorpus() {
               finally { setUpBusy(false); }
             }} />
         </label>
-        <span className={styles.uploadHint}>업로드 → 변환 미리보기 → <b>승인해야 편입</b>(검수상태 미검수)</span>
       </div>
       {pending.length > 0 ? (
         <ul className={styles.pendList}>
@@ -176,7 +174,12 @@ export default function AdminCorpus() {
         ⓘ 재색인·롤백은 <b>검색(챗봇 근거)에 즉시</b> 반영돼요. 둘러보기·그래프·문서 화면은
         다음 웹 재빌드(배포) 때 반영됩니다.
       </p>
+      </Section>
 
+      <Section icon="📚" title="문서 목록"
+        actions={<span className={styles.viewSummary}>청크 {data.summary.indexed_chunks}
+          {data.summary.needs_reindex > 0 ? <b> · ⟳ 재색인 필요 {data.summary.needs_reindex}</b> : null}
+        </span>}>
       {/* 서브뷰: 전체 목록 / 제외 문서함 (docs/21 §2) */}
       <div className={styles.viewTabs} role="tablist">
         <button className={`${styles.viewTab} ${view === "all" ? styles.viewOn : ""}`} role="tab"
@@ -187,9 +190,6 @@ export default function AdminCorpus() {
           aria-selected={view === "excluded"} onClick={() => setView("excluded")}>
           🗂 제외 문서함 {excludedDocs.length}
         </button>
-        <span className={styles.viewSummary}>청크 {data.summary.indexed_chunks}
-          {data.summary.needs_reindex > 0 ? <b> · ⟳ 재색인 필요 {data.summary.needs_reindex}</b> : null}
-        </span>
       </div>
       {view === "excluded" ? (
         <p className={styles.excludedNote}>
@@ -263,6 +263,7 @@ export default function AdminCorpus() {
           </ul>
         </div>
       </div>
+      </Section>
     </section>
   );
 }
