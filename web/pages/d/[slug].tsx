@@ -5,7 +5,7 @@ import { useRouter } from "next/router";
 import { SITE_NAME } from "../../lib/site";
 import Link from "next/link";
 import Layout from "../../components/Layout";
-import Markdown from "../../components/Markdown";
+import Markdown from "../../components/common/Markdown";
 import { getAllDocs, getDoc, getBacklinks, type Doc, type DocMeta } from "../../lib/vault";
 import styles from "../../styles/Doc.module.css";
 

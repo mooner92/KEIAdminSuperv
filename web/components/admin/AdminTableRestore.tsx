@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, type RestoreDoc } from "../lib/api";
-import styles from "../styles/Admin.module.css";
+import { api, type RestoreDoc } from "../../lib/api";
+import styles from "../../styles/Admin.module.css";
 
 /** 표 복원 검수 탭(docs/24 §1) — 01p 복원 제안을 열람·대비하고 [반영]으로 승인(사람의 명시적 행위).
  *  ⛔ 자동 반영 없음. 반영 후에는 코퍼스 탭에서 재색인해야 검색에 반영된다. */

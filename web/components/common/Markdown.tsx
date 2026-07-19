@@ -2,8 +2,8 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { useFlag } from "../lib/flags";
-import { annotateTerms, useTerms, type TermCtx } from "../lib/terms";
+import { useFlag } from "../../lib/flags";
+import { annotateTerms, useTerms, type TermCtx } from "../../lib/terms";
 import styles from "./Markdown.module.css";
 
 // hast 노드에서 텍스트만 추출(제N조 감지용)

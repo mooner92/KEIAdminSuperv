@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { api, type FlagAudit, type FlagMeta } from "../lib/api";
-import styles from "../styles/Admin.module.css";
+import { api, type FlagAudit, type FlagMeta } from "../../lib/api";
+import styles from "../../styles/Admin.module.css";
 
 /** 기능 플래그 탭(v1.1, docs/21 §3) — 컴팩트 행(1줄 요약↔펼침) + 검색·상태 필터 + 접이식 감사 이력. */
 export default function AdminFlags() {

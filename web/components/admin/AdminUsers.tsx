@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { api, ApiError, type DirectoryUser } from "../lib/api";
-import PagedList from "./PagedList";
-import styles from "../styles/Admin.module.css";
+import { api, ApiError, type DirectoryUser } from "../../lib/api";
+import PagedList from "../common/PagedList";
+import styles from "../../styles/Admin.module.css";
 
 /** 관리자 · 사용자 목록(docs/29 §4, flag user_directory).
  * 🔒 개인정보 경계: '누구인지'까지만 — 이메일(=ID)·가입일·마지막 활동·채팅 수·인증/관리자 여부.

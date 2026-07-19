@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import AsyncState from "./AsyncState";
+import AsyncState from "./common/AsyncState";
 import Link from "next/link";
 import ApprovalFinder, { type ApprovalRule } from "./ApprovalFinder";
 import docStyles from "./DocDrawer.module.css";

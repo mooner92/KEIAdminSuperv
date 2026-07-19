@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import Link from "next/link";
-import Markdown from "./Markdown";
+import Markdown from "./common/Markdown";
 import DocDrawer from "./DocDrawer";
 import ApprovalDrawer from "./ApprovalDrawer";
 import { api, type ChatMeta, type Message, type Source, type Suggestion, type User } from "../lib/api";

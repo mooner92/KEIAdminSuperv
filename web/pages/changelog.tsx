@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { GetStaticProps } from "next";
 import Layout from "../components/Layout";
-import Markdown from "../components/Markdown";
+import Markdown from "../components/common/Markdown";
 import { useFlag } from "../lib/flags";
 import { track } from "../lib/track";
 import { SITE_NAME } from "../lib/site";

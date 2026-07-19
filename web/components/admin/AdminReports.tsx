@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, type ReportRow, type MaintNoticeRow } from "../lib/api";
-import Markdown from "./Markdown";
-import PagedList from "./PagedList";
-import Section from "./Section";
-import styles from "../styles/Admin.module.css";
-import f from "../styles/Feedback.module.css";
+import { api, type ReportRow, type MaintNoticeRow } from "../../lib/api";
+import Markdown from "../common/Markdown";
+import PagedList from "../common/PagedList";
+import Section from "../common/Section";
+import styles from "../../styles/Admin.module.css";
+import f from "../../styles/Feedback.module.css";
 
 // 📮 의견함(docs/51 §7) — ⓐ🔔 유지보수 알림(분석기 계획 생성 시) ⓑ최신 계획안 md
 // ⓒ접수함(상태 처리·메모). ⛔ 분석기는 계획·알림만 — 여기서의 상태 변경(계획반영 등)은 사람(관리자).

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import AsyncState from "../components/AsyncState";
+import AsyncState from "../components/common/AsyncState";
 import Head from "next/head";
 import { SITE_NAME } from "../lib/site";
 import Link from "next/link";

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import type { ReactNode } from "react";
 import Layout from "../components/Layout";
-import ScrollRail from "../components/ScrollRail";
+import ScrollRail from "../components/common/ScrollRail";
 import { useFlag } from "../lib/flags";
 import { CORPUS_AS_OF, SITE_NAME } from "../lib/site";
 import { track } from "../lib/track";

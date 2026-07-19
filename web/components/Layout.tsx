@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
-import ThemeToggle from "./ThemeToggle";
+import ThemeToggle from "./common/ThemeToggle";
 import { useFlag } from "../lib/flags";
 import { useAuth } from "../lib/auth";
 import { api } from "../lib/api";

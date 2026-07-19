@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { api, type CorpusDoc } from "../lib/api";
-import Section from "./Section";
-import styles from "../styles/Admin.module.css";
-import ex from "./Explorer.module.css";
+import { api, type CorpusDoc } from "../../lib/api";
+import Section from "../common/Section";
+import styles from "../../styles/Admin.module.css";
+import ex from "../Explorer.module.css";
 
 /** 코퍼스 관리 탭(v1.1, docs/20·21) — 둘러보기형 필터 + 제외 문서함 분리 + 업로드/재색인/롤백. */
 const PAGE = 30;

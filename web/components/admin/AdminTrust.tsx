@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { api, ApiError, type TrustOps } from "../lib/api";
-import styles from "../styles/Admin.module.css";
+import { api, ApiError, type TrustOps } from "../../lib/api";
+import styles from "../../styles/Admin.module.css";
 
 /** 관리자 · 🛡 신뢰(docs/34 ②, flag trust_ops) — 검수의 조준경.
  * 🔒 백엔드가 질문·답변 본문을 반환하지 않는다(P2.5) — 여기 보이는 건 규정 메타·집계뿐. */

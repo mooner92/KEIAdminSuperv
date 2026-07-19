@@ -1,4 +1,4 @@
-import ErrorBoundary from "../components/ErrorBoundary";
+import ErrorBoundary from "../components/common/ErrorBoundary";
 import type { AppProps } from "next/app";
 import { ThemeProvider } from "../lib/theme";
 import { FlagsProvider } from "../lib/flags";

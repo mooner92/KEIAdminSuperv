@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import SearchInput from "./SearchInput";
+import SearchInput from "./common/SearchInput";
 import { useFlag } from "../lib/flags";
 import DocDrawer from "./DocDrawer";
 import type { ApprovalRule } from "./ApprovalFinder";

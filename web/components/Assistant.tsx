@@ -1,4 +1,4 @@
-import AsyncState from "./AsyncState";
+import AsyncState from "./common/AsyncState";
 import Login from "./Login";
 import Landing from "./Landing";
 import ChatApp from "./ChatApp";

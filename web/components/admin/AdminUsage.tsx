@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, type Usage } from "../lib/api";
-import styles from "../styles/Admin.module.css";
-import u from "../styles/Usage.module.css";
+import { api, type Usage } from "../../lib/api";
+import styles from "../../styles/Admin.module.css";
+import u from "../../styles/Usage.module.css";
 
 // 📈 통계 탭(docs/35 §0 확장) — UsageEvent 집계를 PostHog풍 차트로.
 // 외부 라이브러리 0(CSP self-only): 라인차트=SVG, 바=CSS 트랙/필. 시리즈 색은 사이트 토큰

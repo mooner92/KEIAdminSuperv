@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import AsyncState from "./AsyncState";
-import Markdown from "./Markdown";
+import AsyncState from "./common/AsyncState";
+import Markdown from "./common/Markdown";
 import type { Doc, SectionKey } from "../lib/vault";
 import { useFlag } from "../lib/flags";
 import DeadlineList, { type Deadline } from "./DeadlineCalc";

@@ -1,4 +1,4 @@
-import { useTheme, type ThemePref } from "../lib/theme";
+import { useTheme, type ThemePref } from "../../lib/theme";
 import styles from "./ThemeToggle.module.css";
 
 // 라이트 → 다크 → 시스템 순환 토글

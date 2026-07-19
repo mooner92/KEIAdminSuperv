@@ -109,5 +109,6 @@ KEI(한국환경연구원) 행정 초보(신입·전입자)가 "이 업무 어�
 - 큰 변경 전에는 계획을 먼저 요약해 보여줄 것. 막히면 추측하지 말고 질문.
 - 절대 규칙(위 ⛔)을 매 작업에서 지킨다.
 - **문서 최신화 = `docs/53-문서관리-규약.md` §2 매트릭스가 마감 체크리스트** — 사용자 노출 변경은 패치노트(changelog/bugreport, `changelog_lint` 통과) 필수. 수치는 시점 명기, 같은 사실은 정본 한 곳+링크.
-- **관리자/목록 UI 관례**: 묶음은 `components/Section`(패널 톤+19px/800 제목+우측 액션), 목록은 `components/PagedList`(건수·필터 슬롯·N개씩·‹› 전부 **상단 한 줄**, 목록 아래 컨트롤 금지 — 사용자 지시).
+- **컴포넌트 패키지 구조**(사용자 지시 — 모든 UI는 자족 컴포넌트로 묶임): `web/components/common/`=공용 프리미티브(Section·PagedList·Markdown·AsyncState·SearchInput·ScrollRail·ThemeToggle·ErrorBoundary) · `web/components/admin/`=관리자 탭(각 탭이 자체 데이터·상태 소유, 배럴 `index.ts`로 export, `admin.tsx`는 탭 셸만) · 나머지 도메인 컴포넌트는 최상위. 새 관리자 탭·목록은 이 구조를 따른다.
+- **관리자/목록 UI 관례**: 묶음은 `common/Section`(패널 톤+19px/800 제목+우측 액션), 목록은 `common/PagedList`(건수·필터 슬롯·N개씩·‹› 전부 **상단 한 줄**, 목록 아래 컨트롤 금지 — 사용자 지시).
 - **요구사항 처리 대장 갱신**: 운영자의 큰 요구사항을 착수/완료할 때 `docs/요구사항-처리대장.md`에 행 추가·갱신(요구사항→docs/NN·대표 커밋·검증·상태). 세부는 docs/NN·커밋에 두고 대장은 **연결 지도**만 — 최종 사용자 제보는 의견함(app.db·docs/51)이 담당(구분).
