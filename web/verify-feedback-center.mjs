@@ -120,10 +120,16 @@ if (latestPlan.ok()) {
 }
 
 // ⑩ 오토픽스(docs/52 Phase A): 접수/분석됨 행에 🤖 버튼 노출(클릭은 실 claude 과금이라 미실행)
+// 결정적으로: 접수 상태 제보를 하나 만들고 '접수' 필터로 좁혀 확인(1페이지가 보류 더미로
+// 차 있어도 무관 — 페이지네이션 도입 후 상태 의존 비결정성 제거). cleanup이 보류 처리.
+await usr.request.post(BASE + "/api/app/reports", {
+  data: { 유형: "버그신고", 내용: "자동수정 버튼 검증용 (verify-feedback)" } });
 await a.goto(BASE + "/admin/#reports", { waitUntil: "load" });
 await a.waitForTimeout(1200);
+await a.locator('[class*=filterRow] button', { hasText: "접수" }).first().click();
+await a.waitForTimeout(500);
 const afBtn = a.locator("button", { hasText: "자동 수정" });
-check("⑩ 🤖 자동 수정 버튼 노출(접수/분석됨 행)", (await afBtn.count()) >= 1, `${await afBtn.count()}개`);
+check("⑩ 🤖 자동 수정 버튼 노출(접수 행)", (await afBtn.count()) >= 1, `${await afBtn.count()}개`);
 
 // ⑥ 레이트리밋(10/시간/사용자) — API 직접으로 소진 → 429
 // ⚠ admintest로 소진: fb_test 한도를 쓰면 같은 시간대 재실행 시 ①(제출)이 429로 깨져
