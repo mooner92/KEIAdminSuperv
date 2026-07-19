@@ -1,0 +1,58 @@
+/* 📈 사용량 통계(docs/35 §0) — dataviz 규약: 얇은 마크·4px 라운드 데이터엔드·recessive 그리드·
+   시리즈색=마크만(텍스트는 텍스트 토큰). 시맨틱 토큰만 사용(라이트/다크 자동). */
+
+.filterRow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 0 0 var(--space-3); }
+.rangeChip {
+  padding: 5px 14px; border: 1px solid var(--color-border); border-radius: 999px;
+  background: var(--color-surface); color: var(--color-text-secondary);
+  font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.rangeChip:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.rangeOn { border-color: var(--color-primary); color: var(--color-primary); background: var(--color-primary-weak, var(--color-surface)); }
+
+/* KPI 타일 — label + value(세미볼드·컴팩트) */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-3); margin-bottom: var(--space-3); }
+.tile { border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+.tileLabel { font-size: 12.5px; color: var(--color-text-secondary); }
+.tileValue { font-size: 24px; font-weight: 700; color: var(--color-text); font-variant-numeric: tabular-nums; }
+
+.card { border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); padding: var(--space-3) var(--space-4); margin-bottom: var(--space-3); }
+.twoCol { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); align-items: start; }
+@media (max-width: 900px) { .twoCol { grid-template-columns: 1fr; } }
+
+/* ── 라인차트 ── */
+.chartWrap { position: relative; }
+.lineSvg { width: 100%; height: auto; display: block; touch-action: none; }
+.grid { stroke: var(--color-border); stroke-width: 1; }             /* hairline·solid·recessive */
+.tick { fill: var(--color-text-tertiary, var(--color-text-secondary)); font-size: 10px; }
+.line { fill: none; stroke: var(--color-primary); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.areaWash { fill: var(--color-primary); opacity: 0.1; }              /* 10% 워시 */
+.dot { fill: var(--color-primary); stroke: var(--color-surface); stroke-width: 2; }  /* 표면 링 2px */
+.crosshair { stroke: var(--color-text-tertiary, var(--color-text-secondary)); stroke-width: 1; }
+.tooltip {
+  position: absolute; top: 0; transform: translateX(-50%);
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 8px;
+  padding: 4px 10px; display: flex; flex-direction: column; align-items: center;
+  pointer-events: none; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+.tooltip b { font-size: 13px; color: var(--color-text); }            /* 값이 주인공 */
+.tooltip span { font-size: 11px; color: var(--color-text-secondary); }
+
+/* ── 수평 바 목록 — 트랙+필, 값=끝 직접 라벨 ── */
+.barList { display: flex; flex-direction: column; gap: 6px; }
+.barRow { display: grid; grid-template-columns: 128px 1fr 44px auto; align-items: center; gap: 8px; border-radius: 6px; padding: 2px 4px; }
+.barRow:hover, .barRow:focus-visible { background: var(--color-bg); outline: none; }
+.barLabel { font-size: 13px; color: var(--color-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.barTrack { position: relative; height: 14px; background: var(--color-bg); border-radius: 4px; overflow: hidden; }
+.barFill { position: absolute; inset: 0 auto 0 0; background: var(--color-primary); border-radius: 0 4px 4px 0; min-width: 2px; }
+.barRow:hover .barFill { filter: brightness(1.1); }                   /* 호버 리프트 */
+.barValue { font-size: 12.5px; font-weight: 700; color: var(--color-text); text-align: right; font-variant-numeric: tabular-nums; }
+.barSub { font-size: 11.5px; color: var(--color-text-tertiary, var(--color-text-secondary)); white-space: nowrap; }
+
+/* ── 표 보기(접기) ── */
+.tableToggle { margin-top: var(--space-2); }
+.tableToggle summary { cursor: pointer; font-size: 13px; color: var(--color-text-secondary); padding: 6px 0; }
+.table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.table th, .table td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--color-border); color: var(--color-text-secondary); }
+.table th { color: var(--color-text); font-weight: 700; }
+.table td:nth-child(2), .table td:nth-child(3) { font-variant-numeric: tabular-nums; }

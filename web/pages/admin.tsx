@@ -7,6 +7,7 @@ import AdminFlags from "../components/AdminFlags";
 import AdminReports from "../components/AdminReports";
 import AdminTableRestore from "../components/AdminTableRestore";
 import AdminTrust from "../components/AdminTrust";
+import AdminUsage from "../components/AdminUsage";
 import AdminUsers from "../components/AdminUsers";
 import { api, ApiError, type FeedbackRow, type Stats, type Usage } from "../lib/api";
 import { SITE_NAME } from "../lib/site";
@@ -15,13 +16,14 @@ import styles from "../styles/Admin.module.css";
 
 // 관리자 페이지(v1.1 UX 개편, docs/21) — 탭 셸: 대시보드 / 코퍼스 관리 / 기능 플래그.
 // 탭 상태는 URL 해시(#corpus 등)와 동기화(새로고침·딥링크 유지). 접근은 백엔드 403이 방어.
-type Tab = "dash" | "corpus" | "restore" | "trust" | "reports" | "users" | "flags";
+type Tab = "dash" | "corpus" | "restore" | "trust" | "reports" | "usage" | "users" | "flags";
 const TABS: { k: Tab; label: string }[] = [
   { k: "dash", label: "📊 대시보드" },
   { k: "corpus", label: "📚 코퍼스 관리" },
   { k: "restore", label: "🔧 표 복원" },
   { k: "trust", label: "🛡 신뢰" },
   { k: "reports", label: "📮 의견함" },
+  { k: "usage", label: "📈 통계" },
   { k: "users", label: "👥 사용자" },
   { k: "flags", label: "🚩 기능 플래그" },
 ];
@@ -43,7 +45,7 @@ export default function AdminPage() {
   useEffect(() => {
     const fromHash = () => {
       const h = window.location.hash.replace("#", "") as Tab;
-      if (["dash", "corpus", "restore", "trust", "reports", "users", "flags"].includes(h)) setTab(h);
+      if (["dash", "corpus", "restore", "trust", "reports", "usage", "users", "flags"].includes(h)) setTab(h);
     };
     fromHash();
     window.addEventListener("hashchange", fromHash);
@@ -132,42 +134,12 @@ export default function AdminPage() {
                   </div>
                 </section>
               ) : <p className={styles.lead}>불러오는 중…</p>}
+              {/* 기능 사용량 상세는 📈 통계 탭으로 이관(그래프·기간 필터·표·내보내기) — 대시보드는 요약만 */}
               {usage && usage.events.length > 0 ? (
-                <section className={styles.dash}>
-                  <h2 className={styles.h2}>📈 기능 사용량 <span className={styles.dashDays}>최근 {usage.days}일 · 집계만 표시(개별 행위 미노출·{usage.min_users}명 미만은 가림)</span></h2>
-                  <div className={styles.usageGrid}>
-                    <div>
-                      <h3 className={styles.h3}>이벤트별</h3>
-                      <table className={styles.table}>
-                        <thead><tr><th>이벤트</th><th>횟수</th><th>사용자</th></tr></thead>
-                        <tbody>
-                          {usage.events.slice(0, 12).map((e) => (
-                            /* users=null → k-익명 마스킹(서버) — 소수 사용자의 활동 특정 방지 */
-                            <tr key={e.name}><td>{e.name}</td><td>{e.n}</td><td>{e.users ?? `${usage.min_users}명 미만`}</td></tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    <div>
-                      <h3 className={styles.h3}>페이지뷰 상위 <span className={styles.muted}>({usage.min_users}명 이상 본 경로만)</span></h3>
-                      <table className={styles.table}>
-                        <thead><tr><th>경로</th><th>뷰</th></tr></thead>
-                        <tbody>
-                          {usage.pages.map((pg) => (
-                            <tr key={pg.page}><td>{pg.page}</td><td>{pg.n}</td></tr>
-                          ))}
-                          {usage.pages.length === 0 ? (
-                            <tr><td colSpan={2} className={styles.muted}>표시할 경로 없음(k-익명 기준 미달)</td></tr>
-                          ) : null}
-                        </tbody>
-                      </table>
-                      <h3 className={styles.h3}>일별 활성 사용자</h3>
-                      <p className={styles.muted}>
-                        {usage.dau.map((d) => `${d.day.slice(5)}: ${d.users ?? `<${usage.min_users}`}`).join(" · ") || "데이터 없음"}
-                      </p>
-                    </div>
-                  </div>
-                </section>
+                <p className={styles.muted}>
+                  📈 최근 {usage.days}일 이벤트 {usage.events.reduce((s, e) => s + e.n, 0).toLocaleString()}건
+                  — 그래프·상세는 <button className={styles.tabBtn} onClick={() => go("usage")}>📈 통계</button> 탭에서.
+                </p>
               ) : null}
               {downs && downs.length > 0 ? (
                 <section className={styles.dash}>
@@ -190,6 +162,7 @@ export default function AdminPage() {
           {tab === "restore" && restoreOn ? <AdminTableRestore /> : null}
           {tab === "trust" && trustOn ? <AdminTrust /> : null}
           {tab === "reports" && reportsOn ? <AdminReports /> : null}
+          {tab === "usage" ? <AdminUsage /> : null}
           {tab === "users" && usersOn ? <AdminUsers /> : null}
           {tab === "flags" ? <AdminFlags /> : null}
         </>

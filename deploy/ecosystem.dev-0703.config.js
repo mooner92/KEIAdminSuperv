@@ -67,6 +67,8 @@ module.exports = {
         // 오토픽스 Phase A(docs/52 §9): 의견함 🤖 버튼 → 무인 Claude Code(구독 인증) → 격리 브랜치.
         // ⛔ 라이브 무접촉(worktree+관문+사람 머지). 월 예산 가드 AUTOFIX_BUDGET_USD(기본 20 USD).
         AUTOFIX_ENABLED: "1",
+        // 사용량 데이터 보관 2년(기본 180일) — "의미있는 데이터라 잘 보관"(docs/35 §0, 📈 통계 탭)
+        TRACK_RETENTION_DAYS: "730",
         PYTHONUNBUFFERED: "1",
       },
     },
