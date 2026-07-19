@@ -90,3 +90,20 @@
 .noteRow .input { flex: 1; font-size: 13px; padding: 6px 10px; }
 .pagerRow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: var(--space-3); }
 .pagerRow button:disabled { opacity: 0.35; cursor: default; }
+
+/* ── 섹션 컨테이너(플랫 해소) — 패널 톤 위에 surface 카드가 떠서 묶음이 구분됨 ── */
+.section {
+  background: var(--color-bg-subtle);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+.sectionHead { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: var(--space-3); }
+.sectionTitle {
+  margin: 0; font-size: 19px; font-weight: 800; color: var(--color-text);
+  display: flex; align-items: center; gap: 8px;
+}
+.sectionActions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.sectionDesc { margin: 0 0 var(--space-3); font-size: 13.5px; color: var(--color-text-secondary); }
+.sectionCount { font-size: 13px; font-weight: 700; color: var(--color-text-secondary); }

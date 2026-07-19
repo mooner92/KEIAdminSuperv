@@ -40,6 +40,27 @@ function NotifyPermission() {
 }
 
 const PAGE_SIZES = [10, 30, 50] as const;
+const NOTICE_STEP = 5; // 알림 기본 표시 수 — '더 보기'로 증분
+
+// 섹션 컨테이너(사용자 요청: flat 해소) — 패널 톤(--color-bg-subtle) 위에 surface 카드가 떠서
+// "이 묶음이 한 섹션"이 시각적으로 구분된다. 제목은 크고 볼드하게(위계).
+function Section({ icon, title, badge, actions, children }: {
+  icon: string; title: string; badge?: number;
+  actions?: React.ReactNode; children: React.ReactNode;
+}) {
+  return (
+    <section className={f.section}>
+      <header className={f.sectionHead}>
+        <h2 className={f.sectionTitle}>
+          <span aria-hidden>{icon}</span> {title}
+          {badge && badge > 0 ? <span className={f.unreadBadge}>{badge}</span> : null}
+        </h2>
+        {actions ? <div className={f.sectionActions}>{actions}</div> : null}
+      </header>
+      {children}
+    </section>
+  );
+}
 
 export default function AdminReports() {
   const [reports, setReports] = useState<ReportRow[] | null>(null);
@@ -52,6 +73,7 @@ export default function AdminReports() {
   // 페이지네이션(서식찾기 관례 — 10/30/50) + 최신순 고정: 더미·보류가 쌓여도 접수함이 간결하게
   const [pageSize, setPageSize] = useState<number>(10);
   const [page, setPage] = useState(1);
+  const [noticeShow, setNoticeShow] = useState<number>(NOTICE_STEP); // 알림 '더 보기' 증분
 
   const load = useCallback(() => {
     api.allReports(filter || undefined).then(setReports).catch(() => setReports([]));
@@ -109,45 +131,60 @@ export default function AdminReports() {
 
   return (
     <section>
-      <h2 className={styles.h2}>
-        🔔 유지보수 알림
-        {notices && notices.unread > 0 ? <span className={f.unreadBadge}> {notices.unread}</span> : null}
-      </h2>
-      <p className={styles.muted}>
-        제보가 오면 잠시 뒤 자동으로, 그리고 매시간(백스톱) 로컬 모델이 분석해 게이트(위험도)별
-        보고서를 만들면 여기에 알림이 옵니다(신규 없으면 실행 기록만 남음). 미확인 알림은 상단 헤더 🔔 배지로도 표시돼요.
-        {" "}<button className={f.readAll} onClick={analyzeNow}>▶ 지금 분석</button>
-      </p>
-      <NotifyPermission />
-      {notices && notices.notices.length > 0 ? (
-        <div className={f.noticeList}>
-          {notices.notices.slice(0, 8).map((n) => (
-            <div key={n.id} className={f.noticeRow} data-unread={n.unread}>
-              <span>{n.unread ? "🔵" : "⚪"} {n.summary}</span>
-              <time>{new Date(n.at * 1000).toLocaleString("ko-KR")}</time>
-            </div>
-          ))}
-          {notices.unread > 0 ? (
+      <Section icon="🔔" title="유지보수 알림" badge={notices?.unread}
+        actions={<>
+          <button className={f.readAll} onClick={analyzeNow}>▶ 지금 분석</button>
+          {notices && notices.unread > 0 ? (
             <button className={f.readAll} onClick={readAll}>모두 읽음</button>
           ) : null}
-        </div>
-      ) : (
-        <p className={styles.muted}>알림이 없습니다.</p>
-      )}
+        </>}>
+        <p className={f.sectionDesc}>
+          제보가 오면 잠시 뒤 자동으로, 그리고 매시간(백스톱) 로컬 모델이 분석해 게이트(위험도)별
+          보고서를 만들면 여기에 알림이 옵니다(신규 없으면 실행 기록만 남음). 미확인 알림은 상단 헤더 🔔 배지로도 표시돼요.
+        </p>
+        <NotifyPermission />
+        {notices && notices.notices.length > 0 ? (
+          <div className={f.noticeList}>
+            {notices.notices.slice(0, noticeShow).map((n) => (
+              <div key={n.id} className={f.noticeRow} data-unread={n.unread}>
+                <span>{n.unread ? "🔵" : "⚪"} {n.summary}</span>
+                <time>{new Date(n.at * 1000).toLocaleString("ko-KR")}</time>
+              </div>
+            ))}
+            {notices.notices.length > NOTICE_STEP ? (
+              <div className={f.pagerRow}>
+                {noticeShow < notices.notices.length ? (
+                  <button className={f.readAll}
+                    onClick={() => setNoticeShow(noticeShow + NOTICE_STEP)}>
+                    더 보기 ({notices.notices.length - noticeShow}건 남음)
+                  </button>
+                ) : null}
+                {noticeShow > NOTICE_STEP ? (
+                  <button className={f.readAll} onClick={() => setNoticeShow(NOTICE_STEP)}>접기</button>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <p className={styles.muted}>알림이 없습니다.</p>
+        )}
+      </Section>
 
-      <h2 className={styles.h2}>🗓 최신 유지보수 계획안</h2>
-      {plan ? (
-        <div className={f.planBox}>
-          <button className={f.planToggle} onClick={() => setPlanOpen(!planOpen)}>
-            {planOpen ? "▾" : "▸"} {plan.name}
-          </button>
-          {planOpen ? <div className={f.planMd}><Markdown source={plan.md} /></div> : null}
-        </div>
-      ) : (
-        <p className={styles.muted}>아직 생성된 계획이 없습니다.</p>
-      )}
+      <Section icon="🗓" title="최신 유지보수 계획안">
+        {plan ? (
+          <div className={f.planBox}>
+            <button className={f.planToggle} onClick={() => setPlanOpen(!planOpen)}>
+              {planOpen ? "▾" : "▸"} {plan.name}
+            </button>
+            {planOpen ? <div className={f.planMd}><Markdown source={plan.md} /></div> : null}
+          </div>
+        ) : (
+          <p className={styles.muted}>아직 생성된 계획이 없습니다.</p>
+        )}
+      </Section>
 
-      <h2 className={styles.h2}>📮 접수함</h2>
+      <Section icon="📮" title="접수함" badge={undefined}
+        actions={<span className={f.sectionCount}>{sorted.length}건</span>}>
       <div className={f.filterRow}>
         <button className={`${f.typeChip} ${filter === "" ? f.typeOn : ""}`}
           onClick={() => { setFilter(""); setPage(1); }}>전체</button>
@@ -202,6 +239,7 @@ export default function AdminReports() {
           <button className={f.readAll} disabled={cur >= pageCount} onClick={() => setPage(cur + 1)} aria-label="다음 페이지">›</button>
         </div>
       ) : null}
+      </Section>
     </section>
   );
 }
