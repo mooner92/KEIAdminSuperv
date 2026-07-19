@@ -884,13 +884,17 @@ def corpus_list(admin: User = Depends(current_admin)):
     from pathlib import Path as _P
     vault_p = _P(vault)
     for md in sorted(vault_p.rglob("*.md")):
-        if "_templates" in md.parts or md.parts[-2].startswith("90_"):
+        # 90_관리는 하위 폴더(_changelog 등)까지 통째로 제외 — parts[-2]만 보면 하위 폴더가
+        # 빠져나가 changelog 노트 69건이 '재색인 필요' 오탐을 냈다(2026-07-19 실측 수정).
+        if "_templates" in md.parts or any(p.startswith("90_") for p in md.parts):
             continue
         head = md.read_text(encoding="utf-8", errors="ignore")[:800]
         def _fm(k):
             m = re.search(rf"^{k}:\s*\"?([^\"\n]+)", head, re.M)
             return (m.group(1).strip() if m else "")
-        if not _fm("type"):   # type 프론트매터 없는 파일(폴더 README 등)은 02도 색인하지 않음 — 목록 제외
+        # 02 청커의 색인 대상 type만 목록에 — changelog/bugreport 등 비색인 타입은
+        # 재색인해도 청크 0이라 영구 '재색인 필요'가 된다(RAG 오염 방지로 의도된 비색인).
+        if _fm("type") not in ("regulation", "guide", "term", "system"):
             continue
         slug = md.stem
         n = chunks.get(slug, 0)

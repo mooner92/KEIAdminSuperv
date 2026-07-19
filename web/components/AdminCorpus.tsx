@@ -246,6 +246,8 @@ export default function AdminCorpus() {
                 <span className={styles.corpusTitle}>
                   {d.excluded ? <span className={styles.exBadge}>⛔ 제외됨</span> : null}
                   {d.title}
+                  {/* 슬러그가 제목과 다르면 병기 — '_2' 중복 변환본이 왜 제외됐는지 한눈에 보이게 */}
+                  {d.slug !== d.title ? <span className={styles.corpusMeta}> ({d.slug})</span> : null}
                   <span className={styles.corpusMeta}> · {GUBUN_LABEL[d.구분] || d.구분} · {d.section} · 청크 {d.chunks} · {d.검수상태}</span>
                   {d.needs_reindex ? <span className={styles.reindexBadge}>⟳ 재색인 필요</span> : null}
                 </span>
