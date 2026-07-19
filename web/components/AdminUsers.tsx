@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, type DirectoryUser } from "../lib/api";
+import PagedList from "./PagedList";
 import styles from "../styles/Admin.module.css";
 
 /** 관리자 · 사용자 목록(docs/29 §4, flag user_directory).
@@ -10,6 +11,7 @@ export default function AdminUsers() {
   const [rows, setRows] = useState<DirectoryUser[] | null>(null);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState<number | null>(null);
+  const [kw, setKw] = useState("");
 
   const load = () =>
     api.listUsers()
@@ -42,6 +44,10 @@ export default function AdminUsers() {
   if (!rows) return <div className={styles.muted}>불러오는 중…</div>;
 
   const pending = rows.filter((u) => !u.verified).length;
+  // 검색(아이디) + 최신 가입순 — 표시·페이지는 PagedList(컨트롤 상단) 공통 골격
+  const filtered = rows
+    .filter((u) => !kw || u.username.toLowerCase().includes(kw.toLowerCase()))
+    .sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
 
   return (
     <section aria-label="사용자 목록">
@@ -49,6 +55,11 @@ export default function AdminUsers() {
         총 {rows.length}명{pending > 0 ? ` · ⏳ 승인 대기 ${pending}명` : ""} · 🔒 목록·활동 메타만 표시됩니다 — 사용자의 채팅 내용은 관리자도 볼 수 없습니다.
       </p>
       {err ? <div className={styles.err}>{err}</div> : null}
+      <PagedList items={filtered} sizes={[10, 30, 50]} unit="명" note="최신 가입순" resetKey={kw}
+        empty="일치하는 사용자가 없어요."
+        filterSlot={<input className={styles.corpusSearch} placeholder="아이디 검색"
+          value={kw} onChange={(e) => setKw(e.target.value)} style={{ maxWidth: 220 }} />}>
+        {(paged) => (
       <div className={styles.tableWrap}>
         <table className={styles.table}>
           <thead>
@@ -62,7 +73,7 @@ export default function AdminUsers() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((u) => (
+            {paged.map((u) => (
               <tr key={u.id}>
                 <td>
                   {u.username}
@@ -89,6 +100,8 @@ export default function AdminUsers() {
           </tbody>
         </table>
       </div>
+        )}
+      </PagedList>
     </section>
   );
 }

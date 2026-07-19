@@ -1852,6 +1852,7 @@ def usage_stats(admin: User = Depends(current_admin), days: int = 30):
     since = time.time() - days * 86400
     with Session(engine) as s:
         evs = s.exec(select(UsageEvent).where(UsageEvent.created_at >= since)).all()
+        first_ev = s.exec(select(UsageEvent).order_by(UsageEvent.created_at).limit(1)).first()
     by_name: dict = {}
     pages: dict = {}
     daily_users: dict = {}
@@ -1869,15 +1870,28 @@ def usage_stats(admin: User = Depends(current_admin), days: int = 30):
     def mask(u: int):
         return u if u >= K_ANON else None
 
+    # 기간 전체 날짜를 채운다(이벤트 없는 날 = 0) — 프리셋(7/30/90)마다 x축이 실제로 달라져
+    # "필터가 동작함"이 차트에 보인다(2026-07-19 사용자 혼란 개선). 의미 구분:
+    #   0 = 그날 이벤트 없음(정직한 0) · None = 이벤트는 있으나 K_ANON 미만(k-익명 마스킹)
+    for i in range(days + 1):
+        d = time.strftime("%Y-%m-%d", time.localtime(since + i * 86400))
+        if d <= time.strftime("%Y-%m-%d"):
+            daily_users.setdefault(d, set())
+
     return {
         "days": days, "min_users": K_ANON,
+        # 수집 시작일(전체 최초 이벤트) — 프리셋보다 데이터가 짧을 때 UI 안내용
+        "collect_start": (time.strftime("%Y-%m-%d", time.localtime(first_ev.created_at))
+                          if first_ev else None),
         "events": sorted(
             ({"name": k, "n": v["n"], "users": mask(len(v["users"]))} for k, v in by_name.items()),
             key=lambda x: -x["n"]),
         "pages": sorted(
             ({"page": p0, "n": v["n"]} for p0, v in pages.items() if len(v["users"]) >= K_ANON),
             key=lambda x: -x["n"])[:10],
-        "dau": [{"day": d, "users": mask(len(u))} for d, u in sorted(daily_users.items())],
+        # 0 = 이벤트 없음(정직한 0 — 개인정보 위험 없음) · 1~2명만 k-익명 마스킹(None)
+        "dau": [{"day": d, "users": (len(u) if (len(u) == 0 or len(u) >= K_ANON) else None)}
+                for d, u in sorted(daily_users.items())],
     }
 
 

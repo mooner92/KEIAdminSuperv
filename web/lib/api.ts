@@ -206,6 +206,7 @@ export type DirectoryUser = {
 export type Usage = {
   days: number;
   min_users: number;
+  collect_start?: string | null; // 수집 시작일 — 프리셋보다 데이터가 짧을 때 안내용
   events: { name: string; n: number; users: number | null }[];
   pages: { page: string; n: number }[];
   dau: { day: string; users: number | null }[];

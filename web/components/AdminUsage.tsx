@@ -83,8 +83,11 @@ function DauChart({ dau, minUsers }: { dau: Usage["dau"]; minUsers: number }) {
           <path key={`a${i}`} d={`${d} L${d.split(" ").pop()!.slice(1).split(",")[0]},${y(0)} L${d.split(" ")[0].slice(1).split(",")[0]},${y(0)} Z`} className={u.areaWash} />
         ))}
         {segs.map((d, i) => <path key={i} d={d} className={u.line} />)}
-        {dau.map((d, i) => d.users !== null ? (
+        {/* 도트는 ≤31포인트일 때만(90일은 라인만 — 밀집 시 도트가 라인을 덮음) */}
+        {dau.length <= 31 ? dau.map((d, i) => d.users !== null ? (
           <circle key={i} cx={x(i)} cy={y(d.users)} r={hover === i ? 5 : 4} className={u.dot} />
+        ) : null) : (hover !== null && dau[hover].users !== null ? (
+          <circle cx={x(hover)} cy={y(dau[hover].users!)} r={5} className={u.dot} />
         ) : null)}
         {hover !== null ? <line x1={x(hover)} x2={x(hover)} y1={PAD.t} y2={H - PAD.b} className={u.crosshair} /> : null}
         {/* x축 라벨: 처음·중간·끝만(충돌 방지) */}
@@ -133,6 +136,11 @@ export default function AdminUsage() {
           <button key={d} className={`${u.rangeChip} ${days === d ? u.rangeOn : ""}`}
             onClick={() => setDays(d)}>최근 {d}일</button>
         ))}
+        {usage?.collect_start ? (
+          <span className={u.collectNote} title="이 날짜 이전 데이터는 존재하지 않아요(수집 기능 도입일)">
+            수집 시작 {usage.collect_start}
+          </span>
+        ) : null}
         {usage ? (
           <button className={u.rangeChip} onClick={() => {
             const blob = new Blob([JSON.stringify(usage, null, 1)], { type: "application/json" });

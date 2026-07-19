@@ -1,0 +1,23 @@
+/* 공용 목록 컨트롤(상단 한 줄) — 시맨틱 토큰만(다크 호환) */
+.controls {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+.count { font-size: 13px; font-weight: 700; color: var(--color-text-secondary); }
+.pager { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.chip {
+  padding: 4px 12px; border: 1px solid var(--color-border); border-radius: 999px;
+  background: var(--color-surface); color: var(--color-text-secondary);
+  font-size: 12.5px; font-weight: 600; cursor: pointer;
+}
+.chip:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.chipOn { border-color: var(--color-primary); color: var(--color-primary); background: var(--color-primary-weak, var(--color-surface)); }
+.nav {
+  padding: 4px 10px; border: 1px solid var(--color-border); border-radius: 8px;
+  background: var(--color-surface); color: var(--color-text-secondary);
+  font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.nav:hover:not(:disabled) { border-color: var(--color-primary); color: var(--color-primary); }
+.nav:disabled { opacity: 0.35; cursor: default; }
+.pageNo { font-size: 12.5px; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
+.empty { color: var(--color-text-tertiary, var(--color-text-secondary)); font-size: 13.5px; }
