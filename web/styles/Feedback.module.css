@@ -88,3 +88,5 @@
 .stateSel { margin-left: auto; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-bg); color: var(--color-text); font-size: 12.5px; padding: 3px 6px; }
 .noteRow { display: flex; gap: 8px; margin-top: 8px; }
 .noteRow .input { flex: 1; font-size: 13px; padding: 6px 10px; }
+.pagerRow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: var(--space-3); }
+.pagerRow button:disabled { opacity: 0.35; cursor: default; }

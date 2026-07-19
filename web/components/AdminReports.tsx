@@ -39,6 +39,8 @@ function NotifyPermission() {
   );
 }
 
+const PAGE_SIZES = [10, 30, 50] as const;
+
 export default function AdminReports() {
   const [reports, setReports] = useState<ReportRow[] | null>(null);
   const [filter, setFilter] = useState<string>("");
@@ -47,6 +49,9 @@ export default function AdminReports() {
   const [planOpen, setPlanOpen] = useState(false);
   const [noteDraft, setNoteDraft] = useState<Record<number, string>>({});
   const [msg, setMsg] = useState("");
+  // 페이지네이션(서식찾기 관례 — 10/30/50) + 최신순 고정: 더미·보류가 쌓여도 접수함이 간결하게
+  const [pageSize, setPageSize] = useState<number>(10);
+  const [page, setPage] = useState(1);
 
   const load = useCallback(() => {
     api.allReports(filter || undefined).then(setReports).catch(() => setReports([]));
@@ -96,6 +101,12 @@ export default function AdminReports() {
     }
   };
 
+  // 최신순 고정(백엔드도 desc지만 프론트에서 보장) + 페이지 슬라이스
+  const sorted = [...(reports || [])].sort((a, b) => b.at - a.at);
+  const pageCount = Math.max(1, Math.ceil(sorted.length / pageSize));
+  const cur = Math.min(page, pageCount);
+  const paged = sorted.slice((cur - 1) * pageSize, cur * pageSize);
+
   return (
     <section>
       <h2 className={styles.h2}>
@@ -138,15 +149,17 @@ export default function AdminReports() {
 
       <h2 className={styles.h2}>📮 접수함</h2>
       <div className={f.filterRow}>
-        <button className={`${f.typeChip} ${filter === "" ? f.typeOn : ""}`} onClick={() => setFilter("")}>전체</button>
+        <button className={`${f.typeChip} ${filter === "" ? f.typeOn : ""}`}
+          onClick={() => { setFilter(""); setPage(1); }}>전체</button>
         {STATES.map((s) => (
-          <button key={s} className={`${f.typeChip} ${filter === s ? f.typeOn : ""}`} onClick={() => setFilter(s)}>{s}</button>
+          <button key={s} className={`${f.typeChip} ${filter === s ? f.typeOn : ""}`}
+            onClick={() => { setFilter(s); setPage(1); }}>{s}</button>
         ))}
         {msg ? <span className={f.adminMsg} role="status">{msg}</span> : null}
       </div>
       {reports === null ? <p className={styles.muted}>불러오는 중…</p> : null}
       {reports !== null && reports.length === 0 ? <p className={styles.muted}>제보가 없습니다.</p> : null}
-      {(reports || []).map((r) => (
+      {paged.map((r) => (
         <article key={r.id} className={f.mineCard}>
           <header className={f.mineHead}>
             <b>#{r.id}</b>
@@ -177,6 +190,18 @@ export default function AdminReports() {
           </div>
         </article>
       ))}
+      {sorted.length > 0 ? (
+        <div className={f.pagerRow}>
+          <span className={styles.muted}>{sorted.length}건 · 최신순</span>
+          {PAGE_SIZES.map((n) => (
+            <button key={n} className={`${f.typeChip} ${pageSize === n ? f.typeOn : ""}`}
+              onClick={() => { setPageSize(n); setPage(1); }}>{n}개씩</button>
+          ))}
+          <button className={f.readAll} disabled={cur <= 1} onClick={() => setPage(cur - 1)} aria-label="이전 페이지">‹</button>
+          <span className={styles.muted}>{cur} / {pageCount}</span>
+          <button className={f.readAll} disabled={cur >= pageCount} onClick={() => setPage(cur + 1)} aria-label="다음 페이지">›</button>
+        </div>
+      ) : null}
     </section>
   );
 }
