@@ -43,6 +43,8 @@ tools/.app_secret
 # ── 평가셋/리포트 (규정 원문에서 도출한 정답·금액·한도 포함 → 공개 레포 커밋 금지) ──
 # 하베스트 코드(run_eval.py·run.sh)와 스키마 예시(golden.example.jsonl)만 추적한다.
 eval/golden.jsonl
+# PMS 정답셋 — 내부 화면ID·메뉴 경로 포함(golden.jsonl과 동급 민감도)
+eval/pms_golden.jsonl
 eval/reports/
 eval/*.local.jsonl
 
