@@ -3,12 +3,12 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { GetStaticProps } from "next";
 import Layout from "../components/Layout";
+import PageHero from "../components/common/PageHero";
 import Markdown from "../components/common/Markdown";
 import { useFlag } from "../lib/flags";
 import { track } from "../lib/track";
 import { SITE_NAME } from "../lib/site";
 import { loadChangelog, loadBugReports, type ChangelogEntry, type BugReport } from "../lib/vault";
-import styles from "../styles/Home.module.css";
 import c from "../styles/Changelog.module.css";
 
 // '새로워진 점'(docs/32) — 업데이트 노트 목록. 노트 원문은 볼트(90_관리/_changelog)에만 있고
@@ -52,20 +52,14 @@ export default function ChangelogPage({ entries, bugs }: { entries: ChangelogEnt
     return (
       <Layout>
         <Head><title>{`새로워진 점 · ${SITE_NAME}`}</title><meta name="robots" content="noindex, nofollow" /></Head>
-        <section className={styles.heroCompact}>
-          <h1 className={styles.h1}>새로워진 점</h1>
-          <p className={styles.lead}>이 기능은 아직 준비 중이에요. 곧 만나요!</p>
-        </section>
+        <PageHero title="새로워진 점" lead="이 기능은 아직 준비 중이에요. 곧 만나요!" />
       </Layout>
     );
   }
   return (
     <Layout>
       <Head><title>{`새로워진 점 · ${SITE_NAME}`}</title><meta name="robots" content="noindex, nofollow" /></Head>
-      <section className={styles.heroCompact}>
-        <h1 className={styles.h1}>새로워진 점</h1>
-        <p className={styles.lead}>{SITE_NAME}는 계속 좋아지고 있어요 — 최근 업데이트를 모았습니다.</p>
-      </section>
+      <PageHero title="새로워진 점" lead={`${SITE_NAME}는 계속 좋아지고 있어요 — 최근 업데이트를 모았습니다.`} />
 
       <div className={c.filters} role="tablist" aria-label="분류 필터">
         {CATS.map((k) => (

@@ -1,13 +1,14 @@
 import Head from "next/head";
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { GetStaticProps } from "next";
 import Layout from "../components/Layout";
+import PageHero from "../components/common/PageHero";
+import MonthCell from "../components/calendar/MonthCell";
+import TitleLink from "../components/calendar/TitleLink";
 import { useFlag } from "../lib/flags";
 import { SITE_NAME } from "../lib/site";
 import { track } from "../lib/track";
 import { loadSeasonal, type SeasonalItem } from "../lib/vault";
-import styles from "../styles/Home.module.css";
 import c from "../styles/Calendar.module.css";
 
 // 업무 캘린더(docs/39·40·43, flag events_tab) — "이번 달 중심 + 연간 그리드".
@@ -16,20 +17,6 @@ import c from "../styles/Calendar.module.css";
 // 칩·설명·'관련 문서→' 반복은 소음이라 그리드에서 제거(제목 자체가 문서 링크).
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
-
-/** 항목 제목 = 문서 링크(있을 때). 그리드·스트립 공용 한 줄 렌더 */
-function TitleLink({ it, className }: { it: SeasonalItem; className?: string }) {
-  const body = (
-    <>
-      {it.title}
-      {it.상태 === "예시" ? <sup className={c.draftMark} title="자료 확정 전">⁎</sup> : null}
-    </>
-  );
-  if (it.근거slug)
-    return <Link className={className} href={`/d/${encodeURIComponent(it.근거slug)}/?from=/calendar/`}>{body}</Link>;
-  if (it.관련페이지) return <Link className={className} href={it.관련페이지}>{body}</Link>;
-  return <span className={className}>{body}</span>;
-}
 
 export default function CalendarPage({ seasonal }: { seasonal: SeasonalItem[] }) {
   const on = useFlag("events_tab");
@@ -45,10 +32,7 @@ export default function CalendarPage({ seasonal }: { seasonal: SeasonalItem[] })
     return (
       <Layout>
         <Head><title>{`업무 캘린더 · ${SITE_NAME}`}</title><meta name="robots" content="noindex, nofollow" /></Head>
-        <section className={styles.heroCompact}>
-          <h1 className={styles.h1}>업무 캘린더</h1>
-          <p className={styles.lead}>이 기능은 아직 준비 중이에요. 곧 만나요!</p>
-        </section>
+        <PageHero title="업무 캘린더" lead="이 기능은 아직 준비 중이에요. 곧 만나요!" />
       </Layout>
     );
   }
@@ -59,12 +43,7 @@ export default function CalendarPage({ seasonal }: { seasonal: SeasonalItem[] })
   return (
     <Layout>
       <Head><title>{`업무 캘린더 · ${SITE_NAME}`}</title><meta name="robots" content="noindex, nofollow" /></Head>
-      <section className={styles.heroCompact}>
-        <h1 className={styles.h1}>📅 업무 캘린더</h1>
-        <p className={styles.lead}>
-          이번 달 챙길 일부터, 연간 반복 일정을 달력 한 화면에. 제목을 누르면 관련 문서로 이동해요.
-        </p>
-      </section>
+      <PageHero title="📅 업무 캘린더" lead="이번 달 챙길 일부터, 연간 반복 일정을 달력 한 화면에. 제목을 누르면 관련 문서로 이동해요." />
 
       {/* 🔁 매월(상시) — 슬림 스트립(기본 접힘). 상시 항목은 달력 축이 아니라 배경 소음이라 접는다 */}
       {everyMonth.length > 0 ? (
@@ -131,30 +110,10 @@ export default function CalendarPage({ seasonal }: { seasonal: SeasonalItem[] })
 
       {/* 🗓 연간 그리드 — 고정 4×3, 균일 높이. 항목은 한 줄 제목 링크만 */}
       <div className={c.yearGrid}>
-        {MONTHS.map((m) => {
-          const items = seasonal.filter((s) => s.month === m);
-          const isNow = realMonth === m;
-          return (
-            <section key={m} className={`${c.cell} ${isNow ? c.cellNow : ""}`} aria-label={`${m}월 업무`}>
-              <h3 className={c.cellHead}>
-                <span className={c.cellNum}>{m}</span>
-                <span className={c.cellWol}>월</span>
-                {isNow ? <span className={c.nowBadge}>이번 달</span> : null}
-              </h3>
-              {items.length === 0 ? (
-                <p className={c.cellEmpty}>—</p>
-              ) : (
-                <ul className={c.cellList}>
-                  {items.map((it, i) => (
-                    <li key={i} className={c.cellItem}>
-                      <TitleLink it={it} className={c.cellLink} />
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          );
-        })}
+        {MONTHS.map((m) => (
+          <MonthCell key={m} month={m} isNow={realMonth === m}
+            items={seasonal.filter((s) => s.month === m)} />
+        ))}
       </div>
 
       <p className={c.foot}>

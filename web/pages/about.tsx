@@ -1,11 +1,11 @@
 import Head from "next/head";
 import type { GetStaticProps } from "next";
 import Layout from "../components/Layout";
+import PageHero from "../components/common/PageHero";
 import Landing, { type LandingCounts } from "../components/Landing";
 import { useFlag } from "../lib/flags";
 import { SITE_NAME } from "../lib/site";
 import { getAllDocs } from "../lib/vault";
-import styles from "../styles/Home.module.css";
 
 // 소개 페이지(docs/36, flag landing_page) — 스크롤 내러티브 + ScrollRail.
 // 정적 export라 flag off여도 파일은 존재 → off면 '준비 중' 렌더(journey/changelog 관례).
@@ -21,10 +21,7 @@ export default function AboutPage({ counts }: { counts: LandingCounts }) {
       {on ? (
         <Landing variant="full" counts={counts} />
       ) : (
-        <section className={styles.heroCompact}>
-          <h1 className={styles.h1}>소개</h1>
-          <p className={styles.lead}>이 페이지는 아직 준비 중이에요. 곧 만나요!</p>
-        </section>
+        <PageHero title="소개" lead="이 페이지는 아직 준비 중이에요. 곧 만나요!" />
       )}
     </Layout>
   );

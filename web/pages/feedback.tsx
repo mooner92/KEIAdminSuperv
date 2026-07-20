@@ -2,11 +2,11 @@ import Head from "next/head";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import Layout from "../components/Layout";
+import PageHero from "../components/common/PageHero";
 import { useFlag } from "../lib/flags";
 import { api, ApiError, type ReportRow } from "../lib/api";
 import { track } from "../lib/track";
 import { SITE_NAME } from "../lib/site";
-import styles from "../styles/Home.module.css";
 import f from "../styles/Feedback.module.css";
 
 // 의견 보내기(docs/51) — 답변 👍/👎와 별개의 능동 제보: 규정 원문 오류·개정본 누락·개선 의견.
@@ -73,23 +73,14 @@ export default function FeedbackPage() {
     return (
       <Layout>
         <Head><title>{`의견 보내기 · ${SITE_NAME}`}</title><meta name="robots" content="noindex, nofollow" /></Head>
-        <section className={styles.heroCompact}>
-          <h1 className={styles.h1}>의견 보내기</h1>
-          <p className={styles.lead}>이 기능은 아직 준비 중이에요. 곧 만나요!</p>
-        </section>
+        <PageHero title="의견 보내기" lead="이 기능은 아직 준비 중이에요. 곧 만나요!" />
       </Layout>
     );
   }
   return (
     <Layout>
       <Head><title>{`의견 보내기 · ${SITE_NAME}`}</title><meta name="robots" content="noindex, nofollow" /></Head>
-      <section className={styles.heroCompact}>
-        <h1 className={styles.h1}>의견 보내기</h1>
-        <p className={styles.lead}>
-          규정 원문의 이상한 부분, 반영 안 된 개정본, 화면 오류, 개선 아이디어 — 무엇이든 알려주세요.
-          담당자가 확인해 처리 상태를 남깁니다.
-        </p>
-      </section>
+      <PageHero title="의견 보내기" lead="규정 원문의 이상한 부분, 반영 안 된 개정본, 화면 오류, 개선 아이디어 — 무엇이든 알려주세요. 담당자가 확인해 처리 상태를 남깁니다." />
 
       <div className={f.wrap}>
         <section className={f.formCard} aria-label="제보 작성">

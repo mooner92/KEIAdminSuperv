@@ -3,11 +3,11 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { GetStaticProps } from "next";
 import Layout from "../components/Layout";
+import PageHero from "../components/common/PageHero";
 import { useFlag } from "../lib/flags";
 import { SITE_NAME } from "../lib/site";
 import { track } from "../lib/track";
 import { loadForms, type FormEntry } from "../lib/vault";
-import styles from "../styles/Home.module.css";
 import f from "../styles/Forms.module.css";
 
 // 서식 찾기(docs/34 ①, flag forms_registry) — 규정 별지 서식 대장.
@@ -76,10 +76,7 @@ export default function FormsPage({ forms }: { forms: FormEntry[] }) {
     return (
       <Layout>
         <Head><title>{`서식 찾기 · ${SITE_NAME}`}</title><meta name="robots" content="noindex, nofollow" /></Head>
-        <section className={styles.heroCompact}>
-          <h1 className={styles.h1}>서식 찾기</h1>
-          <p className={styles.lead}>이 기능은 아직 준비 중이에요. 곧 만나요!</p>
-        </section>
+        <PageHero title="서식 찾기" lead="이 기능은 아직 준비 중이에요. 곧 만나요!" />
       </Layout>
     );
   }
@@ -87,13 +84,8 @@ export default function FormsPage({ forms }: { forms: FormEntry[] }) {
   return (
     <Layout>
       <Head><title>{`서식 찾기 · ${SITE_NAME}`}</title><meta name="robots" content="noindex, nofollow" /></Head>
-      <section className={styles.heroCompact}>
-        <h1 className={styles.h1}>서식 찾기</h1>
-        <p className={styles.lead}>
-          규정에 딸린 별지 서식 {forms.length}종을 한곳에서 찾아요 — 서식 이름·규정명·번호로 검색하고,
-          원문에서 바로 확인하세요.
-        </p>
-      </section>
+      <PageHero title="서식 찾기"
+        lead={`규정에 딸린 별지 서식 ${forms.length}종을 한곳에서 찾아요 — 서식 이름·규정명·번호로 검색하고, 원문에서 바로 확인하세요.`} />
 
       <div className={f.layout}>
         {/* 좌측 규정 필터(규정 둘러보기와 동일 패턴) */}

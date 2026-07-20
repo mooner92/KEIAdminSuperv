@@ -3,11 +3,11 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import type { ReactNode } from "react";
 import Layout from "../components/Layout";
+import PageHero from "../components/common/PageHero";
 import ScrollRail from "../components/common/ScrollRail";
 import { useFlag } from "../lib/flags";
 import { CORPUS_AS_OF, SITE_NAME } from "../lib/site";
 import { track } from "../lib/track";
-import styles from "../styles/Home.module.css";
 import h from "../styles/Help.module.css";
 
 // v1 ⑮(#6) 도움말 + docs/31 도움말 허브(flag help_hub).
@@ -114,10 +114,8 @@ export default function Help() {
       <Head><title>{`도움말 · ${SITE_NAME}`}</title><meta name="robots" content="noindex, nofollow" /></Head>
       {/* 닫기 동선: 상단 ‹ 뒤로 + 푸터 '도움말 닫기' 토글 — 어디서든 한 번에 복귀 */}
       <button onClick={back} className={h.back}>‹ 뒤로</button>
-      <section className={styles.heroCompact}>
-        <h1 className={styles.h1}>도움말 — 이 도구는 무엇인가요?</h1>
-        <p className={styles.lead}>{SITE_NAME}는 KEI 사내 규정을 근거로 답하는 내부 전용 지식 도구입니다.</p>
-      </section>
+      <PageHero title="도움말 — 이 도구는 무엇인가요?"
+        lead={`${SITE_NAME}는 KEI 사내 규정을 근거로 답하는 내부 전용 지식 도구입니다.`} />
 
       {hubOn ? (
         <>

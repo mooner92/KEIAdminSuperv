@@ -3,6 +3,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { GetStaticProps } from "next";
 import Layout from "../components/Layout";
+import PageHero from "../components/common/PageHero";
+import ShortcutCard, { type Shortcut } from "../components/now/ShortcutCard";
 import { api } from "../lib/api";
 import { useFlag } from "../lib/flags";
 import { SITE_NAME } from "../lib/site";
@@ -11,7 +13,6 @@ import {
   loadChangelog, loadForms, loadSeasonal, recentlyRevised, termPool,
   type ChangelogEntry, type SeasonalItem,
 } from "../lib/vault";
-import styles from "../styles/Home.module.css";
 import n from "../styles/Now.module.css";
 
 // "추가 기능" 허브(docs/35·41, flag events_tab) — 유틸 기능 바로가기 + 요즘 흐름 정보를 한곳에.
@@ -60,14 +61,29 @@ export default function NowPage({ seasonal, revised, notes, terms, formsCount }:
   const everyMonth = useMemo(() => seasonal.filter((s) => s.month === 0), [seasonal]);
   const maxTrend = trending?.length ? Math.max(...trending.map((t) => t.n)) : 1;
 
+  // 바로가기 카드 = 데이터(플래그로 게이팅). 모바일 GNB에서 뺀 화면도 허브에서 항상 도달(docs/48).
+  const shortcuts: Shortcut[] = [
+    { icon: "📅", title: "업무 캘린더", href: "/calendar/",
+      desc: `${monthItems.length > 0 ? `이번 달 챙길 일 ${monthItems.length}건 · ` : ""}매월·연간 반복 업무를 한눈에` },
+    ...(formsOn ? [{ icon: "📄", title: "서식 찾기", href: "/forms/",
+      desc: `규정 별지 서식 ${formsCount}종을 이름·규정·번호로 검색` }] : []),
+    ...(changelogOn ? [{ icon: "✨", title: "새로워진 점", href: "/changelog/",
+      desc: notes[0] ? `최근: ${notes[0].제목}` : "서비스 업데이트 내역" }] : []),
+    { icon: "🕸️", title: "관계 그래프", href: "/graph/",
+      desc: "규정 간 상호참조를 연결망으로 — 관련 규정을 한눈에" },
+    ...(approvalOn ? [{ icon: "✅", title: "결재선", href: "/approval/",
+      desc: "이 업무 전결권자가 누구인지 규정 근거로 판정" }] : []),
+    ...(journeyOn ? [{ icon: "🗺️", title: "업무 한 장", href: "/journey/",
+      desc: "출장·연차·법인카드 등 13개 업무의 처음부터 끝까지" }] : []),
+    ...(feedbackOn ? [{ icon: "📮", title: "의견 보내기", href: "/feedback/",
+      desc: "원문 오류·빠진 개정본·개선 의견을 제보하고 처리 상태 확인" }] : []),
+  ];
+
   if (!on) {
     return (
       <Layout>
         <Head><title>{`지금 KEI에서 · ${SITE_NAME}`}</title><meta name="robots" content="noindex, nofollow" /></Head>
-        <section className={styles.heroCompact}>
-          <h1 className={styles.h1}>지금 KEI에서</h1>
-          <p className={styles.lead}>이 기능은 아직 준비 중이에요. 곧 만나요!</p>
-        </section>
+        <PageHero title="지금 KEI에서" lead="이 기능은 아직 준비 중이에요. 곧 만나요!" />
       </Layout>
     );
   }
@@ -75,64 +91,12 @@ export default function NowPage({ seasonal, revised, notes, terms, formsCount }:
   return (
     <Layout>
       <Head><title>{`지금 KEI에서 · ${SITE_NAME}`}</title><meta name="robots" content="noindex, nofollow" /></Head>
-      <section className={styles.heroCompact}>
-        <h1 className={styles.h1}>추가 기능</h1>
-        <p className={styles.lead}>자주 쓰는 기능 바로가기와 요즘 흐름을 한곳에 모았어요.</p>
-      </section>
+      <PageHero title="추가 기능" lead="자주 쓰는 기능 바로가기와 요즘 흐름을 한곳에 모았어요." />
 
       {/* ── 바로가기: 업무 캘린더 · 서식 찾기 · 새로워진 점 (GNB·푸터에서 이리로 정리, docs/41) ── */}
       <h2 className={n.sectionLabel}>바로가기</h2>
       <div className={n.shortcutGrid}>
-        <Link className={n.shortcut} href="/calendar/">
-          <span className={n.shortcutIcon}>📅</span>
-          <b className={n.shortcutTitle}>업무 캘린더</b>
-          <span className={n.shortcutDesc}>
-            {monthItems.length > 0 ? `이번 달 챙길 일 ${monthItems.length}건 · ` : ""}매월·연간 반복 업무를 한눈에
-          </span>
-        </Link>
-        {formsOn ? (
-          <Link className={n.shortcut} href="/forms/">
-            <span className={n.shortcutIcon}>📄</span>
-            <b className={n.shortcutTitle}>서식 찾기</b>
-            <span className={n.shortcutDesc}>규정 별지 서식 {formsCount}종을 이름·규정·번호로 검색</span>
-          </Link>
-        ) : null}
-        {changelogOn ? (
-          <Link className={n.shortcut} href="/changelog/">
-            <span className={n.shortcutIcon}>✨</span>
-            <b className={n.shortcutTitle}>새로워진 점</b>
-            <span className={n.shortcutDesc}>
-              {notes[0] ? `최근: ${notes[0].제목}` : "서비스 업데이트 내역"}
-            </span>
-          </Link>
-        ) : null}
-        {/* docs/48: 모바일 GNB에서 뺀 화면들 — 허브에서 항상 도달 가능하게 */}
-        <Link className={n.shortcut} href="/graph/">
-          <span className={n.shortcutIcon}>🕸️</span>
-          <b className={n.shortcutTitle}>관계 그래프</b>
-          <span className={n.shortcutDesc}>규정 간 상호참조를 연결망으로 — 관련 규정을 한눈에</span>
-        </Link>
-        {approvalOn ? (
-          <Link className={n.shortcut} href="/approval/">
-            <span className={n.shortcutIcon}>✅</span>
-            <b className={n.shortcutTitle}>결재선</b>
-            <span className={n.shortcutDesc}>이 업무 전결권자가 누구인지 규정 근거로 판정</span>
-          </Link>
-        ) : null}
-        {journeyOn ? (
-          <Link className={n.shortcut} href="/journey/">
-            <span className={n.shortcutIcon}>🗺️</span>
-            <b className={n.shortcutTitle}>업무 한 장</b>
-            <span className={n.shortcutDesc}>출장·연차·법인카드 등 13개 업무의 처음부터 끝까지</span>
-          </Link>
-        ) : null}
-        {feedbackOn ? (
-          <Link className={n.shortcut} href="/feedback/">
-            <span className={n.shortcutIcon}>📮</span>
-            <b className={n.shortcutTitle}>의견 보내기</b>
-            <span className={n.shortcutDesc}>원문 오류·빠진 개정본·개선 의견을 제보하고 처리 상태 확인</span>
-          </Link>
-        ) : null}
+        {shortcuts.map((sc) => <ShortcutCard key={sc.href} {...sc} />)}
       </div>
 
       {/* ── 요즘 흐름: 인기 키워드 · 최근 개정 · 오늘의 용어 ── */}
