@@ -29,6 +29,13 @@ await pd.setViewportSize({ width: 1440, height: 1000 });
 await pd.goto(`${BASE}/graph/`, { waitUntil: "load" });
 await pd.waitForTimeout(3000);
 ok(await pd.locator("canvas").count() > 0, "7) 데스크톱: 캔버스 그래프 유지");
+// 회귀(2026-07-20): 위키링크 URL 인코딩 도입 때 getGraph가 인코딩 슬러그를 stems와 대조해
+// 엣지가 전부 버려짐 → '374개 문서 · 0개 연결'. 링크 수가 유의미한지 상시 단정.
+const ginfo = await pd.evaluate(() => {
+  const g = window.__NEXT_DATA__?.props?.pageProps?.graph;
+  return g ? { n: g.nodes.length, l: g.links.length } : null;
+});
+ok(!!ginfo && ginfo.l > 100, `7b) 그래프 엣지 유의미(${ginfo?.n}노드·${ginfo?.l}링크 > 100)`);
 
 // ── ② 오토픽스 diff /admin 열람 ──
 const pa = await ctx.newPage();

@@ -113,10 +113,12 @@ export function getDoc(slug: string): Doc | null {
 }
 
 // 백링크: 이 문서를 본문에서 가리키는 다른 문서들
+// ⚠ body의 /d/ 링크는 resolveWikilinks가 encodeURIComponent로 굽는다 — 검색도 인코딩형으로.
 export function getBacklinks(slug: string): DocMeta[] {
   const all = loadAll();
+  const enc = escapeReg(encodeURIComponent(slug));
   return all
-    .filter((d) => d.slug !== slug && new RegExp(`\\(/d/${escapeReg(slug)}/`).test(d.body))
+    .filter((d) => d.slug !== slug && new RegExp(`\\(/d/${enc}/`).test(d.body))
     .map(({ body, ...meta }) => meta);
 }
 
@@ -138,7 +140,10 @@ export function getGraph(): GraphData {
   const seen = new Set<string>();
   for (const d of all) {
     for (const m of d.body.matchAll(/\]\(\/d\/([^/)#]+)\//g)) {
-      const t = m[1];
+      // ⚠ body 링크는 URL 인코딩돼 있다(resolveWikilinks) — 디코딩해서 슬러그와 대조.
+      //   (안 하면 stems 불일치로 엣지가 전부 버려져 그래프가 '0개 연결'이 된다 — 실사고 2026-07-20)
+      let t: string;
+      try { t = decodeURIComponent(m[1]); } catch { t = m[1]; }
       if (t === d.slug || !stems.has(t)) continue;
       const key = `${d.slug}→${t}`;
       if (seen.has(key)) continue;
