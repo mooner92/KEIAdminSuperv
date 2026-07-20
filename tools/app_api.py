@@ -1708,6 +1708,49 @@ def maint_autofix(body: AutofixIn, admin: User = Depends(current_admin)):
     return {"started": True, "report_id": body.report_id}
 
 
+@router.get("/maint/diffs")
+def maint_diffs(admin: User = Depends(current_admin)):
+    """관문 실패로 폐기된 오토픽스 시도의 보존 diff 목록(docs/52 — '코드 탓 vs 환경 탓' 진단).
+    autofix_log.jsonl의 gate-fail 항목 중 diff 파일이 실제 존재하는 것만 최신순."""
+    from pathlib import Path as _P  # noqa: PLC0415
+    log = _P(__file__).parent / "index" / "autofix_log.jsonl"
+    if not log.exists():
+        return {"diffs": []}
+    out = []
+    for line in log.read_text(encoding="utf-8").splitlines():
+        try:
+            e = json.loads(line)
+        except (ValueError, TypeError):
+            continue
+        dp = e.get("diff")
+        if e.get("result") != "gate-fail" or not dp:
+            continue
+        p = _P(dp)
+        if not p.exists():
+            continue
+        out.append({"af_id": p.stem, "report_id": e.get("report_id"),
+                    "gate": e.get("gate"), "why": e.get("why"),
+                    "files": e.get("files") or [], "at": e.get("ts")})
+    out.reverse()  # 최신순
+    return {"diffs": out[:50]}
+
+
+_AF_ID_RE = re.compile(r"^\d+-\d+$")
+
+
+@router.get("/maint/diff/{af_id}")
+def maint_diff(af_id: str, admin: User = Depends(current_admin)):
+    """보존 diff 1건 원문 — af_id 패턴 강제 + realpath 봉쇄로 경로 트래버설 방지."""
+    from pathlib import Path as _P  # noqa: PLC0415
+    if not _AF_ID_RE.match(af_id):
+        raise HTTPException(400, "잘못된 식별자입니다")
+    base = (_P(__file__).parent / "index" / "autofix_diffs").resolve()
+    p = (base / f"{af_id}.diff").resolve()
+    if not str(p).startswith(str(base) + os.sep) or not p.exists():
+        raise HTTPException(404, "diff가 없습니다")
+    return {"af_id": af_id, "diff": p.read_text(encoding="utf-8")[:20000]}
+
+
 @router.get("/maint/plan/latest")
 def maint_plan_latest(admin: User = Depends(current_admin)):
     from pathlib import Path as _P

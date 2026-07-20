@@ -95,6 +95,7 @@ export type ReportRow = {
 };
 
 export type MaintNoticeRow = { id: number; kind: string; summary: string; at: number; unread: boolean };
+export type MaintDiffRow = { af_id: string; report_id: number | null; gate: string; why: string; files: string[]; at: number };
 
 const BASE = "/api/app";
 
@@ -278,6 +279,8 @@ export const api = {
   maintAnalyze: () => j<{ started: boolean }>("/maint/analyze", { method: "POST" }), // 관리자 '지금 분석'
   maintAutofix: (report_id: number) => // 오토픽스 Phase A(docs/52 §9) — 무인 수정 브랜치 생성
     j<{ started: boolean; report_id: number }>("/maint/autofix", { method: "POST", body: JSON.stringify({ report_id }) }, 15000),
+  maintDiffs: () => j<{ diffs: MaintDiffRow[] }>("/maint/diffs"), // 관리자 — 관문 실패 보존 diff 목록(docs/52)
+  maintDiff: (afId: string) => j<{ af_id: string; diff: string }>(`/maint/diff/${encodeURIComponent(afId)}`), // 관리자 — diff 원문
 
   // 기능 플래그
   flags: () => j<Record<string, boolean>>("/flags", undefined, 6000), // 공개(UI 토글), 짧은 타임아웃

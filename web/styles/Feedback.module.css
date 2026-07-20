@@ -104,6 +104,29 @@
 }
 .mergeLink { color: var(--color-primary); text-decoration: underline; font-weight: 700; }
 .mergeLink:hover { opacity: 0.8; }
+
+/* 🚧 관문 실패 diff 뷰어(docs/52) — 관리자가 폐기된 자동수정 변경을 열람 */
+.diffRow { border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); overflow: hidden; }
+.diffHead {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 8px 12px; border: none; background: none; color: var(--color-text); cursor: pointer;
+  font: inherit; text-align: left;
+}
+.diffHead:hover { background: var(--color-bg-subtle); }
+.diffHeadMain { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; min-width: 0; flex-wrap: wrap; }
+.diffGate { font-size: 11.5px; font-weight: 700; color: var(--color-danger, #d6455c); border: 1px solid var(--color-danger, #d6455c); border-radius: 6px; padding: 0 6px; }
+.diffWhy { font-size: 12px; font-weight: 500; color: var(--color-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
+.diffMeta { font-size: 11.5px; color: var(--color-text-tertiary); white-space: nowrap; flex: 0 0 auto; }
+.diffBox {
+  margin: 0; padding: 10px 12px; border-top: 1px dashed var(--color-border);
+  background: var(--color-bg); overflow-x: auto; max-height: 420px; overflow-y: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; line-height: 1.5;
+  white-space: pre; color: var(--color-text-secondary);
+}
+.dfMeta { color: var(--color-text-tertiary); font-weight: 700; }
+.dfHunk { color: var(--color-primary); }
+.dfAdd { color: var(--color-success, #1b8a5a); }
+.dfDel { color: var(--color-danger, #d6455c); }
 .pagerRow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: var(--space-3); }
 .pagerRow button:disabled { opacity: 0.35; cursor: default; }
 

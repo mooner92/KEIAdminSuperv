@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type ReportRow, type MaintNoticeRow } from "../../lib/api";
+import AdminMaintDiffs from "./AdminMaintDiffs";
 import Markdown from "../common/Markdown";
 import PagedList from "../common/PagedList";
 import Section from "../common/Section";
@@ -145,6 +146,8 @@ export default function AdminReports() {
           <p className={styles.muted}>아직 생성된 계획이 없습니다.</p>
         )}
       </Section>
+
+      <AdminMaintDiffs />
 
       <Section icon="📮" title="접수함">
         <PagedList items={sorted} sizes={[10, 30, 50]} unit="건" note="최신순" resetKey={filter}

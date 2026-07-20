@@ -1,0 +1,35 @@
+/* 모바일 그래프 간소 뷰(docs/54 v2) — 시맨틱 토큰만. 캔버스 대신 리스트로 관련 규정 탐색. */
+.wrap { display: flex; flex-direction: column; gap: 8px; }
+.search {
+  width: 100%; padding: 10px 14px; border: 1px solid var(--color-border); border-radius: 10px;
+  background: var(--color-surface); color: var(--color-text); font-size: 14.5px;
+}
+.search:focus { outline: none; border-color: var(--color-primary); }
+.count { margin: 0 2px; font-size: 12px; color: var(--color-text-tertiary); }
+
+.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.item { border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface); overflow: hidden; }
+.row {
+  width: 100%; display: flex; align-items: center; gap: 10px; padding: 11px 12px;
+  border: none; background: none; color: var(--color-text); font: inherit; text-align: left; cursor: pointer;
+}
+.row:disabled { cursor: default; opacity: 0.6; }
+.row:not(:disabled):hover { background: var(--color-bg-subtle); }
+.title { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.deg { font-size: 12px; font-weight: 700; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
+.chev { color: var(--color-text-tertiary); font-size: 12px; }
+
+.dot { flex: 0 0 auto; width: 10px; height: 10px; border-radius: 50%; background: var(--color-border-strong); }
+.dot[data-section="규정집"] { background: var(--accent-규정집, #256ef4); }
+.dot[data-section="가이드"] { background: var(--accent-가이드, #3fa654); }
+.dot[data-section="용어집"] { background: var(--accent-용어집, #ffb114); }
+.dot[data-section="시스템"] { background: var(--accent-시스템, #8b5cf6); }
+.dot[data-section="대외업무"] { background: var(--accent-대외업무, #d63384); }
+
+.neighbors { list-style: none; margin: 0; padding: 4px 8px 8px; border-top: 1px dashed var(--color-border); display: flex; flex-direction: column; gap: 2px; background: var(--color-bg); }
+.selfOpen a { display: block; padding: 8px 8px; font-size: 13px; font-weight: 700; color: var(--color-primary); }
+.nb { display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 8px; color: var(--color-text); }
+.nb:hover { background: var(--color-bg-subtle); }
+.nbTitle { flex: 1; min-width: 0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nbSection { font-size: 11px; color: var(--color-text-tertiary); flex: 0 0 auto; }
+.empty { padding: 20px; text-align: center; color: var(--color-text-tertiary); font-size: 13px; }
