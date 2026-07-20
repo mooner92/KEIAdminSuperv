@@ -86,8 +86,15 @@
 .filterRow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: var(--space-3); }
 .adminMsg { font-size: 12.5px; color: var(--color-success, #1b8a5a); margin-left: auto; }
 .stateSel { margin-left: auto; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-bg); color: var(--color-text); font-size: 12.5px; padding: 3px 6px; }
-.noteRow { display: flex; gap: 8px; margin-top: 8px; }
-.noteRow .input { flex: 1; font-size: 13px; padding: 6px 10px; }
+.noteRow { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.noteRow .input { flex: 1 1 200px; font-size: 13px; padding: 6px 10px; }
+/* 🤖 자동 수정 — 관리자 핵심 액션(모바일 주 사용). 시각적으로 특별하게(accent). */
+.autofixBtn {
+  padding: 6px 14px; border: 1px solid var(--color-primary); border-radius: 8px;
+  background: var(--color-primary-subtle, var(--color-bg-subtle)); color: var(--color-primary);
+  font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; align-self: flex-start;
+}
+.autofixBtn:hover { background: var(--color-primary); color: var(--color-on-primary, #fff); }
 .pagerRow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: var(--space-3); }
 .pagerRow button:disabled { opacity: 0.35; cursor: default; }
 
@@ -107,3 +114,18 @@
 .sectionActions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
 .sectionDesc { margin: 0 0 var(--space-3); font-size: 13.5px; color: var(--color-text-secondary); }
 .sectionCount { font-size: 13px; font-weight: 700; color: var(--color-text-secondary); }
+
+/* ── 모바일(≤640px): 관리자 의견함이 모바일 관리자 주 화면(docs/54) — 카드·오토픽스 흐름을 매끄럽게 ── */
+@media (max-width: 640px) {
+  .section { padding: var(--space-3); border-radius: 12px; }
+  .sectionActions { margin-left: 0; width: 100%; }
+  /* 카드 헤더: 좁은 폭에서 상태셀렉트·시각이 겹치지 않게 줄바꿈 정돈 */
+  .mineHead { gap: 6px 10px; }
+  .stateSel, .mineState { margin-left: auto; }
+  .mineDate { flex-basis: 100%; }
+  /* 메모+버튼: input 한 줄 꽉 채우고, 저장·🤖자동수정은 아래 한 줄로 */
+  .noteRow .input { flex-basis: 100%; }
+  .noteRow .readAll, .noteRow .autofixBtn { flex: 1 1 auto; text-align: center; }
+  .noticeRow { flex-wrap: wrap; }
+  .noticeRow time { flex-basis: 100%; }
+}

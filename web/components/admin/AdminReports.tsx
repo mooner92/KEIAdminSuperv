@@ -183,7 +183,7 @@ export default function AdminReports() {
                     onChange={(e) => setNoteDraft({ ...noteDraft, [r.id]: e.target.value })} />
                   <button className={f.readAll} onClick={() => saveNote(r.id)}>저장</button>
                   {(r.상태 === "접수" || r.상태 === "분석됨") ? (
-                    <button className={f.readAll} onClick={() => autofix(r.id)}
+                    <button className={f.autofixBtn} onClick={() => autofix(r.id)}
                       title="무인 Claude Code가 격리 브랜치에 수정을 만듭니다(라이브 무접촉·머지는 사람)">
                       🤖 자동 수정
                     </button>

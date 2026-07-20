@@ -42,6 +42,10 @@ export default function AdminPage() {
       const h = window.location.hash.replace("#", "") as Tab;
       if (TAB_KEYS.includes(h)) setTab(h);
     };
+    // 모바일(≤640px)·해시 없음 → 관리자 주 화면인 의견함(AI 자동수정)으로 진입(docs/54).
+    if (!window.location.hash && window.matchMedia("(max-width: 640px)").matches) {
+      setTab("reports");
+    }
     fromHash();
     window.addEventListener("hashchange", fromHash);
     return () => window.removeEventListener("hashchange", fromHash);

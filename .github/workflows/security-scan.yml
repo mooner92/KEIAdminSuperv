@@ -19,7 +19,12 @@ jobs:
           fi
           echo "OK — 내부 전용 콘텐츠 없음."
 
-      - name: Secret scan (gitleaks)
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # gitleaks-action@v2는 조직 계정에 유료 라이선스(GITLEAKS_LICENSE)를 강제 — 라이선스 서버
+      # 응답 실패 시 CI가 깨진다. gitleaks CLI 바이너리(MIT·무료)를 직접 받아 실행(라이선스 불요).
+      - name: Secret scan (gitleaks CLI)
+        run: |
+          VER=8.18.4
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${VER}/gitleaks_${VER}_linux_x64.tar.gz" \
+            | tar -xz gitleaks
+          ./gitleaks detect --source . --redact --no-banner --exit-code 1 \
+            && echo "OK — 커밋 히스토리에서 시크릿 미검출."
