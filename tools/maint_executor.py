@@ -140,6 +140,17 @@ def gate_web(wt: Path, changed: list) -> str:
         return ""
     if os.environ.get("AUTOFIX_SKIP_WEB_BUILD") == "1":  # 회귀 테스트 전용(빌드 수 분 소요)
         return ""
+    # git worktree엔 node_modules(비추적)가 없어 next 실행 불가 → 원본 레포에서 심링크.
+    # 의존성은 브랜치 무관(package.json 동일)이라 안전. 이미 있으면(재시도) 건너뜀.
+    wt_nm = wt / "web" / "node_modules"
+    if not wt_nm.exists():
+        src_nm = REPO / "web" / "node_modules"
+        if not src_nm.exists():
+            return "원본 web/node_modules 없음 — 먼저 npm install 필요"
+        try:
+            wt_nm.symlink_to(src_nm)
+        except OSError as e:
+            return f"node_modules 링크 실패 — {e}"
     nvm = 'export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh" && nvm use 22 >/dev/null'
     r = subprocess.run(["bash", "-c", f'{nvm} && cd "{wt}/web" && VAULT_DIR="{REPO}/KEI-행정가이드" npm run build'],
                        capture_output=True, text=True, timeout=900)
@@ -263,7 +274,9 @@ def main() -> int:
                 return 0
 
         # 커밋 + push + 알림
-        _git(["add", "-A"], wt)
+        # ⚠ git add -A 금지 — 관문(gate_web)이 만든 node_modules 심링크·빌드 산출물이
+        # 섞여 들어간다. claude가 실제 바꾼 파일(changed, 관문 전 스냅샷)만 스테이징.
+        _git(["add", "--"] + changed, wt)
         _git(["commit", "-m",
               f"autofix(#{args.report_id}): {rpt.유형} — {rpt.대상규정 or rpt.내용[:40]}\n\n"
               f"무인 수정(docs/52 Phase A). 관문: 금지구역·구문·회귀·빌드 통과.\n"
