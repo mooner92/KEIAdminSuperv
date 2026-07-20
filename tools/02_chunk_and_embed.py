@@ -416,12 +416,25 @@ def main():
     )
     # id: 경로#순번 (클린 리빌드 전제로 안정·고유)
     ids = [f"{c['path']}#{i}" for i, c in enumerate(chunks)]
-    col.upsert(
-        ids=ids,
-        embeddings=[e.tolist() for e in embs],
-        documents=[c["text"] for c in chunks],
-        metadatas=[{k: (c.get(k) or "") for k in META_KEYS} for c in chunks],
-    )
+    all_embs = [e.tolist() for e in embs]
+    all_docs = [c["text"] for c in chunks]
+    all_meta = [{k: (c.get(k) or "") for k in META_KEYS} for c in chunks]
+    # ⚠ Chroma는 1회 upsert 최대 배치(≈5,461)가 있다 — 코퍼스가 그 이상이면 통째 upsert가
+    #   터지고(컬렉션은 이미 reset된 뒤라) 인덱스가 빈 채 남는다. 항상 나눠 넣는다.
+    #   (실측 2026-07-20: PMS 상세가이드 적재로 5,607개가 되며 발생)
+    try:
+        max_batch = int(client.get_max_batch_size())  # chroma 구현별 상한
+    except Exception:  # noqa: BLE001
+        max_batch = 5000
+    step = max(1, min(max_batch - 100, 4000))
+    for s in range(0, len(ids), step):
+        col.upsert(
+            ids=ids[s:s + step],
+            embeddings=all_embs[s:s + step],
+            documents=all_docs[s:s + step],
+            metadatas=all_meta[s:s + step],
+        )
+        print(f"  적재 {min(s + step, len(ids))}/{len(ids)}")
     n_items = col.count()
     print(f"\n적재 완료 → {args.db} (collection={args.collection}, {n_items} items)")
     # --no-reset 안전가드: id가 '경로#전역순번'이라 파일 추가/삭제 시 순번이 밀려 옛 청크가 안 지워짐(orphan).

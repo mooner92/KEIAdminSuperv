@@ -39,6 +39,7 @@ flowchart LR
 | 규정 변환 | `01_hwp_to_md.py` | HWP/HWPX 규정 폴더 | `20_규정원문/` (regulation) |
 | 가이드 변환 | `01c_guides_to_md.py` | 가이드 HWP/HWPX/PDF/PPTX | `10_업무가이드/` (guide) |
 | 시스템 변환 | `01d_system_to_md.py` | 사내 시스템 기능 문서(ERP·EIP·PMS 등) | `40_시스템/` (system, 7개 시스템) |
+| PMS 심화 변환 | `01v_pms_deep_to_md.py` | PMS 도움말 PDF·화면캡처 판독본 5묶음(`pms_raw/`) | `40_시스템/` PMS 상세가이드 11노트(탭 병합·누락0 대사) |
 | 용어 변환 | `01f_terms_to_md.py` | `KEI_admin_terms.md` | `30_용어집/` (term) |
 | 시스템 교차링크 | `01e_system_crosslink.py` | 시스템 노트 + 규정 | 시스템↔규정 `[[ ]]` |
 | 용어 교차링크 | `01g_terms_crosslink.py` | 용어 노트 + ERP/규정 | 용어↔ERP/규정 `[[ ]]` |
