@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "KEI 행정 가이드",
+    "slug": "kei-admin-guide",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "keiadminguide",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "kr.re.kei.adminguide"
+    },
+    "android": {
+      "package": "kr.re.kei.adminguide",
+      "adaptiveIcon": { "backgroundColor": "#ffffff" }
+    },
+    "extra": {
+      "//": "사내 전용 URL(Cloudflare Zero Trust 뒤). 실제 값은 배포 시 주입 — 레포에 하드코딩 금지.",
+      "appUrl": "https://REPLACE-WITH-INTERNAL-KEI-URL"
+    }
+  }
+}
