@@ -160,7 +160,11 @@ export default function AdminReports() {
           </span>}>
           {(paged) => (<>
             {reports === null ? <p className={styles.muted}>불러오는 중…</p> : null}
-            {paged.map((r) => (
+            {paged.map((r) => {
+              // 오토픽스가 만든 제보 — admin_note에 "[오토픽스]" 마커. 검토(compare) URL 추출.
+              const isAutofix = (r.admin_note || "").includes("[오토픽스]");
+              const reviewUrl = isAutofix ? (r.admin_note.match(/https?:\/\/\S+/) || [])[0] : undefined;
+              return (
               <article key={r.id} className={f.mineCard}>
                 <header className={f.mineHead}>
                   <b>#{r.id}</b>
@@ -168,6 +172,12 @@ export default function AdminReports() {
                   {r.대상규정 ? <span className={f.mineDoc}>{r.대상규정}{r.대상조문 ? ` · ${r.대상조문}` : ""}</span> : null}
                   <span className={f.mineDoc}>{r.제보자}</span>
                   {r.group ? <span className={f.mineDoc} title="분석 그룹">{r.group}</span> : null}
+                  {isAutofix ? (
+                    <span className={f.mergeChip} title="오토픽스가 격리 브랜치에 수정을 만들었습니다 — 검토 후 머지하세요">
+                      🤖 머지 대기
+                      {reviewUrl ? <a href={reviewUrl} target="_blank" rel="noreferrer" className={f.mergeLink}>검토 →</a> : null}
+                    </span>
+                  ) : null}
                   <select className={f.stateSel} value={r.상태} onChange={(e) => setState(r.id, e.target.value)}
                     aria-label={`#${r.id} 상태 변경`}>
                     {(ADMIN_SET.includes(r.상태) ? ADMIN_SET : [r.상태, ...ADMIN_SET]).map((st) => (
@@ -190,7 +200,8 @@ export default function AdminReports() {
                   ) : null}
                 </div>
               </article>
-            ))}
+              );
+            })}
           </>)}
         </PagedList>
       </Section>

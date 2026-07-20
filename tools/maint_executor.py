@@ -159,6 +159,27 @@ def gate_web(wt: Path, changed: list) -> str:
     return ""
 
 
+def save_diff(af_id: str, wt: Path, changed: list) -> Path | None:
+    """관문 실패로 worktree를 폐기하기 전, claude가 만든 변경(changed 경로만)을 diff로 보존.
+    실패가 '코드 탓'인지 '환경 탓'(#31 node_modules 사례)인지 사후 판별용.
+    changed는 관문 실행 전 스냅샷이라 관문 산출물(심링크 등)은 애초에 포함 안 됨."""
+    paths = [p for p in changed if p]
+    if not paths:
+        return None
+    try:
+        subprocess.run(["git", "add", "--", *paths], cwd=str(wt), capture_output=True, timeout=30)
+        r = subprocess.run(["git", "diff", "--cached", "--", *paths],
+                           cwd=str(wt), capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if not r.stdout.strip():
+        return None
+    dst = HERE / "index" / "autofix_diffs" / f"{af_id}.diff"
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    dst.write_text(r.stdout, encoding="utf-8")
+    return dst
+
+
 def run_claude(wt: Path, prompt: str) -> dict:
     """무인 Claude Code 실행 — Bash 미부여(수정만). 반환: 결과 JSON(dict)."""
     cmd_override = os.environ.get("AUTOFIX_CLAUDE_CMD", "")
@@ -265,12 +286,16 @@ def main() -> int:
         for gate_fn in (gate_forbidden, gate_python, gate_web):
             verdict = gate_fn(wt, changed)
             if verdict:
+                diff_path = save_diff(af_id, wt, changed)  # 폐기 전 claude 변경 보존(코드 vs 환경 진단)
                 cleanup()
                 log_run({"report_id": args.report_id, "result": "gate-fail",
-                         "gate": gate_fn.__name__, "why": verdict, "cost_usd": cost})
+                         "gate": gate_fn.__name__, "why": verdict, "cost_usd": cost,
+                         "files": changed, "diff": str(diff_path) if diff_path else None})
                 _notify(app_api, f"오토픽스 #{args.report_id}: 관문 차단({gate_fn.__name__})",
-                        verdict, ok=False)
-                print(f"[af-{af_id}] ⛔ {verdict} — 폐기")
+                        verdict + (f" · 변경 {len(changed)}파일 보존({diff_path.name})" if diff_path else ""),
+                        ok=False)
+                print(f"[af-{af_id}] ⛔ {verdict} — 폐기"
+                      + (f" (diff 보존: {diff_path})" if diff_path else ""))
                 return 0
 
         # 커밋 + push + 알림
