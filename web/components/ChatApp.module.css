@@ -389,6 +389,21 @@
   .thread { height: 60vh; }
 }
 
+/* ── 모바일 셸(docs/54 v2, flag mobile_shell) — 채팅=첫 화면에 입력창까지 꽉 차게 ──
+   셸이 켜지면(Layout이 [data-mshell] 부여) 채팅을 '남는 화면 전체'로 고정: 스레드가 flex로
+   늘고 컴포저는 항상 하단 탭바 바로 위. 셸 off면 이 블록 전체 무효(기존 60vh 동작 유지). */
+@media (max-width: 640px) {
+  :global([data-mshell]) .app {
+    display: flex; flex-direction: column;
+    height: calc(100dvh - var(--header-h) - var(--banner-h, 0px) - var(--m-tab-h, 0px) - 38px);
+    min-height: 0; overflow: hidden;
+  }
+  :global([data-mshell]) .main { flex: 1 1 auto; min-height: 0; }
+  :global([data-mshell]) .thread { height: auto; flex: 1 1 auto; min-height: 0; }
+  /* 근거 FAB가 컴포저(입력창)를 가리지 않게 — 탭바+컴포저 위로 올림 */
+  :global([data-mshell]) .srcFab { bottom: calc(var(--m-tab-h, 58px) + 84px); }
+}
+
 /* v1 ⑧·⑨(S3·S4): 근거 패널 재설계 */
 .srcAggregate {
   font-size: 11.5px; line-height: 1.5; color: var(--color-text-tertiary);

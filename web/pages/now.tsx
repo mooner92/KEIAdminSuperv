@@ -6,6 +6,7 @@ import Layout from "../components/Layout";
 import PageHero from "../components/common/PageHero";
 import ShortcutCard, { type Shortcut } from "../components/now/ShortcutCard";
 import { api } from "../lib/api";
+import { useAuth } from "../lib/auth";
 import { useFlag } from "../lib/flags";
 import { SITE_NAME } from "../lib/site";
 import { track } from "../lib/track";
@@ -33,6 +34,8 @@ export default function NowPage({ seasonal, revised, notes, terms, formsCount }:
   const approvalOn = useFlag("approval_finder"); // 결재선 — 모바일 GNB에서 빠진 화면의 허브 도달(docs/48)
   const journeyOn = useFlag("journey_map"); // 업무 한 장 — 〃
   const feedbackOn = useFlag("feedback_center"); // 의견 보내기(docs/51) — 허브 카드
+  const landingOn = useFlag("landing_page"); // 소개 — 모바일 셸에선 푸터가 숨어 허브가 유일 진입(docs/54 v2)
+  const { user } = useAuth(); // 관리자 카드(조건) — 〃
   const [month, setMonth] = useState<number | null>(null); // 이번 달 — null = 클라이언트 미확정(SSG 안전)
   const [trending, setTrending] = useState<{ k: string; n: number }[] | null>(null);
   const [trendErr, setTrendErr] = useState<number | null>(null); // HTTP status(401=로그인 필요) | 0=기타
@@ -77,6 +80,12 @@ export default function NowPage({ seasonal, revised, notes, terms, formsCount }:
       desc: "출장·연차·법인카드 등 13개 업무의 처음부터 끝까지" }] : []),
     ...(feedbackOn ? [{ icon: "📮", title: "의견 보내기", href: "/feedback/",
       desc: "원문 오류·빠진 개정본·개선 의견을 제보하고 처리 상태 확인" }] : []),
+    // 모바일 셸(docs/54 v2)에선 푸터가 숨어 아래 진입점은 이 허브가 유일 — 데스크톱 허브에도 무해
+    { icon: "❓", title: "도움말", href: "/help/", desc: "사용법·FAQ — 처음이라면 여기부터" },
+    ...(landingOn ? [{ icon: "🏛️", title: "소개", href: "/about/",
+      desc: "이 서비스가 무엇인지, 어떤 규정을 근거로 답하는지" }] : []),
+    ...(user?.is_admin ? [{ icon: "🛠️", title: "관리자", href: "/admin/",
+      desc: "대시보드·의견함(AI 자동 수정)·통계·기능 플래그" }] : []),
   ];
 
   if (!on) {

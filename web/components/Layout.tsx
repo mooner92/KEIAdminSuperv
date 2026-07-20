@@ -2,6 +2,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import ThemeToggle from "./common/ThemeToggle";
+import MobileTabBar from "./mobile/MobileTabBar";
 import { useFlag } from "../lib/flags";
 import { useAuth } from "../lib/auth";
 import { api } from "../lib/api";
@@ -77,6 +78,7 @@ export default function Layout({
   const eventsOn = useFlag("events_tab"); // 추가 기능·업무 캘린더(docs/35·41) — GNB 탭
   const landingOn = useFlag("landing_page"); // 소개 페이지(docs/36) — footer '소개' 진입
   const feedbackOn = useFlag("feedback_center"); // 의견 보내기(docs/51) — footer 진입
+  const mobileShellOn = useFlag("mobile_shell"); // 모바일 셸(docs/54 v2) — 하단 탭바+미니멀 헤더
   // 인증 상태는 공유 AuthContext에서 — 로그인/로그아웃이 여기 반영돼 GNB가 즉시 갱신된다(새로고침 불필요).
   const { user, ready: authKnown } = useAuth();
   const isAuthed = !!user;
@@ -114,8 +116,10 @@ export default function Layout({
     const t = setInterval(poll, 5 * 60 * 1000);
     return () => { stop = true; clearInterval(t); };
   }, [isAdmin, feedbackOn]);
+  // 모바일 셸(≤640px 전용, CSS로 발동) — 로그인 후에만(비로그인 랜딩은 내비 자체가 없음)
+  const mshell = mobileShellOn && isAuthed;
   return (
-    <div className={styles.root} data-fill={fill ? "" : undefined}>
+    <div className={styles.root} data-fill={fill ? "" : undefined} data-mshell={mshell ? "" : undefined}>
       {latestNote ? (
         <div className={styles.banner} ref={bannerRef}>
           <Link href={`/changelog/#${latestNote.id}`} className={styles.bannerLink}>
@@ -184,6 +188,7 @@ export default function Layout({
           </span>
         </div>
       </footer>
+      {mshell ? <MobileTabBar /> : null}
     </div>
   );
 }

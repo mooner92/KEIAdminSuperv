@@ -386,6 +386,14 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-12-31",
     },
+    "mobile_shell": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on(changelog 관례)
+        "description": "모바일 셸(docs/54 v2) — ≤640px 전용 UI: 하단 탭바(💬질문·📚규정·☰더보기)가 "
+                       "상단 GNB를 대체, 헤더 미니멀화(로고+🔔+테마), 푸터 숨김(링크는 더보기로), "
+                       "부가기능은 전부 더보기(/now) 목록형 메뉴로. 데스크톱 무영향. Expo 래핑 대비 구조.",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
 }
 
 

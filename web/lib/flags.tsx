@@ -35,6 +35,7 @@ export const FLAG_DEFAULTS: Record<string, boolean> = {
   select_ask: false, // docs/26: 원문 선택 질문 팝오버 (release, 만료 2026-12-31)
   bug_reports: false, // docs/32 §7: /changelog 🐛 버그리포트 탭 (release, 만료 2026-12-31)
   feedback_center: false, // docs/51: 의견 보내기(/feedback+진입점 3곳+관리자 의견함) (release, 만료 2026-12-31)
+  mobile_shell: false, // docs/54 v2: 모바일 전용 셸(하단 탭바+미니멀 헤더+더보기 메뉴) (release, 만료 2026-12-31)
 };
 const CACHE_KEY = "kei-flags";
 

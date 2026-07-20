@@ -89,3 +89,20 @@
 .termBody { margin: 0; font-size: 14px; line-height: 1.6; }
 .termLink { font-size: 17px; font-weight: 800; color: var(--color-primary); }
 .termLink:hover { text-decoration: underline; }
+
+/* ── 모바일(≤640px, docs/54 v2): 허브 = ☰ 더보기 메뉴 — 카드 그리드 대신 콤팩트 목록 행 ──
+   유저는 여기서 스키밍→탭 결정만 한다. 아이콘 좌측·제목/설명 우측·행 전체 탭 영역. */
+@media (max-width: 640px) {
+  .shortcutGrid { grid-template-columns: 1fr; gap: 8px; }
+  .shortcut {
+    flex-direction: row; align-items: center; gap: 12px;
+    padding: 12px 14px; border-radius: 12px;
+  }
+  .shortcutIcon { font-size: 20px; flex: 0 0 auto; }
+  .shortcutTitle { font-size: 14.5px; }
+  .shortcutDesc {
+    font-size: 12px; margin-left: auto; text-align: right; max-width: 55%;
+    overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  }
+  .grid { grid-template-columns: 1fr; }
+}

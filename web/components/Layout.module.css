@@ -152,6 +152,15 @@
   }
   .nav::-webkit-scrollbar { display: none; }
   .flag { display: none; } /* '🔒 사내 전용' 칩은 좁은 화면에서 nav에 자리를 양보 */
+
+  /* ── 모바일 셸(docs/54 v2, flag mobile_shell · Layout이 data-mshell 부여) ──
+     내비는 하단 탭바가 전담 → 상단은 로고+🔔+테마만(난잡함 제거). 푸터 숨김(링크는 ☰더보기로).
+     --m-tab-h: 하단바 실높이 — 본문·채팅(ChatApp)·fill 화면이 이만큼 비켜난다. */
+  .root[data-mshell] { --m-tab-h: calc(58px + env(safe-area-inset-bottom, 0px)); }
+  .root[data-mshell] .nav { display: none; }
+  .root[data-mshell] .footer { display: none; }
+  .root[data-mshell] .main { padding-bottom: var(--m-tab-h); }
+  .root[data-mshell] .mainFill { padding-bottom: var(--m-tab-h); }
 }
 
 /* 업데이트 배너(docs/32) — 기존 .banner 재사용 + 링크/닫기. 시맨틱 토큰만 */

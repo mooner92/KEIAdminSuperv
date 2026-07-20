@@ -1,0 +1,21 @@
+/* 모바일 하단 탭바(docs/54 v2) — 시맨틱 토큰만(다크모드 호환). 데스크톱에선 통째로 숨김. */
+.bar { display: none; }
+
+@media (max-width: 640px) {
+  .bar {
+    display: flex;
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; /* 바텀시트(65~70)보다 아래 */
+    height: var(--m-tab-h, 58px);
+    padding-bottom: env(safe-area-inset-bottom); /* 웹앱(Expo 래핑) 홈 인디케이터 대비 */
+    background: var(--color-surface);
+    border-top: 1px solid var(--color-border);
+  }
+  .tab {
+    flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 2px; color: var(--color-text-tertiary); text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .icon { font-size: 20px; line-height: 1; }
+  .label { font-size: 10.5px; font-weight: 700; letter-spacing: 0.01em; }
+  .on { color: var(--color-primary); }
+}
