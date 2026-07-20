@@ -57,10 +57,24 @@
 .main .search { max-width: none; }
 .main .tableWrap { max-width: none; }
 
+.filterToggle { display: none; }
+
 @media (max-width: 760px) {
   .layout { grid-template-columns: 1fr; }
-  .filters { position: static; }
-  .regList { max-height: 34vh; }
+  .filters { position: static; display: none; } /* 모바일 기본 접힘 — 목록이 첫 화면 */
+  .filtersOpenM { display: block; }
+  .filterToggle {
+    display: block; width: 100%; margin-bottom: var(--space-3);
+    border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface);
+    color: var(--color-text); font-size: 13.5px; font-weight: 700; padding: 10px 14px; cursor: pointer;
+    text-align: left;
+  }
+  .regList { max-height: 40vh; }
+  /* 5열 표를 좁은 화면에 욱여넣으면 셀이 세로로 뭉개진다 → 통짜로 가로 스크롤(tableWrap) */
+  .table { min-width: 520px; }
+  .table th, .table td { white-space: nowrap; }
+  .name { white-space: normal; min-width: 130px; } /* 서식명만 줄바꿈 허용 */
+  .metaRow { gap: 8px; }
 }
 
 /* ── docs/50: 페이지네이션 + 원문 PDF 다운로드 ── */

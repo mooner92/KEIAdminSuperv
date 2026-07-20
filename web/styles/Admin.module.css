@@ -159,8 +159,17 @@
 .previewPre { margin: 0; padding: 12px; max-height: 260px; overflow: auto; font-size: 12px; line-height: 1.55; white-space: pre-wrap; color: var(--color-text-secondary); }
 
 /* v1.1 관리자 UX 개편(docs/21): 탭·코퍼스 그리드·제외함·플래그 컴팩트 */
-.tabBar { display: flex; gap: 4px; border-bottom: 2px solid var(--color-border); margin: 6px 0 18px; }
-.tabBtn { cursor: pointer; border: none; background: none; color: var(--color-text-secondary); font-size: 14px; font-weight: 700; padding: 8px 14px; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+/* 탭 8개라 모바일에서 넘침 → 가로 스크롤(라벨 한 줄 유지, 세로로 안 쪼개지게) */
+.tabBar {
+  display: flex; gap: 4px; border-bottom: 2px solid var(--color-border); margin: 6px 0 18px;
+  overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+}
+.tabBar::-webkit-scrollbar { display: none; }
+.tabBtn {
+  cursor: pointer; border: none; background: none; color: var(--color-text-secondary);
+  font-size: 14px; font-weight: 700; padding: 8px 14px; border-bottom: 2px solid transparent;
+  margin-bottom: -2px; white-space: nowrap; flex: 0 0 auto;
+}
 .tabBtn:hover { color: var(--color-text); }
 .tabOn { color: var(--color-primary-strong); border-bottom-color: var(--color-primary); }
 .viewTabs { display: flex; align-items: center; gap: 6px; margin: 12px 0 8px; }

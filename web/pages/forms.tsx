@@ -25,6 +25,7 @@ export default function FormsPage({ forms }: { forms: FormEntry[] }) {
   const [regQ, setRegQ] = useState(""); // 필터 패널 내 규정 검색
   const [pageSize, setPageSize] = useState(30); // 10/30/50개씩 보기(docs/50)
   const [page, setPage] = useState(1);
+  const [filterOpen, setFilterOpen] = useState(false); // 모바일(≤760px): 규정 필터 기본 접힘(Explorer 관례)
   // 사용량(docs/35): 검색은 1.2s 디바운스 1건 — 검색어 자체는 보내지 않음
   useEffect(() => {
     if (!q.trim()) return;
@@ -87,9 +88,15 @@ export default function FormsPage({ forms }: { forms: FormEntry[] }) {
       <PageHero title="서식 찾기"
         lead={`규정에 딸린 별지 서식 ${forms.length}종을 한곳에서 찾아요 — 서식 이름·규정명·번호로 검색하고, 원문에서 바로 확인하세요.`} />
 
+      {/* 모바일 전용 필터 토글(≤760px) — 목록이 첫 화면(docs/48 관례) */}
+      <button type="button" className={f.filterToggle}
+        onClick={() => setFilterOpen(!filterOpen)} aria-expanded={filterOpen}>
+        {filterOpen ? "규정 필터 접기 ▴" : `규정 필터 열기 ▾${regFilter.size > 0 ? ` · ${regFilter.size}개 적용 중` : ""}`}
+      </button>
+
       <div className={f.layout}>
         {/* 좌측 규정 필터(규정 둘러보기와 동일 패턴) */}
-        <aside className={f.filters} aria-label="규정 필터">
+        <aside className={`${f.filters} ${filterOpen ? f.filtersOpenM : ""}`} aria-label="규정 필터">
           <div className={f.filterHead}>
             <span className={f.filterTitle}>규정</span>
             {regFilter.size > 0 ? (
