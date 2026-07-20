@@ -262,12 +262,17 @@ def chunk_guide(body: str, max_chars: int = 1800, pack: int = 1400):
     for text, lab in out:
         if len(text) <= max_chars:
             final.append((text, lab)); continue
+        # 과대 청크를 문단 단위로 쪼갤 때, 첫 조각에만 있던 맥락 프리픽스(`[상위 헤딩]`)를
+        # 이어지는 조각에도 재주입한다 — 안 하면 뒷조각이 '어느 화면 소속인지' 잃는다.
+        mctx = re.match(r"^\[[^\]\n]+\]", text)
+        ctx = mctx.group(0) if mctx else ""
         b, c = [], 0
         for p in [x.strip() for x in re.split(r"\n{2,}", text) if x.strip()]:
             if c + len(p) > pack and b:
-                final.append(("\n\n".join(b), lab)); b, c = [], 0
+                final.append(("\n\n".join(b), lab))
+                b, c = ([ctx], len(ctx)) if ctx else ([], 0)
             b.append(p); c += len(p)
-        if b:
+        if b and any(x != ctx for x in b):
             final.append(("\n\n".join(b), lab))
     return final or [(body.strip(), "")]
 

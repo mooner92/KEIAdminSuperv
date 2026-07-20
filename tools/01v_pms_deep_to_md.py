@@ -41,6 +41,35 @@ META_TITLE = re.compile(
 )
 NUM_PREFIX = re.compile(r"^(?:\d+(?:-\d+)?\.|부록\s+[A-Z]\.)\s*")
 DOC_TITLE = re.compile(r"^KEI 연구관리시스템")
+OVERVIEW_SUB = "화면 개요"  # 화면 머리 블록(메뉴 경로·화면ID·기능)을 담을 하위 섹션 제목
+
+
+def demote_screen(title: str, body: list) -> list:
+    """화면 1개를 청킹 친화 구조로 재배치(내용 불변, 헤딩 레벨만 조정).
+
+    02의 chunk_guide 규칙: `###`=맥락(cur_sub, 라벨 없음) / `####`=청크(라벨 + `[cur_sub]` 주입).
+    따라서 화면을 `###`, 하위 섹션을 `####`로 두면 **모든 상세 청크가 '소제목' 라벨 +
+    '[화면명]' 맥락**을 갖는다(그 전엔 하위 섹션이 라벨·화면표시 없이 들어갔다).
+    화면 머리 블록(첫 하위 헤딩 이전)은 `#### 화면 개요`로 승격해 라벨 없는 청크를 없앤다.
+    원본의 `####`(팝업 내부 항목)는 `#####`로 내려 부모 청크에 합류시킨다.
+    """
+    out = [f"### {title}", ""]
+    lead, sections, cur = [], [], None
+    for ln in body:
+        s = ln.strip()
+        if s.startswith("### ") and not s.startswith("#### "):
+            cur = (NUM_PREFIX.sub("", s[4:].strip()), [])
+            sections.append(cur)
+        elif s.startswith("#### "):
+            line = "#" + ln.lstrip()  # #### → #####(부모 청크에 합류)
+            (cur[1] if cur else lead).append(line)
+        else:
+            (cur[1] if cur else lead).append(ln)
+    if [x for x in lead if x.strip()]:
+        out += [f"#### {OVERVIEW_SUB}", ""] + lead
+    for sub, lines in sections:
+        out += [f"#### {sub}", ""] + lines
+    return out
 
 
 def norm_tab(h1: str) -> str:
@@ -81,6 +110,21 @@ def parse(path: Path):
     return doc_title, out
 
 
+def content_only(lines: list) -> list:
+    """누락 대사용 — 헤딩 줄(레벨·번호가 재배치되므로 제목은 따로 검증)과 공백 줄(서식) 제외."""
+    return [ln for ln in lines if ln.strip() and not ln.strip().startswith("#")]
+
+
+def heading_titles(lines: list) -> set:
+    """줄 목록에서 헤딩 제목(번호접두 제거) 집합 — 제목 누락 검증용."""
+    out = set()
+    for ln in lines:
+        s = ln.strip()
+        if s.startswith("#"):
+            out.add(NUM_PREFIX.sub("", s.lstrip("#").strip()))
+    return out
+
+
 def fm(title: str, srcs: list) -> str:
     return ("---\n"
             "type: system\n"
@@ -114,14 +158,16 @@ def main() -> int:
     tabs: dict = {}       # 탭 → [(title, body, src)]
     head: list = []       # 머리말 → 개요
     meta: list = []       # 문서레벨 → 부록
-    src_lines = Counter()  # 누락 검증용(원본 본문 줄)
+    src_lines = Counter()  # 누락 검증용(원본 본문 줄 — 헤딩 제외)
+    src_titles: set = set()  # 원본 헤딩 제목(번호접두 제거)
     doc_titles = []
 
     for f in files:
         dt, secs = parse(f)
         doc_titles.append((f.name, dt))
         for zone, tab, title, body in secs:
-            src_lines.update(body)
+            src_lines.update(content_only(body))
+            src_titles |= heading_titles(body) | {title}
             item = (title, body, f.name)
             if zone == "머리말":
                 head.append(item)
@@ -133,20 +179,21 @@ def main() -> int:
     notes: dict = {}  # 파일명 → 본문
     out_lines = Counter()
 
-    def render(title: str, intro: list, items: list, srcs: list) -> str:
+    def render(title: str, intro: list, items: list, srcs: list, screens: bool = False) -> str:
+        """screens=True면 화면 섹션을 청킹 친화 구조(### 화면 / #### 하위)로 재배치."""
         buf = [fm(title, sorted(set(srcs))), f"# {title}\n\n", WARN + "\n\n"]
         buf += intro
         for t, body, sf in items:
-            buf.append(f"## {t}\n")
-            buf.append("\n".join(body) + "\n")
-            out_lines.update(body)
+            lines = demote_screen(t, body) if screens else [f"## {t}", ""] + body
+            buf.append("\n".join(lines) + "\n")
+            out_lines.update(content_only(lines))
         return "".join(buf)
 
     # ① 탭별 상세가이드 노트
     for tab, items in tabs.items():
         title = f"{SYS} · {tab}"
         intro = [f"> 관련 메뉴 노트: [[연구관리시스템(PMS) · {tab}]] — 같은 탭의 메뉴·기능 지도\n\n"]
-        notes[f"{title}.md"] = render(title, intro, items, [s for _, _, s in items])
+        notes[f"{title}.md"] = render(title, intro, items, [s for _, _, s in items], screens=True)
 
     # ② 개요 노트(머리말 + 탭 목차)
     toc = ["## 이 상세가이드의 구성\n\n"]
@@ -177,7 +224,17 @@ def main() -> int:
         for ln, n in list(missing.items())[:5]:
             print(f"     누락 예: {ln[:70]!r} ×{n}")
         return 2
-    print(f"✅ 누락 0 — 본문 {sum(src_lines.values())}줄이 모두 노트에 반영됨")
+    print(f"✅ 본문 누락 0 — {sum(src_lines.values())}줄 전량 반영")
+
+    # ⑤ 헤딩 제목 누락 대사(헤딩은 레벨이 바뀌므로 제목 집합으로 확인)
+    out_titles: set = set()
+    for txt in notes.values():
+        out_titles |= heading_titles(txt.splitlines())
+    lost = {t for t in src_titles if t and t not in out_titles}
+    if lost:
+        print(f"⛔ 헤딩 제목 누락 {len(lost)}개: {sorted(lost)[:6]}")
+        return 3
+    print(f"✅ 헤딩 제목 누락 0 — 원본 제목 {len(src_titles)}개 전부 유지")
 
     if args.dry_run:
         print("\n[dry-run] 생성 예정 노트:")
