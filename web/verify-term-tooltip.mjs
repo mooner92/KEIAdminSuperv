@@ -83,6 +83,26 @@ await dHit.hover();
 await pd.waitForTimeout(400);
 const dPop = pd.locator('[role="tooltip"]');
 check("6b) 드로어 팝오버 노출·가시(fixed)", (await dPop.count()) === 1 && (await dPop.isVisible()));
+// ⚠ isVisible()은 '화면 밖'을 걸러내지 못한다 — 드로어(.panel)의 translateX가 position:fixed의
+//   기준을 가로채면 팝오버가 뷰포트 밖으로 밀리는데도 isVisible()은 true다(2026-07-20 실버그).
+//   → 뷰포트 안에 실제로 들어와 있는지까지 판정한다(body 포털 회귀 방지).
+{
+  const box = await dPop.boundingBox();
+  const vp = pd.viewportSize();
+  const inside = !!box && box.x >= -2 && box.y >= -2 &&
+    box.x + box.width <= vp.width + 2 && box.y + box.height <= vp.height + 2;
+  check("6c) 드로어 팝오버가 뷰포트 안(transform 조상 탈출)", inside,
+    box ? `x=${Math.round(box.x)} y=${Math.round(box.y)} w=${Math.round(box.width)} (vp ${vp.width}×${vp.height})` : "박스 없음");
+  const portaled = await dPop.evaluate((el) => el.parentElement === document.body);
+  check("6d) 팝오버가 body 포털로 렌더", portaled);
+  // 클릭으로도 열려야(사용자 보고: 클릭 무반응)
+  await pd.mouse.move(5, 5);
+  await pd.waitForTimeout(400);
+  await dHit.click();
+  await pd.waitForTimeout(350);
+  check("6e) 드로어에서 클릭으로도 팝오버 표시", (await pd.locator('[role="tooltip"]').count()) === 1);
+}
+await pd.screenshot({ path: "verify-term-tooltip-drawer.png" });
 
 // 7) 다크: 팝오버 대비
 const pk = await ctx.newPage();

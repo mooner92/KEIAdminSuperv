@@ -62,12 +62,15 @@ function loadAll(): Doc[] {
   const stems = new Set(raws.map((r) => r.stem));
 
   // [[대상#앵커|표시]] → [표시](/d/대상/#앵커). 미해결(레지스트리에 없음)은 표시 텍스트로.
+  // ⚠ URL은 반드시 인코딩한다 — 슬러그에 **공백**이 있으면 마크다운 링크 문법이 깨져 원문이
+  //   그대로 노출되고("[기본연구사업 등 …](/d/기본연구사업 등 …/)"), **괄호**가 있으면 `)`가
+  //   링크를 조기 종료시킨다("연구관리시스템(PMS) · 과제관리"). 2026-07-20 수정.
   const resolveWikilinks = (md: string): string =>
     md.replace(/\[\[([^\]|#\n]+)(#[^\]|\n]+)?(?:\|([^\]\n]+))?\]\]/g, (_m, target, anchor, alias) => {
       const t = String(target).trim();
       const disp = String(alias || t).trim();
-      const a = anchor ? String(anchor) : "";
-      return stems.has(t) ? `[${disp}](/d/${t}/${a})` : disp;
+      const a = anchor ? `#${encodeURIComponent(String(anchor).slice(1))}` : "";
+      return stems.has(t) ? `[${disp}](/d/${encodeURIComponent(t)}/${a})` : disp;
     });
 
   // 날짜 정규화(v1 스펙 B2): gray-matter가 YAML 날짜(개정일: 2021-08-17)를 JS Date로 파싱해

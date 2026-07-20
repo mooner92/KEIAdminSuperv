@@ -12,6 +12,7 @@
  */
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import styles from "./Terms.module.css";
 
 export type TermEntry = { t: string; s: string; d: string; r: boolean };
@@ -98,6 +99,10 @@ function TermHit({
   const ref = useRef<HTMLSpanElement>(null);
   const hideT = useRef<number | undefined>(undefined);
   const [pos, setPos] = useState<{ x: number; y: number; up: boolean } | null>(null);
+  // 고정(pin) — 클릭·탭으로 연 상태. 마우스가 떠나도 유지한다.
+  // ⚠ 없으면: 클릭 시 hover가 먼저 열어둔 걸 클릭이 닫아 '클릭 무반응'이 되고,
+  //   터치는 탭 한 번에 mouseenter→click이 연달아 나 아무 일도 안 일어난다(2026-07-20 수정).
+  const [pinned, setPinned] = useState(false);
 
   const show = () => {
     window.clearTimeout(hideT.current);
@@ -106,7 +111,26 @@ function TermHit({
     const up = r.bottom > window.innerHeight - 190; // 아래 공간 부족 → 위로
     setPos({ x: Math.max(8, Math.min(r.left, window.innerWidth - 296)), y: up ? r.top - 6 : r.bottom + 6, up });
   };
-  const hide = () => { hideT.current = window.setTimeout(() => setPos(null), 180); };
+  const hide = () => {
+    if (pinned) return; // 고정 상태면 호버 이탈로 닫지 않는다
+    hideT.current = window.setTimeout(() => setPos(null), 180);
+  };
+  const close = () => { window.clearTimeout(hideT.current); setPinned(false); setPos(null); };
+
+  // 고정 중 바깥 클릭·Esc로 닫기
+  useEffect(() => {
+    if (!pinned) return;
+    const onDoc = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) close();
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [pinned]);
 
   return (
     <span
@@ -119,11 +143,19 @@ function TermHit({
       onMouseLeave={hide}
       onFocus={show}
       onBlur={hide}
-      onClick={(e) => { e.stopPropagation(); if (pos) setPos(null); else show(); }}
-      onKeyDown={(e) => { if (e.key === "Escape") setPos(null); }}
+      // 클릭·탭 = 고정 토글. 호버로 이미 열려 있어도 첫 클릭은 '고정'이지 닫기가 아니다.
+      onClick={(e) => { e.stopPropagation(); if (pinned) { close(); } else { setPinned(true); show(); } }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") close();
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (pinned) close(); else { setPinned(true); show(); } }
+      }}
     >
       {entry.t}
-      {pos ? (
+      {pos ? createPortal(
+        // ⚠ 반드시 body로 포털 — `position: fixed`는 조상에 transform이 있으면 그 조상이
+        // 기준(containing block)이 된다. 문서 드로어(.panel)는 슬라이드 애니메이션에
+        // translateX를 쓰므로, 포털 없이는 뷰포트 좌표가 드로어 기준으로 해석돼 팝오버가
+        // 화면 밖으로 밀려 '밑줄은 보이는데 설명이 안 뜨는' 증상이 된다(2026-07-20 수정).
         <span
           className={styles.pop}
           role="tooltip"
@@ -142,13 +174,14 @@ function TermHit({
             className={styles.more}
             onClick={
               onNavigate
-                ? (e) => { e.preventDefault(); setPos(null); onNavigate(entry.s, ""); }
-                : undefined
+                ? (e) => { e.preventDefault(); close(); onNavigate(entry.s, ""); }
+                : (() => close())
             }
           >
             용어집에서 보기 →
           </Link>
-        </span>
+        </span>,
+        document.body,
       ) : null}
     </span>
   );
