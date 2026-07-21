@@ -16,6 +16,8 @@ import json
 import pathlib
 import sys
 
+import fitz  # 미리보기 PDF 쪽수 기록('한 장' 배지용)
+
 HERE = pathlib.Path(__file__).resolve().parent
 
 # 01p는 파일명이 숫자로 시작해 import 불가 → importlib로 로드
@@ -54,10 +56,17 @@ def main() -> int:
                     print(f"  ✓ {cat_dir.name}/{src.stem[:40]}")
                 if it is not None:
                     it["pdf"] = out_pdf.name
+                    # 캐시본이어도 쪽수는 매번 갱신(배지 데이터·이전 실행분 소급)
+                    try:
+                        with fitz.open(out_pdf) as _d:
+                            it["쪽수"] = _d.page_count
+                    except Exception:
+                        it["쪽수"] = None
             else:
                 fail += 1
                 if it is not None:
                     it["pdf"] = None
+                    it["쪽수"] = None
 
     mf_path.write_text(json.dumps(items, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"\n재변환 {ok} · 캐시 {skip} · 실패 {fail} → manifest 갱신")

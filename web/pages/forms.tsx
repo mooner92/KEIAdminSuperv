@@ -157,7 +157,16 @@ export default function FormsPage({ forms }: { forms: FormEntry[] }) {
               <tbody>
                 {paged.map((e) => (
                   <tr key={`${e.slug}#${e.호}`}>
-                    <td className={f.name}>{e.서식명}</td>
+                    <td className={f.name}>
+                      {e.서식명}
+                      {typeof e.쪽수 === "number" && e.쪽수 > 0 ? (
+                        <span
+                          className={`${f.pages} ${e.쪽수 === 1 ? f.pages1 : f.pagesN}`}
+                          title={e.쪽수 === 1 ? "미리보기 PDF가 한 장에 담겨요" : `미리보기 PDF ${e.쪽수}장`}>
+                          {e.쪽수 === 1 ? "한 장" : `${e.쪽수}장`}
+                        </span>
+                      ) : null}
+                    </td>
                     <td>{e.규정명}</td>
                     <td className={f.no}>{e.호 || "—"}</td>
                     <td className={f.dlCell}>

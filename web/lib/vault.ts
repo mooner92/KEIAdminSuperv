@@ -330,6 +330,7 @@ export type FormEntry = {
   pdf: string | null;   // 별지 원문 PDF 다운로드 경로(01p 분리본, git-external — 없으면 null)
   hwp: string | null;   // 규정 원문 HWP(전체) — 실편집용. 별지만 HWP 분리는 포맷상 불가(docs/50 §7)
   구분?: "별지" | "연구관리";  // 서식 출처 — 규정 별지(기본) | PMS 연구관리양식(pms manifest)
+  쪽수?: number | null;  // 미리보기 PDF 분량(쪽) — 별지=manifest pages, PMS=01x가 기록. '한 장' 배지용
 };
 
 // PMS 연구관리양식(docs/55 §8③) — 규정 별지가 아니라 '시스템 부착 양식'이라 두 번째 소스.
@@ -340,7 +341,7 @@ function loadPmsForms(): FormEntry[] {
   const mf = path.join(process.cwd(), "public", "forms-pdf", "pms", "manifest.json");
   if (!fs.existsSync(mf)) return [];
   try {
-    const items: { 카테고리: string; 파일: string; 표시명: string; pdf?: string | null }[] =
+    const items: { 카테고리: string; 파일: string; 표시명: string; pdf?: string | null; 쪽수?: number | null }[] =
       JSON.parse(fs.readFileSync(mf, "utf-8"));
     // '원문 보기'는 이 양식들이 올라 있는 PMS 화면 설명(상세가이드 · 과제관리 § 연구관련양식)으로.
     const guideSlug = "연구관리시스템(PMS) 상세가이드 · 과제관리";
@@ -354,6 +355,7 @@ function loadPmsForms(): FormEntry[] {
       pdf: it.pdf ? `/forms-pdf/pms/${encodeURIComponent(it.카테고리)}/${encodeURIComponent(it.pdf)}` : null,
       hwp: `/forms-pdf/pms/${encodeURIComponent(it.카테고리)}/${encodeURIComponent(it.파일)}`,
       구분: "연구관리" as const,
+      쪽수: typeof it.쪽수 === "number" ? it.쪽수 : null,
     }));
   } catch {
     return [];
@@ -361,7 +363,7 @@ function loadPmsForms(): FormEntry[] {
 }
 
 // 01p_byeolji_pdf.py manifest — 규정↔별지↔원문 PDF·서식명(원문 제목). git-external(없으면 빈 객체).
-type ByeoljiManifest = Record<string, { hwp?: string | null; 별지: { label: string; name: string; pdf: string }[] }>;
+type ByeoljiManifest = Record<string, { hwp?: string | null; 별지: { label: string; name: string; pdf: string; pages?: [number, number] }[] }>;
 let _byeoljiMf: ByeoljiManifest | null = null;
 function byeoljiManifest(): ByeoljiManifest {
   if (_byeoljiMf) return _byeoljiMf;
@@ -427,7 +429,8 @@ export function loadForms(): FormEntry[] {
       out.push({ 규정명: doc.title, slug: meta.slug, 호: label, 호수: Number(m[1].split("-")[0]),
                  서식명: title || "(서식명 미기재)", anchor: label,
                  pdf: mfe ? `/${mfe.pdf}` : null,
-                 hwp: mf?.hwp ? `/${mf.hwp}` : null });
+                 hwp: mf?.hwp ? `/${mf.hwp}` : null,
+                 쪽수: mfe?.pages ? mfe.pages[1] - mfe.pages[0] + 1 : null });
     }
   }
   out.sort((a, b) => (a.규정명 === b.규정명
