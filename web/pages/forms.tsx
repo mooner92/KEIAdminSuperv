@@ -86,7 +86,7 @@ export default function FormsPage({ forms }: { forms: FormEntry[] }) {
     <Layout>
       <Head><title>{`서식 찾기 · ${SITE_NAME}`}</title><meta name="robots" content="noindex, nofollow" /></Head>
       <PageHero title="서식 찾기"
-        lead={`규정에 딸린 별지 서식 ${forms.length}종을 한곳에서 찾아요 — 서식 이름·규정명·번호로 검색하고, 원문에서 바로 확인하세요.`} />
+        lead={`규정 별지 서식 ${forms.filter((e) => e.구분 !== "연구관리").length}종 + 연구관리양식(PMS) ${forms.filter((e) => e.구분 === "연구관리").length}종을 한곳에서 — 이름·규정명·번호로 검색하고 바로 열어보세요.`} />
 
       {/* 모바일 전용 필터 토글(≤760px) — 목록이 첫 화면(docs/48 관례) */}
       <button type="button" className={f.filterToggle}
@@ -159,22 +159,28 @@ export default function FormsPage({ forms }: { forms: FormEntry[] }) {
                   <tr key={`${e.slug}#${e.호}`}>
                     <td className={f.name}>{e.서식명}</td>
                     <td>{e.규정명}</td>
-                    <td className={f.no}>{e.호}</td>
+                    <td className={f.no}>{e.호 || "—"}</td>
                     <td className={f.dlCell}>
                       {e.pdf ? (
-                        <a className={f.dl} href={e.pdf} download title="이 별지만 담긴 원문 PDF">PDF ↓</a>
+                        <a className={f.dl} href={e.pdf} download
+                          title={e.구분 === "연구관리" ? "PDF 미리보기 — 어떻게 생긴 양식인지 바로 확인" : "이 별지만 담긴 원문 PDF"}>PDF ↓</a>
                       ) : (
                         <span className={f.dlNone}>—</span>
                       )}
-                      {e.hwp ? (
-                        <a className={f.dl} href={e.hwp} download title="규정 원문 전체 한글파일 — 서식 편집·작성용">HWP ↓</a>
+                      {e.hwp && e.hwp !== e.pdf ? (
+                        <a className={f.dl} href={e.hwp} download
+                          title={e.구분 === "연구관리" ? "원본 파일 — 실제 작성·제출용" : "규정 원문 전체 한글파일 — 서식 편집·작성용"}>
+                          {(e.hwp.split(".").pop() || "원본").toUpperCase().replace("%20", "")} ↓
+                        </a>
                       ) : null}
                     </td>
                     <td>
-                      <Link className={f.go} href={`/d/${encodeURIComponent(e.slug)}/#${encodeURIComponent(e.anchor)}`}
-                        onClick={() => track("forms_open")}>
-                        원문 보기 →
-                      </Link>
+                      {e.slug ? (
+                        <Link className={f.go} href={`/d/${encodeURIComponent(e.slug)}/#${encodeURIComponent(e.anchor)}`}
+                          onClick={() => track("forms_open")}>
+                          {e.구분 === "연구관리" ? "안내 화면 →" : "원문 보기 →"}
+                        </Link>
+                      ) : null}
                     </td>
                   </tr>
                 ))}

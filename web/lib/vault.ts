@@ -324,7 +324,36 @@ export type FormEntry = {
   anchor: string;       // 문서 내 앵커 id(=호) — Markdown 렌더러의 별지 id 규칙과 동기(적대 검증 확정)
   pdf: string | null;   // 별지 원문 PDF 다운로드 경로(01p 분리본, git-external — 없으면 null)
   hwp: string | null;   // 규정 원문 HWP(전체) — 실편집용. 별지만 HWP 분리는 포맷상 불가(docs/50 §7)
+  구분?: "별지" | "연구관리";  // 서식 출처 — 규정 별지(기본) | PMS 연구관리양식(pms manifest)
 };
+
+// PMS 연구관리양식(docs/55 §8③) — 규정 별지가 아니라 '시스템 부착 양식'이라 두 번째 소스.
+// 원본·PDF 미리보기는 web/public/forms-pdf/pms/<카테고리>/(git-external), 목록은 같은 곳의
+// manifest.json(변환 파이프가 emit). 없으면 빈 배열(별지처럼 git-external 안전).
+// 규정명 자리에 '연구관리양식 · <카테고리>'를 넣어 기존 규정 필터가 카테고리 필터로 그대로 작동한다.
+function loadPmsForms(): FormEntry[] {
+  const mf = path.join(process.cwd(), "public", "forms-pdf", "pms", "manifest.json");
+  if (!fs.existsSync(mf)) return [];
+  try {
+    const items: { 카테고리: string; 파일: string; 표시명: string; pdf?: string | null }[] =
+      JSON.parse(fs.readFileSync(mf, "utf-8"));
+    // '원문 보기'는 이 양식들이 올라 있는 PMS 화면 설명(상세가이드 · 과제관리 § 연구관련양식)으로.
+    const guideSlug = "연구관리시스템(PMS) 상세가이드 · 과제관리";
+    const hasGuide = getAllDocs().some((d) => d.slug === guideSlug);
+    return items.map((it) => ({
+      규정명: `연구관리양식 · ${it.카테고리}`,
+      slug: hasGuide ? guideSlug : "",
+      호: "", 호수: 0,
+      서식명: it.표시명,
+      anchor: hasGuide ? "연구관련양식" : "",
+      pdf: it.pdf ? `/forms-pdf/pms/${encodeURIComponent(it.카테고리)}/${encodeURIComponent(it.pdf)}` : null,
+      hwp: `/forms-pdf/pms/${encodeURIComponent(it.카테고리)}/${encodeURIComponent(it.파일)}`,
+      구분: "연구관리" as const,
+    }));
+  } catch {
+    return [];
+  }
+}
 
 // 01p_byeolji_pdf.py manifest — 규정↔별지↔원문 PDF·서식명(원문 제목). git-external(없으면 빈 객체).
 type ByeoljiManifest = Record<string, { hwp?: string | null; 별지: { label: string; name: string; pdf: string }[] }>;
@@ -399,7 +428,10 @@ export function loadForms(): FormEntry[] {
   out.sort((a, b) => (a.규정명 === b.규정명
     ? a.호수 - b.호수 || a.호.localeCompare(b.호, "ko")
     : a.규정명.localeCompare(b.규정명, "ko")));
-  return out;
+  // PMS 연구관리양식(두 번째 소스) — 별지 뒤에 카테고리·이름순으로 이어붙인다
+  const pms = loadPmsForms();
+  pms.sort((a, b) => a.규정명.localeCompare(b.규정명, "ko") || a.서식명.localeCompare(b.서식명, "ko"));
+  return out.concat(pms);
 }
 
 export function loadJourneys(): Journey[] {
