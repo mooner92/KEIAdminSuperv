@@ -445,6 +445,62 @@
 .trending { margin-top: var(--space-4); display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .trendingLabel { font-size: 12.5px; font-weight: 700; color: var(--color-text-tertiary); }
 
+/* ── 상황 시작 칩(docs/38 §A) — 빈 화면 EXAMPLES 대체. 시맨틱 토큰만(다크 호환) ── */
+.situWrap { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.situChipOn { border-color: var(--color-primary); color: var(--color-primary); background: var(--color-surface); }
+.situMoreBtn { color: var(--color-text-tertiary); border-style: dashed; }
+.situCard {
+  margin-top: 4px;
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  text-align: left;
+}
+.situHead { font-size: 13.5px; color: var(--color-text); }
+.situQ {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-subtle);
+  color: var(--color-text);
+  font-size: 13px;
+  border-radius: 9px;
+  padding: 8px 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.situQ:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.situJourney { margin-top: 2px; font-size: 12.5px; font-weight: 700; color: var(--color-primary); }
+
+/* ── 부서 문의 핸드오프 카드(docs/38 §A ★) — 거부 답변 아래 다음 행동 안내 ── */
+.handoff {
+  margin: 2px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-primary);
+  border-radius: 10px;
+  background: var(--color-bg-subtle);
+  max-width: 640px;
+}
+.handoffTitle { font-size: 13px; font-weight: 700; color: var(--color-text); }
+.handoffBody { margin-top: 3px; font-size: 12.5px; line-height: 1.5; color: var(--color-text-secondary); }
+.handoffBtn {
+  margin-top: 7px;
+  border: 1px solid var(--color-primary);
+  background: var(--color-surface);
+  color: var(--color-primary);
+  font-size: 12.5px;
+  font-weight: 700;
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.handoffBtn:hover { background: var(--color-primary); color: #fff; }
+
 /* Stop 버튼(docs/34 ③) — 스트리밍 중 보내기 자리를 대체. 시맨틱 토큰만 */
 .stop {
   /* 아이콘 전용 원형 — 빨간 ■(중단), 전송 버튼과 같은 자리·크기 */

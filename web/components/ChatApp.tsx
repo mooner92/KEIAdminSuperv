@@ -5,6 +5,7 @@ import DocDrawer from "./DocDrawer";
 import ApprovalDrawer from "./ApprovalDrawer";
 import { api, type ChatMeta, type Message, type Source, type Suggestion, type User } from "../lib/api";
 import type { DocMeta } from "../lib/vault";
+import type { JourneyChip } from "../pages/index";
 import { useFlag } from "../lib/flags";
 import { useBackClose } from "../lib/useBackClose";
 import { CORPUS_AS_OF, SITE_NAME } from "../lib/site";
@@ -17,6 +18,32 @@ const EXAMPLES = [
   "연차휴가는 어떻게 신청하나요?",
   "초과근무 수당 지급 기준이 궁금해요.",
 ];
+
+// 상황 시작 칩(docs/38 §A, flag situation_chips) — 여정 id → 상황 문구·추천 질문.
+// on이면 위 정적 EXAMPLES를 '대체'(빈 화면 칩 그룹 3개 난잡 방지 — 트렌딩 키워드와만 공존).
+// 실존 여정(journeys prop)과 교집합만 노출. 질문은 입력 프리필 전용(자동 전송 없음 —
+// trending·select_ask와 동일 원칙), 답은 항상 RAG 근거로 생성(질문 문구는 주제 프리셋일 뿐).
+const SITUATIONS: { id: string; chip: string; qs: string[] }[] = [
+  { id: "domestic-trip", chip: "🧳 첫 출장을 가요", qs: ["국내출장 여비는 어떻게 정산하나요?", "국내출장 신청은 어떤 절차로 하나요?"] },
+  { id: "annual-leave", chip: "🌴 연차를 쓰고 싶어요", qs: ["연차휴가는 어떻게 신청하나요?", "연차는 최대 며칠까지 쓸 수 있나요?"] },
+  { id: "법인카드사용정산", chip: "💳 법인카드를 처음 써요", qs: ["법인카드 사용 후 정산은 어떻게 하나요?", "법인카드로 주말에 결제해도 되나요?"] },
+  { id: "overtime", chip: "⏰ 초과근무를 했어요", qs: ["초과근무 수당 지급 기준이 궁금해요.", "초과근무는 사전에 신청해야 하나요?"] },
+  { id: "물품구매", chip: "🛒 물품을 사야 해요", qs: ["물품 구매는 어떤 절차로 진행하나요?", "물품 구매 시 견적서는 언제 필요한가요?"] },
+  { id: "경조사", chip: "🕯️ 경조사가 생겼어요", qs: ["경조사 휴가는 며칠 쓸 수 있나요?", "경조금은 어떻게 신청하나요?"] },
+  { id: "해외출장", chip: "✈️ 국외 출장을 가요", qs: ["국외출장 신청 절차가 궁금해요.", "국외출장 여비 기준이 궁금해요."] },
+  { id: "유연근무신청", chip: "🕘 유연근무를 하고 싶어요", qs: ["유연근무는 어떻게 신청하나요?"] },
+  { id: "육아시간사용", chip: "🍼 육아시간을 쓰고 싶어요", qs: ["육아시간은 어떻게 사용하나요?"] },
+  { id: "휴직복직", chip: "🏥 휴직·복직이 필요해요", qs: ["휴직 신청 절차가 궁금해요."] },
+  { id: "도서구입", chip: "📚 도서를 구입하고 싶어요", qs: ["업무용 도서 구입은 어떻게 하나요?"] },
+  { id: "원외겸직", chip: "🎓 외부 강의·겸직을 해요", qs: ["외부 강의나 겸직은 어떻게 승인받나요?"] },
+  { id: "괴롭힘성희롱신고", chip: "🛡️ 고충을 신고하고 싶어요", qs: ["직장 내 괴롭힘은 어디에 신고하나요?"] },
+];
+const SITU_PRIMARY = 6; // 기본 노출 칩 수 — 나머지는 '더 보기'로 접어 난잡 방지
+
+// 부서 문의 핸드오프(docs/38 §A ★, flag handoff_card) — 거부 답변 감지.
+// 백엔드 REFUSAL_RE(통계용)와 동일 계열이나 보수적: '규정에서 확인' 단독은
+// 긍정문("규정에서 확인할 수 있습니다") 오탐 소지가 있어 제외.
+const REFUSAL_UI_RE = /확인되지\s*않|확인할\s*수\s*없|찾을\s*수\s*없|근거가\s*없/;
 const STREAM_ID = -3;
 
 // 간단 타임스탬프: 오늘이면 "오후 2:31", 이전이면 "7/8" (요청: 간단하게만)
@@ -60,10 +87,12 @@ function highlightFigures(text: string, cls: string): ReactNode {
 export default function ChatApp({
   user,
   docs,
+  journeys,
   onLogout,
 }: {
   user: User;
   docs: DocMeta[];
+  journeys?: JourneyChip[];
   onLogout: () => void;
 }) {
   const [chats, setChats] = useState<ChatMeta[]>([]);
@@ -115,6 +144,15 @@ export default function ChatApp({
       return api.trending(30).then((r2) => setTrending(r2.keywords));
     }).catch(() => {});
   }, [trendingOn]);
+  const situOn = useFlag("situation_chips"); // docs/38 §A: 빈 화면 상황 시작 칩(EXAMPLES 대체)
+  const handoffOn = useFlag("handoff_card"); // docs/38 §A ★: 거부 답변 부서 문의 핸드오프 카드
+  const [situSel, setSituSel] = useState<string | null>(null); // 선택된 상황(여정 id) — 미니 카드 토글
+  const [situMore, setSituMore] = useState(false); // 7번째 이후 칩 펼침
+  const situations = useMemo(() => {
+    // 실존 여정과 교집합 — 여정 JSON이 빠지면 칩도 자동 소멸(깨진 딥링크 방지)
+    const have = new Map((journeys || []).map((j) => [j.id, j]));
+    return SITUATIONS.filter((s) => have.has(s.id)).map((s) => ({ ...s, j: have.get(s.id)! }));
+  }, [journeys]);
   const actionsOn = useFlag("answer_actions"); // v1 ⑫(S6): 복사·인용 칩·수치 대조 // v1 ⑧·⑨(S3·S4): 배지 3단 위계·미검수 집계·거부 리프레임
   const [approvalOpen, setApprovalOpen] = useState(false); // 결재선 드로어(우측 슬라이드인)
   const [srcOverlay, setSrcOverlay] = useState(false); // v1 B6: ≤1080px 근거 바텀시트(넓은 화면에선 무시)
@@ -351,35 +389,69 @@ export default function ChatApp({
     return out.slice(0, 6);
   };
 
+  // 클립보드 쓰기 공용(답변 복사·핸드오프 카드).
+  // ⚠ navigator.clipboard는 보안 컨텍스트(HTTPS/localhost) 전용 — 사내 IP(HTTP) 접속에선 없음.
+  // 그 경우 임시 textarea + execCommand('copy') 폴백으로 동작 보장.
+  const copyText = async (text: string): Promise<boolean> => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch { /* 아래 폴백 시도 */ }
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      const done = document.execCommand("copy");
+      ta.remove();
+      return done;
+    } catch { return false; }
+  };
+
   // v1 ⑫(S6-#21): 복사 — 본문 + 출처 목록 + 기준일 자동 부착(면책은 본문에 이미 포함)
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const copyAnswer = async (m: Message) => {
     const srcList = (m.sources || []).map((s) => `- ${s.tag}`).join("\n");
     const text = `${m.content}\n\n[근거 출처]\n${srcList}\n(${SITE_NAME} · 규정집 기준일 ${CORPUS_AS_OF})`;
-    // ⚠ navigator.clipboard는 보안 컨텍스트(HTTPS/localhost) 전용 — 사내 IP(HTTP) 접속에선 없음.
-    // 그 경우 임시 textarea + execCommand('copy') 폴백으로 동작 보장.
-    let done = false;
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text);
-        done = true;
-      }
-    } catch { /* 아래 폴백 시도 */ }
-    if (!done) {
-      try {
-        const ta = document.createElement("textarea");
-        ta.value = text;
-        ta.style.position = "fixed";
-        ta.style.opacity = "0";
-        document.body.appendChild(ta);
-        ta.select();
-        done = document.execCommand("copy");
-        ta.remove();
-      } catch { done = false; }
-    }
-    if (done) {
+    if (await copyText(text)) {
       setCopiedId(m.id);
       setTimeout(() => setCopiedId(null), 1600);
+    } else {
+      alert("복사에 실패했습니다. 텍스트를 직접 선택해 복사해 주세요.");
+    }
+  };
+
+  // 부서 문의 핸드오프(docs/38 §A ★) — 내 질문+함께 검색된 규정+기준일을 복사용 텍스트로 조립.
+  // ⛔ 무엇도 생성하지 않음: 질문·근거 메타는 저장된 그대로, "근거를 찾지 못함"은 거부 사실 그대로.
+  const [handoffCopied, setHandoffCopied] = useState<number | null>(null);
+  const questionOf = (m: Message): string => {
+    const i = messages.findIndex((x) => x.id === m.id);
+    for (let k = i - 1; k >= 0; k--) if (messages[k].role === "user") return messages[k].content;
+    return "";
+  };
+  const copyHandoff = async (m: Message) => {
+    const q = questionOf(m);
+    const seen = new Set<string>();
+    const refs = (m.sources || [])
+      .map((s) => `${s.규정명}${s.조 ? ` ${s.조}` : ""}`)
+      .filter((t) => (seen.has(t) ? false : (seen.add(t), true)))
+      .slice(0, 6);
+    const text = [
+      `[${SITE_NAME} 문의 준비]`,
+      q ? `■ 질문: ${q}` : null,
+      "■ 챗봇 확인 결과: 사내 규정에서 명확한 근거를 찾지 못했습니다.",
+      refs.length ? `■ 함께 검색된 규정(참고): ${refs.join(" · ")}` : null,
+      `■ 규정집 기준일: ${CORPUS_AS_OF}`,
+      "※ 위 내용을 참고하여 문의드립니다.",
+    ].filter(Boolean).join("\n");
+    if (await copyText(text)) {
+      setHandoffCopied(m.id);
+      setTimeout(() => setHandoffCopied(null), 2000);
+      track("handoff_copy", "/");
     } else {
       alert("복사에 실패했습니다. 텍스트를 직접 선택해 복사해 주세요.");
     }
@@ -509,13 +581,55 @@ export default function ChatApp({
               <p className={styles.wLead}>
                 사내 규정을 근거로 답해 드려요. 답변마다 <b>출처 조문</b>이 함께 저장됩니다.
               </p>
-              <div className={styles.examples}>
-                {EXAMPLES.map((ex) => (
-                  <button key={ex} className={styles.exChip} onClick={() => send(ex)}>
-                    {ex}
-                  </button>
-                ))}
-              </div>
+              {situOn && situations.length > 0 ? (
+                /* 상황 시작 칩(docs/38 §A) — 정적 예시 4개를 '대체'(칩 그룹 난립 방지). 트렌딩과만 공존 */
+                <div className={styles.situWrap}>
+                  <span className={styles.trendingLabel}>🧭 상황으로 시작해 보세요</span>
+                  <div className={styles.examples}>
+                    {(situMore ? situations : situations.slice(0, SITU_PRIMARY)).map((s) => (
+                      <button key={s.id}
+                        className={`${styles.exChip} ${situSel === s.id ? styles.situChipOn : ""}`}
+                        aria-expanded={situSel === s.id}
+                        onClick={() => { setSituSel(situSel === s.id ? null : s.id); track("situation_open", "/"); }}>
+                        {s.chip}
+                      </button>
+                    ))}
+                    {situations.length > SITU_PRIMARY ? (
+                      <button className={`${styles.exChip} ${styles.situMoreBtn}`}
+                        onClick={() => { setSituMore(!situMore); if (situMore) setSituSel(null); }}>
+                        {situMore ? "접기 ▴" : `더 보기 +${situations.length - SITU_PRIMARY}`}
+                      </button>
+                    ) : null}
+                  </div>
+                  {situSel ? (() => {
+                    const s = situations.find((x) => x.id === situSel);
+                    return s ? (
+                      <div className={styles.situCard}>
+                        <div className={styles.situHead}>{s.j.emoji} <b>{s.j.title}</b></div>
+                        {s.qs.map((q) => (
+                          /* 클릭 = 입력 프리필(자동 전송 없음) — 사용자가 다듬은 뒤 전송 */
+                          <button key={q} type="button" className={styles.situQ}
+                            onClick={() => { setInput(q); track("situation_prefill", "/"); }}>
+                            💬 {q}
+                          </button>
+                        ))}
+                        <Link className={styles.situJourney} href={`/journey/?task=${encodeURIComponent(s.id)}`}
+                          onClick={() => track("situation_journey", "/")}>
+                          📋 업무 한 장으로 전체 흐름 보기 →
+                        </Link>
+                      </div>
+                    ) : null;
+                  })() : null}
+                </div>
+              ) : (
+                <div className={styles.examples}>
+                  {EXAMPLES.map((ex) => (
+                    <button key={ex} className={styles.exChip} onClick={() => send(ex)}>
+                      {ex}
+                    </button>
+                  ))}
+                </div>
+              )}
               {trendingOn && trending.length > 0 ? (
                 <div className={styles.trending}>
                   <span className={styles.trendingLabel}>📈 요즘 많이 찾는 키워드</span>
@@ -606,6 +720,19 @@ export default function ChatApp({
                       <button type="button" className={styles.retryBtn} onClick={() => retry(m.id)}>
                         🔄 다시 시도
                       </button>
+                    ) : null}
+                    {/* 부서 문의 핸드오프 카드(docs/38 §A ★) — 거부 답변만. 거부가 막다른 길이 아니라
+                        다음 행동(담당 부서 문의)이 되도록 질문+참고 조문+기준일을 복사 한 번으로 준비 */}
+                    {handoffOn && m.id > 0 && m.content && !isTruncated(m) && REFUSAL_UI_RE.test(m.content) ? (
+                      <div className={styles.handoff}>
+                        <div className={styles.handoffTitle}>🤝 담당 부서에 물어볼 준비를 도와드릴게요</div>
+                        <div className={styles.handoffBody}>
+                          질문·함께 검색된 규정·규정집 기준일을 한 번에 복사해 메신저나 메일에 붙여넣으세요.
+                        </div>
+                        <button type="button" className={styles.handoffBtn} onClick={() => copyHandoff(m)}>
+                          {handoffCopied === m.id ? "✓ 복사됐어요 — 붙여넣기만 하면 돼요" : "📋 문의 내용 복사"}
+                        </button>
+                      </div>
                     ) : null}
                     {/* 답변 평가(👍/👎) — 영속 메시지(id>0)에만. 스트리밍 중 임시 메시지는 제외 */}
                     {m.id > 0 ? (

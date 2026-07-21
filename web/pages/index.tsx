@@ -3,10 +3,13 @@ import Head from "next/head";
 import { SITE_NAME } from "../lib/site";
 import Layout from "../components/Layout";
 import Assistant from "../components/Assistant";
-import { getAllDocs, type DocMeta } from "../lib/vault";
+import { getAllDocs, loadJourneys, type DocMeta } from "../lib/vault";
 import type { LandingCounts } from "../components/Landing";
 
-export default function Home({ docs, counts }: { docs: DocMeta[]; counts: LandingCounts }) {
+// 상황 시작 칩(docs/38 §A)용 여정 최소 정보 — 빌드타임 실존 여정만 노출(하드코딩 드리프트 방지)
+export type JourneyChip = { id: string; title: string; emoji: string };
+
+export default function Home({ docs, counts, journeys }: { docs: DocMeta[]; counts: LandingCounts; journeys: JourneyChip[] }) {
   return (
     <Layout>
       <Head>
@@ -14,18 +17,19 @@ export default function Home({ docs, counts }: { docs: DocMeta[]; counts: Landin
         <meta name="description" content="KEI 사내 규정 기반 행정 LLM (내부 전용)" />
         <meta name="robots" content="noindex, nofollow" />
       </Head>
-      <Assistant docs={docs} counts={counts} />
+      <Assistant docs={docs} counts={counts} journeys={journeys} />
     </Layout>
   );
 }
 
-export const getStaticProps: GetStaticProps<{ docs: DocMeta[]; counts: LandingCounts }> = async () => {
+export const getStaticProps: GetStaticProps<{ docs: DocMeta[]; counts: LandingCounts; journeys: JourneyChip[] }> = async () => {
   const docs = getAllDocs();
+  const journeys: JourneyChip[] = loadJourneys().map((j) => ({ id: j.id, title: j.title, emoji: j.emoji }));
   const counts: LandingCounts = {
     regs: docs.filter((d) => d.section === "규정집").length,
     guides: docs.filter((d) => d.section === "가이드").length,
     terms: docs.filter((d) => d.section === "용어집").length,
     reviewed: docs.filter((d) => d.reviewed === "검수완료").length,
   };
-  return { props: { docs, counts } };
+  return { props: { docs, counts, journeys } };
 };

@@ -17,6 +17,8 @@ export const FLAG_DEFAULTS: Record<string, boolean> = {
   graph_expand_regs: false, // 규정↔규정 준용/참조 1홉 확장 (백엔드 실험 플래그)
   user_directory: false, // docs/29 §4: 관리자 사용자 목록 탭 (release, 만료 2026-12-31)
   trending_keywords: false, // docs/29 §1: 빈 화면 인기 키워드 칩 (release, 만료 2026-12-31)
+  situation_chips: false, // docs/38 §A: 빈 화면 상황 시작 칩(여정 딥링크+추천 질문 프리필, 예시 4개 대체) (release, 만료 2026-12-31)
+  handoff_card: false, // docs/38 §A ★: 거부 답변 아래 부서 문의 핸드오프 카드(질문+조문+기준일 복사) (release, 만료 2026-12-31)
   help_hub: false, // docs/31: 도움말 허브(잘 묻는 법·FAQ·푸터 FAQ 링크) (release, 만료 2026-12-31)
   source_type_badges: false, // 근거 패널 출처 성격 배지 📜규정(공식)/📘가이드(참고) 구분 (release 플래그, 만료 2026-08-15)
   content_search: false, // 둘러보기 검색 범위 선택(제목·번호·분류·내용) + 원문 내용 전문검색 (release 플래그, 만료 2026-08-31)

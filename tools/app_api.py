@@ -279,6 +279,20 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-12-31",
     },
+    "situation_chips": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "채팅 빈 화면 '상황으로 시작' 칩(docs/38 §A) — '첫 출장을 가요' 상황 선택 → 여정 딥링크 "
+                       "+ 추천 질문 프리필. on이면 기존 정적 예시 4개를 대체(중복·난잡 방지). 무LLM·여정 13종 재사용.",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
+    "handoff_card": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "거부 답변 아래 '부서 문의 핸드오프 카드'(docs/38 §A ★) — 내 질문+함께 확인한 조문+규정집 "
+                       "기준일을 복사용 텍스트로 조립. 거부가 막다른 길이 아니라 다음 행동이 되게. 무LLM·기존 근거 재사용.",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
     "help_hub": {
         "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
         "description": "도움말 허브(docs/31) — 앵커 목차 + '잘 묻는 법' + FAQ 아코디언(기본 접힘) + "
