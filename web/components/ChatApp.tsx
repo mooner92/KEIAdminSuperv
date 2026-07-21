@@ -6,6 +6,7 @@ import ApprovalDrawer from "./ApprovalDrawer";
 import { api, type ChatMeta, type Message, type Source, type Suggestion, type User } from "../lib/api";
 import type { DocMeta } from "../lib/vault";
 import { useFlag } from "../lib/flags";
+import { useBackClose } from "../lib/useBackClose";
 import { CORPUS_AS_OF, SITE_NAME } from "../lib/site";
 import { track } from "../lib/track";
 import styles from "./ChatApp.module.css";
@@ -117,12 +118,34 @@ export default function ChatApp({
   const actionsOn = useFlag("answer_actions"); // v1 ⑫(S6): 복사·인용 칩·수치 대조 // v1 ⑧·⑨(S3·S4): 배지 3단 위계·미검수 집계·거부 리프레임
   const [approvalOpen, setApprovalOpen] = useState(false); // 결재선 드로어(우측 슬라이드인)
   const [srcOverlay, setSrcOverlay] = useState(false); // v1 B6: ≤1080px 근거 바텀시트(넓은 화면에선 무시)
+  // 바텀시트 스와이프-다운 닫기 — 시트 상단(스크롤 top)에서 아래로 끌면 따라오고, 임계 넘으면 닫힘
+  const [sheetDrag, setSheetDrag] = useState(0);
+  const sheetRef = useRef<HTMLElement>(null);
+  const dragStartY = useRef<number | null>(null);
+  const onSheetTouchStart = (e: React.TouchEvent) => {
+    // 시트가 맨 위로 스크롤된 상태에서만 드래그-닫기 시작(내부 스크롤과 충돌 방지)
+    dragStartY.current = (sheetRef.current?.scrollTop ?? 0) <= 0 ? e.touches[0].clientY : null;
+  };
+  const onSheetTouchMove = (e: React.TouchEvent) => {
+    if (dragStartY.current === null) return;
+    const dy = e.touches[0].clientY - dragStartY.current;
+    if (dy > 0) { setSheetDrag(dy); if (e.cancelable) e.preventDefault(); } // 아래로만
+  };
+  const onSheetTouchEnd = () => {
+    if (dragStartY.current !== null && sheetDrag > 90) setSrcOverlay(false);
+    dragStartY.current = null;
+    setSheetDrag(0);
+  };
+  useEffect(() => { if (!srcOverlay) setSheetDrag(0); }, [srcOverlay]);
   useEffect(() => {
     if (!srcOverlay) return;
     const onKey = (e: globalThis.KeyboardEvent) => { if (e.key === "Escape") setSrcOverlay(false); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [srcOverlay]);
+  // 모바일 뒤로가기 제스처로 근거 시트·문서 드로어를 닫는다(페이지 이탈 대신) — docs/54
+  useBackClose(srcOverlay, () => setSrcOverlay(false));
+  useBackClose(openSlug !== null, () => setOpenSlug(null));
 
   // 활성 메시지(없으면 마지막 assistant)의 근거를 우측에 표시
   const activeSources: Source[] = useMemo(() => {
@@ -697,7 +720,14 @@ export default function ChatApp({
 
       {/* ── 우측: 근거 조문(메시지별). ≤1080px에선 바텀시트로 표시(v1 B6) — 배경 탭/ESC 닫기 ── */}
       {srcOverlay ? <div className={styles.srcBackdrop} onClick={() => setSrcOverlay(false)} /> : null}
-      <aside className={`${styles.sources} ${srcOverlay ? styles.srcOverlayOpen : ""}`}>
+      <aside
+        ref={sheetRef}
+        className={`${styles.sources} ${srcOverlay ? styles.srcOverlayOpen : ""}`}
+        style={sheetDrag > 0 ? { transform: `translateY(${sheetDrag}px)`, transition: "none" } : undefined}
+        onTouchStart={srcOverlay ? onSheetTouchStart : undefined}
+        onTouchMove={srcOverlay ? onSheetTouchMove : undefined}
+        onTouchEnd={srcOverlay ? onSheetTouchEnd : undefined}
+      >
         <div className={styles.srcHandle} aria-hidden="true" />
         <div className={styles.srcHead}>
           <span className={styles.srcTitle}>{cardV2 && activeIsRefusal ? "참고 검색 결과" : "근거 조문"}</span>

@@ -341,13 +341,15 @@
     border-radius: 16px 16px 0 0; box-shadow: 0 -10px 36px rgba(0, 0, 0, 0.35);
     padding: 8px 14px 14px; overflow-y: auto;
     animation: srcSheetUp 0.22s ease-out;
+    transition: transform 0.2s ease; /* 스와이프-닫기 해제 시 부드러운 스냅백(드래그 중엔 인라인 transition:none) */
+    touch-action: pan-y; /* 세로 제스처를 브라우저 기본 동작과 분리 */
   }
   .srcBackdrop {
     display: block; position: fixed; inset: 0; z-index: 65; background: rgba(0, 0, 0, 0.42);
   }
   .srcOverlayOpen .srcHandle {
-    display: block; width: 44px; height: 4px; border-radius: 999px;
-    background: var(--color-border-strong); margin: 2px auto 8px; flex: none;
+    display: block; width: 44px; height: 5px; border-radius: 999px; cursor: grab;
+    background: var(--color-border-strong); margin: 2px auto 10px; flex: none;
   }
   .srcFab {
     display: inline-flex; align-items: center; gap: 6px;

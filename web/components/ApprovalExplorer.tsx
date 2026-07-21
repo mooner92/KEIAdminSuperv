@@ -35,6 +35,7 @@ export default function ApprovalExplorer({ rules }: { rules: ApprovalRule[] }) {
   const [q, setQ] = useState("");
   const [f, setF] = useState<Filters>({ cat: new Set(), role: new Set(), owner: new Set() });
   const [pageSize, setPageSize] = useState(30);
+  const [filterOpen, setFilterOpen] = useState(false); // 모바일(≤880px): 좌측 필터(직급·구분·전결권자) 기본 접힘 → 토글로 연다(docs/48)
   const [page, setPage] = useState(1);
   const listRef = useRef<HTMLUListElement>(null);
 
@@ -143,7 +144,15 @@ export default function ApprovalExplorer({ rules }: { rules: ApprovalRule[] }) {
 
   return (
     <div className={styles.wrap}>
-      <aside className={styles.side}>
+      {/* 모바일 전용 필터 토글 — 데스크톱에선 숨김(사이드바 상시). 직급 선택이 여기 있다 */}
+      <button
+        className={styles.filterToggle}
+        onClick={() => setFilterOpen(!filterOpen)}
+        aria-expanded={filterOpen}
+      >
+        {filterOpen ? "필터 접기 ▴" : `직급·필터 열기 ▾${activeCount > 0 ? ` · ${activeCount}개 적용 중` : ""}`}
+      </button>
+      <aside className={`${styles.side} ${filterOpen ? styles.sideOpenM : ""}`}>
         <div className={styles.sideHead}>
           <span className={styles.sideTitle}>필터</span>
           {activeCount > 0 ? (
