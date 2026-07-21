@@ -80,6 +80,7 @@ KEI(한국환경연구원) 행정 초보(신입·전입자)가 "이 업무 어�
 - 시스템링크: `python tools/01e_system_crosslink.py --vault KEI-행정가이드 --system all`  (01e 일반화 — 분류 기반 시스템↔규정 교차링크(그래프 엣지), 모듈별 키워드. 01d_system 다음, 01b 전. ERP 포함 일원화)
 - 용어집: `python tools/01f_terms_to_md.py --src KEI_admin_terms.md --vault KEI-행정가이드`  (행정 용어집 → 30_용어집/ 용어 1개=노트 1개 type:term)
 - PMS용어: `python tools/01w_pms_terms_to_md.py --src pms_raw/PMS_용어_정의.md --vault KEI-행정가이드`  (PMS 화면 도메인 용어 16개 → 30_용어집/연구관리(PMS)/. 01f의 PMS판 — 경고문·분류가 PMS 전용. 정의는 시스템 용법(원문 근거)·규정 정의 미단정·불확실은 「TODO: 원문 확인」. 소스 pms_raw/PMS_용어_정의.md는 gitignore)
+- PMS양식PDF: `python tools/01x_pms_forms_pdf.py [--force]`  (서식 찾기의 PMS 연구관리양식 미리보기를 **별지 파이프라인 품질**로 (재)변환 — `01p_byeolji_pdf.convert_pdf` 재사용(HWP→ODT→**함초롬 치환+줄간격 0.769 보정**→PDF)로 페이지 팽창 방지. ⚠ 양식 HWP를 새로 넣으면 반드시 이걸로 미리보기 생성(naive `soffice --convert-to pdf`는 서체 치환으로 팽창). 대상 `web/public/forms-pdf/pms/`, manifest pdf 필드 갱신, 원본 파일 불변. web 재빌드 불필요(server.js 직서빙))
 - 용어링크: `python tools/01g_terms_crosslink.py --vault KEI-행정가이드`  (용어↔ERP 모듈(카테고리)/관련 규정 `[[ ]]` 교차링크 → 그래프 엣지. 01f 다음)
 - 링크:   `python tools/01b_autolink.py --vault KEI-행정가이드`  (규정 상호참조 → `[[ ]]` 그래프 엣지. 가이드도 규정명 멘션이 링크됨)
 - 조문정제(Track A, 원문 재마이닝·재임베딩 불필요, 01b 다음·02 전): 공통 파서 `tools/vault_parse.py`.
