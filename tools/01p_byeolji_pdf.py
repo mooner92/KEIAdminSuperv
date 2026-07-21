@@ -91,24 +91,74 @@ def _map_family(name: str) -> str:
     return GOTHIC_TARGET if GOTHIC_PAT.search(bare) else SERIF_TARGET
 
 
+# 별지 라벨 문단(단독 줄 "[별지 제N호 …") — 쪽나눔 주입 대상(아래 ③). 본문 문장 속 인용은
+# 라벨로 시작하지 않거나 길어서 배제(40자 컷).
+_BYEOLJI_LABEL_RE = re.compile(r"^\s*[\[〔［]\s*별\s*지\s*제?\s*[0-9]+(?:-[0-9]+)?\s*호")
+
+
 def _rewrite_odt(odt: pathlib.Path) -> None:
-    """content/styles.xml의 ①서체 선언 치환 ②비율 줄간격 보정 — in-place 재압축.
-    ⚠ fontconfig 매핑은 LO가 무시함(실측: strong binding에도 Noto SC 폴백) → ODT 직접 치환."""
-    def fix_xml(xml: str) -> str:
+    """content/styles.xml 보정 — in-place 재압축. (2026-07-21 페이지 팽창 근본 수정 3종 추가)
+    ① 서체 선언 치환(함초롬) — fontconfig 매핑은 LO가 무시(실측) → ODT 직접 치환
+    ② 비율 줄간격 보정(×LH_FACTOR)
+    ③ **별지 라벨 쪽나눔 주입**: HWP의 '쪽 나눔'이 ODT로 보존되지 않아(fo:break-before 0개 실측)
+       별지 제목이 앞 쪽 꼬리에 붙고 표만 다음 쪽으로 밀리는 '제목만 페이지'가 생겼다.
+       라벨 문단의 자동 스타일을 복제(BRKn, 라벨 문단만 영향)해 break-before="page" 부여
+       → 원본처럼 별지마다 새 쪽에서 시작.
+    ④ **A4 교정**: H2Orestart ODT가 US Letter(8.5×11in)로 떨어져 세로 가용높이가 A4보다
+       0.69in 짧았다(풀페이지 표가 정확히 이만큼 넘침). Letter일 때만 A4로 치환.
+    ⑤ 표 행 분할 허용(may-break-between-rows false→true 치환만 — 무삽입).
+    검증: 6540 개인정보보호지침 별지 제5호(유출신고서)가 원본과 동일하게 '라벨+제목+표' 한 쪽."""
+    def fix_content(xml: str) -> str:
         def repl(m):
             mapped = _map_family(m.group(1))
             return m.group(0) if mapped == m.group(1) else f'svg:font-family="{mapped}"'
         xml = re.sub(r'svg:font-family="([^"]+)"', repl, xml)
         xml = re.sub(r'fo:line-height="(\d+)%"',
                      lambda m: f'fo:line-height="{max(80, round(int(m.group(1)) * LH_FACTOR))}%"', xml)
+        # ③ 별지 라벨 쪽나눔
+        n = 0
+        new_styles: list = []
+        def brk(m):
+            nonlocal n
+            whole, sname, inner = m.group(0), m.group(1), m.group(2)
+            text = re.sub(r"<[^>]+>", "", inner)
+            if not _BYEOLJI_LABEL_RE.match(text) or len(text.strip()) > 40:
+                return whole
+            n += 1
+            new_styles.append((f"BRK{n}", sname))
+            return whole.replace(f'text:style-name="{sname}"', f'text:style-name="BRK{n}"', 1)
+        xml = re.sub(r'<text:p text:style-name="([^"]+)"[^>]*>(.*?)</text:p>', brk, xml, flags=re.S)
+        if new_styles:
+            defs = "".join(
+                f'<style:style style:name="{b}" style:family="paragraph" style:parent-style-name="{p}">'
+                f'<style:paragraph-properties fo:break-before="page"/></style:style>'
+                for b, p in new_styles)
+            xml = xml.replace("</office:automatic-styles>", defs + "</office:automatic-styles>", 1)
+        # ⑤ 표 행 분할 허용
+        xml = xml.replace('style:may-break-between-rows="false"', 'style:may-break-between-rows="true"')
+        return xml
+
+    def fix_styles(xml: str) -> str:
+        def repl(m):
+            mapped = _map_family(m.group(1))
+            return m.group(0) if mapped == m.group(1) else f'svg:font-family="{mapped}"'
+        xml = re.sub(r'svg:font-family="([^"]+)"', repl, xml)
+        xml = re.sub(r'fo:line-height="(\d+)%"',
+                     lambda m: f'fo:line-height="{max(80, round(int(m.group(1)) * LH_FACTOR))}%"', xml)
+        # ④ Letter → A4 (Letter 오변환일 때만)
+        if 'fo:page-width="8.5in"' in xml and 'fo:page-height="11in"' in xml:
+            xml = xml.replace('fo:page-width="8.5in"', 'fo:page-width="8.2677in"') \
+                     .replace('fo:page-height="11in"', 'fo:page-height="11.6929in"')
         return xml
 
     tmp = odt.with_suffix(".odt.tmp")
     with zipfile.ZipFile(odt) as zin, zipfile.ZipFile(tmp, "w") as zout:
         for item in zin.infolist():
             data = zin.read(item.filename)
-            if item.filename in ("content.xml", "styles.xml"):
-                data = fix_xml(data.decode("utf-8")).encode("utf-8")
+            if item.filename == "content.xml":
+                data = fix_content(data.decode("utf-8")).encode("utf-8")
+            elif item.filename == "styles.xml":
+                data = fix_styles(data.decode("utf-8")).encode("utf-8")
             zout.writestr(item, data, compress_type=item.compress_type)
     tmp.replace(odt)
 
@@ -280,9 +330,10 @@ def find_byeolji_pages(doc) -> list:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--src", default="/KEIAdminSuperv/rule_files,"
+                    + os.path.expanduser("~/erps/규정집") + ","
                     + str(pathlib.Path(os.path.expanduser(
                         os.environ.get("KEI_UPLOAD_DIR", "~/kei-uploads"))) / "originals"),
-                    help="HWP 원본 디렉터리(콤마 구분 다중 — 업로드 편입 규정 지원, docs/50 §6)")
+                    help="HWP 원본 디렉터리(콤마 구분 다중 — 규정집 원본 ~/erps/규정집 + 업로드 편입, docs/50 §6·8b)")
     ap.add_argument("--vault", default=str(HERE.parent / "KEI-행정가이드"))
     ap.add_argument("--out", default=str(HERE.parent / "web" / "public" / "forms-pdf"))
     ap.add_argument("--png", default=str(HERE / "byeolji_png"))
@@ -350,6 +401,19 @@ def main() -> int:
                 continue
             end = (hits[n + 1][0] - 1) if n + 1 < len(hits) else len(doc) - 1
             end = max(end, pidx)  # 같은 페이지에 다음 라벨이 있으면 1페이지 범위
+            # 빈 꼬리 쪽 트림(2026-07-21): 별지 라벨 쪽나눔 주입(_rewrite_odt ③) 후, 원본 규정집이
+            # 본문에 박아둔 쪽번호 텍스트(예: '6560-24') 한 줄이 다음 쪽에 잔여로 남아 범위가
+            # 1쪽 서식인데 2쪽으로 잡히는 경우가 있다 → 끝쪽부터 '내용 없는 쪽'(텍스트 ≤40자
+            # · 표선/이미지 없음)을 범위에서 제외. 진짜 2쪽 서식(내용 있음)은 그대로 유지.
+            while end > pidx:
+                tail = doc[end]
+                txt = tail.get_text().replace(" ", "").strip()
+                # 텍스트 기준만 — 머리글 밑줄 같은 장식 드로잉은 모든 쪽에 있어 판정 불가,
+                # 반면 실서식(표)은 셀 텍스트가 있어 40자 컷으로 안전 구분. 이미지 쪽만 보존.
+                if len(txt) <= 40 and not tail.get_images():
+                    end -= 1
+                else:
+                    break
             def _fn(t, limit):
                 return re.sub(r"[\\/:*?\"<>|\s]+", "", t)[:limit]
             safe = _fn(reg_name, 30) + "_" + _fn(label, 12) + (("_" + _fn(name, 30)) if name else "")
