@@ -19,6 +19,14 @@ export const SECTIONS = {
 } as const;
 export type SectionKey = keyof typeof SECTIONS;
 
+// 슬러그 → URL 조각. ⚠ encodeURIComponent는 **괄호 ( )를 인코딩하지 않는다** — 슬러그에 괄호가
+// 있으면(예: "연구관리시스템(PMS) 개요") 마크다운 링크 `](/d/…(PMS)…)`의 `)`가 링크를 조기
+// 종료시켜 렌더가 깨지고, 그래프 링크 추출 정규식 `[^/)#]+`도 `)`에서 잘려 엣지가 유실된다.
+// 그래서 괄호까지 %28/%29로 인코딩한다(공백 %20은 encodeURIComponent가 처리). 2026-07-21.
+// 역변환은 decodeURIComponent(라우팅·그래프 대조)로 안전. resolveWikilinks·getBacklinks·getGraph 공용.
+export const encSlug = (s: string): string =>
+  encodeURIComponent(s).replace(/\(/g, "%28").replace(/\)/g, "%29");
+
 export type DocMeta = {
   slug: string; // = 파일 stem (라우트 id)
   title: string;
@@ -62,15 +70,12 @@ function loadAll(): Doc[] {
   const stems = new Set(raws.map((r) => r.stem));
 
   // [[대상#앵커|표시]] → [표시](/d/대상/#앵커). 미해결(레지스트리에 없음)은 표시 텍스트로.
-  // ⚠ URL은 반드시 인코딩한다 — 슬러그에 **공백**이 있으면 마크다운 링크 문법이 깨져 원문이
-  //   그대로 노출되고("[기본연구사업 등 …](/d/기본연구사업 등 …/)"), **괄호**가 있으면 `)`가
-  //   링크를 조기 종료시킨다("연구관리시스템(PMS) · 과제관리"). 2026-07-20 수정.
   const resolveWikilinks = (md: string): string =>
     md.replace(/\[\[([^\]|#\n]+)(#[^\]|\n]+)?(?:\|([^\]\n]+))?\]\]/g, (_m, target, anchor, alias) => {
       const t = String(target).trim();
       const disp = String(alias || t).trim();
-      const a = anchor ? `#${encodeURIComponent(String(anchor).slice(1))}` : "";
-      return stems.has(t) ? `[${disp}](/d/${encodeURIComponent(t)}/${a})` : disp;
+      const a = anchor ? `#${encSlug(String(anchor).slice(1))}` : "";
+      return stems.has(t) ? `[${disp}](/d/${encSlug(t)}/${a})` : disp;
     });
 
   // 날짜 정규화(v1 스펙 B2): gray-matter가 YAML 날짜(개정일: 2021-08-17)를 JS Date로 파싱해
@@ -116,7 +121,7 @@ export function getDoc(slug: string): Doc | null {
 // ⚠ body의 /d/ 링크는 resolveWikilinks가 encodeURIComponent로 굽는다 — 검색도 인코딩형으로.
 export function getBacklinks(slug: string): DocMeta[] {
   const all = loadAll();
-  const enc = escapeReg(encodeURIComponent(slug));
+  const enc = escapeReg(encSlug(slug));  // 본문 링크와 동일 인코딩(괄호 %28/%29 포함)
   return all
     .filter((d) => d.slug !== slug && new RegExp(`\\(/d/${enc}/`).test(d.body))
     .map(({ body, ...meta }) => meta);

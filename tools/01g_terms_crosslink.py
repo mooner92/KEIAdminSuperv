@@ -45,6 +45,33 @@ def build_registry(vault, subdir, type_):
     return reg
 
 
+def build_sysmap_by_cat(vault):
+    """용어 '분류' → 대표 시스템 노트 (stem, 표시명). 용어 분류는 두 형태다:
+      ⓐ 모듈명(ERP 용어: '복무관리'·'회계관리') → 그 모듈 노트('ERP 시스템 · 복무관리')  ← 세밀
+      ⓑ 시스템 분류(PMS 용어: '연구관리(PMS)') → 그 시스템 '개요' 노트                  ← 시스템 단위
+    그래서 노트마다 **모듈명 키와 분류 키를 둘 다** 등록한다(ERP·PMS·대외 공통). 충돌 시 세밀 우선.
+    """
+    mod, cat_over, cat_any = {}, {}, {}
+    for md in (vault / "40_시스템").rglob("*.md"):
+        if md.name == "README.md":
+            continue
+        meta, _, _ = split_fm(md.read_text(encoding="utf-8"))
+        if meta.get("type") != "system":
+            continue
+        cat = (meta.get("분류") or "").strip()
+        name = (meta.get("제목") or md.stem).strip()
+        m = re.search(r"·\s*(.+)$", name)  # 'ERP 시스템 · 복무관리' → '복무관리'
+        if m:
+            mod.setdefault(m.group(1).strip(), (md.stem, name))
+        if cat:
+            cat_any.setdefault(cat, (md.stem, name))
+            if "개요" in name:
+                cat_over.setdefault(cat, (md.stem, name))
+    out = {c: cat_over.get(c) or cat_any.get(c) for c in set(cat_over) | set(cat_any)}
+    out.update(mod)  # 모듈명(세밀)이 분류명과 겹치면 세밀 우선
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser(description="용어 ↔ ERP모듈/규정 교차링크")
     ap.add_argument("--vault", required=True)
@@ -53,15 +80,7 @@ def main():
 
     vault = Path(args.vault)
     regs = build_registry(vault, "20_규정원문", "regulation")          # 규정명 → stem
-    sysnotes = build_registry(vault, "40_시스템", "system")            # 'ERP 시스템 · X' → stem
-    # 카테고리 → ERP 모듈 stem
-    sysmap, overview = {}, None
-    for name, stem in sysnotes.items():
-        m = re.search(r"·\s*(\S+)", name)
-        if m:
-            sysmap[m.group(1)] = stem
-        elif "개요" in name:
-            overview = stem
+    sysmap = build_sysmap_by_cat(vault)  # 용어 분류 → (시스템 대표 노트 stem, 표시명) — ERP·PMS·대외 공통
 
     total_sys, total_reg, n_notes = 0, 0, 0
     for md in sorted((vault / "30_용어집").rglob("*.md")):
@@ -71,11 +90,10 @@ def main():
         term = (meta.get("용어") or md.stem).strip()
         cat = (meta.get("분류") or "").strip()
         links = []
-        # ① ERP 모듈
-        sys_stem = sysmap.get(cat) or overview
-        if sys_stem:
-            label = f"ERP 시스템 · {cat}" if cat in sysmap else "ERP 시스템 개요"
-            links.append((sys_stem, label))
+        # ① 같은 분류의 시스템 대표 노트(ERP·PMS·대외업무 등) — 용어→시스템 연결
+        sys = sysmap.get(cat)
+        if sys:
+            links.append((sys[0], sys[1]))
             total_sys += 1
         # ② 규정명에 용어가 포함되면(길이>=2), 짧은 규정명 우선 최대 3
         if len(term) >= 2:
@@ -100,7 +118,7 @@ def main():
                 md.write_text(fm + body, encoding="utf-8")
 
     print(f"{'(dry-run) ' if args.dry_run else ''}용어 {n_notes}개에 교차링크 — ERP모듈 {total_sys} + 규정 {total_reg}")
-    print(f"  (규정 {len(regs)}건, ERP 모듈맵 {len(sysmap)}개, 개요={'있음' if overview else '없음'})")
+    print(f"  (규정 {len(regs)}건, 시스템 분류맵 {len(sysmap)}개: {', '.join(sorted(sysmap))})")
 
 
 if __name__ == "__main__":
