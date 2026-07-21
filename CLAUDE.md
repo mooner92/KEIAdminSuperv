@@ -79,6 +79,7 @@ KEI(한국환경연구원) 행정 초보(신입·전입자)가 "이 업무 어�
 - PMS심화:  `python tools/01v_pms_deep_to_md.py --src pms_raw --vault KEI-행정가이드`  (PMS 도움말 PDF·화면캡처 판독본 여러 묶음 → **탭 기준 병합** '연구관리시스템(PMS) 상세가이드 · <탭>' 노트 9종 + 개요 + 부록. ERP 심화가이드의 PMS판이나 원자료가 다중 파일이고 같은 탭(과제관리)이 파일 2·3·5에 흩어져 별도 도구. `# <탭>`=경계, `## N.<화면>`=화면(제목 번호접두만 제거—병합 시 충돌), 문서레벨 섹션(연계도·매트릭스·시나리오·검증)은 제목 패턴으로 부록 분리. **누락 0 대사**(원본 본문 줄 멀티셋 = 출력 멀티셋) 내장. 원자료 `pms_raw/`는 gitignore)
 - 시스템링크: `python tools/01e_system_crosslink.py --vault KEI-행정가이드 --system all`  (01e 일반화 — 분류 기반 시스템↔규정 교차링크(그래프 엣지), 모듈별 키워드. 01d_system 다음, 01b 전. ERP 포함 일원화)
 - 용어집: `python tools/01f_terms_to_md.py --src KEI_admin_terms.md --vault KEI-행정가이드`  (행정 용어집 → 30_용어집/ 용어 1개=노트 1개 type:term)
+- PMS용어: `python tools/01w_pms_terms_to_md.py --src pms_raw/PMS_용어_정의.md --vault KEI-행정가이드`  (PMS 화면 도메인 용어 16개 → 30_용어집/연구관리(PMS)/. 01f의 PMS판 — 경고문·분류가 PMS 전용. 정의는 시스템 용법(원문 근거)·규정 정의 미단정·불확실은 「TODO: 원문 확인」. 소스 pms_raw/PMS_용어_정의.md는 gitignore)
 - 용어링크: `python tools/01g_terms_crosslink.py --vault KEI-행정가이드`  (용어↔ERP 모듈(카테고리)/관련 규정 `[[ ]]` 교차링크 → 그래프 엣지. 01f 다음)
 - 링크:   `python tools/01b_autolink.py --vault KEI-행정가이드`  (규정 상호참조 → `[[ ]]` 그래프 엣지. 가이드도 규정명 멘션이 링크됨)
 - 조문정제(Track A, 원문 재마이닝·재임베딩 불필요, 01b 다음·02 전): 공통 파서 `tools/vault_parse.py`.
