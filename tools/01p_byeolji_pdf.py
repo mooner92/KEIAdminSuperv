@@ -96,8 +96,9 @@ def _map_family(name: str) -> str:
 _BYEOLJI_LABEL_RE = re.compile(r"^\s*[\[〔［]\s*별\s*지\s*제?\s*[0-9]+(?:-[0-9]+)?\s*호")
 
 
-def _rewrite_odt(odt: pathlib.Path) -> None:
+def _rewrite_odt(odt: pathlib.Path, lh_factor: float = None) -> None:  # noqa: RUF013
     """content/styles.xml 보정 — in-place 재압축. (2026-07-21 페이지 팽창 근본 수정 3종 추가)
+    lh_factor: 줄간격 계수 오버라이드(2-패스 재압축용). None이면 전역 LH_FACTOR(충실도 기본).
     ① 서체 선언 치환(함초롬) — fontconfig 매핑은 LO가 무시(실측) → ODT 직접 치환
     ② 비율 줄간격 보정(×LH_FACTOR)
     ③ **별지 라벨 쪽나눔 주입**: HWP의 '쪽 나눔'이 ODT로 보존되지 않아(fo:break-before 0개 실측)
@@ -108,13 +109,14 @@ def _rewrite_odt(odt: pathlib.Path) -> None:
        0.69in 짧았다(풀페이지 표가 정확히 이만큼 넘침). Letter일 때만 A4로 치환.
     ⑤ 표 행 분할 허용(may-break-between-rows false→true 치환만 — 무삽입).
     검증: 6540 개인정보보호지침 별지 제5호(유출신고서)가 원본과 동일하게 '라벨+제목+표' 한 쪽."""
+    lhf = LH_FACTOR if lh_factor is None else lh_factor
     def fix_content(xml: str) -> str:
         def repl(m):
             mapped = _map_family(m.group(1))
             return m.group(0) if mapped == m.group(1) else f'svg:font-family="{mapped}"'
         xml = re.sub(r'svg:font-family="([^"]+)"', repl, xml)
         xml = re.sub(r'fo:line-height="(\d+)%"',
-                     lambda m: f'fo:line-height="{max(80, round(int(m.group(1)) * LH_FACTOR))}%"', xml)
+                     lambda m: f'fo:line-height="{max(80, round(int(m.group(1)) * lhf))}%"', xml)
         # ③ 별지 라벨 쪽나눔
         n = 0
         new_styles: list = []
@@ -144,7 +146,7 @@ def _rewrite_odt(odt: pathlib.Path) -> None:
             return m.group(0) if mapped == m.group(1) else f'svg:font-family="{mapped}"'
         xml = re.sub(r'svg:font-family="([^"]+)"', repl, xml)
         xml = re.sub(r'fo:line-height="(\d+)%"',
-                     lambda m: f'fo:line-height="{max(80, round(int(m.group(1)) * LH_FACTOR))}%"', xml)
+                     lambda m: f'fo:line-height="{max(80, round(int(m.group(1)) * lhf))}%"', xml)
         # ④ Letter → A4 (Letter 오변환일 때만)
         if 'fo:page-width="8.5in"' in xml and 'fo:page-height="11in"' in xml:
             xml = xml.replace('fo:page-width="8.5in"', 'fo:page-width="8.2677in"') \
@@ -172,17 +174,19 @@ def _soffice(args: list, outdir: pathlib.Path, src: pathlib.Path, conv: str) -> 
     return outdir / (src.stem + "." + conv.split(":")[0])
 
 
-def convert_pdf(hwp: pathlib.Path, out_pdf: pathlib.Path, force: bool) -> tuple:
+def convert_pdf(hwp: pathlib.Path, out_pdf: pathlib.Path, force: bool,
+                lh_factor: float = None) -> tuple:  # noqa: RUF013
     """(성공, 캐시히트) — 캐시히트면 재변환 안 함(재색인 훅의 증분 동작 근거).
-    기본 경로: HWP→ODT→(서체·줄간격 보정)→PDF. ODT 단계 실패 시 직행 PDF 폴백."""
-    if out_pdf.exists() and not force and out_pdf.stat().st_mtime >= hwp.stat().st_mtime:
+    기본 경로: HWP→ODT→(서체·줄간격 보정)→PDF. ODT 단계 실패 시 직행 PDF 폴백.
+    lh_factor: 2-패스 재압축용 줄간격 오버라이드(라벨 고아 규정만 더 압축, None=충실도 기본)."""
+    if lh_factor is None and out_pdf.exists() and not force and out_pdf.stat().st_mtime >= hwp.stat().st_mtime:
         return True, True
     out_pdf.parent.mkdir(parents=True, exist_ok=True)
     if FONT_FIX:
         try:
             odt = _soffice([], out_pdf.parent, hwp, "odt")
             if odt.exists():
-                _rewrite_odt(odt)
+                _rewrite_odt(odt, lh_factor)
                 produced = _soffice([], out_pdf.parent, odt, "pdf:writer_pdf_Export")
                 odt.unlink(missing_ok=True)
                 if produced.exists():
@@ -198,6 +202,33 @@ def convert_pdf(hwp: pathlib.Path, out_pdf: pathlib.Path, force: bool) -> tuple:
         return True, False
     print(f"  ⚠ 변환 실패: {hwp.name}")
     return False, False
+
+
+def _blank_page(page, thresh: int = 80) -> bool:
+    """거의 빈 쪽 — 텍스트(공백 제외)≤thresh자 이고 이미지 없음(라벨 고아·꼬리 잔재 판정용)."""
+    return len(page.get_text().replace(" ", "").strip()) <= thresh and not page.get_images()
+
+
+def _expandable(doc, hits) -> int:
+    """압축으로 접을 수 있는 '팽창' 별지 개수 — 별지가 2쪽 이상이고 **첫 쪽 또는 끝 쪽이 거의 빔**.
+      · 라벨 고아: 큰 서식이 쪽나눔 뒤 한 쪽에 못 들어가 라벨만 앞 쪽에 남음(첫 쪽 빔).
+      · 꼬리 넘침: 서식 대부분이 첫 쪽에 들어가고 마지막 줄만 다음 쪽으로 넘침(끝 쪽 빔).
+    둘 다 줄간격 압축으로 한 쪽에 접힐 후보. ⚠ 진짜 다쪽 서식(중간 쪽 꽉 참)은 제외.
+    span≥2로 세므로 압축이 인덱스를 밀어 3쪽처럼 보여도(첫 쪽 여전히 라벨만) 계속 카운트 → 오채택 방지."""
+    n = 0
+    for k, (pidx, _label, _name, stub) in enumerate(hits):
+        if stub:
+            continue
+        end = (hits[k + 1][0] - 1) if k + 1 < len(hits) else len(doc) - 1
+        if end <= pidx:
+            continue
+        # 첫 쪽 빔(고아) — 다음 쪽엔 실내용이 있어야
+        if _blank_page(doc[pidx]) and not _blank_page(doc[pidx + 1]):
+            n += 1
+        # 끝 쪽 빔(꼬리) — 첫 쪽엔 실내용이 있어야(고아와 중복 카운트 방지)
+        elif _blank_page(doc[end]) and not _blank_page(doc[pidx]):
+            n += 1
+    return n
 
 
 def norm_label(raw: str) -> str:
@@ -345,9 +376,16 @@ def main() -> int:
     src_dirs = [pathlib.Path(d.strip()) for d in args.src.split(",") if d.strip()]
     vault = pathlib.Path(args.vault) / "20_규정원문"
     cache = HERE / ".byeolji_cache" / "pdf"
-    manifest = {}
     mpath0 = pathlib.Path(args.manifest)
     prev = {}
+    # ⚠ --only는 매칭 규정만 처리하므로, 기존 manifest를 이어받아 **병합**한다(전체 덮어쓰기 금지).
+    #   과거 --only 실행이 manifest를 1규정으로 clobber하던 버그 수정(2026-07-21).
+    manifest = {}
+    if args.only and mpath0.exists():
+        try:
+            manifest = json.loads(mpath0.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001
+            manifest = {}
     if mpath0.exists() and not args.force:
         try:
             prev = json.loads(mpath0.read_text(encoding="utf-8"))
@@ -393,6 +431,33 @@ def main() -> int:
                 continue
         doc = fitz.open(pdf)
         hits = find_byeolji_pages(doc)
+        # 2-패스(2026-07-21): '팽창' 별지(라벨 고아 + 꼬리 넘침)가 있으면 이 규정만 더 압축
+        # (줄간격 계수 ↓ 사다리)해 재변환 — 팽창이 줄면 채택. 충실도 기본(0.769)은 다수 유지,
+        # 필요한 규정만 최소 압축. ⚠ 총 쪽수가 늘면 거부(인덱스 확산·과압축 방어).
+        _LH_LADDER = (0.70, 0.64, 0.58, 0.52)
+        if FONT_FIX and _expandable(doc, hits) > 0:
+            best = (_expandable(doc, hits), pdf)
+            for lf in _LH_LADDER:
+                trial = cache / f"{stem}.lh{int(lf*100)}.pdf"
+                ok_t, _ = convert_pdf(hwp, trial, True, lh_factor=lf)
+                if not ok_t:
+                    continue
+                td = fitz.open(trial)
+                exp = _expandable(td, find_byeolji_pages(td))
+                grew = td.page_count > doc.page_count  # 총 쪽 증가 = 과압축/확산 → 거부
+                td.close()
+                if exp < best[0] and not grew:
+                    best = (exp, trial)
+                if best[0] == 0:
+                    break
+            if best[1] != pdf:
+                doc.close()
+                shutil.move(str(best[1]), str(pdf))  # 채택본을 캐시 PDF로 승격
+                doc = fitz.open(pdf)
+                hits = find_byeolji_pages(doc)
+                print(f"  ↳ {stem}: 팽창 별지 압축 재변환(잔여 {best[0]})")
+            for lf in _LH_LADDER:  # 미채택 시도본 정리
+                (cache / f"{stem}.lh{int(lf*100)}.pdf").unlink(missing_ok=True)
         entries = []
         reg_name = stem.split("_", 1)[-1]
         for n, (pidx, label, name, stub) in enumerate(hits):
