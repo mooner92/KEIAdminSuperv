@@ -24,6 +24,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 import rag_core
+import app_api  # 엔진·MaintNotice 접근(관측 알림)
+import obs  # P0 관측 순수 로직(docs/56)
 from app_api import init_db
 from app_api import router as app_router
 
@@ -37,6 +39,44 @@ app = FastAPI(title="KEI 행정 LLM (RAG + 채팅기록)")
 #    쿠키 인증은 same-origin(server.js 프록시)에서만 흐른다(현재 credentials 미허용이라 교차오리진 쿠키 차단).
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 app.include_router(app_router)  # /app/* (로그인·채팅기록)
+
+
+# ─────────────────── P0 관측: "죽으면 안다" (docs/56) ───────────────────
+# Sentry 전체 이식 대신 최소 P0만: ⓐ주기 헬스체크(_warm_loop에 얹음) ⓑ미처리 예외 알림.
+# 둘 다 기존 MaintNotice(🔔 배지·브라우저 알림)를 재사용 — 새 테이블·탭 없음.
+# 동기 사례: 재색인 후 dev API가 옛 chroma 핸들을 물어 채팅 전부 500인데 아무도 몰랐음.
+
+def _maint_notice(kind: str, summary: str, detail: str = "") -> None:
+    """MaintNotice 1건 생성(fail-safe — 알림 실패가 서비스에 영향 주지 않게)."""
+    try:
+        from sqlmodel import Session  # noqa: PLC0415
+        with Session(app_api.engine) as s:
+            s.add(app_api.MaintNotice(kind=kind, summary=summary[:200], detail_path=detail[:500]))
+            s.commit()
+    except Exception as e:  # noqa: BLE001
+        print(f"[obs] MaintNotice 실패({type(e).__name__}) — 무시")
+
+
+def _health_probe() -> tuple[bool, str]:
+    import httpx  # noqa: PLC0415
+    return obs.health_probe(rag_core.backend, httpx.get, rag_core.VLLM_BASE)
+
+
+# 미처리 예외(500) 알림 — 지문+시간창 스로틀로 폭주 방지. HTTPException(4xx)는 대상 아님.
+_err_throttle = obs.ErrorThrottle(int(os.environ.get("OBS_ERR_THROTTLE_SEC", "600")))
+
+
+@app.exception_handler(Exception)
+async def _on_unhandled(request, exc):  # noqa: ANN001
+    import traceback  # noqa: PLC0415
+    fp = f"{type(exc).__name__}:{request.url.path}"
+    if _err_throttle.should_notify(fp):
+        tb = "".join(traceback.format_exception_only(type(exc), exc))[:200]
+        # ⛔ 프라이버시: 라우트 경로·예외형만 — 질문/입력값/쿼리스트링 미포함(docs/56 §5)
+        _maint_notice("error", f"⛔ 서버 오류 {type(exc).__name__} — {request.url.path}", tb)
+        print(f"[obs] 미처리 예외 알림: {fp} — {tb.strip()}")
+    return JSONResponse({"error": {"message": "내부 오류가 발생했습니다.", "type": "internal_error"}},
+                        status_code=500)
 init_db()  # SQLite 테이블 보장(idempotent)
 
 
@@ -49,12 +89,23 @@ def _warm_loop():
     except Exception as e:
         print(f"워밍업 실패(첫 요청 때 재시도): {type(e).__name__}: {e}")
     interval = int(os.environ.get("OLLAMA_PING_SECONDS", "240"))  # Ollama 기본 언로드(5분)보다 짧게
+    healthy = True  # 상태 전이(정상↔이상)에서만 알림 — 매 주기 스팸 방지
     while interval > 0:
         time.sleep(interval)
         try:
             rag_core.keepalive_once()
         except Exception as e:
             print(f"keepalive 실패: {type(e).__name__}: {e}")
+        # P0 헬스체크(docs/56): 이상 전이 시 🔔, 회복 전이 시 회복 알림
+        try:
+            ok, why = _health_probe()
+            transition = obs.health_transition(healthy, ok, why)
+            if transition:
+                _maint_notice(*transition)
+                print(f"[obs] 헬스 전이: {transition[1]}")
+            healthy = ok
+        except Exception as e:  # noqa: BLE001
+            print(f"[obs] 헬스체크 예외(무시): {type(e).__name__}: {e}")
 
 
 # 데몬 스레드 → import(=uvicorn 기동)는 즉시 끝나고 백그라운드로 예열
