@@ -337,6 +337,22 @@ export type FormEntry = {
 // 원본·PDF 미리보기는 web/public/forms-pdf/pms/<카테고리>/(git-external), 목록은 같은 곳의
 // manifest.json(변환 파이프가 emit). 없으면 빈 배열(별지처럼 git-external 안전).
 // 규정명 자리에 '연구관리양식 · <카테고리>'를 넣어 기존 규정 필터가 카테고리 필터로 그대로 작동한다.
+// PMS 양식 표시명 정리 — 원본 파일명이 영문 번역을 공백 없이 뭉쳐(예:
+// 'ConfirmationCertificateRegardingRestrictions…') 표시명이 거대한 런온이 되는 문제.
+// 괄호 안이 15자↑ & 대부분(≥70%) ASCII 영숫자면 '영문/코드 런온'으로 보고 제거.
+// ⚠ 한글이 2자↑ 남을 때만 정리본 채택(영문 전용 서식은 원문 유지) · 데이터(manifest)는 불변.
+function cleanPmsTitle(s: string): string {
+  const cleaned = s
+    .replace(/\(([^)]{15,})\)/g, (m, inner: string) => {
+      const ascii = (inner.match(/[A-Za-z0-9]/g) || []).length;
+      return ascii / inner.length >= 0.7 ? "" : m;
+    })
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+([)\]])/g, "$1")
+    .trim();
+  return /[가-힣]{2,}/.test(cleaned) ? cleaned : s;
+}
+
 function loadPmsForms(): FormEntry[] {
   const mf = path.join(process.cwd(), "public", "forms-pdf", "pms", "manifest.json");
   if (!fs.existsSync(mf)) return [];
@@ -350,7 +366,7 @@ function loadPmsForms(): FormEntry[] {
       규정명: `연구관리양식 · ${it.카테고리}`,
       slug: hasGuide ? guideSlug : "",
       호: "", 호수: 0,
-      서식명: it.표시명,
+      서식명: cleanPmsTitle(it.표시명),
       anchor: hasGuide ? "연구관련양식" : "",
       pdf: it.pdf ? `/forms-pdf/pms/${encodeURIComponent(it.카테고리)}/${encodeURIComponent(it.pdf)}` : null,
       hwp: `/forms-pdf/pms/${encodeURIComponent(it.카테고리)}/${encodeURIComponent(it.파일)}`,

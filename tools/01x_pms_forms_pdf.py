@@ -56,20 +56,29 @@ def main() -> int:
                     print(f"  ✓ {cat_dir.name}/{src.stem[:40]}")
                 if it is not None:
                     it["pdf"] = out_pdf.name
-                    # 캐시본이어도 쪽수는 매번 갱신(배지 데이터·이전 실행분 소급)
-                    try:
-                        with fitz.open(out_pdf) as _d:
-                            it["쪽수"] = _d.page_count
-                    except Exception:
-                        it["쪽수"] = None
             else:
                 fail += 1
                 if it is not None:
                     it["pdf"] = None
-                    it["쪽수"] = None
+
+    # 쪽수 최종 패스 — 원본 확장자와 무관하게 **미리보기 PDF가 있으면 전부 기록**('한 장' 배지).
+    # DOCX/XLSX는 01x가 변환 안 하지만(다른 경로로 생성된) PDF가 이미 있으면 쪽수를 잡는다.
+    pages_n = 0
+    for it in items:
+        pdf_name = it.get("pdf")
+        if not pdf_name:
+            it["쪽수"] = None
+            continue
+        fp = PMS_DIR / it["카테고리"] / pdf_name
+        try:
+            with fitz.open(fp) as _d:
+                it["쪽수"] = _d.page_count
+                pages_n += 1
+        except Exception:
+            it["쪽수"] = None
 
     mf_path.write_text(json.dumps(items, ensure_ascii=False, indent=1), encoding="utf-8")
-    print(f"\n재변환 {ok} · 캐시 {skip} · 실패 {fail} → manifest 갱신")
+    print(f"\n재변환 {ok} · 캐시 {skip} · 실패 {fail} · 쪽수기록 {pages_n} → manifest 갱신")
     print("다음: pms_forms_raw/manifest.json에도 반영하려면 복사 · web 재빌드 불필요(server.js 직서빙)")
     return 0 if fail == 0 else 1
 
