@@ -167,3 +167,9 @@ pms_raw/
 # PMS 연구관리양식 원본(내부 전용 — 서식 찾기 제공 소스)
 pms_forms_raw/
 tools/ecosystem.local.js
+# 일일 자가평가(docs/58) 데이터 — 답변 전문 포함(git-external)
+eval/question_bank.jsonl
+eval/daily/
+eval/faq_candidates/
+tools/.daily_eval_signals.json
+web/public/quality/
