@@ -104,11 +104,16 @@ def main() -> int:
         except Exception as ex:  # noqa: BLE001
             print(f"  ⚠ 판정 실패 {q['id']}: {ex}", file=sys.stderr)
         판정 = str(j.get("판정", "판정불가"))
-        # 근거문장 실존 검증(환각 판정 차단)
+        # 근거문장 실존 검증(환각 판정 차단) — 완화: 정확 substring 대신 문자 2-그램 겹침 60%↑.
+        # (판정자가 표기·공백을 조금 바꿔 인용해도 '근거 있음'으로 인정 — docs/15 공백 교훈. 순수
+        #  환각 인용만 걸러냄) · 근거문장이 비면 검증 생략(판정은 유지).
         if 판정 in ("정답", "부분", "오답"):
-            quote = norm_q(str(j.get("근거문장", "")))[:60]
-            if quote and quote not in gsrc:
-                판정 = "판정불가"
+            quote = norm_q(str(j.get("근거문장", "")))
+            if len(quote) >= 8:
+                qg = {quote[i:i + 2] for i in range(len(quote) - 1)}
+                overlap = sum(1 for g in qg if g in gsrc) / max(1, len(qg))
+                if overlap < 0.6:
+                    판정 = "판정불가"
         if bad_vals and 판정 == "정답":
             판정 = "오답"  # 수치대조가 우선(정답 판정이어도 원문에 없는 값 주장 = 오답 후보)
             j["어긋난점"] = f"원문에 없는 값 주장: {', '.join(bad_vals[:4])}"

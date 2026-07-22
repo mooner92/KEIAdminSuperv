@@ -21,8 +21,9 @@ def main() -> int:
     data = json.loads(qf.read_text(encoding="utf-8"))
     out_f = DAILY_DIR / f"{args.date}.answers.json"
     done: dict = {}
-    if out_f.exists():  # 중단 재개(멱등)
-        done = {a["id"]: a for a in json.loads(out_f.read_text(encoding="utf-8"))["answers"]}
+    if out_f.exists():  # 중단 재개(멱등) — 단, 빈 답변(오류·중단분)은 재시도 대상이라 제외
+        done = {a["id"]: a for a in json.loads(out_f.read_text(encoding="utf-8"))["answers"]
+                if a.get("답변")}
 
     answers = []
     t0 = time.time()
@@ -30,16 +31,22 @@ def main() -> int:
         if q["id"] in done:
             answers.append(done[q["id"]])
             continue
-        try:
-            t = time.time()
-            r = rag_answer(q["질문"])
-            answers.append({"id": q["id"], "답변": r["content"],
-                            "x_sources": [{k: s.get(k) for k in ("규정명", "조", "snippet")}
-                                          for s in r["x_sources"][:8]],
-                            "소요": round(time.time() - t, 1)})
-        except Exception as ex:  # noqa: BLE001
-            print(f"  ⚠ [{q['id']}] {ex}", file=sys.stderr)
-            answers.append({"id": q["id"], "답변": "", "x_sources": [], "오류": str(ex)[:200]})
+        ans = {"id": q["id"], "답변": "", "x_sources": [], "오류": "미수집"}
+        for attempt in range(2):  # 빈 답변/오류 시 1회 재시도(일시적 서버 부하 대비)
+            try:
+                t = time.time()
+                r = rag_answer(q["질문"])
+                if r["content"].strip():
+                    ans = {"id": q["id"], "답변": r["content"],
+                           "x_sources": [{k: s.get(k) for k in ("규정명", "조", "snippet")}
+                                         for s in r["x_sources"][:8]],
+                           "소요": round(time.time() - t, 1)}
+                    break
+            except Exception as ex:  # noqa: BLE001
+                print(f"  ⚠ [{q['id']}] 시도{attempt+1} {ex}", file=sys.stderr)
+                ans["오류"] = str(ex)[:200]
+                time.sleep(2)
+        answers.append(ans)
         if (i + 1) % 10 == 0:
             out_f.write_text(json.dumps({"date": args.date, "answers": answers},
                                         ensure_ascii=False, indent=1), encoding="utf-8")

@@ -32,6 +32,7 @@ export default function NowPage({ seasonal, revised, notes, terms, formsCount, d
   const on = useFlag("events_tab");
   const formsOn = useFlag("forms_registry"); // 서식 찾기 바로가기 게이트
   const deadlinesOn = useFlag("deadlines_hub"); // 기한 사전 바로가기 게이트(docs/57)
+  const qualityOn = useFlag("quality_board"); // 품질 게시판 게이트(docs/58)
   const changelogOn = useFlag("changelog");  // 새로워진 점 바로가기 게이트
   const approvalOn = useFlag("approval_finder"); // 결재선 — 모바일 GNB에서 빠진 화면의 허브 도달(docs/48)
   const journeyOn = useFlag("journey_map"); // 업무 한 장 — 〃
@@ -74,6 +75,8 @@ export default function NowPage({ seasonal, revised, notes, terms, formsCount, d
       desc: `규정 별지 서식 ${formsCount}종을 이름·규정·번호로 검색` }] : []),
     ...(deadlinesOn ? [{ icon: "⏱️", title: "기한 사전", href: "/deadlines/",
       desc: `규정 기한 ${deadlinesCount}건을 사건·의무로 찾고 마감일 계산·캘린더 저장` }] : []),
+    ...(qualityOn ? [{ icon: "📊", title: "품질 게시판", href: "/quality/",
+      desc: "매일 자가평가한 오늘의 정답률과 약점 지도 — 챗봇이 얼마나 정확한지" }] : []),
     ...(changelogOn ? [{ icon: "✨", title: "새로워진 점", href: "/changelog/",
       desc: notes[0] ? `최근: ${notes[0].제목}` : "서비스 업데이트 내역" }] : []),
     { icon: "🕸️", title: "관계 그래프", href: "/graph/",

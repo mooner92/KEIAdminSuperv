@@ -315,6 +315,14 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-12-31",
     },
+    "quality_board": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "품질 게시판 /quality(docs/58) — 매일 자가평가 60문항의 '오늘의 정답률 N%'·30일 추이·"
+                       "카테고리×유형 약점 지도·문항별 판정/근거 열람. 자동 생성·자동 채점(검수 전) 명시. "
+                       "합성 문항만(실사용자 질문 미포함). 추가 기능(/now) 허브 진입.",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
     "help_hub": {
         "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
         "description": "도움말 허브(docs/31) — 앵커 목차 + '잘 묻는 법' + FAQ 아코디언(기본 접힘) + "
