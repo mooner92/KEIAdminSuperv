@@ -9,7 +9,10 @@
  *   pm2 save
  *   pm2 logs kei-rag-api
  *
- * 검색=Chroma(KURE-v1), 생성=Ollama(Qwen2.5-14B-Instruct). vLLM이 아니라 Ollama다.
+ * 검색=Chroma(KURE-v1), 생성=격리 Ollama v0.31.1(Qwen3.5-9B, 127.0.0.1:11436). vLLM 아님.
+ *  - 공유 Ollama(11434, v0.24.0)는 qwen3_5 아키텍처 미지원 → 전용 v0.31.1 사용(ecosystem.ollama-v031).
+ *  - rag_core가 reasoning_effort:none(+think:false)로 사고 off + 공백결함 정규화(모델명 qwen3.5 자동 감지).
+ *  - 롤백: VLLM_BASE→11434, LLM_MODEL→hf.co/Qwen/Qwen3-14B-GGUF:Q4_K_M 후 config 경로로 pm2 restart.
  */
 module.exports = {
   apps: [
@@ -25,8 +28,10 @@ module.exports = {
       max_restarts: 10,
       watch: false,
       env: {
-        VLLM_BASE: "http://127.0.0.1:11434/v1", // Ollama OpenAI 호환 엔드포인트
-        LLM_MODEL: "hf.co/bartowski/Qwen2.5-14B-Instruct-GGUF:Q4_K_M",
+        VLLM_BASE: "http://127.0.0.1:11436/v1", // 격리 Ollama v0.31.1 (kei-ollama-v031)
+        // Qwen3.5-9B(GGUF Q4_K_M, unsloth). Ollama 레지스트리 차단 → hf.co/ 로 pull.
+        // 선정 근거: 487문항 감사 + 25문항 동일근거 A/B에서 값정확도 우위(57.3% vs 40.8%). docs/15 참조.
+        LLM_MODEL: "hf.co/unsloth/Qwen3.5-9B-GGUF:Q4_K_M",
         CHROMA_DIR: "/KEIAdminSuperv/tools/chroma",
         RAG_COLLECTION: "kei_regs",
         EMBED_MODEL: "nlpai-lab/KURE-v1",
@@ -41,9 +46,13 @@ module.exports = {
         RAG_RERANK_DEVICE: "cuda:1", // 비어있는 GPU1(가득 찬 GPU0과 분리). CPU는 ~14s라 부적합
         RAG_RERANK_POOL: "20",
         // 기능 플래그 관리자(쉼표 구분 아이디). 여기 등록된 계정만 /admin에서 토글 가능.
-        // 미지정 시 첫 가입자(최소 id)가 관리자(부트스트랩). 운영자 계정으로 바꾸세요.
+        // ⚠ fail-closed: 미설정이면 아무도 관리자 아님. 실계정(이메일)은 git에 안 남기게
+        // 아래 로컬 오버라이드(ecosystem.local.js, gitignore)로 지정하세요.
         APP_ADMINS: "21963",
         PYTHONUNBUFFERED: "1", // print/로그 즉시 flush(PM2 로그 가시성)
+        // 로컬 오버라이드(선택): tools/ecosystem.local.js 가 있으면 env를 덮어씀.
+        // 예) module.exports = { APP_ADMINS: "operator@kei.re.kr" };
+        ...(function () { try { return require("./ecosystem.local.js"); } catch { return {}; } })(),
       },
     },
   ],
