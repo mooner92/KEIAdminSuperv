@@ -157,21 +157,34 @@ export default function ChatApp({
   const actionsOn = useFlag("answer_actions"); // v1 ⑫(S6): 복사·인용 칩·수치 대조 // v1 ⑧·⑨(S3·S4): 배지 3단 위계·미검수 집계·거부 리프레임
   const [approvalOpen, setApprovalOpen] = useState(false); // 결재선 드로어(우측 슬라이드인)
   const [srcOverlay, setSrcOverlay] = useState(false); // v1 B6: ≤1080px 근거 바텀시트(넓은 화면에선 무시)
-  // 바텀시트 스와이프-다운 닫기 — 시트 상단(스크롤 top)에서 아래로 끌면 따라오고, 임계 넘으면 닫힘
+  // 바텀시트 스와이프-다운 닫기 — 1:1 추적 + **릴리스 속도로 판정**(apple-design §6: 릴리스
+  // '지점'이 아니라 제스처가 '가는 방향'으로). 빠른 플릭은 짧아도 닫히고, 천천히 내려놓으면 유지.
   const [sheetDrag, setSheetDrag] = useState(0);
   const sheetRef = useRef<HTMLElement>(null);
   const dragStartY = useRef<number | null>(null);
+  const dragHist = useRef<{ y: number; t: number }[]>([]); // 최근 이동 이력(속도 계산용)
   const onSheetTouchStart = (e: React.TouchEvent) => {
     // 시트가 맨 위로 스크롤된 상태에서만 드래그-닫기 시작(내부 스크롤과 충돌 방지)
     dragStartY.current = (sheetRef.current?.scrollTop ?? 0) <= 0 ? e.touches[0].clientY : null;
+    dragHist.current = [];
   };
   const onSheetTouchMove = (e: React.TouchEvent) => {
     if (dragStartY.current === null) return;
-    const dy = e.touches[0].clientY - dragStartY.current;
+    const y = e.touches[0].clientY;
+    const dy = y - dragStartY.current;
+    dragHist.current = [...dragHist.current.slice(-4), { y, t: performance.now() }];
     if (dy > 0) { setSheetDrag(dy); if (e.cancelable) e.preventDefault(); } // 아래로만
   };
   const onSheetTouchEnd = () => {
-    if (dragStartY.current !== null && sheetDrag > 90) setSrcOverlay(false);
+    if (dragStartY.current !== null) {
+      // 릴리스 속도(px/ms) — 최근 이력의 기울기. 이력 부족 시 0
+      const h = dragHist.current;
+      const v = h.length >= 2
+        ? (h[h.length - 1].y - h[0].y) / Math.max(1, h[h.length - 1].t - h[0].t)
+        : 0;
+      // 아래로 빠른 플릭(>0.5px/ms)이면 거리 불문 닫기 · 위로 플릭이면 거리 커도 유지 · 그 외 거리 기준
+      if (v > 0.5 || (sheetDrag > 90 && v >= -0.15)) setSrcOverlay(false);
+    }
     dragStartY.current = null;
     setSheetDrag(0);
   };

@@ -7,8 +7,16 @@
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; /* 바텀시트(65~70)보다 아래 */
     height: var(--m-tab-h, 58px);
     padding-bottom: env(safe-area-inset-bottom); /* 웹앱(Expo 래핑) 홈 인디케이터 대비 */
-    background: var(--color-surface);
-    border-top: 1px solid var(--color-border);
+    /* 반투명 재질(apple-design §12) — 콘텐츠가 아래로 비쳐 계층 전달 + 밝은 상단 엣지(빛 캐치) */
+    background: color-mix(in srgb, var(--color-surface) 74%, transparent);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    backdrop-filter: blur(18px) saturate(160%);
+    border-top: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09);
+  }
+  /* 투명도 줄이기 선호 시 불투명 폴백(가독 우선 — apple §14) */
+  @media (prefers-reduced-transparency: reduce) {
+    .bar { background: var(--color-surface); backdrop-filter: none; -webkit-backdrop-filter: none; }
   }
   .tab {
     flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
