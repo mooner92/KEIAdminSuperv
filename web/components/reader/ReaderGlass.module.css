@@ -1,27 +1,30 @@
 /* 리퀴드글라스 돋보기(docs/59) — 시맨틱 토큰 + 유리 질감. 커서 따라다니는 원형 렌즈 */
 .svgDefs { position: fixed; pointer-events: none; }
 
-/* 렌즈 위에 항상 보이는 끄기 버튼 — 아이콘만·붉은색(끄기 신호). 렌즈(9999)보다 높은 z */
-.offChip {
+/* 종료 안내 힌트 — 화면 하단 중앙, 커서를 안 가림. 잠깐 떴다가 서서히 옅어짐 */
+.hint {
   position: fixed;
   z-index: 10002;
-  top: 72px;
-  right: 20px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border: 1px solid var(--color-danger, #e5484d);
-  background: var(--color-danger, #e5484d);
-  color: #fff;
-  font-size: 15px;
-  border-radius: 50%;
-  cursor: pointer;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+  left: 50%;
+  bottom: 26px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  padding: 6px 13px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-text) 82%, transparent);
+  color: var(--color-surface);
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  animation: kei-glass-hint 3.2s ease forwards;
 }
-.offChip:hover { filter: brightness(1.08); }
-@media (max-width: 760px) { .offChip { top: auto; bottom: 76px; right: 14px; } }
+@keyframes kei-glass-hint {
+  0% { opacity: 0; }
+  12% { opacity: 0.96; }
+  70% { opacity: 0.96; }
+  100% { opacity: 0; }
+}
+@media (max-width: 760px) { .hint { bottom: 86px; } }
 
 .lens {
   position: fixed;

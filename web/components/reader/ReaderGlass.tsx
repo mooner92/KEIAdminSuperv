@@ -50,12 +50,16 @@ export default function ReaderGlass({ targetRef, onClose }: {
   onClose: () => void;
 }) {
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const [showHint, setShowHint] = useState(true); // 진입 시 한 번만 '클릭하면 꺼져요' 안내
   const [disp, setDisp] = useState<string>("");
   const lensRef = useRef<HTMLDivElement>(null);
   const cloneRef = useRef<HTMLDivElement>(null);
+  const mountedAt = useRef(0);
   // Chrome만 backdrop-filter+SVG 지원 → rim 굴절 적용 여부
   const canRefract = typeof CSS !== "undefined"
     && (CSS.supports("backdrop-filter", `url(#${uid})`) || CSS.supports("-webkit-backdrop-filter", `url(#${uid})`));
+
+  useEffect(() => { const t = setTimeout(() => setShowHint(false), 3400); return () => clearTimeout(t); }, []);
 
   // 대상 본문 DOM을 렌즈에 1회 복제(정적 스냅샷) + 변위맵 준비
   useEffect(() => {
@@ -89,10 +93,22 @@ export default function ReaderGlass({ targetRef, onClose }: {
         clone.style.transform = `translate(${RX - ZOOM * px}px, ${RY - ZOOM * py}px) scale(${ZOOM})`;
       }
     };
+    // 좌클릭 = 돋보기 종료(닫기 버튼 대신 — 필요하면 다시 켜기). 우클릭·수식키 제외.
+    // 활성 직후 400ms는 무시 — 돋보기를 켠 그 클릭이 바로 닫는 것 방지.
+    mountedAt.current = performance.now();
+    const click = (e: MouseEvent) => {
+      if (performance.now() - mountedAt.current < 400) return;
+      if (e.button === 0 && !e.metaKey && !e.ctrlKey) onClose();
+    };
     const key = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("pointermove", move);
+    window.addEventListener("click", click);
     window.addEventListener("keydown", key);
-    return () => { window.removeEventListener("pointermove", move); window.removeEventListener("keydown", key); };
+    return () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("click", click);
+      window.removeEventListener("keydown", key);
+    };
   }, [targetRef, onClose]);
 
   return createPortal(
@@ -126,10 +142,8 @@ export default function ReaderGlass({ targetRef, onClose }: {
           <div className={g.gloss} />
           <div className={g.rim} />
       </div>
-      {/* 렌즈 위에 항상 뜨는 끄기 버튼(z > 렌즈, 아이콘만·붉은색) — 어디서든 클릭해 끌 수 있게 */}
-      <button type="button" className={g.offChip} onClick={onClose} aria-label="돋보기 끄기" title="돋보기 끄기 (Esc)">
-        🔍✕
-      </button>
+      {/* 종료 안내 힌트(진입 시 1회, 서서히 사라짐) — 클릭/Esc로 끔. 커서를 안 가리게 하단 중앙 */}
+      {showHint ? <div className={g.hint}>🔍 클릭하면 돋보기가 꺼져요 · Esc</div> : null}
     </>,
     document.body
   );
