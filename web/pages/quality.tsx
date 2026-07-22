@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import Layout from "../components/Layout";
 import PageHero from "../components/common/PageHero";
+import PagedList from "../components/common/PagedList";
 import { useFlag } from "../lib/flags";
 import { SITE_NAME } from "../lib/site";
 import q from "../styles/Quality.module.css";
@@ -50,6 +51,7 @@ export default function QualityPage() {
   const [err, setErr] = useState<string>("");
   const [open, setOpen] = useState<string | null>(null); // 펼친 문항 id
   const [filter, setFilter] = useState<string>("전체"); // 판정 필터
+  const [typeF, setTypeF] = useState<string>("전체"); // 유형 필터(값형·절차형·조건형·거부형)
 
   useEffect(() => {
     if (!on) return;
@@ -66,8 +68,9 @@ export default function QualityPage() {
   }, [on]);
 
   const items = useMemo(
-    () => (day ? (filter === "전체" ? day.문항 : day.문항.filter((i) => i.판정 === filter)) : []),
-    [day, filter]
+    () => (day ? day.문항.filter((i) =>
+      (filter === "전체" || i.판정 === filter) && (typeF === "전체" || i.유형 === typeF)) : []),
+    [day, filter, typeF]
   );
   const trend = idx?.days.slice(-30) ?? [];
   const maxAcc = 100;
@@ -149,52 +152,70 @@ export default function QualityPage() {
             </div>
           </section>
 
-          {/* 문항 목록 */}
+          {/* 문항 목록 — 공용 PagedList(상단 한 줄: 건수·필터·N개씩·페이저) 재활용 */}
           <section className={q.card}>
-            <div className={q.listHead}>
-              <div className={q.cardTitle}>문항 {day.문항.length}건</div>
-              <div className={q.filters}>
-                {["전체", "오답", "검토필요", "정답"].map((f) => (
-                  <button key={f} className={`${q.fBtn} ${filter === f ? q.fActive : ""}`} onClick={() => setFilter(f)}>{f}</button>
-                ))}
-              </div>
-            </div>
-            <ul className={q.qList}>
-              {items.map((it) => {
-                const V = VERDICT[it.판정] ?? VERDICT.판정불가;
-                const isOpen = open === it.id;
-                return (
-                  <li key={it.id} className={q.qItem}>
-                    <button className={q.qRow} onClick={() => setOpen(isOpen ? null : it.id)} aria-expanded={isOpen}>
-                      <span className={`${q.badge} ${q[V.cls]}`}>{V.icon} {V.label}</span>
-                      <span className={q.qText}>{it.질문}</span>
-                      <span className={q.qMeta}>
-                        {it.회귀 ? <span className={q.reg}>재검</span> : null}
-                        <span className={q.type}>{it.유형}</span>
-                        {(it.주제 || []).slice(0, 1).map((t) => <span key={t} className={q.topic}>{t}</span>)}
-                      </span>
-                      <span className={q.caret}>{isOpen ? "▴" : "▾"}</span>
-                    </button>
-                    {isOpen ? (
-                      <div className={q.qDetail}>
-                        <div className={q.dSec}><b>챗봇 답변</b><div className={q.answer}>{it.답변 || "(없음)"}</div></div>
-                        {it.근거문장 ? <div className={q.dSec}><b>정답 근거(원문)</b><div className={q.golden}>「{it.근거문장}」</div></div> : null}
-                        {it.증거 ? <div className={q.dSec}><b>{it.판정 === "오답" ? "오답 근거" : "검토 사유"}</b><div className={q.evidence}>{it.증거}</div></div> : null}
-                        <div className={q.dFoot}>
-                          {it.원인 ? <span className={q.causeChip}>{CAUSE[it.원인] || it.원인}</span> : null}
-                          {it.출처?.규정명 ? (
-                            <Link className={q.srcLink} href={`/d/${encodeURIComponent(it.출처.규정명)}/${it.출처.조 ? `#${encodeURIComponent(it.출처.조)}` : ""}`}>
-                              📄 {it.출처.규정명} {it.출처.조} →
-                            </Link>
-                          ) : null}
-                        </div>
-                      </div>
-                    ) : null}
-                  </li>
-                );
-              })}
-              {items.length === 0 ? <li className={q.emptyRow}>해당 판정의 문항이 없어요.</li> : null}
-            </ul>
+            <div className={q.cardTitle}>문항</div>
+            <PagedList
+              items={items}
+              unit="건"
+              defaultSize={30}
+              resetKey={`${filter}|${typeF}`}
+              empty="해당 조건의 문항이 없어요."
+              filterSlot={
+                <span className={q.segGroups}>
+                  <span className={q.seg} role="tablist" aria-label="판정 필터">
+                    {["전체", "정답", "오답", "검토필요"].map((f) => (
+                      <button key={f} role="tab" aria-selected={filter === f}
+                        className={`${q.fBtn} ${filter === f ? q.fActive : ""}`} onClick={() => setFilter(f)}>{f}</button>
+                    ))}
+                  </span>
+                  <span className={q.seg} role="tablist" aria-label="유형 필터">
+                    {["전체", "값형", "절차형", "조건형", "거부형"].map((t) => (
+                      <button key={t} role="tab" aria-selected={typeF === t}
+                        className={`${q.fBtn} ${typeF === t ? q.fActive : ""}`} onClick={() => setTypeF(t)}>{t}</button>
+                    ))}
+                  </span>
+                </span>
+              }
+            >
+              {(paged: Item[]) => (
+                <ul className={q.qList}>
+                  {paged.map((it) => {
+                    const V = VERDICT[it.판정] ?? VERDICT.판정불가;
+                    const isOpen = open === it.id;
+                    return (
+                      <li key={it.id} className={q.qItem}>
+                        <button className={q.qRow} onClick={() => setOpen(isOpen ? null : it.id)} aria-expanded={isOpen}>
+                          <span className={`${q.badge} ${q[V.cls]}`}>{V.icon} {V.label}</span>
+                          <span className={q.qText}>{it.질문}</span>
+                          <span className={q.qMeta}>
+                            {it.회귀 ? <span className={q.reg}>재검</span> : null}
+                            <span className={q.type}>{it.유형}</span>
+                            {(it.주제 || []).slice(0, 1).map((t) => <span key={t} className={q.topic}>{t}</span>)}
+                          </span>
+                          <span className={q.caret}>{isOpen ? "▴" : "▾"}</span>
+                        </button>
+                        {isOpen ? (
+                          <div className={q.qDetail}>
+                            <div className={q.dSec}><b>챗봇 답변</b><div className={q.answer}>{it.답변 || "(없음)"}</div></div>
+                            {it.근거문장 ? <div className={q.dSec}><b>정답 근거(원문)</b><div className={q.golden}>「{it.근거문장}」</div></div> : null}
+                            {it.증거 ? <div className={q.dSec}><b>{it.판정 === "오답" ? "오답 근거" : it.판정 === "폐기" ? "폐기 사유" : "검토 사유"}</b><div className={q.evidence}>{it.증거}</div></div> : null}
+                            <div className={q.dFoot}>
+                              {it.원인 ? <span className={q.causeChip}>{CAUSE[it.원인] || it.원인}</span> : null}
+                              {it.출처?.규정명 ? (
+                                <Link className={q.srcLink} href={`/d/${encodeURIComponent(it.출처.규정명)}/${it.출처.조 ? `#${encodeURIComponent(it.출처.조)}` : ""}`}>
+                                  📄 {it.출처.규정명} {it.출처.조} →
+                                </Link>
+                              ) : null}
+                            </div>
+                          </div>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </PagedList>
           </section>
           <p className={q.note}>
             ※ 문항은 규정 청크에서 자동 생성하고(그 청크가 정답 근거), 답변은 실서비스와 같은 구성으로 받아
