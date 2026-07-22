@@ -13,8 +13,28 @@ import argparse
 import datetime
 import json
 from collections import Counter, defaultdict
+from pathlib import PurePosixPath
 
-from daily_common import DAILY_DIR, FAQ_DIR, ROOT
+from daily_common import DAILY_DIR, FAQ_DIR, ROOT, chroma_col
+
+
+def build_slug_index():
+    """청크id→문서 slug, 규정명→slug 매핑(문서 링크 /d/<slug>/ 해결용).
+    slug = 볼트 파일명 stem(예: 5610_웹사이트운영관리규칙). 규정명만으론 번호 프리픽스가 빠져
+    404 — 청크 메타 path에서 정확 해석(가이드/용어처럼 번호 없는 것만 규정명==slug라 우연히 됐음)."""
+    by_chunk, by_reg = {}, {}
+    try:
+        got = chroma_col().get(include=["metadatas"])
+    except Exception:  # noqa: BLE001
+        return by_chunk, by_reg
+    for cid, m in zip(got["ids"], got["metadatas"]):
+        p = m.get("path", "")
+        if not p:
+            continue
+        slug = PurePosixPath(p).stem
+        by_chunk[cid] = slug
+        by_reg.setdefault(m.get("규정명", ""), slug)
+    return by_chunk, by_reg
 
 
 def main() -> int:
@@ -23,6 +43,16 @@ def main() -> int:
     args = ap.parse_args()
     g = json.loads((DAILY_DIR / f"{args.date}.graded.json").read_text(encoding="utf-8"))
     items = g["문항"]
+
+    # 문서 링크용 slug 심기(청크 우선, 규정명 폴백) — 출처에 slug 필드 추가
+    by_chunk, by_reg = build_slug_index()
+    for r in items:
+        src = r.get("출처")
+        if not src:
+            continue
+        slug = by_chunk.get(src.get("청크id", "")) or by_reg.get(src.get("규정명", ""))
+        if slug:
+            src["slug"] = slug
 
     # ── 약점 지도: 주제×유형 / 분류×유형 정답률 ──
     def acc_of(rows):
