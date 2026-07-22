@@ -11,7 +11,7 @@ import g from "./ReaderGlass.module.css";
 // 다이나믹 아일랜드형 가로 필(pill) — 조밀한 규정은 '한 줄'을 넓게 읽는 게 유용(사용자 확정)
 const RX = 150; // 가로 반경(px)
 const RY = 68;  // 세로 반경(px)
-const ZOOM = 1.9; // 확대 배율
+const ZOOM = 1.75; // 확대 배율
 const uid = "kei-glass-disp";
 
 // 방사형 변위맵(중앙 평면 → rim에서 바깥으로 굴절). canvas → data URI(1회 생성, 캐시).
@@ -120,7 +120,9 @@ export default function ReaderGlass({ targetRef, onClose }: {
           <div className={g.viewport}>
             <div ref={cloneRef} className={g.clone} />
           </div>
-          {/* 유리 질감: 하이라이트 + rim */}
+          {/* 가장자리 블러 링(Chrome) — rim 경계를 흐려 원본과 부드럽게 녹아들게 */}
+          <div className={g.edgeBlur} />
+          {/* 유리 질감: 스페큘러 블룸 + rim */}
           <div className={g.gloss} />
           <div className={g.rim} />
       </div>
