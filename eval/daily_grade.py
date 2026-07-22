@@ -30,10 +30,13 @@ JUDGE_SYS = (
 )
 
 REBUT_SYS = (
-    "너는 재심 판정가다. 어떤 답변이 '오답' 판정을 받았다. 그 판정이 잘못됐을 가능성을 검토하라 — "
-    "관점: ① 표기 변형(공백·단위·서수)일 뿐 같은 값인가 ② 질문이 모호해 다른 해석이 가능한가 "
-    "③ 원문 다른 부분에 답변을 지지하는 내용이 있는가.\n"
-    '다음 JSON만 출력: {"반박성공": true/false, "이유": "<한 줄>"}'
+    "너는 재심 판정가다. 어떤 답변이 '오답' 판정을 받았다. 그 판정이 잘못됐을 가능성을 검토하고 "
+    "다음 JSON만 출력하라:\n"
+    '{"반박성공": true/false, "분류": "<표기변형|질문모호|기타>", "이유": "<한 줄>"}\n'
+    "분류 기준: ① '표기변형' = 답변이 사실상 정답인데 공백·단위·서수·동의어 등 표현만 다름 "
+    "② '질문모호' = 질문 자체가 여러 해석이 가능해 정답 경계가 없음(출제 결함) "
+    "③ '기타' = 원문 다른 부분이 답변을 지지하는 등 사람 판단이 필요한 경계 사례. "
+    "반박 실패(오답이 맞음)면 반박성공=false, 분류=기타."
 )
 
 
@@ -67,6 +70,8 @@ def main() -> int:
     ans = {a["id"]: a for a in
            json.loads((DAILY_DIR / f"{args.date}.answers.json").read_text(encoding="utf-8"))["answers"]}
     col = chroma_col()
+    # 골든문장(생성 시점 확정, docs/58 §7①) — 문항에 없으면 은행에서 보충(백필분)
+    bank0 = {b["id"]: b for b in load_bank()}
 
     results = []
     for i, q in enumerate(qs):
@@ -90,6 +95,7 @@ def main() -> int:
             item.update({"판정": "판정불가", "증거": "정답 근거 청크 조회 실패"})
             results.append(item)
             continue
+        gsent = q.get("골든") or (bank0.get(q["id"], {}).get("골든", ""))  # 골든문장(있으면 1차 기준)
         # 대조 소스 = 원문 + 출처 라벨(규정명·조) — 규정명 속 연도("2024년신입…") 오인 방지(실측)
         src_meta = q.get("출처") or {}
         gsrc = norm_q(golden + src_meta.get("규정명", "") + src_meta.get("조", ""))
@@ -98,8 +104,9 @@ def main() -> int:
         # ⓑ LLM 원문대조
         j = {}
         try:
+            golden_blk = (f"정답 근거 문장(핵심 기준 — 이 문장과 비교해 판정하라):\n「{gsent}」\n\n" if gsent else "")
             j = llm_json([{"role": "system", "content": JUDGE_SYS},
-                          {"role": "user", "content": f"질문: {q['질문']}\n\n챗봇 답변:\n{답변[:1500]}\n\n정답 근거 원문:\n{golden[:1800]}"}],
+                          {"role": "user", "content": f"질문: {q['질문']}\n\n챗봇 답변:\n{답변[:1500]}\n\n{golden_blk}참고 원문(맥락):\n{golden[:1500]}"}],
                          max_tokens=260)
         except Exception as ex:  # noqa: BLE001
             print(f"  ⚠ 판정 실패 {q['id']}: {ex}", file=sys.stderr)
@@ -119,20 +126,30 @@ def main() -> int:
             j["어긋난점"] = f"원문에 없는 값 주장: {', '.join(bad_vals[:4])}"
         if 판정 == "부분":
             판정 = "정답"  # 부분 정답은 정답으로 집계(보수적 오답주의) — 어긋난점은 기록
-        # ⓒ 적대 재검(오답만)
+        # ⓒ 적대 재검(오답만) — 3갈래 재분류(docs/58 §7②): 표기변형→정답 승격 ·
+        #    질문모호→폐기(출제 결함, 은행 retire) · 기타→검토필요(진짜 경계만 사람에게)
         if 판정 == "오답":
             try:
                 r = llm_json([{"role": "system", "content": REBUT_SYS},
-                              {"role": "user", "content": f"질문: {q['질문']}\n답변:\n{답변[:1200]}\n원문:\n{golden[:1500]}\n오답 사유: {j.get('어긋난점','')}"}],
-                             max_tokens=140)
+                              {"role": "user", "content": f"질문: {q['질문']}\n답변:\n{답변[:1200]}\n정답 근거 문장: {gsent or '(없음)'}\n원문:\n{golden[:1400]}\n오답 사유: {j.get('어긋난점','')}"}],
+                             max_tokens=160)
                 if r.get("반박성공") is True:
-                    판정 = "검토필요"
-                    j["재심"] = str(r.get("이유", ""))[:120]
+                    cls = str(r.get("분류", "기타")).strip()
+                    if cls == "표기변형":
+                        판정 = "정답"
+                        j["재심"] = f"표기 변형 인정: {str(r.get('이유',''))[:100]}"
+                    elif cls == "질문모호":
+                        판정 = "폐기"
+                        j["재심"] = f"출제 모호 판정: {str(r.get('이유',''))[:100]}"
+                    else:
+                        판정 = "검토필요"
+                        j["재심"] = str(r.get("이유", ""))[:120]
             except Exception:  # noqa: BLE001
                 pass
         item.update({"판정": 판정,
-                     "증거": str(j.get("어긋난점", ""))[:300] if 판정 in ("오답", "검토필요") else "",
-                     "근거문장": str(j.get("근거문장", ""))[:200],
+                     "증거": (str(j.get("재심", "")) if 판정 == "폐기" else str(j.get("어긋난점", "")))[:300]
+                             if 판정 in ("오답", "검토필요", "폐기") else "",
+                     "근거문장": (gsent or str(j.get("근거문장", "")))[:200],
                      "원인": classify_cause(item, golden) if 판정 in ("오답", "검토필요") else None})
         if item.get("원인") == "검색실패" and 판정 == "검토필요":
             pass  # 원인은 유지(재심 통과여도 검색 신호는 유효)
@@ -143,7 +160,7 @@ def main() -> int:
     # 집계 + 은행 갱신(판정이력·상태)
     from collections import Counter
     cnt = Counter(r["판정"] for r in results)
-    denom = len(results) - cnt.get("판정불가", 0)
+    denom = len(results) - cnt.get("판정불가", 0) - cnt.get("폐기", 0)  # 폐기=출제 결함, 분모 제외
     acc = round(100 * cnt.get("정답", 0) / max(1, denom), 1)
     bank = load_bank()
     bh = {b["id"]: b for b in bank}
@@ -154,6 +171,8 @@ def main() -> int:
         b.setdefault("판정이력", []).append({"date": args.date, "판정": r["판정"]})
         if r["판정"] == "오답":
             b["상태"] = "open"
+        elif r["판정"] == "폐기":
+            b["상태"] = "retire"  # 모호 출제 — 재출제 금지(자정)
         elif b.get("상태") == "open":
             last3 = [h["판정"] for h in b["판정이력"][-3:]]
             if len(last3) == 3 and all(v == "정답" for v in last3):
