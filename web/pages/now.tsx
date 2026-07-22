@@ -11,7 +11,7 @@ import { useFlag } from "../lib/flags";
 import { SITE_NAME } from "../lib/site";
 import { track } from "../lib/track";
 import {
-  loadChangelog, loadForms, loadSeasonal, recentlyRevised, termPool,
+  loadChangelog, loadDeadlines, loadForms, loadSeasonal, recentlyRevised, termPool,
   type ChangelogEntry, type SeasonalItem,
 } from "../lib/vault";
 import n from "../styles/Now.module.css";
@@ -25,11 +25,13 @@ type Props = {
   notes: Pick<ChangelogEntry, "id" | "제목" | "날짜" | "분류">[];
   terms: { slug: string; title: string }[];
   formsCount: number;
+  deadlinesCount: number;
 };
 
-export default function NowPage({ seasonal, revised, notes, terms, formsCount }: Props) {
+export default function NowPage({ seasonal, revised, notes, terms, formsCount, deadlinesCount }: Props) {
   const on = useFlag("events_tab");
   const formsOn = useFlag("forms_registry"); // 서식 찾기 바로가기 게이트
+  const deadlinesOn = useFlag("deadlines_hub"); // 기한 사전 바로가기 게이트(docs/57)
   const changelogOn = useFlag("changelog");  // 새로워진 점 바로가기 게이트
   const approvalOn = useFlag("approval_finder"); // 결재선 — 모바일 GNB에서 빠진 화면의 허브 도달(docs/48)
   const journeyOn = useFlag("journey_map"); // 업무 한 장 — 〃
@@ -70,6 +72,8 @@ export default function NowPage({ seasonal, revised, notes, terms, formsCount }:
       desc: `${monthItems.length > 0 ? `이번 달 챙길 일 ${monthItems.length}건 · ` : ""}매월·연간 반복 업무를 한눈에` },
     ...(formsOn ? [{ icon: "📄", title: "서식 찾기", href: "/forms/",
       desc: `규정 별지 서식 ${formsCount}종을 이름·규정·번호로 검색` }] : []),
+    ...(deadlinesOn ? [{ icon: "⏱️", title: "기한 사전", href: "/deadlines/",
+      desc: `규정 기한 ${deadlinesCount}건을 사건·의무로 찾고 마감일 계산·캘린더 저장` }] : []),
     ...(changelogOn ? [{ icon: "✨", title: "새로워진 점", href: "/changelog/",
       desc: notes[0] ? `최근: ${notes[0].제목}` : "서비스 업데이트 내역" }] : []),
     { icon: "🕸️", title: "관계 그래프", href: "/graph/",
@@ -177,5 +181,6 @@ export const getStaticProps: GetStaticProps = () => ({
     notes: loadChangelog().slice(0, 3).map(({ id, 제목, 날짜, 분류 }) => ({ id, 제목, 날짜, 분류 })),
     terms: termPool(),
     formsCount: loadForms().length,
+    deadlinesCount: loadDeadlines().length,
   },
 });

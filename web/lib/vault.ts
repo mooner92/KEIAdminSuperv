@@ -458,6 +458,63 @@ export function loadForms(): FormEntry[] {
   return out.concat(pms);
 }
 
+// ── 기한 사전(docs/57) — 전 규정 상대기한 228건 역방향 브라우저(사건→규정). ──
+// 데이터원 tools/index/deadlines.json(01m 생성, git-external — 없으면 빈 배열). ⛔ 창작 0.
+export type DeadlineEntry = {
+  규정명: string;
+  slug: string | null;   // 드로어 링크용 문서 slug(규정명↔문서 매칭 실패 시 null=비클릭)
+  regNo: string;         // 규정번호(계산 근거 표기용)
+  조: string;
+  의무: string;          // 제출·보고·신고… (빈 값 가능)
+  anchor: string;        // 사건 기준점("공무출장 후" 등, 빈 값 가능)
+  n: number;
+  unit: string;          // 일·주·개월·년
+  dir: string;           // 이내 | 전
+  type: string;          // 마감 | 기간한도
+  원문: string;          // 검증용 규정 원문 문장(그대로)
+};
+
+export function loadDeadlines(): DeadlineEntry[] {
+  let raw: { deadlines?: Record<string, unknown[]> };
+  try {
+    const p = path.resolve(process.cwd(), "..", "tools", "index", "deadlines.json");
+    raw = JSON.parse(fs.readFileSync(p, "utf-8"));
+  } catch {
+    return [];
+  }
+  const titleToSlug = new Map<string, string>();
+  const titleToNo = new Map<string, string>();
+  for (const d of getAllDocs()) {
+    if (!titleToSlug.has(d.title)) {
+      titleToSlug.set(d.title, d.slug);
+      titleToNo.set(d.title, d.regNo || "");
+    }
+  }
+  const out: DeadlineEntry[] = [];
+  for (const [규정명, list] of Object.entries(raw.deadlines || {})) {
+    for (const e of (list || []) as Record<string, unknown>[]) {
+      out.push({
+        규정명,
+        slug: titleToSlug.get(규정명) ?? null,
+        regNo: titleToNo.get(규정명) || "",
+        조: String(e.조 || ""),
+        의무: String(e.의무 || ""),
+        anchor: String(e.anchor || ""),
+        n: Number(e.n) || 0,
+        unit: String(e.unit || ""),
+        dir: String(e.dir || ""),
+        type: String(e.type || ""),
+        원문: String(e.원문 || ""),
+      });
+    }
+  }
+  // 계산 가능(마감·anchor 有) 우선 → 규정명 → 조. 브라우즈 첫 화면이 바로 쓸모 있게.
+  const rank = (x: DeadlineEntry) => (x.type === "마감" && x.anchor ? 0 : 1);
+  return out.sort(
+    (a, b) => rank(a) - rank(b) || a.규정명.localeCompare(b.규정명, "ko") || a.조.localeCompare(b.조, "ko")
+  );
+}
+
 export function loadJourneys(): Journey[] {
   const dir = path.join(VAULT_DIR, "90_관리", "_journeys");
   if (!fs.existsSync(dir)) return [];

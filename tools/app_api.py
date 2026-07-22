@@ -300,6 +300,13 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-12-31",
     },
+    "deadlines_hub": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "기한 사전 /deadlines(docs/57) — 전 규정 상대기한 228건 역방향 브라우저(사건→규정) + "
+                       "기준일→마감일 산술 계산·.ics. 서식 찾기와 동형, 추가 기능(/now) 허브 진입. 무LLM·창작 0.",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
     "help_hub": {
         "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
         "description": "도움말 허브(docs/31) — 앵커 목차 + '잘 묻는 법' + FAQ 아코디언(기본 접힘) + "

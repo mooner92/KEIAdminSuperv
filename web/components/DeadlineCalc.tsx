@@ -10,7 +10,7 @@ export type Deadline = {
   n: number; unit: string; dir: string; type: string; 원문: string;
 };
 
-function addOffset(base: Date, n: number, unit: string, dir: string): Date {
+export function addOffset(base: Date, n: number, unit: string, dir: string): Date {
   const d = new Date(base.getTime());
   const k = (dir === "전" ? -1 : 1) * n;
   if (unit === "일") d.setDate(d.getDate() + k);
@@ -20,11 +20,11 @@ function addOffset(base: Date, n: number, unit: string, dir: string): Date {
   return d;
 }
 const p2 = (x: number) => String(x).padStart(2, "0");
-const ymd = (d: Date) => `${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}`;
-const ko = (d: Date) =>
+export const ymd = (d: Date) => `${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}`;
+export const ko = (d: Date) =>
   `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()} (${"일월화수목금토"[d.getDay()]})`;
 
-function downloadIcs(summary: string, date: Date, desc: string) {
+export function downloadIcs(summary: string, date: Date, desc: string) {
   const uid = `kei-${ymd(date)}-${Math.floor(Math.random() * 1e6)}@kei`;
   const stamp = ymd(new Date()) + "T000000Z";
   const esc = (s: string) => (s || "").replace(/[\n\r]+/g, " ").replace(/,/g, "\\,");
