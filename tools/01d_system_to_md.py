@@ -123,8 +123,55 @@ def note(title, body, original, sysconf):
     return "\n".join(fm)
 
 
+# 화면코드 패턴(gen_0020M · hrm_6110M · pur_0110M · eis_0600M · pla_0100M …)
+_SCREEN_CODE = r"[a-z]{2,5}_\d{3,5}[A-Za-z]?"
+
+
+def parse_menu_tree(text):
+    """'## 부록 A. 전체 메뉴 트리' 코드블록 → {화면코드: '모듈 > 서브그룹 > 기능'} 경로 맵.
+    들여쓰기(2칸=1단계)로 계층 복원. leaf(코드 있는 줄)에만 경로 부여. 트리 없으면 {}.
+    ⛔ 창작 0 — 원문 트리에 명시된 경로만. RAG가 화면코드 대신 사람이 읽을 경로를 답에 쓰게 함."""
+    m = re.search(r"##\s*부록[^\n]*메뉴\s*트리[^\n]*\n+```(.*?)```", text, re.S)
+    if not m:
+        return {}
+    path_by_code, stack = {}, {}
+    for raw in m.group(1).split("\n"):
+        if not raw.strip():
+            continue
+        level = (len(raw) - len(raw.lstrip(" "))) // 2
+        cm = re.search(rf"\(({_SCREEN_CODE})\)", raw)
+        name = re.sub(r"\(.*?\)|\[.*?\]", "", raw).strip()  # (코드)·[본인인증] 등 제거
+        stack[level] = name
+        for k in [k for k in stack if k > level]:  # 더 깊은 잔여 단계 제거
+            del stack[k]
+        if cm:
+            path_by_code[cm.group(1)] = " > ".join(stack[l] for l in sorted(stack))
+    return path_by_code
+
+
+def inject_menu_paths(body, path_by_code):
+    r"""각 `#### 기능`의 `- **화면ID**: \`코드\`` 바로 아래에 `- **메뉴 경로**: …` 주입(경로 있을 때만).
+    멱등: 다음 줄이 이미 메뉴 경로면 건너뜀. PMS 상세가이드의 `**메뉴 경로**:` 라벨 규약과 동일."""
+    if not path_by_code:
+        return body
+    lines = body.split("\n")
+    out = []
+    # 두 형식 지원: '- **화면ID**: `code`'(ERP 시스템) · '* 화면ID: `code`'(ERP 상세가이드). 불릿 문자 보존
+    pat = re.compile(rf"^(\s*)([-*])\s*\*{{0,2}}화면ID\*{{0,2}}:\s*`({_SCREEN_CODE})`")
+    for i, ln in enumerate(lines):
+        out.append(ln)
+        m = pat.match(ln)
+        if m and m.group(3) in path_by_code:
+            nxt = lines[i + 1] if i + 1 < len(lines) else ""
+            if "메뉴 경로" not in nxt:
+                out.append(f"{m.group(1)}{m.group(2)} **메뉴 경로**: {path_by_code[m.group(3)]}")
+    return "\n".join(out)
+
+
 def convert(text, sysconf):
-    """원자료 → [(제목, 본문)] 리스트(개요 1 + 모듈 N). ERP 01d와 동일한 ## N.모듈 분할 로직."""
+    """원자료 → [(제목, 본문)] 리스트(개요 1 + 모듈 N). ERP 01d와 동일한 ## N.모듈 분할 로직.
+    부록 A 메뉴 트리가 있으면(ERP) 화면ID별 '메뉴 경로'를 각 기능에 조인(사람이 읽을 경로)."""
+    path_by_code = parse_menu_tree(text)
     parts = re.split(r"(?m)^(##\s+.+)$", text)
     intro = parts[0].strip()
     if sysconf.get("strip_h1"):
@@ -144,7 +191,7 @@ def convert(text, sysconf):
         i += 2
     out = [(sysconf["overview"], "\n\n".join(b for b in overview_blocks if b.strip()))]
     for name, body in modules:
-        out.append((f'{sysconf["prefix"]} · {name}', body))
+        out.append((f'{sysconf["prefix"]} · {name}', inject_menu_paths(body, path_by_code)))
     return out
 
 
