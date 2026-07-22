@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { GetStaticProps } from "next";
 import Layout from "../components/Layout";
 import PageHero from "../components/common/PageHero";
+import PagedList from "../components/common/PagedList";
 import DeadlineBrowseRow from "../components/deadlines/DeadlineBrowseRow";
 import { useFlag } from "../lib/flags";
 import { CORPUS_AS_OF, SITE_NAME } from "../lib/site";
@@ -25,8 +26,6 @@ export default function DeadlinesPage({ deadlines }: { deadlines: DeadlineEntry[
   const [kind, setKind] = useState<Kind>("전체");
   const [regFilter, setRegFilter] = useState<Set<string>>(new Set());
   const [regQ, setRegQ] = useState("");
-  const [pageSize, setPageSize] = useState(30);
-  const [page, setPage] = useState(1);
   const [filterOpen, setFilterOpen] = useState(false);
 
   useEffect(() => {
@@ -65,12 +64,8 @@ export default function DeadlinesPage({ deadlines }: { deadlines: DeadlineEntry[
     () => (regFilter.size ? searched.filter((e) => regFilter.has(e.규정명)) : searched),
     [searched, regFilter]
   );
-  const pageCount = Math.max(1, Math.ceil(shown.length / pageSize));
-  const cur = Math.min(page, pageCount);
-  const paged = shown.slice((cur - 1) * pageSize, cur * pageSize);
   const toggleReg = (r: string) =>
     setRegFilter((prev) => { const n = new Set(prev); n.has(r) ? n.delete(r) : n.add(r); return n; });
-  useEffect(() => { setPage(1); }, [q, kind, regFilter, pageSize]);
 
   if (!on) {
     return (
@@ -130,41 +125,29 @@ export default function DeadlinesPage({ deadlines }: { deadlines: DeadlineEntry[
             aria-label="기한 검색"
             autoFocus
           />
-          <div className={f.metaRow}>
-            <span className={f.kinds} role="tablist" aria-label="기한 유형">
-              {kinds.map((k) => (
-                <button key={k} role="tab" aria-selected={kind === k}
-                  className={`${f.kindBtn} ${kind === k ? f.kindActive : ""}`}
-                  onClick={() => setKind(k)}>{k}</button>
-              ))}
-            </span>
-            <div className={f.pager}>
-              <span className={f.pageSizeGrp}>
-                {[10, 30, 50].map((n) => (
-                  <button key={n} className={`${f.psBtn} ${pageSize === n ? f.psActive : ""}`}
-                    onClick={() => setPageSize(n)}>{n}</button>
+          {/* 공용 PagedList — 상단 한 줄(건수 · 유형 칩 · N개씩 · ‹n/N›). 손수 만든 페이저 제거 */}
+          <PagedList
+            items={shown}
+            unit="건"
+            defaultSize={30}
+            resetKey={`${q}|${kind}|${[...regFilter].sort().join(",")}`}
+            empty="검색 결과가 없어요 — 다른 사건이나 규정명으로 찾아보세요."
+            filterSlot={
+              <span className={f.kinds} role="tablist" aria-label="기한 유형">
+                {kinds.map((k) => (
+                  <button key={k} role="tab" aria-selected={kind === k}
+                    className={`${f.kindBtn} ${kind === k ? f.kindActive : ""}`}
+                    onClick={() => setKind(k)}>{k}</button>
                 ))}
-                <span className={f.psUnit}>개씩</span>
               </span>
-              <span className={f.pageNav}>
-                <button className={f.navBtn} disabled={cur <= 1} onClick={() => setPage(cur - 1)} aria-label="이전 페이지">‹</button>
-                <span className={f.pageInfo}>{cur} / {pageCount}</span>
-                <button className={f.navBtn} disabled={cur >= pageCount} onClick={() => setPage(cur + 1)} aria-label="다음 페이지">›</button>
-              </span>
-            </div>
-          </div>
-          <p className={f.count}>
-            {shown.length}건 · {shown.length === 0 ? 0 : (cur - 1) * pageSize + 1}–{Math.min(cur * pageSize, shown.length)}
-            {q ? ` · "${q}"` : ""}{kind !== "전체" ? ` · ${kind}` : ""}{regFilter.size ? ` · 규정 ${regFilter.size}개` : ""}
-          </p>
-
-          {shown.length === 0 ? (
-            <p className={f.empty}>검색 결과가 없어요 — 다른 사건이나 규정명으로 찾아보세요.</p>
-          ) : (
-            <ul className={f.list}>
-              {paged.map((e, i) => <DeadlineBrowseRow key={`${e.규정명}#${e.조}#${i}`} e={e} />)}
-            </ul>
-          )}
+            }
+          >
+            {(paged) => (
+              <ul className={f.list}>
+                {paged.map((e, i) => <DeadlineBrowseRow key={`${e.규정명}#${e.조}#${i}`} e={e} />)}
+              </ul>
+            )}
+          </PagedList>
           <p className={f.note}>
             ※ 기한·오프셋은 규정 원문에서 추출한 값이고, 제목·할 일 라벨은 원문 문장에서 자동 생성한
             요약입니다(모두 검수 전 — 원문 문장을 항상 함께 표시). 마감일은 기준일 ± 기간의 단순
