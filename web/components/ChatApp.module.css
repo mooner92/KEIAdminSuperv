@@ -487,6 +487,50 @@
   max-width: 640px;
 }
 .handoffText { font-size: 12px; color: var(--color-text-tertiary); }
+
+/* ── 답변 해부 레이아웃(docs/38 §B) — CSS 데코레이션만(문구 불변). 래퍼 하위 Markdown 산출물을
+   요소 선택자로 꾸민다: 첫 문단=핵심답 콜아웃, 번호목록=절차 스테퍼. 구조 안 맞으면 자연 폴백 ── */
+/* 핵심답 콜아웃 — 답변 첫 블록이 문단일 때만(목록으로 시작하면 스테퍼가 처리). 은은한 좌측 강조 */
+.answerAnatomy > div > p:first-child {
+  margin-top: 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--color-primary);
+  border-radius: 0 8px 8px 0;
+  background: var(--color-bg-subtle);
+}
+/* 절차 스테퍼 — 번호목록을 원형 번호 배지 + 카드로. 중첩목록은 건드리지 않음(> li 직속만) */
+.answerAnatomy > div ol {
+  list-style: none;
+  counter-reset: step;
+  padding-left: 0;
+  margin: 8px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.answerAnatomy > div ol > li {
+  counter-increment: step;
+  position: relative;
+  padding: 7px 10px 7px 36px;
+  background: var(--color-bg-subtle);
+  border-radius: 8px;
+}
+.answerAnatomy > div ol > li::before {
+  content: counter(step);
+  position: absolute;
+  left: 9px;
+  top: 7px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .handoffBtn {
   border: 1px solid var(--color-border);
   background: transparent;

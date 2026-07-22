@@ -146,6 +146,7 @@ export default function ChatApp({
   }, [trendingOn]);
   const situOn = useFlag("situation_chips"); // docs/38 §A: 빈 화면 상황 시작 칩(EXAMPLES 대체)
   const handoffOn = useFlag("handoff_card"); // docs/38 §A ★: 거부 답변 부서 문의 핸드오프 카드
+  const anatomyOn = useFlag("answer_anatomy"); // docs/38 §B: 답변 해부 레이아웃(CSS 데코만·문구 불변)
   const [situSel, setSituSel] = useState<string | null>(null); // 선택된 상황(여정 id) — 미니 카드 토글
   const [situMore, setSituMore] = useState(false); // 7번째 이후 칩 펼침
   const situations = useMemo(() => {
@@ -666,7 +667,15 @@ export default function ChatApp({
                       title={m.sources.length ? "이 답변의 근거 조문 보기" : ""}
                     >
                       {m.content ? (
-                        <Markdown source={m.content} />
+                        /* 답변 해부 레이아웃(docs/38 §B) — 래퍼 클래스만 추가, 텍스트는 그대로
+                           Markdown에 전달(문구 불변). 콜아웃·스테퍼는 CSS 데코레이션. */
+                        anatomyOn ? (
+                          <div className={styles.answerAnatomy}>
+                            <Markdown source={m.content} />
+                          </div>
+                        ) : (
+                          <Markdown source={m.content} />
+                        )
                       ) : (
                         /* docs/34 ③: 2단계 대기 표시 — 지금 무슨 일이 일어나는지 보여준다 */
                         <span className={styles.typing}>

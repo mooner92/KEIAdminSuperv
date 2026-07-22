@@ -293,6 +293,13 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-12-31",
     },
+    "answer_anatomy": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "답변 해부 레이아웃(docs/38 §B) — 생성 답변을 핵심답 콜아웃 + 절차 스테퍼로 '재배치·재스타일만'. "
+                       "⛔ 문구 불변(CSS 데코레이션만, 텍스트 파싱·재조립 없음 → 내용 유실·순서변경 0). 가독성 향상.",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
     "help_hub": {
         "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
         "description": "도움말 허브(docs/31) — 앵커 목차 + '잘 묻는 법' + FAQ 아코디언(기본 접힘) + "
