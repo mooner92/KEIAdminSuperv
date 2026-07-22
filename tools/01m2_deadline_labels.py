@@ -47,6 +47,44 @@ FEWSHOT = [
      '{"사건": "위탁기관의 청구를 받은 날부터", "행동": "대가 지급"}'),
 ]
 
+# 2차 패스(재판정) — 1차에서 폐기된 항목: '이 숫자+단위가 정말 기한인가'부터 분류.
+# 01m이 정의문("주4일 이내 출근")·빈도한도("주 4일까지 허용")·조건("임신 15주 이내인 경우")을
+# 기한으로 오추출한 건 '기한아님'으로 판정 → 웹이 표시에서 제외(원본 deadlines.json은 불변).
+REASSESS = (
+    "너는 규정 문장 판정가다. 원문 문장과 추출된 '숫자+단위'가 주어진다. 다음 JSON만 출력하라:\n"
+    '{"판정": "<마감|기간한도|기한아님>", "사건": "<기준점, 28자 이내>", "행동": "<할 일, 14자 이내>", "대상": "<무엇의 기간인지, 18자 이내>"}\n'
+    "판정 기준: ① '마감'=어떤 사건 후 기한 내 해야 할 일이 있음 ② '기간한도'=어떤 것의 지속 기간 상한"
+    "(예: 근무기간은 1년 이내로 한다) ③ '기한아님'=정의·자격조건·빈도 제한 등 기한이 아닌 것"
+    "(예: 주4일 이내로 출근하는 제도, 임신기간이 15주 이내인 경우).\n"
+    "규칙: 원문에 없는 내용 금지, 기한 숫자를 라벨에 넣지 마라, 해당 없는 필드는 빈 문자열."
+)
+
+REASSESS_FEWSHOT = [
+    ("원문: 5. “재택근무제”라 함은 연구원으로 출근하지 아니하거나 주4일 이내로 출근하면서, 출근하지 않은 날에는 자택에서\n추출: 4일 이내",
+     '{"판정": "기한아님", "사건": "", "행동": "", "대상": ""}'),
+    ("원문: 제21조(근무기간 및 시간) ① 재택근무자의 근무기간은 1년 이내로 한다.\n추출: 1년 이내",
+     '{"판정": "기간한도", "사건": "", "행동": "", "대상": "재택근무 근무기간"}'),
+    ("원문: 1. 임신기간이 15주 이내인 경우 : 유산 또는 사산한 날부터 10일까지\n추출: 15주 이내",
+     '{"판정": "기한아님", "사건": "", "행동": "", "대상": ""}'),
+    ("원문: ①징계처분을 받은 자는 징계통보를 받은 후 15일 이내에 [별지 제5호 서식]에 따른 재심을 청구할 수 있다\n추출: 15일 이내",
+     '{"판정": "마감", "사건": "징계통보를 받은 후", "행동": "재심 청구", "대상": ""}'),
+]
+
+
+def reassess(원문: str, 추출: str) -> dict:
+    msgs = [{"role": "system", "content": REASSESS}]
+    for u, a in REASSESS_FEWSHOT:
+        msgs += [{"role": "user", "content": u}, {"role": "assistant", "content": a}]
+    msgs.append({"role": "user", "content": f"원문: {원문}\n추출: {추출}"})
+    body = json.dumps({"model": MODEL, "messages": msgs, "temperature": 0, "max_tokens": 140,
+                       "reasoning_effort": "none"}).encode()
+    req = urllib.request.Request(f"{BASE}/chat/completions", data=body,
+                                 headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=120) as r:
+        c = json.load(r)["choices"][0]["message"]["content"]
+    m = re.search(r"\{.*\}", c, re.S)
+    return json.loads(m.group(0)) if m else {}
+
 
 def ask(원문: str, 기한: str) -> dict:
     msgs = [{"role": "system", "content": SYSTEM}]
@@ -84,6 +122,8 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=0, help="앞 N건만(시험용)")
     ap.add_argument("--force", action="store_true", help="기존 라벨도 재생성")
+    ap.add_argument("--reassess", action="store_true",
+                    help="2차 패스: 1차 폐기(빈 라벨) 항목만 재판정(마감|기간한도|기한아님 + 대상)")
     args = ap.parse_args()
 
     data = json.loads(SRC.read_text(encoding="utf-8"))
@@ -95,10 +135,41 @@ def main() -> int:
     done = skip = fail = 0
     for i, (reg, e) in enumerate(items):
         k = key_of(reg, e)
+        기한 = f"{e['n']}{e['unit']} {'전까지' if e['dir'] == '전' else '이내'}"
+        if args.reassess:
+            # 폐기분(빈 dict)만 재판정 — 유효 라벨·이미 판정된 항목은 유지
+            if labels.get(k):
+                skip += 1
+                continue
+            try:
+                r = reassess(e["원문"], f"{e['n']}{e['unit']} {e['dir']}")
+                판정 = str(r.get("판정", "")).strip()
+                if 판정 == "기한아님":
+                    labels[k] = {"판정": "기한아님"}
+                    done += 1
+                elif 판정 in ("마감", "기간한도"):
+                    lab = validate({"사건": r.get("사건", ""), "행동": r.get("행동", "")}, e["원문"]) or {}
+                    대상 = re.sub(r"\s+", " ", str(r.get("대상", ""))).strip()[:18]
+                    # 대상 숫자 게이트(사건·행동과 동일)
+                    if any(t not in e["원문"].replace(" ", "") for t in re.findall(r"\d+", 대상)):
+                        대상 = ""
+                    ent = {"판정": 판정, **lab}
+                    if 대상:
+                        ent["대상"] = 대상
+                    if lab or 대상:
+                        labels[k] = ent
+                        done += 1
+                    else:
+                        fail += 1  # 판정만 있고 쓸 라벨이 없으면 유지(폴백)
+                else:
+                    fail += 1
+            except Exception as ex:  # noqa: BLE001
+                print(f"  ⚠ [{i}] {reg} {e['조']}: {ex}", file=sys.stderr)
+                fail += 1
+            continue
         if k in labels and labels[k]:
             skip += 1
             continue
-        기한 = f"{e['n']}{e['unit']} {'전까지' if e['dir'] == '전' else '이내'}"
         try:
             lab = validate(ask(e["원문"], 기한), e["원문"])
         except Exception as ex:  # noqa: BLE001
@@ -115,7 +186,8 @@ def main() -> int:
             print(f"  … {i + 1}/{len(items)} (신규 {done} · 폐기 {fail} · 기존 {skip})")
     OUT.write_text(json.dumps(labels, ensure_ascii=False, indent=1), encoding="utf-8")
     ok = sum(1 for v in labels.values() if v)
-    print(f"\n라벨 {ok}/{len(labels)} 유효 (이번 실행: 신규 {done} · 폐기 {fail} · 기존유지 {skip}) → {OUT}")
+    excl = sum(1 for v in labels.values() if v.get("판정") == "기한아님")
+    print(f"\n라벨 {ok}/{len(labels)} 유효 · 기한아님 {excl} (이번 실행: 처리 {done} · 실패/유지 {fail} · 스킵 {skip}) → {OUT}")
     print("다음: web 재빌드(정적이라 빌드타임 반영) — 검수상태는 '자동(미검수)'")
     return 0
 

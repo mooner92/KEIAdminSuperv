@@ -474,6 +474,7 @@ export type DeadlineEntry = {
   원문: string;          // 검증용 규정 원문 문장(그대로)
   라벨사건?: string;     // 01m2 자동 라벨(Qwen, 검증 게이트 통과분) — 표시용, 검수 전. 없으면 anchor 폴백
   라벨행동?: string;     // 〃 기한 내 해야 할 일
+  라벨대상?: string;     // 기간한도용 — 무엇의 기간인지(예: "재택근무 근무기간")
 };
 
 export function loadDeadlines(): DeadlineEntry[] {
@@ -485,7 +486,7 @@ export function loadDeadlines(): DeadlineEntry[] {
     return [];
   }
   // 01m2 자동 라벨(있으면) — 파편 anchor를 사람이 읽을 사건·행동으로. 없어도 안전(anchor 폴백)
-  let labels: Record<string, { 사건?: string; 행동?: string }> = {};
+  let labels: Record<string, { 사건?: string; 행동?: string; 대상?: string; 판정?: string }> = {};
   try {
     labels = JSON.parse(fs.readFileSync(
       path.resolve(process.cwd(), "..", "tools", "index", "deadline_labels.json"), "utf-8"));
@@ -504,6 +505,8 @@ export function loadDeadlines(): DeadlineEntry[] {
       // 01m2 라벨 키와 동기(규정명|조|N단위방향|원문 40자)
       const lk = `${규정명}|${e.조}|${e.n}${e.unit}${e.dir}|${String(e.원문 || "").slice(0, 40)}`;
       const lab = labels[lk] || {};
+      // 01m2 재판정 '기한아님' = 01m 오추출(정의·빈도한도·조건) — 표시 제외(원본 json 불변)
+      if (lab.판정 === "기한아님") continue;
       out.push({
         규정명,
         slug: titleToSlug.get(규정명) ?? null,
@@ -518,6 +521,9 @@ export function loadDeadlines(): DeadlineEntry[] {
         원문: String(e.원문 || ""),
         라벨사건: lab.사건 || "",
         라벨행동: lab.행동 || "",
+        라벨대상: lab.대상 || "",
+        // 재판정이 기간한도로 정정한 항목은 type도 표시용으로 정정(원본 불변)
+        ...(lab.판정 === "기간한도" ? { type: "기간한도" } : {}),
       });
     }
   }

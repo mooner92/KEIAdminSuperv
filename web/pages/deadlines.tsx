@@ -45,6 +45,7 @@ export default function DeadlinesPage({ deadlines }: { deadlines: DeadlineEntry[
         norm(e.anchor).includes(t) ||
         norm(e.라벨사건 || "").includes(t) ||
         norm(e.라벨행동 || "").includes(t) ||
+        norm(e.라벨대상 || "").includes(t) ||
         norm(e.의무).includes(t) ||
         norm(e.규정명).includes(t) ||
         norm(e.원문).includes(t)
