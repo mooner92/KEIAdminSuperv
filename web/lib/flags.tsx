@@ -23,6 +23,7 @@ export const FLAG_DEFAULTS: Record<string, boolean> = {
   deadlines_hub: false, // docs/57: 기한 사전 /deadlines(전 규정 상대기한 역방향 브라우저+계산·.ics) (release, 만료 2026-12-31)
   reader_glass: false, // docs/59: 리퀴드글라스 돋보기(문서 읽을 때 커서 확대 + SVG 굴절 rim) (release, 만료 2026-12-31)
   quality_board: false, // docs/58: 품질 게시판 /quality(일일 자가평가 정답률·약점지도·문항열람) (release, 만료 2026-12-31)
+  faq_bridge: false, // docs/58 §6: FAQ 브리지 /admin 탭(검색실패 오답 후보 → 사람 승인 편입) (release, 만료 2026-12-31)
   help_hub: false, // docs/31: 도움말 허브(잘 묻는 법·FAQ·푸터 FAQ 링크) (release, 만료 2026-12-31)
   source_type_badges: false, // 근거 패널 출처 성격 배지 📜규정(공식)/📘가이드(참고) 구분 (release 플래그, 만료 2026-08-15)
   content_search: false, // 둘러보기 검색 범위 선택(제목·번호·분류·내용) + 원문 내용 전문검색 (release 플래그, 만료 2026-08-31)

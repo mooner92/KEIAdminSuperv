@@ -8,3 +8,4 @@ export { default as AdminReports } from "./AdminReports";
 export { default as AdminUsage } from "./AdminUsage";
 export { default as AdminUsers } from "./AdminUsers";
 export { default as AdminFlags } from "./AdminFlags";
+export { default as AdminFaqBridge } from "./AdminFaqBridge";
