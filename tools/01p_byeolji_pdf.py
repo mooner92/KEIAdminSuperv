@@ -37,19 +37,31 @@ HERE = pathlib.Path(__file__).resolve().parent
 FONT_FIX = os.environ.get("BYEOLJI_FONT_FIX", "1") != "0"
 
 
+def _fc_has(family: str) -> bool:
+    """설치 여부 — 전체 fc-list에서 패밀리명 부분 문자열 탐색(정확 인자 매칭은 'HYSinMyeongJo-Medium'
+    처럼 스타일 접미사가 붙은 패밀리를 놓친다). LibreOffice 치환은 퍼지라 접미사 없어도 해석됨."""
+    try:
+        out = subprocess.run(["fc-list"], capture_output=True, text=True, timeout=10).stdout
+        return family in out
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def _resolve_font_targets() -> tuple:
-    """(세리프, 고딕, 줄간격 계수) — env 강제 > 함초롬 설치 시 함초롬 > 나눔 폴백."""
+    """(세리프, 고딕, 줄간격 계수) — env 강제 > 한양신명조(규정 실서체) > 함초롬 > 나눔 폴백.
+    **한양신명조(HY신명조)는 HWP 규정 본문 실서체** — 설치 시 최고 충실도(2026-07-22 한컴 PC서 확보).
+    메트릭이 함초롬과 근접해 줄간격 계수 동일(1/1.30=0.769; 6540 별지 A/B 페이지 결과 동일 확인).
+    고딕(라벨·제목)은 함초롬돋움 유지(HY 고딕 미확보)."""
     s = os.environ.get("BYEOLJI_FONT_SERIF", "")
     g = os.environ.get("BYEOLJI_FONT_GOTHIC", "")
     f = os.environ.get("BYEOLJI_LH_FACTOR", "")
     if not s:
-        try:
-            has_hcr = bool(subprocess.run(["fc-list", "HCR Batang"], capture_output=True,
-                                          text=True, timeout=10).stdout.strip())
-        except Exception:  # noqa: BLE001
-            has_hcr = False
-        s, g, auto = ("HCR Batang", "HCR Dotum", 1 / 1.30) if has_hcr \
-            else ("NanumMyeongjo", "NanumGothic", 1 / 1.15)
+        if _fc_has("HYSinMyeongJo"):
+            s, g, auto = ("HYSinMyeongJo", "HCR Dotum" if _fc_has("HCR Dotum") else "NanumGothic", 1 / 1.30)
+        elif _fc_has("HCR Batang"):
+            s, g, auto = ("HCR Batang", "HCR Dotum", 1 / 1.30)
+        else:
+            s, g, auto = ("NanumMyeongjo", "NanumGothic", 1 / 1.15)
     else:
         g = g or "NanumGothic"
         auto = 1 / 1.15
@@ -61,8 +73,8 @@ GOTHIC_PAT = re.compile(r"고딕|돋움|굴림|디나루|시스템|엑스포|헤
 KOREAN_PAT = re.compile(r"[가-힣]|CJK|Batang|Myeongjo|Myungjo|Dotum|Gulim|Malgun|Gungsuh|Haeso|\bHY", re.I)
 # 함초롬 계열 pass-through는 HCR이 실제 설치된 경우에만 — 미설치 서버에서 keep하면 Noto 폴백 재발
 KEEP_PAT = re.compile(
-    r"^(NanumMyeongjo|NanumGothic|HCR Batang|HCR Dotum|함초롬바탕|함초롬돋움)$"
-    if SERIF_TARGET == "HCR Batang" else r"^(NanumMyeongjo|NanumGothic)$")
+    r"^(NanumMyeongjo|NanumGothic|HCR Batang|HCR Dotum|함초롬바탕|함초롬돋움|HYSinMyeongJo|HY신명조)$"
+    if SERIF_TARGET in ("HCR Batang", "HYSinMyeongJo") else r"^(NanumMyeongjo|NanumGothic)$")
 LABEL = re.compile(r"[\[〔［(]?\s*별\s*지\s*(제?\s*\d+(?:-\d+)?\s*호(?:의\s*\d+)?)?\s*(?:서\s*식)?\s*[\]〕］)]?")
 # 줄 시작이 괄호+별지 라벨(호 생략·'10-A' 영문 가지번호 허용) — 개정이력 꼬리가 붙은 실서식 라벨용
 LABEL_ANCHOR = re.compile(
