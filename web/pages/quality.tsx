@@ -29,6 +29,7 @@ const VERDICT: Record<string, { icon: string; cls: string; label: string }> = {
   오답: { icon: "❌", cls: "vBad", label: "오답" },
   검토필요: { icon: "🔍", cls: "vRev", label: "검토필요" },
   판정불가: { icon: "—", cls: "vNa", label: "판정불가" },
+  폐기: { icon: "🗑", cls: "vNa", label: "출제 폐기" },
 };
 const CAUSE: Record<string, string> = {
   검색실패: "🔎 검색 실패", 생성환각: "🌀 생성 환각", 원문결함: "📄 원문 결함", 채점오류: "⚖ 채점 오류",

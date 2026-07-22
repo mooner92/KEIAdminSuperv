@@ -22,10 +22,11 @@ from daily_common import (BANK, DAILY_DIR, NEW_N, REG_N, REFUSAL_SEEDS, SECTION_
 GEN_SYS = (
     "너는 사내 규정 챗봇의 품질을 검사할 '시험 문항' 출제자다. 규정/가이드 원문 일부가 주어진다.\n"
     "그 원문만으로 답할 수 있는 실무형 질문 1개를 만들어 다음 JSON만 출력하라:\n"
-    '{"질문": "<신입 직원이 물을 법한 자연스러운 한 문장>", "정답요지": "<원문 근거 한 줄(원문 표현 유지)>"}\n'
+    '{"질문": "<신입 직원이 물을 법한 자연스러운 한 문장>", "근거문장": "<질문의 정답이 담긴 원문 한 문장을 글자 그대로 복사>"}\n'
     "규칙: ① 원문에 없는 내용을 묻지 마라 ② 질문에 답(수치·결론)을 넣지 마라 "
     "③ 유형 지시를 따르라 — 값형=금액·일수·기한·비율을 묻기 / 절차형=절차·서식·방법 / 조건형=자격·조건·범위 "
-    "④ 원문이 해당 유형 질문을 만들기 부적합하면 {\"질문\": \"\"} 출력."
+    "④ 근거문장은 반드시 원문에서 그대로 복사(요약·의역 금지) — 그 한 문장만 봐도 채점이 되게 "
+    "⑤ 정답이 한 문장으로 명확히 존재하지 않으면(모호하면) {\"질문\": \"\"} 출력 — 모호한 출제 금지."
 )
 
 
@@ -43,12 +44,21 @@ def gen_one(doc: str, meta: dict, qtype: str) -> dict | None:
     for tok in re.findall(r"\d+", q):
         if tok not in src:
             return None
-    # 게이트: 자문자답 — 정답요지 핵심 값이 질문에 그대로 들어가면 폐기
-    gist = str(r.get("정답요지", ""))
-    for v in re.findall(r"\d[\d,]*\s*(?:원|만원|일|개월|년|주|%|퍼센트)", gist):
+    # 골든(근거문장) 게이트: 원문에 실존해야(정규화 2-그램 겹침 80%↑ — 공백차만 허용).
+    # 골든을 못 뽑으면 문항 폐기 = 모호한 출제 원천 차단(검토필요 과다의 근본 원인).
+    golden = re.sub(r"\s+", " ", str(r.get("근거문장", ""))).strip()
+    ng = norm_q(golden)
+    if len(ng) < 10:
+        return None
+    src_n = norm_q(doc)
+    gg = {ng[i:i + 2] for i in range(len(ng) - 1)}
+    if sum(1 for g in gg if g in src_n) / max(1, len(gg)) < 0.8:
+        return None
+    # 게이트: 자문자답 — 골든 핵심 값이 질문에 그대로 들어가면 폐기
+    for v in re.findall(r"\d[\d,]*\s*(?:원|만원|일|개월|년|주|%|퍼센트)", golden):
         if norm_q(v) in norm_q(q):
             return None
-    return {"질문": q}
+    return {"질문": q, "골든": golden}
 
 
 def gen_refusal(seed: str, bank_grams: list) -> dict | None:
@@ -71,8 +81,45 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--date", default=datetime.date.today().isoformat())
     ap.add_argument("--total", type=int, default=0, help="이번 실행 총 문항(기본 env TOTAL)")
+    ap.add_argument("--golden-backfill", action="store_true",
+                    help="기존 은행 문항에 골든문장 소급 추출(없는 것만) — 신 채점 로직 적용용")
     args = ap.parse_args()
     DAILY_DIR.mkdir(exist_ok=True)
+
+    if args.golden_backfill:
+        bank = load_bank()
+        col = chroma_col()
+        done = fail = skip = 0
+        for b in bank:
+            if b.get("골든") or not b.get("출처") or b.get("상태") == "retire":
+                skip += 1
+                continue
+            try:
+                r = col.get(ids=[b["출처"]["청크id"]], include=["documents"])
+                doc = r["documents"][0] if r["documents"] else ""
+                if not doc:
+                    fail += 1
+                    continue
+                g = llm_json([
+                    {"role": "system", "content":
+                     '규정 원문과 질문이 주어진다. 질문의 정답이 담긴 원문 한 문장을 글자 그대로 복사해 '
+                     '{"근거문장": "..."} JSON만 출력하라. 명확한 한 문장이 없으면 빈 문자열.'},
+                    {"role": "user", "content": f"질문: {b['질문']}\n원문:\n{doc[:1600]}"},
+                ], max_tokens=180)
+                golden = re.sub(r"\s+", " ", str(g.get("근거문장", ""))).strip()
+                ng = norm_q(golden)
+                gg = {ng[i:i + 2] for i in range(len(ng) - 1)}
+                if len(ng) >= 10 and sum(1 for x in gg if x in norm_q(doc)) / max(1, len(gg)) >= 0.8:
+                    b["골든"] = golden
+                    done += 1
+                else:
+                    fail += 1  # 골든 못 뽑음 = 모호 후보(폐기는 채점 재심이 판단)
+            except Exception as ex:  # noqa: BLE001
+                print(f"  ⚠ {b['id']}: {ex}", file=sys.stderr)
+                fail += 1
+        save_bank(bank)
+        print(f"골든 백필: 성공 {done} · 실패 {fail} · 스킵 {skip}")
+        return 0
 
     bank = load_bank()
     by_hash = {b["hash"]: b for b in bank if "hash" in b}
@@ -84,7 +131,7 @@ def main() -> int:
 
     # ── 회귀 선별: 오답 open 전건 → 부족분은 기존 문항 무작위 재검 ──
     regression = [b for b in bank if b.get("상태") == "open"][:reg_n]
-    pool = [b for b in bank if b.get("상태") != "open"]
+    pool = [b for b in bank if b.get("상태") not in ("open", "retire")]  # retire=모호 출제 폐기(재출제 금지)
     random.shuffle(pool)
     regression += pool[: max(0, reg_n - len(regression))]
 
@@ -141,6 +188,7 @@ def main() -> int:
             "유형": qtype, "정량여부": qtype == "값형",
             "출처": {"규정명": meta.get("규정명", ""), "조": meta.get("조", ""), "청크id": cid},
             "분류": meta.get("분류", ""), "주제": topics_of(meta.get("규정명", "") + doc[:300]),
+            "골든": g.get("골든", ""),
             "생성일": args.date, "상태": "active", "판정이력": [],
         }
         new_items.append({**item, "섹션": meta.get("type", "regulation")})
