@@ -16,7 +16,7 @@ type Stat = { 정답?: number; 표본?: number; 정답률?: number | null };
 type Item = {
   id: string; 질문: string; 유형: string; 정량여부?: boolean; 주제?: string[]; 분류?: string;
   판정: string; 증거?: string; 원인?: string | null; 답변?: string; 근거문장?: string;
-  출처?: { 규정명: string; 조: string } | null; 회귀?: boolean;
+  출처?: { 규정명: string; 조: string; slug?: string } | null; 회귀?: boolean;
 };
 type Daily = {
   date: string; 정답률: number; 집계: Record<string, number>;
@@ -203,7 +203,9 @@ export default function QualityPage() {
                             <div className={q.dFoot}>
                               {it.원인 ? <span className={q.causeChip}>{CAUSE[it.원인] || it.원인}</span> : null}
                               {it.출처?.규정명 ? (
-                                <Link className={q.srcLink} href={`/d/${encodeURIComponent(it.출처.규정명)}/${it.출처.조 ? `#${encodeURIComponent(it.출처.조)}` : ""}`}>
+                                // 링크 slug = 볼트 파일명 stem(번호 프리픽스 포함). 규정명만 쓰면
+                                // 번호 있는 규정이 404 — 발행 시 심은 출처.slug 우선, 폴백은 규정명.
+                                <Link className={q.srcLink} href={`/d/${encodeURIComponent(it.출처.slug || it.출처.규정명)}/${it.출처.조 ? `#${encodeURIComponent(it.출처.조)}` : ""}`}>
                                   📄 {it.출처.규정명} {it.출처.조} →
                                 </Link>
                               ) : null}
