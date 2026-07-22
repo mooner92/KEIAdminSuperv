@@ -1,11 +1,13 @@
 import type { GetStaticPaths, GetStaticProps } from "next";
 import Head from "next/head";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { SITE_NAME } from "../../lib/site";
 import Link from "next/link";
 import Layout from "../../components/Layout";
 import Markdown from "../../components/common/Markdown";
+import ReaderGlass from "../../components/reader/ReaderGlass";
+import ReaderGlassToggle from "../../components/reader/ReaderGlassToggle";
 import { getAllDocs, getDoc, getBacklinks, type Doc, type DocMeta } from "../../lib/vault";
 import styles from "../../styles/Doc.module.css";
 
@@ -49,6 +51,8 @@ const SECTION_LABEL: Record<string, string> = {
 };
 
 export default function DocPage({ doc, backlinks }: { doc: Doc; backlinks: DocMeta[] }) {
+  const articleRef = useRef<HTMLElement>(null);
+  const [glass, setGlass] = useState(false);
   return (
     <Layout
       breadcrumb={
@@ -66,7 +70,9 @@ export default function DocPage({ doc, backlinks }: { doc: Doc; backlinks: DocMe
         <meta name="robots" content="noindex, nofollow" />
       </Head>
 
-      <article className={styles.article}>
+      <ReaderGlassToggle on={glass} onToggle={() => setGlass((v) => !v)} />
+      {glass ? <ReaderGlass targetRef={articleRef} onClose={() => setGlass(false)} /> : null}
+      <article ref={articleRef} className={styles.article}>
         <header className={styles.head}>
           <div className={styles.tags}>
             <span className={styles.chip} data-section={doc.section}>

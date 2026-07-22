@@ -22,21 +22,23 @@
 }
 .table th { font-weight: 700; color: var(--color-text-secondary); white-space: nowrap; }
 .name { font-weight: 600; }
-/* 미리보기 분량 배지 — '한 장'(차분한 긍정) vs 'N장'(주의). 밀집 표라 솔리드 대신 텍스트+테두리 */
+/* 미리보기 분량 배지 'N.p' — 차분한 모노톤(색 튐 방지, 2026-07-22 사용자 피드백).
+   1쪽=아주 옅게, 다쪽=한 단계만 진하게(숫자로 구분 — 색 없이) */
 .pages {
   display: inline-block;
   margin-left: 6px;
-  padding: 1px 7px;
-  border-radius: 999px;
-  font-size: 11px;
+  padding: 0 6px;
+  border-radius: 6px;
+  font-size: 10.5px;
   font-weight: 700;
-  line-height: 1.5;
+  line-height: 1.7;
   white-space: nowrap;
   vertical-align: middle;
-  border: 1px solid transparent;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid var(--color-border);
 }
-.pages1 { color: var(--color-success); border-color: var(--color-success); }
-.pagesN { color: var(--color-warning); border-color: var(--color-warning); }
+.pages1 { color: var(--color-text-tertiary); }
+.pagesN { color: var(--color-text-secondary); background: var(--color-bg-subtle); }
 .no { white-space: nowrap; color: var(--color-text-secondary); }
 .go { color: var(--color-primary); font-weight: 600; white-space: nowrap; }
 .go:hover { text-decoration: underline; }

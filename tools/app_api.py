@@ -307,6 +307,14 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-12-31",
     },
+    "reader_glass": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "리퀴드글라스 돋보기(docs/59) — 문서(조문·규정 본문)를 읽을 때 커서 위치를 확대하는 유리 "
+                       "렌즈. 확대는 DOM 복제+scale(전 브라우저), 가장자리 굴절은 SVG feDisplacementMap "
+                       "backdrop-filter(Chrome, 미지원 시 CSS 글라스로 폴백). 조밀한 규정 본문 가독 보조.",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
     "help_hub": {
         "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
         "description": "도움말 허브(docs/31) — 앵커 목차 + '잘 묻는 법' + FAQ 아코디언(기본 접힘) + "

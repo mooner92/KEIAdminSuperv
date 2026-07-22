@@ -163,7 +163,7 @@ export default function FormsPage({ forms }: { forms: FormEntry[] }) {
                         <span
                           className={`${f.pages} ${e.쪽수 === 1 ? f.pages1 : f.pagesN}`}
                           title={e.쪽수 === 1 ? "미리보기 PDF가 한 장에 담겨요" : `미리보기 PDF ${e.쪽수}장`}>
-                          {e.쪽수 === 1 ? "한 장" : `${e.쪽수}장`}
+                          {e.쪽수}.p
                         </span>
                       ) : null}
                     </td>
