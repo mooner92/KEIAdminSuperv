@@ -12,14 +12,19 @@ export default function DeadlineBrowseRow({ e }: { e: DeadlineEntry }) {
   const result = base && canCalc ? addOffset(new Date(base + "T00:00:00"), e.n, e.unit, e.dir) : null;
   const src = `${e.규정명}${e.regNo ? ` (규정번호 ${e.regNo})` : ""} ${e.조}`;
   const summary = `[마감] ${e.의무 || "처리"} — ${e.규정명} ${e.조}`;
+  // 제목 = 자동 라벨(01m2, 검증 게이트 통과) 우선 → 원시 anchor 폴백. 행동 라벨은 의무 대신/보강.
+  const title = e.라벨사건 || e.anchor || "기준일";
+  const duty = e.라벨행동 || e.의무;
   return (
     <li className={d.row}>
       <div className={d.head}>
-        <span className={d.anchor}>{e.anchor || "기준일"}</span>
+        <span className={d.anchor} title={e.라벨사건 ? "자동 생성 라벨(검수 전) — 원문으로 확인하세요" : undefined}>
+          {title}
+        </span>
         <b className={d.offset}>
           {e.n}{e.unit} {e.dir === "전" ? "전까지" : "이내"}
         </b>
-        {e.의무 ? <span className={d.duty}>{e.의무}</span> : null}
+        {duty ? <span className={d.duty}>{duty}</span> : null}
         {e.type === "기간한도" ? <span className={d.tag}>기간 한도</span> : null}
       </div>
       <div className={d.regLine}>

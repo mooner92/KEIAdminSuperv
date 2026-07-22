@@ -472,6 +472,8 @@ export type DeadlineEntry = {
   dir: string;           // 이내 | 전
   type: string;          // 마감 | 기간한도
   원문: string;          // 검증용 규정 원문 문장(그대로)
+  라벨사건?: string;     // 01m2 자동 라벨(Qwen, 검증 게이트 통과분) — 표시용, 검수 전. 없으면 anchor 폴백
+  라벨행동?: string;     // 〃 기한 내 해야 할 일
 };
 
 export function loadDeadlines(): DeadlineEntry[] {
@@ -482,6 +484,12 @@ export function loadDeadlines(): DeadlineEntry[] {
   } catch {
     return [];
   }
+  // 01m2 자동 라벨(있으면) — 파편 anchor를 사람이 읽을 사건·행동으로. 없어도 안전(anchor 폴백)
+  let labels: Record<string, { 사건?: string; 행동?: string }> = {};
+  try {
+    labels = JSON.parse(fs.readFileSync(
+      path.resolve(process.cwd(), "..", "tools", "index", "deadline_labels.json"), "utf-8"));
+  } catch { /* 라벨 파일 없음 — 폴백 */ }
   const titleToSlug = new Map<string, string>();
   const titleToNo = new Map<string, string>();
   for (const d of getAllDocs()) {
@@ -493,6 +501,9 @@ export function loadDeadlines(): DeadlineEntry[] {
   const out: DeadlineEntry[] = [];
   for (const [규정명, list] of Object.entries(raw.deadlines || {})) {
     for (const e of (list || []) as Record<string, unknown>[]) {
+      // 01m2 라벨 키와 동기(규정명|조|N단위방향|원문 40자)
+      const lk = `${규정명}|${e.조}|${e.n}${e.unit}${e.dir}|${String(e.원문 || "").slice(0, 40)}`;
+      const lab = labels[lk] || {};
       out.push({
         규정명,
         slug: titleToSlug.get(규정명) ?? null,
@@ -505,6 +516,8 @@ export function loadDeadlines(): DeadlineEntry[] {
         dir: String(e.dir || ""),
         type: String(e.type || ""),
         원문: String(e.원문 || ""),
+        라벨사건: lab.사건 || "",
+        라벨행동: lab.행동 || "",
       });
     }
   }

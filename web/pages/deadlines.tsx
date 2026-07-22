@@ -43,6 +43,8 @@ export default function DeadlinesPage({ deadlines }: { deadlines: DeadlineEntry[
       if (!t) return true;
       return (
         norm(e.anchor).includes(t) ||
+        norm(e.라벨사건 || "").includes(t) ||
+        norm(e.라벨행동 || "").includes(t) ||
         norm(e.의무).includes(t) ||
         norm(e.규정명).includes(t) ||
         norm(e.원문).includes(t)
@@ -163,8 +165,9 @@ export default function DeadlinesPage({ deadlines }: { deadlines: DeadlineEntry[
             </ul>
           )}
           <p className={f.note}>
-            ※ 기한·오프셋은 규정 원문에서 추출한 값이며(자동, 검수 전일 수 있음), 마감일은 기준일 ± 기간의
-            단순 계산입니다. 공휴일·기산일 규칙 등은 원문과 담당 부서 안내를 함께 확인하세요.
+            ※ 기한·오프셋은 규정 원문에서 추출한 값이고, 제목·할 일 라벨은 원문 문장에서 자동 생성한
+            요약입니다(모두 검수 전 — 원문 문장을 항상 함께 표시). 마감일은 기준일 ± 기간의 단순
+            계산입니다. 공휴일·기산일 규칙 등은 원문과 담당 부서 안내를 함께 확인하세요.
           </p>
         </div>
       </div>
