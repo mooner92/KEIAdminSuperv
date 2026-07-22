@@ -95,12 +95,12 @@
   padding: 12px 14px; display: flex; flex-direction: column; gap: 6px;
 }
 .head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.anchor { font-size: 14px; font-weight: 700; color: var(--color-text); }
+.titleMain { font-size: 15px; font-weight: 800; color: var(--color-text); }
+.when { font-size: 13px; color: var(--color-text-secondary); }
 .offset {
   font-size: 13px; font-weight: 800; color: var(--color-primary);
   background: var(--color-bg-subtle); border-radius: 6px; padding: 1px 8px;
 }
-.duty { font-size: 11.5px; font-weight: 700; color: var(--color-text-secondary); border: 1px solid var(--color-border); border-radius: 999px; padding: 1px 8px; }
 .tag { font-size: 11px; font-weight: 700; color: var(--color-warning); border: 1px solid var(--color-warning); border-radius: 999px; padding: 1px 7px; }
 .regLine { font-size: 12.5px; }
 .regLink { color: var(--color-primary); font-weight: 700; }

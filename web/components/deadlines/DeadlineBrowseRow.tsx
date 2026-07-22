@@ -4,33 +4,33 @@ import { addOffset, downloadIcs, ko } from "../DeadlineCalc";
 import type { DeadlineEntry } from "../../lib/vault";
 import d from "../../styles/Deadlines.module.css";
 
-// 기한 사전(docs/57) 브라우즈 행 — 드로어 DeadlineCalc.Row와 달리 '규정명 링크'를 함께 노출(교차규정).
+// 기한 사전(docs/57) 브라우즈 행. 정보 순서(사용자 확정): **① 뭘 하는 기한인지(행동)가 제목**
+// → ② 언제부터 얼마 이내인지(사건+오프셋) → ③ 근거 규정·원문 → ④ 계산기.
 // 계산은 DeadlineCalc의 순수 산술 헬퍼 재사용(DRY). ⛔ 절대 규칙1: 오프셋·원문 불변, 마감일=산술.
-// 기간한도(지속기간 상한)도 계산 지원 — 시작일 입력 → '최대 언제까지'(같은 산술, 의미만 다름).
 export default function DeadlineBrowseRow({ e }: { e: DeadlineEntry }) {
   const [base, setBase] = useState("");
   const isCap = e.type === "기간한도";
-  const canCalc = e.n > 0 && !!e.unit; // 마감(기준일→마감)·기간한도(시작일→최대종료) 모두 산술 가능
+  const canCalc = e.n > 0 && !!e.unit;
   const result = base && canCalc ? addOffset(new Date(base + "T00:00:00"), e.n, e.unit, e.dir) : null;
   const src = `${e.규정명}${e.regNo ? ` (규정번호 ${e.regNo})` : ""} ${e.조}`;
-  const summary = isCap
-    ? `[기간한도] ${e.라벨대상 || e.의무 || "기간"} — ${e.규정명} ${e.조}`
-    : `[마감] ${e.라벨행동 || e.의무 || "처리"} — ${e.규정명} ${e.조}`;
-  // 제목 우선순위: 자동 라벨(사건) → 기간한도의 대상 → 원시 anchor → 조 폴백("기준일" 단독 금지)
-  const title = e.라벨사건 || (isCap ? e.라벨대상 : "") || e.anchor || `${e.조}의 기한`;
-  const duty = e.라벨행동 || e.의무;
+  // 제목 = 뭘 하는 기한인지: 행동(강화 라벨) → 기간한도 대상 → 사건 → 조 폴백
+  const title = e.라벨행동 || e.의무 || (isCap ? e.라벨대상 : "") || e.라벨사건 || e.anchor || `${e.조}의 기한`;
+  // 부제 = 언제부터: 사건(제목과 중복이면 생략)
+  const when = (e.라벨사건 || e.anchor || (isCap ? "시작일부터" : "기준일부터"));
+  const showWhen = when && when !== title;
+  const summary = isCap ? `[기간한도] ${title} — ${e.규정명} ${e.조}` : `[마감] ${title} — ${e.규정명} ${e.조}`;
+  const auto = !!(e.라벨행동 || e.라벨사건 || e.라벨대상);
   return (
     <li className={d.row}>
       <div className={d.head}>
-        <span className={d.anchor}
-          title={e.라벨사건 || e.라벨대상 ? "자동 생성 라벨(검수 전) — 원문으로 확인하세요" : undefined}>
+        <span className={d.titleMain} title={auto ? "자동 생성 라벨(검수 전) — 원문으로 확인하세요" : undefined}>
           {title}
         </span>
-        <b className={d.offset}>
-          {e.n}{e.unit} {e.dir === "전" ? "전까지" : "이내"}
-        </b>
-        {duty && duty !== title ? <span className={d.duty}>{duty}</span> : null}
         {isCap ? <span className={d.tag}>기간 한도</span> : null}
+      </div>
+      <div className={d.when}>
+        ⏱ {showWhen ? <>{when} </> : null}
+        <b className={d.offset}>{e.n}{e.unit} {e.dir === "전" ? "전까지" : "이내"}</b>
       </div>
       <div className={d.regLine}>
         {e.slug ? (

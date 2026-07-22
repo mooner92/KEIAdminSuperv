@@ -33,18 +33,20 @@ MODEL = os.environ.get("LLM_MODEL", "hf.co/unsloth/Qwen3.5-9B-GGUF:Q4_K_M")
 SYSTEM = (
     "너는 사내 규정 기한의 '표시 라벨'을 만드는 도우미다. 규정 원문 문장 하나와 추출된 기한이 주어진다.\n"
     "원문 문장에 있는 정보만 사용해 다음 JSON만 출력하라(설명 금지):\n"
-    '{"사건": "<기한의 기준점(무엇이 있고 나서부터인지), 명사구, 28자 이내>", "행동": "<기한 내 해야 할 일, 명사형, 14자 이내>"}\n'
+    '{"사건": "<기한의 기준점(무엇이 있고 나서부터인지), 명사구, 28자 이내>", '
+    '"행동": "<기한 내 해야 할 일 — 목록 제목으로 쓸 것이므로 무엇을(필요시 누구에게) 포함해 구체적으로, 명사형, 18자 이내>"}\n'
     "규칙: ① 원문에 없는 내용·숫자·기간을 절대 만들지 마라 ② 기한 숫자(예: 5일, 2년)는 라벨에 넣지 마라 "
-    "③ 사건은 '~한 날/때/후' 같은 기준점을 사람이 읽게 완성하라(조사 파편 금지) ④ 확실하지 않으면 빈 문자열."
+    "③ 사건은 '~한 날/때/후' 같은 기준점을 사람이 읽게 완성하라(조사 파편 금지) "
+    "④ 행동만 봐도 무슨 일인지 알게 하라(예: '사항 통지'✗ → '정보주체에게 처리사항 통지'✓) ⑤ 확실하지 않으면 빈 문자열."
 )
 
 FEWSHOT = [
     ("원문: ② 제1항에 따른 저축 연차휴가는 최대 3년의 저축 가능기간이 종료된 후 2년 이내에 사용하지 않거나, 퇴직 시까지 미사용한 저축연차는 소멸\n기한: 2년 이내",
-     '{"사건": "저축 가능기간 종료 후", "행동": "저축연차 사용"}'),
+     '{"사건": "저축 가능기간 종료 후", "행동": "저축연차 사용(미사용 시 소멸)"}'),
     ("원문: 빙(진단서, 질병코드가 포함된 진료비 영수증, 검진기록 등)을 병가 종료일로부터 2주 이내에 제출하여야 하며, 특별한 사유없이 기한 내 제출하지 않\n기한: 2주 이내",
-     '{"사건": "병가 종료일로부터", "행동": "증빙서류 제출"}'),
+     '{"사건": "병가 종료일로부터", "행동": "병가 증빙서류 제출"}'),
     ("원문: 야 한다. ② 계약담당부서는 검사가 완료된 후 위탁기관의 청구를 받은 날부터 5일 이내에 대가를 지급하여야\n기한: 5일 이내",
-     '{"사건": "위탁기관의 청구를 받은 날부터", "행동": "대가 지급"}'),
+     '{"사건": "위탁기관의 청구를 받은 날부터", "행동": "위탁연구 대가 지급"}'),
 ]
 
 # 2차 패스(재판정) — 1차에서 폐기된 항목: '이 숫자+단위가 정말 기한인가'부터 분류.
@@ -104,7 +106,7 @@ def ask(원문: str, 기한: str) -> dict:
 def validate(label: dict, 원문: str) -> dict | None:
     사건 = re.sub(r"\s+", " ", str(label.get("사건", ""))).strip()
     행동 = re.sub(r"\s+", " ", str(label.get("행동", ""))).strip()
-    if not 사건 or len(사건) > 28 or len(행동) > 14:
+    if not 사건 or len(사건) > 28 or len(행동) > 20:
         return None
     # 환각 차단: 라벨의 숫자 토큰은 원문에 실제로 있어야(새 수치 생성 금지)
     src = 원문.replace(" ", "")
@@ -124,6 +126,8 @@ def main() -> int:
     ap.add_argument("--force", action="store_true", help="기존 라벨도 재생성")
     ap.add_argument("--reassess", action="store_true",
                     help="2차 패스: 1차 폐기(빈 라벨) 항목만 재판정(마감|기간한도|기한아님 + 대상)")
+    ap.add_argument("--retitle", action="store_true",
+                    help="3차 패스: 기존 유효 라벨의 행동을 '대상 포함' 강화 프롬프트로 재생성(판정·대상 보존)")
     args = ap.parse_args()
 
     data = json.loads(SRC.read_text(encoding="utf-8"))
@@ -136,6 +140,25 @@ def main() -> int:
     for i, (reg, e) in enumerate(items):
         k = key_of(reg, e)
         기한 = f"{e['n']}{e['unit']} {'전까지' if e['dir'] == '전' else '이내'}"
+        if args.retitle:
+            cur = labels.get(k, {})
+            if cur.get("판정") == "기한아님":
+                skip += 1
+                continue
+            try:
+                lab = validate(ask(e["원문"], 기한), e["원문"])
+            except Exception as ex:  # noqa: BLE001
+                print(f"  ⚠ [{i}] {reg} {e['조']}: {ex}", file=sys.stderr)
+                lab = None
+            if lab:
+                labels[k] = {**cur, **lab}  # 판정·대상 보존, 사건·행동 갱신
+                done += 1
+            else:
+                fail += 1  # 실패 시 기존 라벨 유지
+            if (done + fail) % 20 == 0:
+                OUT.write_text(json.dumps(labels, ensure_ascii=False, indent=1), encoding="utf-8")
+                print(f"  … {i + 1}/{len(items)} (갱신 {done} · 유지 {fail} · 스킵 {skip})")
+            continue
         if args.reassess:
             # 폐기분(빈 dict)만 재판정 — 유효 라벨·이미 판정된 항목은 유지
             if labels.get(k):
