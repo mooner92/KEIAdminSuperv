@@ -1341,7 +1341,8 @@ def corpus_upload_approve(uid: str, body: ApproveIn, admin: User = Depends(curre
         if raw_src and os.path.exists(raw_src):
             orig_dir = os.path.join(UPLOAD_DIR, "originals")
             os.makedirs(orig_dir, exist_ok=True)
-            shutil.copy2(raw_src, os.path.join(orig_dir, it["name"]))
+            # 보안: 클라이언트 제공 파일명은 basename으로 축약(../ 경로 이탈 방지)
+            shutil.copy2(raw_src, os.path.join(orig_dir, os.path.basename(it["name"])))
     except Exception as e_cp:  # noqa: BLE001
         print(f"⚠ 업로드 원본 보존 실패(별지 PDF 미생성 가능): {e_cp}")
     PENDING.pop(uid, None)

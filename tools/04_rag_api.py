@@ -31,7 +31,15 @@ from app_api import router as app_router
 
 MODEL_ID = os.environ.get("RAG_MODEL_ID", "kei-admin-rag")  # OpenAI 호환 모델 목록 이름
 
-app = FastAPI(title="KEI 행정 LLM (RAG + 채팅기록)")
+# 보안(prod 하드닝): 대화형 문서(/docs·/redoc·/openapi.json)는 기본 비활성 — 내부 API 표면 최소화.
+# dev에서 필요하면 APP_ENABLE_DOCS=1로 재노출(server.js 프록시 밖이라 직접 접근 시에만 의미).
+_docs_on = os.environ.get("APP_ENABLE_DOCS") == "1"
+app = FastAPI(
+    title="KEI 행정 LLM (RAG + 채팅기록)",
+    docs_url="/docs" if _docs_on else None,
+    redoc_url="/redoc" if _docs_on else None,
+    openapi_url="/openapi.json" if _docs_on else None,
+)
 # 내부망 전용. 정적 프론트(다른 포트)에서 직접 호출/디버깅 가능하도록 허용.
 # 운영은 server.js가 같은 오리진으로 프록시하므로 CORS에 의존하지 않는다.
 # ⛔ allow_credentials=True 를 절대 함께 켜지 말 것 — 와일드카드 오리진 + 자격증명이면
