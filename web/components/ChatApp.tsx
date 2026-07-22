@@ -721,16 +721,14 @@ export default function ChatApp({
                         🔄 다시 시도
                       </button>
                     ) : null}
-                    {/* 부서 문의 핸드오프 카드(docs/38 §A ★) — 거부 답변만. 거부가 막다른 길이 아니라
-                        다음 행동(담당 부서 문의)이 되도록 질문+참고 조문+기준일을 복사 한 번으로 준비 */}
+                    {/* 부서 문의 핸드오프(docs/38 §A ★) — 거부 답변만. 컴팩트 보조 줄(선택 옵션임을
+                        분명히 — 큰 박스는 '순차 단계'처럼 읽힘). 질문+참고 조문+기준일을 복사 한 번으로 준비 */}
                     {handoffOn && m.id > 0 && m.content && !isTruncated(m) && REFUSAL_UI_RE.test(m.content) ? (
                       <div className={styles.handoff}>
-                        <div className={styles.handoffTitle}>🤝 담당 부서에 물어볼 준비를 도와드릴게요</div>
-                        <div className={styles.handoffBody}>
-                          질문·함께 검색된 규정·규정집 기준일을 한 번에 복사해 메신저나 메일에 붙여넣으세요.
-                        </div>
-                        <button type="button" className={styles.handoffBtn} onClick={() => copyHandoff(m)}>
-                          {handoffCopied === m.id ? "✓ 복사됐어요 — 붙여넣기만 하면 돼요" : "📋 문의 내용 복사"}
+                        <span className={styles.handoffText}>🤝 규정 밖 내용이면 담당 부서에 문의해 보세요.</span>
+                        <button type="button" className={styles.handoffBtn} onClick={() => copyHandoff(m)}
+                          title="내 질문 + 함께 검색된 규정 + 규정집 기준일을 복사 — 메신저·메일에 붙여넣기">
+                          {handoffCopied === m.id ? "✓ 복사됐어요" : "📋 문의 내용 복사"}
                         </button>
                       </div>
                     ) : null}

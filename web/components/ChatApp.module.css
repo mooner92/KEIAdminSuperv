@@ -476,30 +476,28 @@
 .situQ:hover { border-color: var(--color-primary); color: var(--color-primary); }
 .situJourney { margin-top: 2px; font-size: 12.5px; font-weight: 700; color: var(--color-primary); }
 
-/* ── 부서 문의 핸드오프 카드(docs/38 §A ★) — 거부 답변 아래 다음 행동 안내 ── */
+/* ── 부서 문의 핸드오프(docs/38 §A ★) — 거부 답변 아래 컴팩트 보조 줄(선택 옵션) ──
+   ⚠ 큰 박스는 '해야만 하는 순차 단계'처럼 읽혀서, 한 줄 텍스트 + 알약 버튼으로 낮게 처리 */
 .handoff {
-  margin: 2px 0 0;
-  padding: 10px 12px;
-  border: 1px solid var(--color-border);
-  border-left: 3px solid var(--color-primary);
-  border-radius: 10px;
-  background: var(--color-bg-subtle);
+  margin: 4px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
   max-width: 640px;
 }
-.handoffTitle { font-size: 13px; font-weight: 700; color: var(--color-text); }
-.handoffBody { margin-top: 3px; font-size: 12.5px; line-height: 1.5; color: var(--color-text-secondary); }
+.handoffText { font-size: 12px; color: var(--color-text-tertiary); }
 .handoffBtn {
-  margin-top: 7px;
-  border: 1px solid var(--color-primary);
-  background: var(--color-surface);
-  color: var(--color-primary);
-  font-size: 12.5px;
-  font-weight: 700;
-  border-radius: 8px;
-  padding: 6px 12px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 3px 10px;
   cursor: pointer;
 }
-.handoffBtn:hover { background: var(--color-primary); color: #fff; }
+.handoffBtn:hover { border-color: var(--color-primary); color: var(--color-primary); }
 
 /* Stop 버튼(docs/34 ③) — 스트리밍 중 보내기 자리를 대체. 시맨틱 토큰만 */
 .stop {
