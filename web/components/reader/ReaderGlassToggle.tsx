@@ -18,7 +18,7 @@ export default function ReaderGlassToggle({ on, onToggle, drawer }: {
       aria-label={on ? "돋보기 끄기" : "돋보기 켜기"}
       title={on ? "돋보기 끄기 (Esc)" : "돋보기 — 커서 위치를 확대해 읽기"}
     >
-      🔍
+      {on ? "🔍✕" : "🔍"}
     </button>
   );
 }
