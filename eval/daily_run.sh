@@ -13,6 +13,7 @@ if [ "${FREE:-0}" -gt 21000 ]; then
 fi
 
 echo "[$(date)] 일일 자가평가 시작 ($DATE)"
+$PY daily_gen.py --sync          # 0) 골든 자가검증(재색인 대응: 재바인딩·stale·retire)
 $PY daily_gen.py --date "$DATE"
 $PY daily_answer.py --date "$DATE"
 $PY daily_grade.py --date "$DATE"

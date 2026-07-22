@@ -83,8 +83,69 @@ def main() -> int:
     ap.add_argument("--total", type=int, default=0, help="이번 실행 총 문항(기본 env TOTAL)")
     ap.add_argument("--golden-backfill", action="store_true",
                     help="기존 은행 문항에 골든문장 소급 추출(없는 것만) — 신 채점 로직 적용용")
+    ap.add_argument("--sync", action="store_true",
+                    help="코퍼스 재색인 후 골든 자가검증 동기화: 재바인딩(청크id 갱신)·stale(개정)·retire(조 삭제)")
     args = ap.parse_args()
     DAILY_DIR.mkdir(exist_ok=True)
+
+    if args.sync:
+        # 골든 자가검증(docs/58 §8) — verbatim 골든이 곧 검증 키(별도 그래프 불필요, LLM 0회).
+        # ① (규정명,조)의 새 청크에 골든 실존 → 청크id 재바인딩 ② 조는 있는데 골든 소멸 → stale(개정)
+        # ③ 조 소멸 → retire. stale은 회귀 풀 제외 + 재생성 대상 목록 출력.
+        bank = load_bank()
+        col = chroma_col()
+        got = col.get(include=["metadatas"])
+        by_key: dict = {}
+        for i, m in enumerate(got["metadatas"]):
+            by_key.setdefault((m.get("규정명", ""), m.get("조", "")), []).append(got["ids"][i])
+        rebound = stale = retired = kept = 0
+        stale_list = []
+        for b in bank:
+            src = b.get("출처")
+            if not src or b.get("상태") == "retire":
+                continue
+            key = (src.get("규정명", ""), src.get("조", ""))
+            cands = by_key.get(key, [])
+            if not cands:
+                b["상태"] = "retire"
+                b["동기화"] = "조문 소멸(삭제·개정)"
+                retired += 1
+                continue
+            golden = b.get("골든", "")
+            if not golden:  # 골든 없는 구형 문항 — 청크 존재만 재바인딩
+                if src.get("청크id") not in cands:
+                    src["청크id"] = cands[0]
+                    rebound += 1
+                else:
+                    kept += 1
+                continue
+            ng = norm_q(golden)
+            gg = {ng[i:i + 2] for i in range(len(ng) - 1)}
+            hit = None
+            for cid in cands:
+                doc = col.get(ids=[cid], include=["documents"])["documents"][0]
+                if sum(1 for x in gg if x in norm_q(doc)) / max(1, len(gg)) >= 0.8:
+                    hit = cid
+                    break
+            if hit:
+                if src.get("청크id") != hit:
+                    src["청크id"] = hit
+                    rebound += 1
+                else:
+                    kept += 1
+                b.pop("동기화", None)
+                if b.get("상태") == "stale":
+                    b["상태"] = "active"  # 복원(재색인으로 되돌아온 경우)
+            else:
+                b["상태"] = "stale"  # 개정 의심 — 재출제 후보(회귀 풀 제외)
+                b["동기화"] = "골든 소멸(조문 개정 의심)"
+                stale += 1
+                stale_list.append(f"{key[0]} {key[1]}: {b['질문'][:40]}")
+        save_bank(bank)
+        print(f"골든 동기화: 유지 {kept} · 재바인딩 {rebound} · stale(개정) {stale} · retire(삭제) {retired}")
+        for ln in stale_list[:10]:
+            print(f"  ⚠ stale: {ln}")
+        return 0
 
     if args.golden_backfill:
         bank = load_bank()
@@ -131,7 +192,7 @@ def main() -> int:
 
     # ── 회귀 선별: 오답 open 전건 → 부족분은 기존 문항 무작위 재검 ──
     regression = [b for b in bank if b.get("상태") == "open"][:reg_n]
-    pool = [b for b in bank if b.get("상태") not in ("open", "retire")]  # retire=모호 출제 폐기(재출제 금지)
+    pool = [b for b in bank if b.get("상태") not in ("open", "retire", "stale")]  # retire=폐기 · stale=개정 대기
     random.shuffle(pool)
     regression += pool[: max(0, reg_n - len(regression))]
 
