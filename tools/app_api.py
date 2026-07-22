@@ -661,12 +661,16 @@ def current_user(request: Request) -> User:
     return u
 
 
-def is_admin(u: User) -> bool:
-    """관리자 판별: APP_ADMINS(쉼표 구분 아이디)에 포함되면 관리자.
-    ⚠ fail-closed: APP_ADMINS 미설정이면 '아무도 관리자 아님'(공개 register로 인한 권한상승 방지).
-    부트스트랩은 안 쓴다 — 운영자가 APP_ADMINS를 명시해야 관리자 기능이 켜진다."""
+def _is_admin_name(name: str) -> bool:
+    """아이디 문자열이 APP_ADMINS에 포함되는지 — User 객체 없이도 판별(가입 시점 부트스트랩용).
+    ⚠ fail-closed: APP_ADMINS 미설정이면 '아무도 관리자 아님'(공개 register로 인한 권한상승 방지)."""
     names = {x.strip() for x in os.environ.get("APP_ADMINS", "").split(",") if x.strip()}
-    return bool(names) and u.username in names
+    return bool(names) and (name or "").strip().lower() in {n.lower() for n in names}
+
+
+def is_admin(u: User) -> bool:
+    """관리자 판별: APP_ADMINS(쉼표 구분 아이디)에 포함되면 관리자."""
+    return _is_admin_name(u.username)
 
 
 def current_admin(user: User = Depends(current_user)) -> User:
@@ -716,9 +720,11 @@ class VerifyIn(BaseModel):
 
 
 @router.post("/auth/register")
-def register(body: AuthIn, request: Request):
+def register(body: AuthIn, request: Request, response: Response):
     """가입 1단계(docs/29 §3): ID=이메일(@kei.re.kr만) + 인증 코드 발송.
-    쿠키는 여기서 발급하지 않는다 — /auth/verify 성공 시에만 로그인된다."""
+    쿠키는 여기서 발급하지 않는다 — /auth/verify 성공 시에만 로그인된다.
+    예외: 지정 관리자(APP_ADMINS)는 승인/코드 없이 즉시 활성+로그인(부트스트랩 — 첫 관리자가
+    없으면 승인제에서 아무도 승인 못 하는 데드락이 생김)."""
     # docs/44: IP당 가입 시도 10회/시간 — 계정 대량 생성·코드 발송 남용 차단.
     # dev는 E2E 스위트가 소진하지 않게 env로 완화(APP_REG_RL_MAX) — 공개 배포 시 기본(10) 유지.
     rl_key = f"reg|{_client_ip(request)}"
@@ -742,6 +748,15 @@ def register(body: AuthIn, request: Request):
             s.add(exists)
         else:
             s.add(User(username=email, password_hash=hash_pw(body.password), verified=False))
+        # 지정 관리자 부트스트랩 — 승인/코드 게이트 우회, 즉시 활성+로그인(데드락 방지)
+        if _is_admin_name(email):
+            s.commit()
+            u = s.exec(select(User).where(User.username == email)).first()
+            u.verified = True
+            s.add(u)
+            s.commit()
+            set_cookie(response, make_token(u.id))
+            return {"id": u.id, "username": u.username, "is_admin": True, "bootstrap": True}
         if approval:
             # 승인제: 코드 미발송. 관리자가 /admin 사용자 탭에서 승인하면 활성.
             s.commit()
@@ -800,7 +815,8 @@ def login(body: AuthIn, request: Request, response: Response):
         if not u:  # 레거시 계정(정책 이전, 대소문자 그대로)도 조회
             u = s.exec(select(User).where(User.username == body.username.strip())).first()
         ok = bool(u) and check_pw(body.password, u.password_hash)
-        if ok and not u.verified:  # 미인증 계정 — 인증(코드) 또는 관리자 승인 전 로그인 불가
+        # 지정 관리자는 승인/인증 게이트 우회(부트스트랩 — 승인해줄 첫 관리자를 만든다). 대기 상태여도 로그인 허용.
+        if ok and not u.verified and not _is_admin_name(u.username):
             if effective_flags().get("signup_approval"):
                 raise HTTPException(403, "관리자 승인 대기 중입니다. 승인되면 로그인할 수 있어요.")
             raise HTTPException(403, "이메일 인증이 필요합니다. 가입 화면에서 인증을 완료해 주세요.")
