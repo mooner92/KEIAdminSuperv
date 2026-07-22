@@ -70,7 +70,10 @@ export default function DocPage({ doc, backlinks }: { doc: Doc; backlinks: DocMe
         <meta name="robots" content="noindex, nofollow" />
       </Head>
 
-      <ReaderGlassToggle on={glass} onToggle={() => setGlass((v) => !v)} />
+      {/* 돋보기 토글 — 우측 최상단 sticky(스크롤해도 따라옴). 모바일 탭바(하단)와 겹치지 않음 */}
+      <div className={styles.glassBar}>
+        <ReaderGlassToggle on={glass} onToggle={() => setGlass((v) => !v)} />
+      </div>
       {glass ? <ReaderGlass targetRef={articleRef} onClose={() => setGlass(false)} /> : null}
       <article ref={articleRef} className={styles.article}>
         <header className={styles.head}>
