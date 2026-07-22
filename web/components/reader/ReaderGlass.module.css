@@ -1,6 +1,28 @@
 /* 리퀴드글라스 돋보기(docs/59) — 시맨틱 토큰 + 유리 질감. 커서 따라다니는 원형 렌즈 */
 .svgDefs { position: fixed; pointer-events: none; }
 
+/* 렌즈 위에 항상 보이는 끄기 칩 — 렌즈(9999)보다 높은 z로 커서가 위에 있어도 노출 */
+.offChip {
+  position: fixed;
+  z-index: 10002;
+  top: 74px;
+  right: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: 12.5px;
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 7px 13px;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+}
+.offChip:hover { filter: brightness(1.06); }
+@media (max-width: 760px) { .offChip { top: auto; bottom: 76px; right: 14px; } }
+
 .lens {
   position: fixed;
   z-index: 9999;

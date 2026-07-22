@@ -124,6 +124,10 @@ export default function ReaderGlass({ targetRef, onClose }: {
           <div className={g.gloss} />
           <div className={g.rim} />
       </div>
+      {/* 렌즈 위에 항상 뜨는 '끄기' 칩(z > 렌즈) — 돋보기 켜면 어디서든 클릭해 끌 수 있게 */}
+      <button type="button" className={g.offChip} onClick={onClose} title="돋보기 끄기 (Esc)">
+        🔍✕ 돋보기 끄기
+      </button>
     </>,
     document.body
   );

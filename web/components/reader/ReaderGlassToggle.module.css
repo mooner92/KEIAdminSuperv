@@ -2,22 +2,25 @@
 .toggle {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
   border: 1px solid var(--color-border);
   background: var(--color-surface);
   color: var(--color-text);
-  font-size: 13px;
-  font-weight: 700;
-  border-radius: 999px;
-  padding: 7px 14px;
+  font-size: 15px;
+  border-radius: 50%;
   cursor: pointer;
   pointer-events: auto; /* sticky 래퍼가 none이어도 버튼은 클릭 가능 */
   box-shadow: 0 3px 12px rgba(0, 0, 0, 0.14);
   transition: var(--transition-ui, 0.15s ease);
 }
-.toggle:hover { border-color: var(--color-primary); color: var(--color-primary); }
-.active { background: var(--color-primary); border-color: var(--color-primary); color: var(--color-on-primary); }
-.active:hover { color: var(--color-on-primary); }
+.toggle:hover { border-color: var(--color-primary); }
+.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 25%, transparent);
+}
 
-/* 드로어 안에서는 헤더 인라인 — 그림자 최소 */
-.inDrawer { box-shadow: none; padding: 5px 10px; font-size: 12px; }
+/* 드로어 헤더 인라인 — 조금 작게 */
+.inDrawer { width: 30px; height: 30px; font-size: 14px; box-shadow: none; }
