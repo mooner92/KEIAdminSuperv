@@ -16,7 +16,5 @@
   background: var(--color-surface); color: var(--color-text); font-weight: 700;
   box-shadow: 0 1px 3px rgba(20, 24, 20, 0.1);
 }
-/* 서식 탭 — 페이지(fill)가 스크롤하지 않으므로 탭 내부가 스크롤 담당 */
-.tabScroll { flex: 1; min-height: 0; width: 100%; overflow-y: auto; padding: 4px 2px 28px; }
-/* 그래프 탭 — 원 /graph 의 fill 모델 복원(head 고정 + split flex:1) */
+/* 서식·그래프 탭 — fill 계약 전파(flex column). 서식은 BrowseShell이 자체 스크롤 담당 */
 .tabGraph { flex: 1; min-height: 0; width: 100%; display: flex; flex-direction: column; }
