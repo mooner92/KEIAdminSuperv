@@ -82,6 +82,11 @@ export default function DocPage({ doc, backlinks }: { doc: Doc; backlinks: DocMe
               {SECTION_LABEL[doc.section]}
             </span>
             {doc.regNo ? <span className={styles.tag}>규정번호 {doc.regNo}</span> : null}
+            {doc.type === "uplaw" ? (
+              <span className={styles.tag} title="KEI 사내 규정이 아닌 상위 규범(법령·연구회 공통 규정)">
+                ⚖ 상위 법령 · 적용강도 {doc.strength || "준거"}
+              </span>
+            ) : null}
             {doc.category ? <span className={styles.tag}>{doc.category}</span> : null}
             {doc.revised ? <span className={styles.tag}>개정 {doc.revised}</span> : null}
             <span
@@ -95,6 +100,13 @@ export default function DocPage({ doc, backlinks }: { doc: Doc; backlinks: DocMe
           <h1 className={styles.h1}>{doc.title}</h1>
         </header>
 
+        {doc.type === "uplaw" ? (
+          <p className={styles.uplawNote}>
+            ⚖ 이 문서는 <b>KEI 사내 규정이 아닌 상위 규범</b>(국가 법령·경제·인문사회연구회 공통
+            규정)입니다. 사내 세부 기준은 사내 규정이 우선하며, 적용 여부는 담당 부서 확인이
+            필요합니다. <i>(원문 출처: {doc.category || "법제처/연구회"})</i>
+          </p>
+        ) : null}
         <Markdown source={doc.body} selfSlug={doc.slug} />
       </article>
 

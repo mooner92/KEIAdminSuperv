@@ -16,6 +16,9 @@ export const SECTIONS = {
   // 대외업무(docs/39): 대외요구자료 3개년 운영 통계·업무별 가이드. ⚠ 규정집·연구행정 가이드(ERP 원문)와
   // 성격이 달라(내부 관측 통계) 별도 섹션으로 분리 — 혼선 방지.
   대외업무: { dir: "50_대외업무", label: "대외업무", desc: "대외요구자료 반복업무(국정감사·예산·결산 등) 운영 통계·가이드" },
+  // 상위법령(docs/61): 국가 법령·NRC 공통규정 — ⛔ KEI 사내 규정 아님(층위 구분 배지 필수).
+  // 검색·RAG는 별도 컬렉션(kei_uplaw)이 담당, 여기는 사람 둘러보기·원문 열람용.
+  상위법령: { dir: "25_상위법령", label: "상위 법령(참고)", desc: "KEI에 적용되는 국가 법령·연구회 공통 규범 — 사내 규정 아님, 세부 기준은 사내 규정 우선" },
 } as const;
 export type SectionKey = keyof typeof SECTIONS;
 
@@ -35,6 +38,7 @@ export type DocMeta = {
   regNo: string; // 규정번호
   revised: string; // 개정일
   reviewed: string; // 검수상태
+  strength: string; // 적용강도(상위법령 전용: 직접|준거|참고 — 그 외 "")
   type: string;
   articleCount: number;
 };
@@ -90,13 +94,14 @@ function loadAll(): Doc[] {
   };
 
   _cache = raws.map((r) => {
-    const title = String(r.data["규정명"] || r.data["제목"] || r.data["용어"] || r.stem);
+    const title = String(r.data["규정명"] || r.data["제목"] || r.data["용어"] || r.data["법령명"] || r.stem);
     return {
       slug: r.stem,
       title,
       section: r.section,
-      category: String(r.data["분류"] || ""),
+      category: String(r.data["분류"] || r.data["소관"] || ""),  // 상위법령은 소관부처가 분류 필터 역할
       regNo: String(r.data["규정번호"] || ""),
+      strength: String(r.data["적용강도"] || ""),
       revised: fmtDate(r.data["개정일"] || r.data["최종검토일"] || ""),
       reviewed: String(r.data["검수상태"] || ""),
       type: String(r.data["type"] || ""),

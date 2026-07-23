@@ -30,6 +30,7 @@ KEI(한국환경연구원) 행정 초보(신입·전입자)가 "이 업무 어�
   - `20_규정원문/` — HWP 변환 원문 (진실원천, 의역 금지, KEI 규정번호 체계 1000~7999)
   - `30_용어집/` — 개념 1개 = 노트 1개
   - `40_시스템/` — ERP 메뉴·기능(별도 섹션 '시스템', 보라). `KEI_ERP_entire_features.md`를 모듈별 노트로
+  - `25_상위법령/` — 상위 규범(국가 법령 law.go.kr API + NRC 공통규정 HWP, type:uplaw, docs/61). ⛔사내 규정 아님 — 검색은 별도 컬렉션(kei_uplaw)·flag `uplaw_layer`(기본off)·⚖라벨, 둘러보기 '상위 법령(참고)' 섹션(슬레이트)
   - `50_대외업무/` — 대외요구자료 반복업무(국정감사·예산·결산…) 3개년 관측 통계·업무별 가이드(docs/39). ⛔규정 아님 — RAG 근거에 '(운영 통계)' 라벨·의무 단정 금지
   - `90_관리/` — 템플릿, 개정이력, Dataview 인덱스
 - `web/` — [뇌] 화면(Next.js 14, KRDS 참고 자체 토큰 디자인·Pretendard GOV self-host). 정적 export(`out/`) → `server.js`(⛔로그인 게이트 내장, docs/44 — nginx 단독 대체 금지). 볼트를 빌드타임 read-only 소비(`web/lib/vault.ts`). 이전 Quartz를 대체.
@@ -92,6 +93,8 @@ KEI(한국환경연구원) 행정 초보(신입·전입자)가 "이 업무 어�
   - 결재선(Track B): `python tools/01n_approval.py --vault KEI-행정가이드`  (위임전결규정 별표 ○-매트릭스 → `approval.json` 335규칙. leaf 분류: 직급 7종만 `대상`, 금액구간 등 조건은 업무 경로 편입. UI = 독립 페이지 `/approval`+상단 메뉴 '결재선'+**채팅 연동**(결재/기안 언급 감지→"결재선 알아볼까요?" 카드→우측 드로어·업무 키워드 프리셋)+직급 localStorage 기억, `approval_finder` 플래그. 공식 전결기준+"부서 확인" 면책)
   - 상세 = `docs/18-조문정제-무결성.md`(Track A·C), 기한·결재선 = `docs/17` Track B. rag_core 토글 `RAG_ARTICLE_STATUS`(삭제강등·기본on)·`RAG_CLAUSE_XREF`(기본on). 웹 플래그 `article_integrity`(A)·`graph_impact`(C)·`deadline_calc`·`approval_finder`(B). 인덱스 갱신 후 RAG API 재기동 필요.
 - 임베딩: `python tools/02_chunk_and_embed.py --vault KEI-행정가이드 --db tools/chroma`
+- 상위법령 수집: `LAW_OC=<키> python tools/01h_law_fetch.py [--only 근로기준법] [--force]`  (law.go.kr Open API — allowlist(law_allowlist.json)만·정확일치·증분(state) — docs/61 U2ⓐ. NRC는 API 없음: HWP 다운로드→kordoc→`kordoc_adapt --check --parity`→`01y_uplaw_ingest.py`)
+- 상위법령 색인: `python tools/02_chunk_and_embed.py --vault KEI-행정가이드 --db tools/chroma --layer uplaw`  (25_상위법령만 → 컬렉션 kei_uplaw. 메인(kei_regs)과 물리 분리 — 02가 메인 색인에서 25_를 스킵)
 - 질의:   `python tools/03_rag_query.py --db tools/chroma --q "..."`
 - RAG API: `tools/04_rag_api.py` (FastAPI, OpenAI 호환). **PM2 `kei-rag-api`**(uvicorn, 127.0.0.1:9000)로 상시 구동, env로 Ollama 연결(`tools/ecosystem.config.js`). 응답에 `x_sources`(규정명·조·분류·snippet) 포함 → 근거 패널/문서 드로어 연결.
   - 단발 실행: `cd tools && VLLM_BASE=http://127.0.0.1:11436/v1 LLM_MODEL=hf.co/unsloth/Qwen3.5-9B-GGUF:Q4_K_M .venv/bin/uvicorn 04_rag_api:app --host 127.0.0.1 --port 9000`
