@@ -6,7 +6,7 @@ import ApprovalDrawer from "./ApprovalDrawer";
 import { api, type ChatMeta, type Message, type Source, type Suggestion, type User } from "../lib/api";
 import type { DocMeta } from "../lib/vault";
 import type { JourneyChip } from "../lib/api";
-import ThinkingOrb from "./common/ThinkingOrb";
+import { ThinkingOrb } from "thinking-orbs"; // MIT(Jakub Antalik) — 사용자 지시로 외부 UI 0 원칙의 명시적 예외(CLAUDE.md)
 import { useFlag } from "../lib/flags";
 import { useBackClose } from "../lib/useBackClose";
 import { CORPUS_AS_OF, SITE_NAME } from "../lib/site";
@@ -695,7 +695,7 @@ export default function ChatApp({
                         /* docs/34 ③: 2단계 대기 표시 — 지금 무슨 일이 일어나는지 보여준다 */
                         <span className={styles.typing}>
                           {orbOn ? (
-                            <ThinkingOrb size={20}
+                            <ThinkingOrb size={20} aria-label="답변 준비 중"
                               state={chatStopOn && m.id === STREAM_ID && phase === "search" ? "searching" : "working"} />
                           ) : null}{" "}
                           {chatStopOn && m.id === STREAM_ID && phase === "search"
