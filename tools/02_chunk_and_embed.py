@@ -287,20 +287,43 @@ def _load_excluded() -> set:
         return set()
 
 
-def iter_chunks(vault: Path):
+def iter_chunks(vault: Path, layer: str = "main"):
     excluded = _load_excluded()
-    for md in sorted(vault.rglob("*.md")):
+    scan_root = vault / "25_상위법령" if layer == "uplaw" else vault
+    for md in sorted(scan_root.rglob("*.md")):
         if "_templates" in md.parts:
             continue
-        if "25_상위법령" in md.parts:
-            # 상위 법령 레이어(docs/61)는 별도 컬렉션(kei_uplaw, U3)으로 색인 — 메인(kei_regs)
-            # 혼입 금지(사내 규정과 근거 층위가 다름). U3 전용 색인기 전까지 여기서 제외.
+        if layer == "main" and "25_상위법령" in md.parts:
+            # 상위 법령 레이어(docs/61)는 별도 컬렉션(kei_uplaw, --layer uplaw)으로 색인 —
+            # 메인(kei_regs) 혼입 금지(사내 규정과 근거 층위가 다름).
             continue
         if md.stem in excluded:   # 관리자 제외(P1) — soft skip
             continue
         meta, body = split_frontmatter(md.read_text(encoding="utf-8"))
         typ = meta.get("type", "")
         rel = str(md.relative_to(vault))
+        if layer == "uplaw":
+            if typ != "uplaw":
+                continue
+            body = strip_injected(body)
+            splitter = BOUNDARY if BYEOLPYO_SPLIT else ARTICLE
+            parts = [x.strip() for x in splitter.split(body) if x.strip()]
+            for (kind, label), pce in [(chunk_label(x), x) for x in parts]:
+                yield {
+                    "text": pce,
+                    "규정명": meta.get("법령명") or md.stem,
+                    "규정번호": "",
+                    "조": label,
+                    "분류": meta.get("소관", ""),
+                    "개정일": str(meta.get("개정일", "")),
+                    "검수상태": meta.get("검수상태", ""),
+                    "type": "uplaw",
+                    "적용강도": meta.get("적용강도", "준거"),
+                    "별표": "Y" if kind in ("byeolpyo", "byeolji") else "",
+                    "refs": "",
+                    "path": rel,
+                }
+            continue
         body = strip_outdated(body)              # 취소선 옛값·outdated 주석 제거(최신값만 색인)
         body = strip_wikilinks(body)             # 그래프용 [[ ]] 는 검색 텍스트에서 제거
         if typ == "regulation":
@@ -342,7 +365,7 @@ def iter_chunks(vault: Path):
                 }
 
 
-META_KEYS = ("규정명", "규정번호", "조", "분류", "개정일", "검수상태", "type", "별표", "refs", "reg_refs", "부분", "path")
+META_KEYS = ("규정명", "규정번호", "조", "분류", "개정일", "검수상태", "type", "별표", "refs", "reg_refs", "부분", "path", "적용강도")
 
 
 def main():
@@ -358,12 +381,16 @@ def main():
     ap.add_argument("--limit", type=int, default=0, help="처음 N청크만(테스트)")
     ap.add_argument("--no-reset", action="store_true",
                     help="컬렉션을 비우지 않고 upsert만(기본은 클린 리빌드)")
+    ap.add_argument("--layer", choices=["main", "uplaw"], default="main",
+                    help="uplaw=25_상위법령만 별도 컬렉션(kei_uplaw)에 색인(docs/61 U3)")
     args = ap.parse_args()
+    if args.layer == "uplaw" and args.collection == COLLECTION:
+        args.collection = "kei_uplaw"
 
     import chromadb
     from sentence_transformers import SentenceTransformer
 
-    chunks = list(iter_chunks(Path(args.vault)))
+    chunks = list(iter_chunks(Path(args.vault), layer=args.layer))
     if args.limit:
         chunks = chunks[: args.limit]
     # 그래프 규정↔규정 엣지: 조문이 다른 규정 제N조를 준용/참조하면 reg_refs에 색인(런타임 opt-in 확장용).

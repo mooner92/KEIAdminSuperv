@@ -176,6 +176,15 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-12-31",
     },
+    "uplaw_layer": {
+        "default": False,  # 백엔드 플래그 — rag_core가 회수 시 조회(_uplaw_on)
+        "description": "상위 법령 레이어(docs/61 U4) — 사내 규정 회수에 더해 NRC 공통규정 등 상위 규범을 "
+                       "별도 컬렉션(kei_uplaw)에서 보조 회수, '(상위 법령 — 사내 규정 아님)' 라벨로 첨부. "
+                       "⛔ 거부 가드레일 불변(SYSTEM 규칙15가 '사내 확인 안 됨 → 상위 규범 안내' 구분 답변 강제). "
+                       "UI ⚖ 상위 법령 칩.",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
     "graph_expand_regs": {
         "default": False,  # ⛔ off로 배포 — top-k 희석 위험이라 평가로 이득 입증 후 on(하이브리드·다양성과 동일 규율)
         "description": "검색 시 회수 조문이 준용/참조하는 다른 규정 조문을 근거에 자동 첨부(규정↔규정 1홉 확장). "
