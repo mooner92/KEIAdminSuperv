@@ -176,6 +176,13 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-12-31",
     },
+    "thinking_orb": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "채팅 대기 표시를 점격자 '사고 구슬'(자체 canvas, thinking-orbs 컨셉 차용·의존성 0)로. "
+                       "검색 중=경선 스캔 · 작성 중=궤도 입자. off면 기존 이모지 표시.",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
     "uplaw_layer": {
         "default": False,  # 백엔드 플래그 — rag_core가 회수 시 조회(_uplaw_on)
         "description": "상위 법령 레이어(docs/61 U4) — 사내 규정 회수에 더해 NRC 공통규정 등 상위 규범을 "
