@@ -183,6 +183,14 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-12-31",
     },
+    "procedure_pack": {
+        "default": False,  # 백엔드 플래그 — rag_core 회수 시 조회
+        "description": "절차 팩(어떻게 신청?류 질문): 시스템 화면·기안 결재상신·편철(기록물철) 중 근거에 "
+                       "빠진 층을 보조 첨부 + SYSTEM 규칙16(요건→경로→기안·결재선→편철→후속 단계 구성). "
+                       "실존 청크 인용만·무생성.",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
     "uplaw_layer": {
         "default": False,  # 백엔드 플래그 — rag_core가 회수 시 조회(_uplaw_on)
         "description": "상위 법령 레이어(docs/61 U4) — 사내 규정 회수에 더해 NRC 공통규정 등 상위 규범을 "

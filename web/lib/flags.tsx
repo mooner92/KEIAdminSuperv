@@ -16,6 +16,7 @@ export const FLAG_DEFAULTS: Record<string, boolean> = {
   signup_approval: false, // docs/36 §10: 가입 인증을 이메일 코드 대신 관리자 승인으로 (SMTP 불가 시)
   graph_expand_regs: false, // 규정↔규정 준용/참조 1홉 확장 (백엔드 실험 플래그)
   uplaw_layer: false,
+  procedure_pack: false, // 절차 팩 — 절차 질문 시 시스템·기안·편철 근거 보정 첨부 (백엔드 플래그)
   thinking_orb: false, // 채팅 대기 표시를 점격자 사고 구슬(canvas)로 — off면 기존 이모지 (release, 만료 2026-12-31) // docs/61 U4: 상위 법령 레이어 — NRC 공통규정 보조 회수+⚖ 칩 (백엔드 플래그)
   user_directory: false, // docs/29 §4: 관리자 사용자 목록 탭 (release, 만료 2026-12-31)
   trending_keywords: false, // docs/29 §1: 빈 화면 인기 키워드 칩 (release, 만료 2026-12-31)

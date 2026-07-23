@@ -999,7 +999,7 @@ export default function ChatApp({
                           📊 수치 스토어
                         </span>
                       ) : null}
-                      {typeBadges && !cardV2 && (s.graph_expand || s.graph_expand_reg || s.graph_expand_action || s.graph_expand_gian || s.scope_anchor) ? (
+                      {typeBadges && !cardV2 && (s.graph_expand || s.graph_expand_reg || s.graph_expand_action || s.graph_expand_gian || s.scope_anchor || s.procedure_pack) ? (
                         <span
                           className={styles.autoChip}
                           title={
