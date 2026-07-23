@@ -15,7 +15,8 @@ export const FLAG_DEFAULTS: Record<string, boolean> = {
   landing_page: false, // docs/36: 소개(랜딩) — /about + 비로그인 홈 컴팩트 히어로 (release, 만료 2026-12-31)
   signup_approval: false, // docs/36 §10: 가입 인증을 이메일 코드 대신 관리자 승인으로 (SMTP 불가 시)
   graph_expand_regs: false, // 규정↔규정 준용/참조 1홉 확장 (백엔드 실험 플래그)
-  uplaw_layer: false, // docs/61 U4: 상위 법령 레이어 — NRC 공통규정 보조 회수+⚖ 칩 (백엔드 플래그)
+  uplaw_layer: false,
+  thinking_orb: false, // 채팅 대기 표시를 점격자 사고 구슬(canvas)로 — off면 기존 이모지 (release, 만료 2026-12-31) // docs/61 U4: 상위 법령 레이어 — NRC 공통규정 보조 회수+⚖ 칩 (백엔드 플래그)
   user_directory: false, // docs/29 §4: 관리자 사용자 목록 탭 (release, 만료 2026-12-31)
   trending_keywords: false, // docs/29 §1: 빈 화면 인기 키워드 칩 (release, 만료 2026-12-31)
   situation_chips: false, // docs/38 §A: 빈 화면 상황 시작 칩(여정 딥링크+추천 질문 프리필, 예시 4개 대체) (release, 만료 2026-12-31)

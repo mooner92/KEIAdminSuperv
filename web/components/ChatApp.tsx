@@ -6,6 +6,7 @@ import ApprovalDrawer from "./ApprovalDrawer";
 import { api, type ChatMeta, type Message, type Source, type Suggestion, type User } from "../lib/api";
 import type { DocMeta } from "../lib/vault";
 import type { JourneyChip } from "../lib/api";
+import ThinkingOrb from "./common/ThinkingOrb";
 import { useFlag } from "../lib/flags";
 import { useBackClose } from "../lib/useBackClose";
 import { CORPUS_AS_OF, SITE_NAME } from "../lib/site";
@@ -135,6 +136,7 @@ export default function ChatApp({
   const selectAskOn = useFlag("select_ask"); // docs/26: 원문 선택 질문
   const trendingOn = useFlag("trending_keywords"); // docs/29 §1: 빈 화면 인기 키워드 칩
   const chatStopOn = useFlag("chat_stop"); // docs/34 ③: ■ 중단 버튼+2단계 대기 표시
+  const orbOn = useFlag("thinking_orb"); // 사고 구슬 대기 표시(자체 canvas — thinking-orbs 컨셉 차용)
   const [trending, setTrending] = useState<{ k: string; n: number }[]>([]);
   useEffect(() => {
     if (!trendingOn) return;
@@ -692,10 +694,14 @@ export default function ChatApp({
                       ) : (
                         /* docs/34 ③: 2단계 대기 표시 — 지금 무슨 일이 일어나는지 보여준다 */
                         <span className={styles.typing}>
+                          {orbOn ? (
+                            <ThinkingOrb size={20}
+                              state={chatStopOn && m.id === STREAM_ID && phase === "search" ? "searching" : "working"} />
+                          ) : null}{" "}
                           {chatStopOn && m.id === STREAM_ID && phase === "search"
-                            ? "🔍 규정 검색 중…"
+                            ? (orbOn ? "규정 검색 중…" : "🔍 규정 검색 중…")
                             : chatStopOn && m.id === STREAM_ID && phase === "write"
-                              ? "✍️ 근거를 찾았어요 — 답변 작성 중…"
+                              ? (orbOn ? "근거를 찾았어요 — 답변 작성 중…" : "✍️ 근거를 찾았어요 — 답변 작성 중…")
                               : "근거 조문을 찾아 답변을 작성 중…"}
                         </span>
                       )}
