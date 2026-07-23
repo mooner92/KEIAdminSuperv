@@ -28,6 +28,7 @@ const SECTION_COLOR_LIGHT: Record<string, string> = {
   용어집: "#ffb114", // --orange500
   시스템: "#8b5cf6",
   대외업무: "#d63384",
+  상위법령: "#64748b", // slate — 사내 규정 아님(중립·참고 톤)
 };
 const SECTION_COLOR_DARK: Record<string, string> = {
   규정집: "#4c87f6",
@@ -35,6 +36,7 @@ const SECTION_COLOR_DARK: Record<string, string> = {
   용어집: "#ffb547",
   시스템: "#a78bfa",
   대외업무: "#f06fa8",
+  상위법령: "#94a3b8",
 };
 
 export default function GraphCanvas({
