@@ -55,8 +55,8 @@ export default function Browse({ docs, forms, graph }: { docs: DocMeta[]; forms:
         </div>
       </div>
       {tab === "docs" ? <Explorer docs={docs} /> : null}
-      {tab === "forms" ? <div className={s.tabBody}><FormsView forms={forms} /></div> : null}
-      {tab === "graph" ? <div className={s.tabBody}><GraphView graph={graph} /></div> : null}
+      {tab === "forms" ? <div className={s.tabScroll}><FormsView forms={forms} /></div> : null}
+      {tab === "graph" ? <div className={s.tabGraph}><GraphView graph={graph} /></div> : null}
     </Layout>
   );
 }
