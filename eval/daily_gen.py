@@ -185,7 +185,9 @@ def main() -> int:
     bank = load_bank()
     by_hash = {b["hash"]: b for b in bank if "hash" in b}
     bank_grams = [bigrams(b["질문"]) for b in bank]
-    used_chunks = {b.get("출처", {}).get("청크id") for b in bank}
+    # 거부형 문항은 출처가 null — get(k, {})는 값이 None이면 None을 반환하므로 or {} 필수
+    # (실측: 2026-07-23 06:00 크론이 여기서 AttributeError로 전량 중단 — 첫 무인 회전 결함)
+    used_chunks = {(b.get("출처") or {}).get("청크id") for b in bank}
 
     new_n = args.total - REG_N if args.total else NEW_N
     reg_n = REG_N
