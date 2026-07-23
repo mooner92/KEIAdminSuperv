@@ -292,6 +292,10 @@ def iter_chunks(vault: Path):
     for md in sorted(vault.rglob("*.md")):
         if "_templates" in md.parts:
             continue
+        if "25_상위법령" in md.parts:
+            # 상위 법령 레이어(docs/61)는 별도 컬렉션(kei_uplaw, U3)으로 색인 — 메인(kei_regs)
+            # 혼입 금지(사내 규정과 근거 층위가 다름). U3 전용 색인기 전까지 여기서 제외.
+            continue
         if md.stem in excluded:   # 관리자 제외(P1) — soft skip
             continue
         meta, body = split_frontmatter(md.read_text(encoding="utf-8"))
