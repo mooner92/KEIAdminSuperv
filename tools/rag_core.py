@@ -629,6 +629,18 @@ def _bare_table_values(text: str) -> set:
                 continue
             for m in _BARE_NUM_RE.finditer(_NUM_MASK_RE.sub(" ", c)):
                 out.add(round(float(m.group(1).replace(",", "")), 4))
+    # HTML 표(<tr><td> — kordoc 병합 셀 보존 표, docs/61 K4)도 동일 수확.
+    # 실측 결함: 여비규정 별표2가 HTML 표로 재변환되자 숙박비 상한(100,000 무단위)이
+    # 허용집합에서 빠져 정상 값을 과차단(대조군A 실패). 파이프와 같은 규칙(순번 열 제외) 적용.
+    for row_m in re.finditer(r"<tr[^>]*>(.*?)</tr>", text or "", re.S | re.I):
+        cells = [re.sub(r"<[^>]+>", " ", c).strip()
+                 for c in re.split(r"</?t[dh][^>]*>", row_m.group(1)) if c.strip()]
+        seq_cols = {i for i, c in enumerate(cells) if _SEQ_COL_RE.fullmatch(c)}
+        for i, c in enumerate(cells):
+            if i in seq_cols:
+                continue
+            for m in _BARE_NUM_RE.finditer(_NUM_MASK_RE.sub(" ", c)):
+                out.add(round(float(m.group(1).replace(",", "")), 4))
     return out
 
 
