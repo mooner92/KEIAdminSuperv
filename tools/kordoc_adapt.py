@@ -26,6 +26,9 @@ _ART = r"제\s*\d+\s*조(?:\s*의\s*\d+)?"
 
 # 1) 헤딩 조문: `### 제N조…` → `제N조…`  (헤딩 마커만 제거, 줄 나머지 보존)
 RE_HEADING_ART = re.compile(rf"^#{{1,6}}\s*(?={_ART})", re.MULTILINE)
+# 1b) 헤딩 별표/별지: `## [별표 1] …` → `[별표 1] …` — 헤딩이면 02 경계(^[별표)에 안 걸려
+#     별표 청크가 소실된다(실측: 복무규정 별표1 누락, K3)
+RE_HEADING_BYEOL = re.compile(r"^#{1,6}\s*(?=\[\s*별[표지])", re.MULTILINE)
 # 2) 볼드 조문 헤더: `**제N조(제목)**` → `제N조(제목)` — 조 머리로 시작하는 볼드 스팬 전체를
 #    벗긴다. 제목 괄호를 `\([^)]*\)`로 잡으면 중첩 괄호(예: '계획(안) 수립')에서 실패(실측
 #    기본연구 제7조 누락) → 볼드 닫힘(`**`)까지를 경계로 사용(제목에 `*`는 없음).
@@ -36,6 +39,7 @@ RE_IMG = re.compile(r"!\[[^\]]*\]\([^)]*\)")
 
 def adapt(text: str, images: str = "marker") -> str:
     out = RE_HEADING_ART.sub("", text)
+    out = RE_HEADING_BYEOL.sub("", out)
     out = RE_BOLD_ART.sub(r"\1 ", out)
     if images == "marker":
         out = RE_IMG.sub("[IMAGE]", out)
