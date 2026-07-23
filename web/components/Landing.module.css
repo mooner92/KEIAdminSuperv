@@ -157,7 +157,12 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.78;
 }
-.heroMeta b { font-size: 15px; font-weight: 800; letter-spacing: 0; margin-left: 2px; font-variant-numeric: tabular-nums; }
+.heroMeta b {
+  font-size: 17px; font-weight: 800; margin-left: 3px;
+  font-variant-numeric: tabular-nums lining-nums; letter-spacing: -0.03em;
+  background: var(--hr-grad-word); -webkit-background-clip: text; background-clip: text;
+  color: transparent; -webkit-text-fill-color: transparent; /* 호롱 — 숫자 브랜드 모먼트 */
+}
 .scrollCue {
   margin: 56px 0 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 11px; letter-spacing: 0.34em; opacity: 0.55;

@@ -127,6 +127,11 @@
   font-weight: 600;
   padding: var(--space-2) var(--space-5);
 }
+/* 호롱 다크 — 앰버 틴트가 탁한 카키로 보이던 것 교정: 옅은 틴트 + 밝은 앰버 텍스트 */
+[data-theme="dark"] .banner {
+  background: rgba(249, 168, 37, 0.08);
+  color: #f5c98a;
+}
 
 @media (max-width: 880px) {
   /* 모바일: fill 고정 해제 → 일반 스크롤로 폴백(둘러보기/그래프) */
