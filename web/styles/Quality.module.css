@@ -17,9 +17,22 @@
 .score { font-size: 58px; font-weight: 900; line-height: 1.1; margin: 4px 0 8px; font-variant-numeric: tabular-nums; }
 .scoreSub { display: flex; flex-wrap: wrap; gap: 6px 12px; }
 .tally { font-size: 12px; font-weight: 700; color: var(--color-text-secondary); }
-.trend { display: flex; align-items: flex-end; gap: 3px; height: 96px; padding-top: 6px; }
-.bar { flex: 1; min-width: 3px; height: 100%; display: flex; align-items: flex-end; }
-.barFill { width: 100%; border-radius: 3px 3px 0 0; min-height: 2px; transition: height 0.2s ease; }
+/* 추이 표(막대 대체 — 날짜·수치 직접 판독) + 셀 내 미니 수평바(보조 시각) */
+.trendTableWrap { overflow-x: auto; max-height: 200px; overflow-y: auto; }
+.trendTable { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.trendTable th {
+  text-align: left; font-size: 11px; font-weight: 700; color: var(--color-text-tertiary);
+  padding: 4px 10px 6px 0; border-bottom: 1px solid var(--color-border); white-space: nowrap;
+  position: sticky; top: 0; background: var(--color-surface);
+}
+.trendTable td { padding: 5px 10px 5px 0; border-bottom: 1px dashed var(--color-border); font-variant-numeric: tabular-nums; color: var(--color-text-secondary); }
+.trendTable tr:last-child td { border-bottom: none; }
+.tDate { font-weight: 600; color: var(--color-text); white-space: nowrap; }
+.tAcc { font-weight: 800; white-space: nowrap; }
+.tBarCell { width: 34%; min-width: 90px; }
+.tBar { display: block; height: 8px; border-radius: 4px; background: var(--color-bg-subtle); overflow: hidden; }
+.tBarFill { display: block; height: 100%; border-radius: 4px; }
+.tBad { color: var(--color-danger); font-weight: 700; }
 
 /* 약점 지도 */
 .mapGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
