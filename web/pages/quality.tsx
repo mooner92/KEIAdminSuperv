@@ -73,7 +73,6 @@ export default function QualityPage() {
     [day, filter, typeF]
   );
   const trend = idx?.days.slice(-30) ?? [];
-  const maxAcc = 100;
 
   if (!on) {
     return (
@@ -105,16 +104,35 @@ export default function QualityPage() {
                 })}
               </div>
             </div>
-            {/* 30일 추이 */}
+            {/* 일자별 추이 표(가독성 — 막대는 표본 적을 때 정보가 없음) */}
             <div className={q.trendCard}>
-              <div className={q.cardTitle}>최근 {trend.length}일 정답률</div>
-              <div className={q.trend}>
-                {trend.map((d) => (
-                  <div key={d.date} className={q.bar} title={`${d.date} · ${d.정답률}%`}>
-                    <div className={q.barFill} style={{ height: `${(d.정답률 / maxAcc) * 100}%`, background: accColor(d.정답률) }} />
-                  </div>
-                ))}
-                {trend.length === 0 ? <span className={q.mutedSm}>추이 데이터가 쌓이는 중</span> : null}
+              <div className={q.cardTitle}>최근 정답률 추이 <span className={q.mutedSm}>(최신순 · 최근 90일 보관)</span></div>
+              <div className={q.trendTableWrap}>
+                <table className={q.trendTable}>
+                  <thead><tr><th>날짜</th><th>정답률</th><th></th><th>✅ 정답</th><th>❌ 오답</th><th>🔍 검토</th><th>기타</th></tr></thead>
+                  <tbody>
+                    {[...trend].reverse().map((d) => {
+                      const etc = (d.집계["판정불가"] || 0) + (d.집계["폐기"] || 0);
+                      return (
+                        <tr key={d.date}>
+                          <td className={q.tDate}>{d.date}</td>
+                          <td className={q.tAcc} style={{ color: accColor(d.정답률) }}>{d.정답률}%</td>
+                          <td className={q.tBarCell}>
+                            <span className={q.tBar}><span className={q.tBarFill}
+                              style={{ width: `${d.정답률}%`, background: accColor(d.정답률) }} /></span>
+                          </td>
+                          <td>{d.집계["정답"] || 0}</td>
+                          <td className={(d.집계["오답"] || 0) > 0 ? q.tBad : ""}>{d.집계["오답"] || 0}</td>
+                          <td>{d.집계["검토필요"] || 0}</td>
+                          <td className={q.mutedSm}>{etc || "—"}</td>
+                        </tr>
+                      );
+                    })}
+                    {trend.length === 0 ? (
+                      <tr><td colSpan={7} className={q.emptyRow}>추이 데이터가 쌓이는 중</td></tr>
+                    ) : null}
+                  </tbody>
+                </table>
               </div>
             </div>
           </section>
