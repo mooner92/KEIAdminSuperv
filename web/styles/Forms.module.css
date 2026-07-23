@@ -123,3 +123,6 @@
 
 .dlCell { white-space: nowrap; }
 .dlCell .dl + .dl { margin-left: 10px; }
+
+/* 호롱 — 규정 찾기 '서식' 탭 리드 문구(PageHero 대체) */
+.tabLead { margin: 0 0 14px; font-size: 13.5px; color: var(--color-text-secondary); line-height: 1.6; }

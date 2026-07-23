@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { api, ApiError, type User } from "../lib/api";
 import { track, setTrackAuthed } from "../lib/track";
 import { useFlag } from "../lib/flags";
+import HorongMark from "./common/HorongMark";
 import styles from "./Login.module.css";
 
 /** 로그인 / 회원가입 — 사내 전용. 성공 시 onAuthed(user).
@@ -85,7 +86,7 @@ export default function Login({ onAuthed, embedded }: { onAuthed: (u: User) => v
     <div className={embedded ? styles.wrapEmbedded : styles.wrap}>
       <div className={styles.card}>
         <div className={styles.brand}>
-          <span className={styles.mark}>KEI</span> 행정 LLM
+          <HorongMark size={24} /> 호롱 <span style={{fontSize:11.5,fontWeight:600,color:"var(--color-text-tertiary)"}}>KEI 행정 가이드</span>
         </div>
         <h1 className={styles.title}>
           {mode === "login" ? "로그인" : mode === "register" ? "회원가입"

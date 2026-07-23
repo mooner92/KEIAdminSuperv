@@ -113,7 +113,7 @@
 .heroTitle { margin: 0 0 22px; font-size: clamp(52px, 8.5vw, 104px); font-weight: 800; letter-spacing: -0.045em; line-height: 1.04; }
 /* docs/46 그라디언트 규율 — 전체에서 이 한 줄만. KEI 블루→퍼플→핑크(다크 토큰 3정지, 주황 금지) */
 .heroGrad {
-  background: linear-gradient(96deg, #3182f6 0%, #8b5cf6 52%, #e0508a 100%);
+  background: var(--hr-grad-word); /* 호롱 02 — 잎→불꽃 워드 그라데이션 */
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;

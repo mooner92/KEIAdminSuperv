@@ -106,3 +106,14 @@
   }
   .grid { grid-template-columns: 1fr; }
 }
+
+/* 호롱 04 — 도구 대형 카드(2×2) + 그라데이션 아이콘 칩 */
+.toolGrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 26px; }
+@media (max-width: 700px) { .toolGrid { grid-template-columns: 1fr; } }
+.shortcutLg { border-radius: 22px !important; padding: 22px 22px 20px !important; }
+.shortcutLg:hover { transform: translateY(-4px); box-shadow: var(--shadow-pop); }
+.shortcutIconLg {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 46px; height: 46px; font-size: 21px; border-radius: 14px;
+  background: linear-gradient(135deg, rgba(242, 112, 29, 0.14), rgba(249, 168, 37, 0.1));
+}

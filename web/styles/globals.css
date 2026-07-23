@@ -102,22 +102,25 @@
   --maxw: 1120px;
   --header-h: 62px; /* 호롱 셸 */
 
-  /* 랜딩 히어로(docs/36 §0-4) — 의도적으로 테마 불변(라이트/다크 공용 다크 그라디언트) */
-  --hero-bg: linear-gradient(150deg, #0f1623 0%, #142440 55%, #103230 100%);
-  --hero-fg: #f4f7fb;
-  --hero-fg-dim: rgba(244, 247, 251, 0.45);
+  /* 랜딩 히어로(호롱 02) — 웜 그라운드 위 잉크 텍스트, 워드만 그라데이션.
+     신뢰 배너는 잉크 패널(--hero-ink)로 반전 모먼트. */
+  --hero-bg: linear-gradient(150deg, #fafaf7 0%, #f7f5ef 60%, #f4efe6 100%);
+  --hero-fg: #1d1f1d;
+  --hero-fg-dim: rgba(29, 31, 29, 0.45);
+  --hero-ink: #1d1f1d;
+  --hr-grad-word: linear-gradient(100deg, #2f74b8, #2c9c62 32%, #f7b32b 70%, #f2701d);
 
   /* 랜딩 '컬러 모먼트'(docs/36 P2.5, Apple 스타일) — 섹션별 은은한 컬러 필드.
      콘텐츠 종류 액센트(규정집 파랑·가이드 초록·용어집 주황·시스템 보라)와 의미를 연결한다.
      라이트: 아주 옅은 틴트 필드. 각 섹션은 강한 액센트(숫자·아이브로)로 포인트만. */
-  --sec-blue-bg: #eef4ff;
-  --sec-blue-fg: var(--blue600);
-  --sec-green-bg: #ecfaf3;
-  --sec-green-fg: #0a7d4e;
-  --sec-orange-bg: #fff5e8;
-  --sec-orange-fg: #b9660a;
-  --sec-purple-bg: #f3efff;
-  --sec-purple-fg: #6d4bd6;
+  --sec-blue-bg: rgba(79, 141, 196, 0.09);
+  --sec-blue-fg: #3a76ab;
+  --sec-green-bg: rgba(53, 144, 106, 0.09);
+  --sec-green-fg: #2a7355;
+  --sec-orange-bg: rgba(233, 161, 59, 0.11);
+  --sec-orange-fg: #b47416;
+  --sec-purple-bg: rgba(141, 122, 201, 0.1);
+  --sec-purple-fg: #6f5bb0;
 }
 
 * { box-sizing: border-box; }
@@ -184,23 +187,23 @@ html { transition: background-color 0.2s ease; }
   --accent-상위법령: #9aa5ae;
 
   /* 랜딩 컬러 모먼트(다크) — 페이지보다 살짝 밝은 틴트 필드 + 밝은 액센트 글자 */
-  --sec-blue-bg: #14202f;
-  --sec-blue-fg: #7db4ff;
-  --sec-green-bg: #10241c;
-  --sec-green-fg: #4ad9a0;
-  --sec-orange-bg: #271d10;
-  --sec-orange-fg: #ffc06b;
-  --sec-purple-bg: #1e1830;
-  --sec-purple-fg: #b79bf5;
+  --sec-blue-bg: rgba(127, 178, 221, 0.1);
+  --sec-blue-fg: #7fb2dd;
+  --sec-green-bg: rgba(95, 191, 147, 0.1);
+  --sec-green-fg: #5fbf93;
+  --sec-orange-bg: rgba(220, 178, 106, 0.12);
+  --sec-orange-fg: #dcb26a;
+  --sec-purple-bg: rgba(167, 148, 221, 0.1);
+  --sec-purple-fg: #a794dd;
 
-  --badge-warn-bg: rgba(220, 178, 106, 0.15);
-  --badge-warn-border: rgba(220, 178, 106, 0.4);
-  --badge-ok-bg: rgba(95, 191, 147, 0.15);
-  --badge-ok-border: rgba(95, 191, 147, 0.4);
-  --color-danger-bg: rgba(255, 122, 104, 0.12);
-  --color-danger-border: rgba(255, 122, 104, 0.35);
-  --color-header-bg: rgba(21, 22, 20, 0.75); /* 유리 헤더(다크) */
-  --color-code-bg: rgba(255, 255, 255, 0.06);
+  --badge-warn-bg: rgba(220, 178, 106, 0.12);
+  --badge-warn-border: rgba(220, 178, 106, 0.3);
+  --badge-ok-bg: rgba(95, 191, 147, 0.12);
+  --badge-ok-border: rgba(95, 191, 147, 0.3);
+  --color-danger-bg: rgba(255, 122, 104, 0.1);
+  --color-danger-border: rgba(255, 122, 104, 0.3);
+  --color-header-bg: rgba(21, 22, 20, 0.72); /* 유리 헤더(다크) */
+  --color-code-bg: #242622;
 
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 28px rgba(0, 0, 0, 0.35);
   --shadow-pop: 0 24px 56px rgba(0, 0, 0, 0.5);

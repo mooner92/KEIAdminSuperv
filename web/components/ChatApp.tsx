@@ -672,7 +672,7 @@ export default function ChatApp({
                 ) : (
                   <li key={m.id} className={styles.aiRow}>
                     <span className={styles.aiTag}>
-                      LLM{fmtT(m.created_at) ? <span className={styles.msgTime}> · {fmtT(m.created_at)}</span> : null}
+                      <span className={styles.aiName}>호롱</span>{fmtT(m.created_at) ? <span className={styles.msgTime}> · {fmtT(m.created_at)}</span> : null}
                     </span>
                     <div
                       className={`${styles.aiBubble} ${m.id === activeMsgId ? styles.aiActive : ""} ${
