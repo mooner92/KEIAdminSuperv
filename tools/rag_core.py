@@ -80,6 +80,17 @@ def _flag(name: str, default: bool = False) -> bool:
     return _flag_cache["vals"].get(name, default)
 
 
+# 절차 질문(“어떻게 신청해?”류) 감지 — 절차 팩 자동첨부(flag procedure_pack)의 트리거.
+_PROC_Q_RE = re.compile(r"(어떻게|어디서|방법|절차|하는\s*법)|((신청|기안|결재|제출|정산|등록|올리|처리).{0,6}(어떻게|방법|절차|하나요|해야|할까|하지))")
+
+
+def _procedure_pack_on() -> bool:
+    env = os.environ.get("RAG_PROCEDURE_PACK")
+    if env is not None:
+        return env not in ("0", "", "false", "False")
+    return _flag("procedure_pack", False)  # 관리자 플래그(/admin), 기본 off
+
+
 def _uplaw_on() -> bool:
     """상위 법령 레이어(docs/61 U4) — env RAG_UPLAW_LAYER 명시 시 강제, 아니면 관리자 플래그."""
     env = os.environ.get("RAG_UPLAW_LAYER")
@@ -312,6 +323,11 @@ SYSTEM = (
     " '다만 상위 규범인 [규정명]에서는 …'으로 문장을 나눠 구분해 안내한다. 적용강도가 '참고'인 블록은"
     " 'KEI에 직접 적용되는지는 담당 부서 확인이 필요합니다'를 덧붙인다. ⛔ 상위 법령 내용을 사내"
     " 규정인 것처럼 말하지 않으며, 질문과 무관한 상위 법령 블록은 무시한다.\n"
+    "16) '어떻게 신청/처리하나' 같은 절차 질문은 [근거]에 있는 범위에서 다음 순서로 단계를 구성한다:"
+    " ① 자격·요건(규정 조문) ② 시스템 경로(어느 시스템의 어떤 메뉴 — 근거의 메뉴 경로 그대로)"
+    " ③ 기안·결재정보(결재선은 위임전결규정 기준 — 정확한 결재선은 결재선 판정기와 부서 확인 안내)"
+    " ④ 편철(단위업무·기록물철 — '절차 자동첨부' 근거가 있으면 철 이름까지) ⑤ 후속 단계(정산·보고 등)."
+    " ⛔ 근거에 없는 단계는 만들지 말고 생략한다. 각 단계 출처를 표기한다.\n"
 )
 
 # 가드레일(절대 규칙 #4): 모든 답변 끝에 면책 문구. 14B가 종종 누락(평가셋 측정 ~19%)하므로
@@ -1495,6 +1511,58 @@ def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None
                               f"행: {row['행']}\n열: {row['열']}\n값: {row['값']}")
         except Exception as e:  # noqa: BLE001 — 스토어 조회 실패는 기본 회수로 강등
             print(f"⚠ 수치 스토어 조회 실패(무시): {e}")
+
+    # 절차 팩(flag procedure_pack): "어떻게 신청?"류 절차 질문이면 절차의 3층(시스템 화면 →
+    # 기안 결재상신 → 편철·기록물철)이 근거에 모두 실리도록 부족한 층만 보조 첨부한다.
+    # 실측 문제: 층별 노트가 흩어져 있어 top-5 운에 따라 "메뉴만" 또는 "규정만" 답하던 것.
+    # ⛔ 첨부는 실존 청크 인용만(무생성) · 각 층 최대 1~2개 · 실패는 우아 강등.
+    if _procedure_pack_on() and _PROC_Q_RE.search(query):
+        try:
+            have_types = {s.get("type") for s in srcs}
+            have_regs = {(s.get("규정명") or "") for s in srcs}
+            added_pp = 0
+            # ⓐ 시스템 화면(신청 메뉴·경로)이 없으면 보정 top-2
+            if "system" not in have_types:
+                r2 = col.query(query_embeddings=[qv], n_results=2, where={"type": "system"},
+                               include=["documents", "metadatas", "distances"])
+                for d2, m2, dist2 in zip(r2["documents"][0], r2["metadatas"][0], r2["distances"][0]):
+                    if dist2 is not None and dist2 > 0.6:
+                        continue
+                    s2 = _src(d2, m2, dist2)
+                    if any(x.get("tag") == s2["tag"] for x in srcs):
+                        continue
+                    s2["procedure_pack"] = True
+                    sysname = ((s2.get("규정명") or "").split(" · ")[0]).strip()
+                    srcs.append(s2)
+                    blocks.append(f"[{s2['tag']} (소속 시스템: {sysname}) · 절차 자동첨부]\n{d2}")
+                    added_pp += 1
+            # ⓑ 기안(결재상신) 허브가 없으면 1개
+            if not any("전자결재 기안" in r for r in have_regs):
+                hub = _ensure_gian_hub()
+                if hub:
+                    d2, m2 = hub
+                    s2 = _src(d2, m2, None)
+                    if not any(x.get("tag") == s2["tag"] for x in srcs):
+                        s2["procedure_pack"] = True
+                        srcs.append(s2)
+                        blocks.append(f"[{s2['tag']} · 결재상신(기안) 절차 자동첨부]\n{d2}")
+                        added_pp += 1
+            # ⓒ 편철(기록물철)이 없으면 코드표·철 상세에서 질의 최근접 1개
+            if not any("기록물철" in r for r in have_regs):
+                r3 = col.query(query_embeddings=[qv], n_results=1,
+                               where={"규정명": {"$in": ["전자결재 기안 · 기록물철 코드표",
+                                                        "기록물철 상세 · 공통"]}},
+                               include=["documents", "metadatas", "distances"])
+                if r3["ids"][0]:
+                    d3, m3 = r3["documents"][0][0], r3["metadatas"][0][0]
+                    s3 = _src(d3, m3, r3["distances"][0][0])
+                    if not any(x.get("tag") == s3["tag"] for x in srcs):
+                        s3["procedure_pack"] = True
+                        srcs.append(s3)
+                        blocks.append(f"[{s3['tag']} · 편철(기록물철) 절차 자동첨부]\n{d3}")
+                        added_pp += 1
+        except Exception as e:  # noqa: BLE001 — 절차 팩 실패는 기본 회수로 우아하게 강등
+            print(f"⚠ 절차 팩 첨부 실패(무시): {e}")
 
     # 상위 법령 레이어(docs/61 U4, flag uplaw_layer): NRC 공통규정 등 상위 규범을 별도 컬렉션
     # (kei_uplaw)에서 보조 회수해 '(상위 법령 — 사내 규정 아님)' 라벨로 **뒤에** 첨부.
