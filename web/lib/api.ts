@@ -49,6 +49,8 @@ export type Source = {
   표깨짐?: boolean; // P0-3(docs/22): HWP 변환에서 표 구조 손상 — '⚠ 표 확인' 배지(수치는 원문 확인)
   scope_anchor?: boolean; // P0-2(docs/22): 인용 규정의 목적·적용범위(제1~2조) 자동첨부 — 🔗 배지
   value_store?: boolean; // 지렛대③(docs/24): 검수 완료 표에서 결정적 조회한 값 — 📊 배지
+  uplaw?: boolean; // docs/61 U4: 상위 법령 레이어(kei_uplaw) 보조 근거 — ⚖ 배지(사내 규정 아님)
+  적용강도?: string; // 상위 법령 적용강도(직접|준거|참고) — 칩 툴팁
 };
 export type Suggestion = { type: "ask" | "journey"; label: string; q?: string; journey?: string };
 export type Feedback = "up" | "down" | null;

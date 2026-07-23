@@ -561,3 +561,11 @@
   white-space: nowrap;
 }
 .stop:hover { background: var(--color-danger-bg, var(--color-surface)); }
+
+/* 상위 법령 칩(docs/61 U4) — 사내 규정과 층위 구분(경고 아님·정보성 중립 톤) */
+.uplawChip {
+  display: inline-flex; align-items: center; gap: 2px; margin-left: 6px;
+  font-size: 10.5px; font-weight: 700; border-radius: 999px; padding: 1px 7px;
+  color: var(--color-text-secondary); border: 1px dashed var(--color-border);
+  background: var(--color-bg-subtle); white-space: nowrap;
+}

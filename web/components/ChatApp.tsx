@@ -938,6 +938,12 @@ export default function ChatApp({
                           📖 용어
                         </span>
                       ) : null}
+                      {s.type === "uplaw" ? (
+                        <span className={styles.uplawChip}
+                          title={`상위 법령·연구회 공통 규범 — KEI 사내 규정이 아니에요(적용강도: ${s.적용강도 || "준거"}). 사내 세부 기준은 규정·담당 부서 확인`}>
+                          ⚖ 상위 법령
+                        </span>
+                      ) : null}
                       {s.type === "system" ? (
                         <span className={styles.erpChip} title="이 시스템에서 처리 — 클릭하면 메뉴·기능 안내">
                           🖥 {(s.규정명 || "").split(" · ")[0].replace(/\s*시스템$/, "") || "시스템"}

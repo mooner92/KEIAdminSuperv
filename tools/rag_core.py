@@ -80,6 +80,33 @@ def _flag(name: str, default: bool = False) -> bool:
     return _flag_cache["vals"].get(name, default)
 
 
+def _uplaw_on() -> bool:
+    """상위 법령 레이어(docs/61 U4) — env RAG_UPLAW_LAYER 명시 시 강제, 아니면 관리자 플래그."""
+    env = os.environ.get("RAG_UPLAW_LAYER")
+    if env is not None:
+        return env not in ("0", "", "false", "False")
+    return _flag("uplaw_layer", False)  # 관리자 플래그(/admin), 기본 off
+
+
+_uplaw_state = {"col": None, "tried": False}
+
+
+def _uplaw_col():
+    """kei_uplaw 컬렉션(별도 색인, 02 --layer uplaw). 없으면 None — 우아 강등."""
+    if _uplaw_state["col"] is None and not _uplaw_state["tried"]:
+        _uplaw_state["tried"] = True
+        try:
+            import chromadb
+            _uplaw_state["col"] = chromadb.PersistentClient(path=CHROMA_DIR).get_collection("kei_uplaw")
+        except Exception as e:  # noqa: BLE001
+            print(f"⚠ kei_uplaw 컬렉션 없음(상위 법령 레이어 비활성): {e}")
+    return _uplaw_state["col"]
+
+
+UPLAW_TOPK = int(os.environ.get("RAG_UPLAW_TOPK", "2"))
+UPLAW_MAX_DIST = float(os.environ.get("RAG_UPLAW_MAX_DIST", "0.55"))  # 무관 첨부 방지 임계
+
+
 def _graph_expand_regs_on() -> bool:
     env = os.environ.get("RAG_GRAPH_EXPAND_REGS")
     if env is not None:  # env 명시 시 운영 강제(테스트/오버라이드)
@@ -279,6 +306,12 @@ SYSTEM = (
     " 않으며, 규정 근거를 물으면 '통계 관측이며 규정 값은 별도 확인 필요'라고 밝힌다."
     " 담당자 개인이 누구인지는 답하지 않는다 — 부서까지만 안내하고 현재 담당자는 대외업무관리시스템"
     " 조회를 안내한다.\n"
+    "15) [근거]에 '(상위 법령 — 사내 규정 아님)' 라벨이 붙은 블록은 KEI 사내 규정이 아니라 상위"
+    " 규범(연구회 공통 규정·법령)이다. 사내 규정 근거가 함께 있으면 사내 규정이 정본이고 상위 법령은"
+    " 보조로만 덧붙인다. 사내 규정 근거가 없으면 먼저 '사내 규정에서는 확인되지 않습니다'라고 밝힌 뒤"
+    " '다만 상위 규범인 [규정명]에서는 …'으로 문장을 나눠 구분해 안내한다. 적용강도가 '참고'인 블록은"
+    " 'KEI에 직접 적용되는지는 담당 부서 확인이 필요합니다'를 덧붙인다. ⛔ 상위 법령 내용을 사내"
+    " 규정인 것처럼 말하지 않으며, 질문과 무관한 상위 법령 블록은 무시한다.\n"
 )
 
 # 가드레일(절대 규칙 #4): 모든 답변 끝에 면책 문구. 14B가 종종 누락(평가셋 측정 ~19%)하므로
@@ -1462,6 +1495,30 @@ def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None
                               f"행: {row['행']}\n열: {row['열']}\n값: {row['값']}")
         except Exception as e:  # noqa: BLE001 — 스토어 조회 실패는 기본 회수로 강등
             print(f"⚠ 수치 스토어 조회 실패(무시): {e}")
+
+    # 상위 법령 레이어(docs/61 U4, flag uplaw_layer): NRC 공통규정 등 상위 규범을 별도 컬렉션
+    # (kei_uplaw)에서 보조 회수해 '(상위 법령 — 사내 규정 아님)' 라벨로 **뒤에** 첨부.
+    # ⛔ 거부 가드레일 불변 — 사내 근거 부재 시의 거부는 유지되고, 규칙 15가 '사내 확인 안 됨 →
+    # 상위 규범 안내'의 구분 답변을 강제한다. 무관 첨부는 거리 임계(UPLAW_MAX_DIST)로 차단.
+    if _uplaw_on():
+        try:
+            ucol = _uplaw_col()
+            if ucol is not None:
+                ur = ucol.query(query_embeddings=[qv], n_results=UPLAW_TOPK,
+                                include=["documents", "metadatas", "distances"])
+                for doc, m, dist in zip(ur["documents"][0], ur["metadatas"][0], ur["distances"][0]):
+                    if dist is not None and dist > UPLAW_MAX_DIST:
+                        continue
+                    s2 = _src(doc, m, dist)
+                    s2["type"] = "uplaw"
+                    s2["uplaw"] = True
+                    strength = (m or {}).get("적용강도") or "준거"
+                    s2["적용강도"] = strength
+                    srcs.append(s2)
+                    blocks.append(f"[{s2['tag']} (상위 법령 — 사내 규정 아님 · 적용강도: {strength}"
+                                  f" · 출처: 경제·인문사회연구회)]\n{doc}")
+        except Exception as e:  # noqa: BLE001 — 레이어 실패는 기본 회수로 우아하게 강등
+            print(f"⚠ 상위 법령 레이어 실패(무시): {e}")
 
     # 표 무결성 격리(P0-3, docs/22): 손상 표 블록에 경고 라벨 — 수치 게이트(P0-1)와 UI 배지가 소비.
     if TABLE_GUARD:
