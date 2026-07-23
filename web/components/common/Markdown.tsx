@@ -34,6 +34,29 @@ function withBreaks(children: ReactNode): ReactNode {
   return out;
 }
 
+// ── HTML 표 렌더(docs/61 K1ⓑ) — kordoc 변환 문서의 병합 셀 표(<table rowspan/colspan>)를 실표로 ──
+// rehype-raw(외부 의존성) 대신 **표 태그 화이트리스트 재구성**: 허용 태그·속성만 다시 조립하고
+// 그 외 태그는 전부 이스케이프(XSS 차단). 볼트는 내부 신뢰 소스지만 방어적으로 처리한다.
+const TBL_TAGS = new Set(["table", "thead", "tbody", "tr", "th", "td", "br", "caption", "colgroup", "col"]);
+const TBL_RE = /<table>[\s\S]*?<\/table>/g;
+
+function sanitizeTable(html: string): string {
+  return html.replace(/<(\/?)([a-zA-Z0-9]+)([^>]*)>/g, (whole, close, tag, attrs) => {
+    const t = String(tag).toLowerCase();
+    if (!TBL_TAGS.has(t)) {
+      return whole.replace(/</g, "&lt;").replace(/>/g, "&gt;"); // 비허용 태그는 무해화(텍스트로)
+    }
+    if (close) return `</${t}>`;
+    // 허용 속성만 재조립(rowspan/colspan 숫자만) — 이벤트 핸들러·style 등 전부 제거
+    let kept = "";
+    const rs = String(attrs).match(/rowspan\s*=\s*["']?(\d+)/i);
+    const cs = String(attrs).match(/colspan\s*=\s*["']?(\d+)/i);
+    if (rs) kept += ` rowspan="${rs[1]}"`;
+    if (cs) kept += ` colspan="${cs[1]}"`;
+    return `<${t}${kept}>`;
+  });
+}
+
 export default function Markdown({
   source,
   onNavigate,
@@ -131,13 +154,31 @@ export default function Markdown({
     },
   };
 
+  // HTML 표(<table>…</table>, kordoc 병합 셀 보존)를 분리 — 표는 새니타이즈 후 실표로,
+  // 나머지는 기존 ReactMarkdown 경로 그대로(표 없는 문서는 세그먼트 1개 = 기존과 동일).
+  const segs: { kind: "md" | "table"; text: string }[] = [];
+  let last = 0;
+  for (const m of md.matchAll(TBL_RE)) {
+    if (m.index! > last) segs.push({ kind: "md", text: md.slice(last, m.index!) });
+    segs.push({ kind: "table", text: m[0] });
+    last = m.index! + m[0].length;
+  }
+  if (last < md.length) segs.push({ kind: "md", text: md.slice(last) });
+
   return (
     <div className={styles.md}>
       {/* singleTilde:false — 시간 범위(12:00~18:00)의 ~가 취소선으로 오렌더되는 것 방지.
           취소선은 ~~옛값~~(docs/28 최신값 단일화)의 의미 표기로만 쓴다. */}
-      <ReactMarkdown remarkPlugins={[[remarkGfm, { singleTilde: false }]]} components={components}>
-        {md}
-      </ReactMarkdown>
+      {segs.map((sg, i) =>
+        sg.kind === "table" ? (
+          <div key={i} className={styles.htmlTable}
+            dangerouslySetInnerHTML={{ __html: sanitizeTable(sg.text) }} />
+        ) : (
+          <ReactMarkdown key={i} remarkPlugins={[[remarkGfm, { singleTilde: false }]]} components={components}>
+            {sg.text}
+          </ReactMarkdown>
+        )
+      )}
     </div>
   );
 }

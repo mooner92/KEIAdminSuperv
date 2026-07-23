@@ -87,3 +87,12 @@
 }
 .md th { background: var(--color-bg-subtle); font-weight: 700; white-space: nowrap; }
 .md tr:nth-child(even) td { background: var(--color-bg-subtle); }
+
+/* HTML 표(docs/61 K1ⓑ — kordoc 병합 셀 보존 표) — .md table 기본 톤 상속 + 가로 스크롤 */
+.htmlTable { overflow-x: auto; margin: 12px 0; }
+.htmlTable table { border-collapse: collapse; font-size: 13px; line-height: 1.55; min-width: 480px; }
+.htmlTable th, .htmlTable td {
+  border: 1px solid var(--color-border); padding: 6px 10px; vertical-align: top;
+  color: var(--color-text); text-align: left;
+}
+.htmlTable th { background: var(--color-bg-subtle); font-weight: 700; }
