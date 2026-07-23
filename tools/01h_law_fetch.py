@@ -113,17 +113,81 @@ def _fmt_date(d: str) -> str:
     return f"{d[:4]}-{d[4:6]}-{d[6:8]}" if re.match(r"^\d{8}$", d) else d
 
 
+ANNEX_DIR = ROOT.parent / "web" / "public" / "forms-pdf" / "uplaw"
+
+
+def fetch_annexes(items, only: str = "", force: bool = False) -> int:
+    """--annex: allowlist 법령의 별표·서식 PDF 수집(docs/61 v2) → web/public/forms-pdf/uplaw/.
+
+    법령 본문 XML의 <별표단위>가 제목+PDF 다운로드 링크를 제공(법제처 원문 PDF — 변환 불필요,
+    원문 무변경·출처 명기 약관 준수). manifest.json은 서식 찾기(loadForms)가 소비.
+    admrul(고시)은 별표단위 미제공 → 스킵(비고). server.js가 forms-pdf를 직서빙(재빌드 불필요)."""
+    ANNEX_DIR.mkdir(parents=True, exist_ok=True)
+    manifest = []
+    n_dl = n_skip = 0
+    for it in items:
+        if only and only not in it["query"]:
+            continue
+        if it["target"] != "law":
+            continue  # admrul 별표는 API 미제공(첨부파일 API 별도) — v2 범위 밖
+        hit = search_exact(it["query"], "law")
+        if not hit:
+            print(f"✗ {it['query']}: 검색 실패"); continue
+        root = _api("lawService.do", target="law", ID=hit["id"])
+        law_dir = ANNEX_DIR / hit["이름"]
+        for u in root.iter("별표단위"):
+            gu = (u.findtext("별표구분") or "별표").strip()
+            no = int(u.findtext("별표번호") or "0")
+            gaji = int(u.findtext("별표가지번호") or "0")
+            title = (u.findtext("별표제목") or "").strip()
+            link = (u.findtext("별표서식PDF파일링크") or "").strip()
+            if not link:
+                continue
+            # 별표번호 0 = 무번호 단일 별표(원문 표기 [별표]) — '별표 0' 오표기 방지
+            if gu != "별표":
+                label = f"{gu} 제{no}호" if no else gu
+            else:
+                label = f"별표 {no}" if no else "별표"
+            if gaji:
+                label += f"의{gaji}"
+            safe = re.sub(r'[\\/:*?"<>|]+', " ", title)[:60].strip()
+            fname = f"{label}_{safe}.pdf"
+            dst = law_dir / fname
+            if dst.exists() and not force:
+                n_skip += 1
+            else:
+                law_dir.mkdir(parents=True, exist_ok=True)
+                try:
+                    dst.write_bytes(_get("https://www.law.go.kr" + link))
+                    n_dl += 1
+                except Exception as e:  # noqa: BLE001
+                    print(f"  ✗ {hit['이름']} {label}: 다운로드 실패 {e}")
+                    continue
+            manifest.append({"법령명": hit["이름"], "라벨": label, "제목": title,
+                             "pdf": f"{hit['이름']}/{fname}", "구분": gu,
+                             "출처": "법제처 국가법령정보센터"})
+        print(f"· {hit['이름']}: 별표·서식 {sum(1 for m in manifest if m['법령명']==hit['이름'])}건")
+    (ANNEX_DIR / "manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=1), encoding="utf-8")
+    print(f"\n별표·서식 PDF 다운로드 {n_dl} · 기존 skip {n_skip} · manifest {len(manifest)}건")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--allowlist", default=str(ROOT / "law_allowlist.json"))
     ap.add_argument("--only", help="이 이름 하나만(부분 일치)")
     ap.add_argument("--force", action="store_true", help="무변경이어도 재수집")
     ap.add_argument("--dry", action="store_true", help="수집·비교만, 기록 안 함")
+    ap.add_argument("--annex", action="store_true",
+                    help="본문 대신 별표·서식 PDF 수집(web/public/forms-pdf/uplaw + manifest)")
     args = ap.parse_args()
     if not OC:
         raise SystemExit("⛔ env LAW_OC 필요(법제처 Open API 인증키)")
 
     items = json.loads(Path(args.allowlist).read_text(encoding="utf-8"))["items"]
+    if args.annex:
+        return fetch_annexes(items, only=args.only or "", force=args.force)
     if args.only:
         items = [x for x in items if args.only in x["query"]]
     state = json.loads(STATE_F.read_text(encoding="utf-8")) if STATE_F.exists() else {}

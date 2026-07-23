@@ -334,7 +334,7 @@ export type FormEntry = {
   anchor: string;       // 문서 내 앵커 id(=호) — Markdown 렌더러의 별지 id 규칙과 동기(적대 검증 확정)
   pdf: string | null;   // 별지 원문 PDF 다운로드 경로(01p 분리본, git-external — 없으면 null)
   hwp: string | null;   // 규정 원문 HWP(전체) — 실편집용. 별지만 HWP 분리는 포맷상 불가(docs/50 §7)
-  구분?: "별지" | "연구관리";  // 서식 출처 — 규정 별지(기본) | PMS 연구관리양식(pms manifest)
+  구분?: "별지" | "연구관리" | "상위법령";  // 서식 출처 — 규정 별지 | PMS 양식 | 상위법령 별표(law.go.kr, docs/61 v2)
   쪽수?: number | null;  // 미리보기 PDF 분량(쪽) — 별지=manifest pages, PMS=01x가 기록. '한 장' 배지용
 };
 
@@ -402,6 +402,32 @@ function byeoljiManifest(): ByeoljiManifest {
 // ⚠ web/components/Markdown.tsx의 별지 앵커 정규식과 반드시 동기 유지.
 const FORM_LABEL = /^[\s|]*[\[<【〔(]?\s*별지\s*제?\s*(\d+(?:-\d+)?)\s*호(의\s*\d+)?[^\n]*/;
 
+// 상위법령 별표·서식(docs/61 v2) — 01h --annex가 law.go.kr 원문 PDF + manifest를 emit.
+// ⛔ 사내 규정 아님(법제처 원문 그대로) — 규정명 접두 '상위법령 · '으로 필터에서 구분.
+function loadUplawForms(): FormEntry[] {
+  const mf = path.join(process.cwd(), "public", "forms-pdf", "uplaw", "manifest.json");
+  if (!fs.existsSync(mf)) return [];
+  try {
+    const items: { 법령명: string; 라벨: string; 제목: string; pdf: string; 구분: string }[] =
+      JSON.parse(fs.readFileSync(mf, "utf-8"));
+    const stems = new Set(getAllDocs().map((d) => d.slug));
+    return items.map((it) => ({
+      규정명: `상위법령 · ${it.법령명}`,
+      slug: stems.has(it.법령명) ? it.법령명 : "",   // 원문 보기 = 25_상위법령 문서(본문은 조문만·별표는 PDF)
+      호: it.라벨,
+      호수: Number((it.라벨.match(/\d+/) || ["0"])[0]),
+      서식명: it.제목,
+      anchor: "",                                    // 본문에 별표 텍스트 없음(v1 조문만) — PDF가 정본
+      pdf: `/forms-pdf/uplaw/${it.pdf}`,
+      hwp: null,
+      구분: "상위법령" as const,
+      쪽수: null,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export function loadForms(): FormEntry[] {
   const out: FormEntry[] = [];
   const seen = new Set<string>();
@@ -460,7 +486,9 @@ export function loadForms(): FormEntry[] {
   // PMS 연구관리양식(두 번째 소스) — 별지 뒤에 카테고리·이름순으로 이어붙인다
   const pms = loadPmsForms();
   pms.sort((a, b) => a.규정명.localeCompare(b.규정명, "ko") || a.서식명.localeCompare(b.서식명, "ko"));
-  return out.concat(pms);
+  const uplaw = loadUplawForms();
+  uplaw.sort((a, b) => a.규정명.localeCompare(b.규정명, "ko") || a.호수 - b.호수);
+  return out.concat(pms, uplaw);
 }
 
 // ── 기한 사전(docs/57) — 전 규정 상대기한 228건 역방향 브라우저(사건→규정). ──
