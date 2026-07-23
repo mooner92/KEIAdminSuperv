@@ -16,6 +16,9 @@ export const SECTIONS = {
   // 대외업무(docs/39): 대외요구자료 3개년 운영 통계·업무별 가이드. ⚠ 규정집·연구행정 가이드(ERP 원문)와
   // 성격이 달라(내부 관측 통계) 별도 섹션으로 분리 — 혼선 방지.
   대외업무: { dir: "50_대외업무", label: "대외업무", desc: "대외요구자료 반복업무(국정감사·예산·결산 등) 운영 통계·가이드" },
+  // 상위법령(docs/61): 국가 법령·NRC 공통규정 — ⛔ KEI 사내 규정 아님(층위 구분 배지 필수).
+  // 검색·RAG는 별도 컬렉션(kei_uplaw)이 담당, 여기는 사람 둘러보기·원문 열람용.
+  상위법령: { dir: "25_상위법령", label: "상위 법령(참고)", desc: "KEI에 적용되는 국가 법령·연구회 공통 규범 — 사내 규정 아님, 세부 기준은 사내 규정 우선" },
 } as const;
 export type SectionKey = keyof typeof SECTIONS;
 
@@ -35,6 +38,7 @@ export type DocMeta = {
   regNo: string; // 규정번호
   revised: string; // 개정일
   reviewed: string; // 검수상태
+  strength: string; // 적용강도(상위법령 전용: 직접|준거|참고 — 그 외 "")
   type: string;
   articleCount: number;
 };
@@ -90,13 +94,14 @@ function loadAll(): Doc[] {
   };
 
   _cache = raws.map((r) => {
-    const title = String(r.data["규정명"] || r.data["제목"] || r.data["용어"] || r.stem);
+    const title = String(r.data["규정명"] || r.data["제목"] || r.data["용어"] || r.data["법령명"] || r.stem);
     return {
       slug: r.stem,
       title,
       section: r.section,
-      category: String(r.data["분류"] || ""),
+      category: String(r.data["분류"] || r.data["소관"] || ""),  // 상위법령은 소관부처가 분류 필터 역할
       regNo: String(r.data["규정번호"] || ""),
+      strength: String(r.data["적용강도"] || ""),
       revised: fmtDate(r.data["개정일"] || r.data["최종검토일"] || ""),
       reviewed: String(r.data["검수상태"] || ""),
       type: String(r.data["type"] || ""),
@@ -329,7 +334,7 @@ export type FormEntry = {
   anchor: string;       // 문서 내 앵커 id(=호) — Markdown 렌더러의 별지 id 규칙과 동기(적대 검증 확정)
   pdf: string | null;   // 별지 원문 PDF 다운로드 경로(01p 분리본, git-external — 없으면 null)
   hwp: string | null;   // 규정 원문 HWP(전체) — 실편집용. 별지만 HWP 분리는 포맷상 불가(docs/50 §7)
-  구분?: "별지" | "연구관리";  // 서식 출처 — 규정 별지(기본) | PMS 연구관리양식(pms manifest)
+  구분?: "별지" | "연구관리" | "상위법령";  // 서식 출처 — 규정 별지 | PMS 양식 | 상위법령 별표(law.go.kr, docs/61 v2)
   쪽수?: number | null;  // 미리보기 PDF 분량(쪽) — 별지=manifest pages, PMS=01x가 기록. '한 장' 배지용
 };
 
@@ -397,6 +402,32 @@ function byeoljiManifest(): ByeoljiManifest {
 // ⚠ web/components/Markdown.tsx의 별지 앵커 정규식과 반드시 동기 유지.
 const FORM_LABEL = /^[\s|]*[\[<【〔(]?\s*별지\s*제?\s*(\d+(?:-\d+)?)\s*호(의\s*\d+)?[^\n]*/;
 
+// 상위법령 별표·서식(docs/61 v2) — 01h --annex가 law.go.kr 원문 PDF + manifest를 emit.
+// ⛔ 사내 규정 아님(법제처 원문 그대로) — 규정명 접두 '상위법령 · '으로 필터에서 구분.
+function loadUplawForms(): FormEntry[] {
+  const mf = path.join(process.cwd(), "public", "forms-pdf", "uplaw", "manifest.json");
+  if (!fs.existsSync(mf)) return [];
+  try {
+    const items: { 법령명: string; 라벨: string; 제목: string; pdf: string; 구분: string }[] =
+      JSON.parse(fs.readFileSync(mf, "utf-8"));
+    const stems = new Set(getAllDocs().map((d) => d.slug));
+    return items.map((it) => ({
+      규정명: `상위법령 · ${it.법령명}`,
+      slug: stems.has(it.법령명) ? it.법령명 : "",   // 원문 보기 = 25_상위법령 문서(본문은 조문만·별표는 PDF)
+      호: it.라벨,
+      호수: Number((it.라벨.match(/\d+/) || ["0"])[0]),
+      서식명: it.제목,
+      anchor: "",                                    // 본문에 별표 텍스트 없음(v1 조문만) — PDF가 정본
+      pdf: `/forms-pdf/uplaw/${it.pdf}`,
+      hwp: null,
+      구분: "상위법령" as const,
+      쪽수: null,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export function loadForms(): FormEntry[] {
   const out: FormEntry[] = [];
   const seen = new Set<string>();
@@ -455,7 +486,85 @@ export function loadForms(): FormEntry[] {
   // PMS 연구관리양식(두 번째 소스) — 별지 뒤에 카테고리·이름순으로 이어붙인다
   const pms = loadPmsForms();
   pms.sort((a, b) => a.규정명.localeCompare(b.규정명, "ko") || a.서식명.localeCompare(b.서식명, "ko"));
-  return out.concat(pms);
+  const uplaw = loadUplawForms();
+  uplaw.sort((a, b) => a.규정명.localeCompare(b.규정명, "ko") || a.호수 - b.호수);
+  return out.concat(pms, uplaw);
+}
+
+// ── 기한 사전(docs/57) — 전 규정 상대기한 228건 역방향 브라우저(사건→규정). ──
+// 데이터원 tools/index/deadlines.json(01m 생성, git-external — 없으면 빈 배열). ⛔ 창작 0.
+export type DeadlineEntry = {
+  규정명: string;
+  slug: string | null;   // 드로어 링크용 문서 slug(규정명↔문서 매칭 실패 시 null=비클릭)
+  regNo: string;         // 규정번호(계산 근거 표기용)
+  조: string;
+  의무: string;          // 제출·보고·신고… (빈 값 가능)
+  anchor: string;        // 사건 기준점("공무출장 후" 등, 빈 값 가능)
+  n: number;
+  unit: string;          // 일·주·개월·년
+  dir: string;           // 이내 | 전
+  type: string;          // 마감 | 기간한도
+  원문: string;          // 검증용 규정 원문 문장(그대로)
+  라벨사건?: string;     // 01m2 자동 라벨(Qwen, 검증 게이트 통과분) — 표시용, 검수 전. 없으면 anchor 폴백
+  라벨행동?: string;     // 〃 기한 내 해야 할 일
+  라벨대상?: string;     // 기간한도용 — 무엇의 기간인지(예: "재택근무 근무기간")
+};
+
+export function loadDeadlines(): DeadlineEntry[] {
+  let raw: { deadlines?: Record<string, unknown[]> };
+  try {
+    const p = path.resolve(process.cwd(), "..", "tools", "index", "deadlines.json");
+    raw = JSON.parse(fs.readFileSync(p, "utf-8"));
+  } catch {
+    return [];
+  }
+  // 01m2 자동 라벨(있으면) — 파편 anchor를 사람이 읽을 사건·행동으로. 없어도 안전(anchor 폴백)
+  let labels: Record<string, { 사건?: string; 행동?: string; 대상?: string; 판정?: string }> = {};
+  try {
+    labels = JSON.parse(fs.readFileSync(
+      path.resolve(process.cwd(), "..", "tools", "index", "deadline_labels.json"), "utf-8"));
+  } catch { /* 라벨 파일 없음 — 폴백 */ }
+  const titleToSlug = new Map<string, string>();
+  const titleToNo = new Map<string, string>();
+  for (const d of getAllDocs()) {
+    if (!titleToSlug.has(d.title)) {
+      titleToSlug.set(d.title, d.slug);
+      titleToNo.set(d.title, d.regNo || "");
+    }
+  }
+  const out: DeadlineEntry[] = [];
+  for (const [규정명, list] of Object.entries(raw.deadlines || {})) {
+    for (const e of (list || []) as Record<string, unknown>[]) {
+      // 01m2 라벨 키와 동기(규정명|조|N단위방향|원문 40자)
+      const lk = `${규정명}|${e.조}|${e.n}${e.unit}${e.dir}|${String(e.원문 || "").slice(0, 40)}`;
+      const lab = labels[lk] || {};
+      // 01m2 재판정 '기한아님' = 01m 오추출(정의·빈도한도·조건) — 표시 제외(원본 json 불변)
+      if (lab.판정 === "기한아님") continue;
+      out.push({
+        규정명,
+        slug: titleToSlug.get(규정명) ?? null,
+        regNo: titleToNo.get(규정명) || "",
+        조: String(e.조 || ""),
+        의무: String(e.의무 || ""),
+        anchor: String(e.anchor || ""),
+        n: Number(e.n) || 0,
+        unit: String(e.unit || ""),
+        dir: String(e.dir || ""),
+        type: String(e.type || ""),
+        원문: String(e.원문 || ""),
+        라벨사건: lab.사건 || "",
+        라벨행동: lab.행동 || "",
+        라벨대상: lab.대상 || "",
+        // 재판정이 기간한도로 정정한 항목은 type도 표시용으로 정정(원본 불변)
+        ...(lab.판정 === "기간한도" ? { type: "기간한도" } : {}),
+      });
+    }
+  }
+  // 계산 가능(마감·anchor 有) 우선 → 규정명 → 조. 브라우즈 첫 화면이 바로 쓸모 있게.
+  const rank = (x: DeadlineEntry) => (x.type === "마감" && x.anchor ? 0 : 1);
+  return out.sort(
+    (a, b) => rank(a) - rank(b) || a.규정명.localeCompare(b.규정명, "ko") || a.조.localeCompare(b.조, "ko")
+  );
 }
 
 export function loadJourneys(): Journey[] {

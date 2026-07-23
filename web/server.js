@@ -277,6 +277,13 @@ const server = http.createServer((req, res) => {
       return serveFile(res, live);
     }
   }
+  // 품질 게시판 데이터(docs/58) — 매일 daily_publish가 web/public/quality를 갱신 → 재빌드 없이 서빙.
+  if (safe.startsWith("quality" + path.sep) || safe.startsWith(path.join("/", "quality"))) {
+    const live = path.join(__dirname, "public", safe.replace(/^[/\\]+/, ""));
+    if (fs.existsSync(live) && fs.statSync(live).isFile()) {
+      return serveFile(res, live);
+    }
+  }
 
   // 디렉터리(슬래시로 끝남) → index.html
   if (pathname.endsWith("/")) target = path.join(target, "index.html");

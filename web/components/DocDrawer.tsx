@@ -4,6 +4,8 @@ import Markdown from "./common/Markdown";
 import type { Doc, SectionKey } from "../lib/vault";
 import { useFlag } from "../lib/flags";
 import DeadlineList, { type Deadline } from "./DeadlineCalc";
+import ReaderGlass from "./reader/ReaderGlass";
+import ReaderGlassToggle from "./reader/ReaderGlassToggle";
 import styles from "./DocDrawer.module.css";
 
 // Track A(조문 정제) 슬라이스 — 빌드타임 emit-docdata가 부착
@@ -66,6 +68,7 @@ export default function DocDrawer({
   const selectAskOn = useFlag("select_ask"); // docs/26: 원문 선택 질문 팝오버
   const feedbackOn = useFlag("feedback_center"); // docs/51: 읽던 문서 그대로 제보(프리필)
   const [selAsk, setSelAsk] = useState<{ x: number; y: number; text: string } | null>(null);
+  const [glass, setGlass] = useState(false); // 돋보기(docs/59) — 드로어 본문에도
   const articleRef = useRef<HTMLElement>(null);
   const onBodyMouseUp = () => {
     if (!selectAskOn) return;
@@ -103,7 +106,9 @@ export default function DocDrawer({
     setCurrent(slug);
     setAnchor(initialAnchor);
     setStack([]); // 새로 열릴 때 내부 이력 초기화(#31)
+    setGlass(false); // 새 문서 열림 → 돋보기 리셋(복제 스냅샷 최신화)
   }, [slug, initialAnchor]);
+  useEffect(() => { setGlass(false); }, [current]); // 드로어 내 문서 전환 시도 리셋
 
   // current 변경 → 본문 JSON 로드
   useEffect(() => {
@@ -230,6 +235,7 @@ export default function DocDrawer({
           ) : null}
           <span className={styles.barTitle}>{doc ? doc.title : "문서"}</span>
           <div className={styles.barRight}>
+            {doc ? <ReaderGlassToggle on={glass} onToggle={() => setGlass((v) => !v)} drawer /> : null}
             {feedbackOn && doc ? (
               <a className={styles.expand}
                 href={`/feedback/?type=${encodeURIComponent("오류신고")}&doc=${encodeURIComponent(doc.title)}${anchor ? `&anchor=${encodeURIComponent(decodeURIComponent(anchor).replace(/^#/, ""))}` : ""}`}
@@ -444,6 +450,7 @@ export default function DocDrawer({
           ) : null}
         </div>
       </aside>
+      {glass && doc ? <ReaderGlass targetRef={articleRef} onClose={() => setGlass(false)} /> : null}
     </div>
   );
 }

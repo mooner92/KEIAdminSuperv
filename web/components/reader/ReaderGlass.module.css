@@ -1,0 +1,113 @@
+/* 리퀴드글라스 돋보기(docs/59) — 시맨틱 토큰 + 유리 질감. 커서 따라다니는 원형 렌즈 */
+.svgDefs { position: fixed; pointer-events: none; }
+
+/* 종료 안내 힌트 — 화면 하단 중앙, 커서를 안 가림. 잠깐 떴다가 서서히 옅어짐 */
+.hint {
+  position: fixed;
+  z-index: 10002;
+  left: 50%;
+  bottom: 26px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  padding: 6px 13px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-text) 82%, transparent);
+  color: var(--color-surface);
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  animation: kei-glass-hint 3.2s ease forwards;
+}
+@keyframes kei-glass-hint {
+  0% { opacity: 0; }
+  12% { opacity: 0.96; }
+  70% { opacity: 0.96; }
+  100% { opacity: 0; }
+}
+@media (max-width: 760px) { .hint { bottom: 86px; } }
+
+.lens {
+  position: fixed;
+  z-index: 9999;
+  border-radius: 999px;
+  pointer-events: none; /* 렌즈가 커서 이벤트를 가로채지 않게 — 아래 본문이 계속 hover */
+  overflow: hidden;
+  /* 유리 입체감: 바깥 그림자 + 안쪽 하이라이트(가장자리 빛) */
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.28),
+    0 1px 2px rgba(0, 0, 0, 0.2),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+  background: var(--color-surface);
+  will-change: left, top;
+}
+
+/* rim 굴절 레이어(Chrome backdrop-filter) — 배경 페이지를 가장자리에서 굴절 */
+.refract {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+}
+
+/* 확대 뷰포트 — 복제 본문을 담고 원형으로 클립. 가장자리를 페이드해 원본 페이지와 부드럽게
+   섞이게(하드 경계 제거 → 어지러움 완화). 중앙은 불투명, 바깥 28%는 서서히 투명. */
+.viewport {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--color-surface);
+  -webkit-mask: radial-gradient(closest-side at 50% 50%, #000 62%, rgba(0, 0, 0, 0.55) 82%, transparent 100%);
+  mask: radial-gradient(closest-side at 50% 50%, #000 62%, rgba(0, 0, 0, 0.55) 82%, transparent 100%);
+}
+/* 가장자리 블러 링(Chrome backdrop-filter) — rim에서 배경을 흐리게 해 경계가 녹아든다.
+   미지원 브라우저는 mask 페이드만으로도 충분히 부드러움. */
+.edgeBlur {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  pointer-events: none;
+  -webkit-mask: radial-gradient(closest-side at 50% 50%, transparent 66%, #000 90%);
+  mask: radial-gradient(closest-side at 50% 50%, transparent 66%, #000 90%);
+  backdrop-filter: blur(2.5px);
+  -webkit-backdrop-filter: blur(2.5px);
+}
+.clone {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  color: var(--color-text);
+  /* 본문 톤 유지 — Markdown.module.css 밖이라 최소 타이포만 */
+  font-size: 15px;
+  line-height: 1.7;
+}
+.clone :global(mark) { background: var(--color-mark-bg, #fde68a); }
+
+/* 스페큘러 블룸 — 상단 부드러운 광택 + 하단 옅은 반사(원본의 'subtle specular bloom for depth') */
+.gloss {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  pointer-events: none;
+  background:
+    radial-gradient(75% 48% at 32% 6%, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 62%),
+    radial-gradient(60% 40% at 72% 96%, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 60%);
+}
+/* rim 링(가장자리 굴절감 — 부드럽게, 안쪽으로 은은한 페이드) */
+.rim {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 10px 5px rgba(255, 255, 255, 0.18),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.28),
+    inset 0 -8px 20px -10px rgba(0, 0, 0, 0.22);
+}
+
+:global([data-theme="dark"]) .lens,
+:global(.dark) .lens {
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.5),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+}

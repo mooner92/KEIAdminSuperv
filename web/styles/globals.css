@@ -63,6 +63,7 @@
   --accent-용어집: var(--orange500);
   --accent-시스템: #8b5cf6;
   --accent-대외업무: #d63384; /* 대외업무(docs/39) — 규정·가이드와 시각 구분되는 자홍 계열 */
+  --accent-상위법령: #64748b; /* 상위법령(docs/61) — 사내 규정 아님, 중립 슬레이트 */
 
   /* 상태 배지 / 위험 표면 / 헤더 (다크에선 토큰만 교체) */
   --badge-warn-bg: #fff6e9;
@@ -176,6 +177,7 @@ html { transition: background-color 0.2s ease; }
   --accent-용어집: #ffb547;
   --accent-시스템: #a78bfa;
   --accent-대외업무: #f06fa8; /* 대외업무(다크) */
+  --accent-상위법령: #94a3b8; /* 상위법령(다크) */
 
   /* 랜딩 컬러 모먼트(다크) — 페이지보다 살짝 밝은 틴트 필드 + 밝은 액센트 글자 */
   --sec-blue-bg: #14202f;
@@ -199,4 +201,32 @@ html { transition: background-color 0.2s ease; }
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.55);
   --shadow-drawer: -16px 0 48px rgba(0, 0, 0, 0.5);
+}
+
+/* ── 인터랙션 필(2026-07-22, apple-design·emil 스킬 적용) ─────────────────────
+   ① press 피드백: pointer-down 즉시(릴리스 대기 = 죽은 느낌). transform만(레이아웃 불변).
+      개별 컴포넌트의 더 구체적인 :active가 있으면 그쪽이 우선(공존 안전). */
+button:not(:disabled):active,
+a[role="button"]:active {
+  transform: scale(0.97);
+  transition: transform 100ms ease-out;
+}
+/* 큰 면(카드형 row 버튼)은 눌림을 더 약하게 — 과한 움직임 방지 */
+button[class*="row"]:not(:disabled):active,
+button[class*="Card"]:not(:disabled):active {
+  transform: scale(0.995);
+}
+
+/* ② 큰 제목은 음수 트래킹(글자가 커질수록 벌어져 보임 — apple §15) */
+h1 { letter-spacing: -0.02em; }
+h2 { letter-spacing: -0.01em; }
+
+/* ③ 접근성 — 모션 최소화 선호 시 전역 완화(슬라이드/스프링 → 즉시 전환. 피드백 자체는 유지) */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

@@ -19,6 +19,20 @@
   padding: var(--space-6) var(--space-6) var(--space-8);
   max-width: 860px;
 }
+/* 돋보기 토글 바 — 문서 폭(860)에 맞춰 우측 정렬 + sticky(스크롤 추종). 높이 0으로 본문 안 밀기 */
+.glassBar {
+  position: sticky;
+  top: calc(var(--header-h, 56px) + 10px);
+  z-index: 30;
+  max-width: 860px;
+  height: 0; /* 흐름 차지 최소화 — 버튼은 아래로 흘러 article 위 우측에 뜸 */
+  display: flex;
+  justify-content: flex-end;
+  pointer-events: none; /* 빈 영역은 클릭 통과, 버튼만 pointer-events:auto */
+}
+@media (max-width: 640px) {
+  .glassBar { top: calc(var(--header-h, 52px) + 6px); padding-right: 4px; }
+}
 .head { margin-bottom: var(--space-5); padding-bottom: var(--space-5); border-bottom: 1px solid var(--color-border); }
 .tags { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
 .chip {
@@ -89,4 +103,12 @@
 @media (max-width: 640px) {
   .article { padding: var(--space-5) var(--space-4); }
   .h1 { font-size: 21px; }
+}
+
+/* 상위법령(docs/61) — 사내 규정 아님 안내 콜아웃(문서 본문 상단) */
+.uplawNote {
+  margin: 0 0 var(--space-4); padding: 10px 14px; font-size: 13px; line-height: 1.6;
+  color: var(--color-text-secondary); background: var(--color-bg-subtle);
+  border: 1px solid var(--color-border); border-left: 3px solid var(--accent-상위법령);
+  border-radius: 8px;
 }

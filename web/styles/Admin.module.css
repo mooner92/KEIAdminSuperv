@@ -292,3 +292,11 @@
 
 .usageGrid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
 @media (max-width: 900px) { .usageGrid { grid-template-columns: 1fr; } }
+
+/* FAQ 브리지(docs/58 §6) — 후보 다듬기 필드 */
+.fieldLabel { display: block; margin: 10px 0 4px; font-size: 11.5px; font-weight: 700; color: var(--color-text-tertiary); }
+.fieldInput {
+  width: 100%; box-sizing: border-box; font: inherit; font-size: 13px; color: var(--color-text);
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 8px; padding: 7px 10px;
+}
+.fieldInput:focus { outline: none; border-color: var(--color-primary); }

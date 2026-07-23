@@ -80,6 +80,46 @@ def _flag(name: str, default: bool = False) -> bool:
     return _flag_cache["vals"].get(name, default)
 
 
+# 절차 질문(“어떻게 신청해?”류) 감지 — 절차 팩 자동첨부(flag procedure_pack)의 트리거.
+_PROC_Q_RE = re.compile(
+    r"(어떻게|어디서|방법|절차|하는\s*법|뭘\s*해야|무엇을\s*해야|하려면)"
+    r"|((신청|기안|결재|제출|정산|등록|올리|처리|구매|구입|발급|취소|변경|사용).{0,8}(어떻게|방법|절차|하나요|해야|할까|하지|하려면))")
+
+
+def _procedure_pack_on() -> bool:
+    env = os.environ.get("RAG_PROCEDURE_PACK")
+    if env is not None:
+        return env not in ("0", "", "false", "False")
+    return _flag("procedure_pack", False)  # 관리자 플래그(/admin), 기본 off
+
+
+def _uplaw_on() -> bool:
+    """상위 법령 레이어(docs/61 U4) — env RAG_UPLAW_LAYER 명시 시 강제, 아니면 관리자 플래그."""
+    env = os.environ.get("RAG_UPLAW_LAYER")
+    if env is not None:
+        return env not in ("0", "", "false", "False")
+    return _flag("uplaw_layer", False)  # 관리자 플래그(/admin), 기본 off
+
+
+_uplaw_state = {"col": None, "tried": False}
+
+
+def _uplaw_col():
+    """kei_uplaw 컬렉션(별도 색인, 02 --layer uplaw). 없으면 None — 우아 강등."""
+    if _uplaw_state["col"] is None and not _uplaw_state["tried"]:
+        _uplaw_state["tried"] = True
+        try:
+            import chromadb
+            _uplaw_state["col"] = chromadb.PersistentClient(path=CHROMA_DIR).get_collection("kei_uplaw")
+        except Exception as e:  # noqa: BLE001
+            print(f"⚠ kei_uplaw 컬렉션 없음(상위 법령 레이어 비활성): {e}")
+    return _uplaw_state["col"]
+
+
+UPLAW_TOPK = int(os.environ.get("RAG_UPLAW_TOPK", "2"))
+UPLAW_MAX_DIST = float(os.environ.get("RAG_UPLAW_MAX_DIST", "0.55"))  # 무관 첨부 방지 임계
+
+
 def _graph_expand_regs_on() -> bool:
     env = os.environ.get("RAG_GRAPH_EXPAND_REGS")
     if env is not None:  # env 명시 시 운영 강제(테스트/오버라이드)
@@ -279,6 +319,17 @@ SYSTEM = (
     " 않으며, 규정 근거를 물으면 '통계 관측이며 규정 값은 별도 확인 필요'라고 밝힌다."
     " 담당자 개인이 누구인지는 답하지 않는다 — 부서까지만 안내하고 현재 담당자는 대외업무관리시스템"
     " 조회를 안내한다.\n"
+    "15) [근거]에 '(상위 법령 — 사내 규정 아님)' 라벨이 붙은 블록은 KEI 사내 규정이 아니라 상위"
+    " 규범(연구회 공통 규정·법령)이다. 사내 규정 근거가 함께 있으면 사내 규정이 정본이고 상위 법령은"
+    " 보조로만 덧붙인다. 사내 규정 근거가 없으면 먼저 '사내 규정에서는 확인되지 않습니다'라고 밝힌 뒤"
+    " '다만 상위 규범인 [규정명]에서는 …'으로 문장을 나눠 구분해 안내한다. 적용강도가 '참고'인 블록은"
+    " 'KEI에 직접 적용되는지는 담당 부서 확인이 필요합니다'를 덧붙인다. ⛔ 상위 법령 내용을 사내"
+    " 규정인 것처럼 말하지 않으며, 질문과 무관한 상위 법령 블록은 무시한다.\n"
+    "16) '어떻게 신청/처리하나' 같은 절차 질문은 [근거]에 있는 범위에서 다음 순서로 단계를 구성한다:"
+    " ① 자격·요건(규정 조문) ② 시스템 경로(어느 시스템의 어떤 메뉴 — 근거의 메뉴 경로 그대로)"
+    " ③ 기안·결재정보(결재선은 위임전결규정 기준 — 정확한 결재선은 결재선 판정기와 부서 확인 안내)"
+    " ④ 편철(단위업무·기록물철 — '절차 자동첨부' 근거가 있으면 철 이름까지) ⑤ 후속 단계(정산·보고 등)."
+    " ⛔ 근거에 없는 단계는 만들지 말고 생략한다. 각 단계 출처를 표기한다.\n"
 )
 
 # 가드레일(절대 규칙 #4): 모든 답변 끝에 면책 문구. 14B가 종종 누락(평가셋 측정 ~19%)하므로
@@ -575,6 +626,18 @@ def _bare_table_values(text: str) -> set:
             continue
         for i, c in enumerate(cells):
             if i in skip_cols:
+                continue
+            for m in _BARE_NUM_RE.finditer(_NUM_MASK_RE.sub(" ", c)):
+                out.add(round(float(m.group(1).replace(",", "")), 4))
+    # HTML 표(<tr><td> — kordoc 병합 셀 보존 표, docs/61 K4)도 동일 수확.
+    # 실측 결함: 여비규정 별표2가 HTML 표로 재변환되자 숙박비 상한(100,000 무단위)이
+    # 허용집합에서 빠져 정상 값을 과차단(대조군A 실패). 파이프와 같은 규칙(순번 열 제외) 적용.
+    for row_m in re.finditer(r"<tr[^>]*>(.*?)</tr>", text or "", re.S | re.I):
+        cells = [re.sub(r"<[^>]+>", " ", c).strip()
+                 for c in re.split(r"</?t[dh][^>]*>", row_m.group(1)) if c.strip()]
+        seq_cols = {i for i, c in enumerate(cells) if _SEQ_COL_RE.fullmatch(c)}
+        for i, c in enumerate(cells):
+            if i in seq_cols:
                 continue
             for m in _BARE_NUM_RE.finditer(_NUM_MASK_RE.sub(" ", c)):
                 out.add(round(float(m.group(1).replace(",", "")), 4))
@@ -1462,6 +1525,82 @@ def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None
                               f"행: {row['행']}\n열: {row['열']}\n값: {row['값']}")
         except Exception as e:  # noqa: BLE001 — 스토어 조회 실패는 기본 회수로 강등
             print(f"⚠ 수치 스토어 조회 실패(무시): {e}")
+
+    # 절차 팩(flag procedure_pack): "어떻게 신청?"류 절차 질문이면 절차의 3층(시스템 화면 →
+    # 기안 결재상신 → 편철·기록물철)이 근거에 모두 실리도록 부족한 층만 보조 첨부한다.
+    # 실측 문제: 층별 노트가 흩어져 있어 top-5 운에 따라 "메뉴만" 또는 "규정만" 답하던 것.
+    # ⛔ 첨부는 실존 청크 인용만(무생성) · 각 층 최대 1~2개 · 실패는 우아 강등.
+    if _procedure_pack_on() and _PROC_Q_RE.search(query):
+        try:
+            have_types = {s.get("type") for s in srcs}
+            have_regs = {(s.get("규정명") or "") for s in srcs}
+            added_pp = 0
+            # ⓐ 시스템 화면(신청 메뉴·경로)이 없으면 보정 top-2
+            if "system" not in have_types:
+                r2 = col.query(query_embeddings=[qv], n_results=2, where={"type": "system"},
+                               include=["documents", "metadatas", "distances"])
+                for d2, m2, dist2 in zip(r2["documents"][0], r2["metadatas"][0], r2["distances"][0]):
+                    if dist2 is not None and dist2 > 0.6:
+                        continue
+                    s2 = _src(d2, m2, dist2)
+                    if any(x.get("tag") == s2["tag"] for x in srcs):
+                        continue
+                    s2["procedure_pack"] = True
+                    sysname = ((s2.get("규정명") or "").split(" · ")[0]).strip()
+                    srcs.append(s2)
+                    blocks.append(f"[{s2['tag']} (소속 시스템: {sysname}) · 절차 자동첨부]\n{d2}")
+                    added_pp += 1
+            # ⓑ 기안(결재상신) 허브가 없으면 1개
+            if not any("전자결재 기안" in r for r in have_regs):
+                hub = _ensure_gian_hub()
+                if hub:
+                    d2, m2 = hub
+                    s2 = _src(d2, m2, None)
+                    if not any(x.get("tag") == s2["tag"] for x in srcs):
+                        s2["procedure_pack"] = True
+                        srcs.append(s2)
+                        blocks.append(f"[{s2['tag']} · 결재상신(기안) 절차 자동첨부]\n{d2}")
+                        added_pp += 1
+            # ⓒ 편철(기록물철)이 없으면 코드표·철 상세에서 질의 최근접 1개
+            if not any("기록물철" in r for r in have_regs):
+                r3 = col.query(query_embeddings=[qv], n_results=1,
+                               where={"규정명": {"$in": ["전자결재 기안 · 기록물철 코드표",
+                                                        "기록물철 상세 · 공통"]}},
+                               include=["documents", "metadatas", "distances"])
+                if r3["ids"][0]:
+                    d3, m3 = r3["documents"][0][0], r3["metadatas"][0][0]
+                    s3 = _src(d3, m3, r3["distances"][0][0])
+                    if not any(x.get("tag") == s3["tag"] for x in srcs):
+                        s3["procedure_pack"] = True
+                        srcs.append(s3)
+                        blocks.append(f"[{s3['tag']} · 편철(기록물철) 절차 자동첨부]\n{d3}")
+                        added_pp += 1
+        except Exception as e:  # noqa: BLE001 — 절차 팩 실패는 기본 회수로 우아하게 강등
+            print(f"⚠ 절차 팩 첨부 실패(무시): {e}")
+
+    # 상위 법령 레이어(docs/61 U4, flag uplaw_layer): NRC 공통규정 등 상위 규범을 별도 컬렉션
+    # (kei_uplaw)에서 보조 회수해 '(상위 법령 — 사내 규정 아님)' 라벨로 **뒤에** 첨부.
+    # ⛔ 거부 가드레일 불변 — 사내 근거 부재 시의 거부는 유지되고, 규칙 15가 '사내 확인 안 됨 →
+    # 상위 규범 안내'의 구분 답변을 강제한다. 무관 첨부는 거리 임계(UPLAW_MAX_DIST)로 차단.
+    if _uplaw_on():
+        try:
+            ucol = _uplaw_col()
+            if ucol is not None:
+                ur = ucol.query(query_embeddings=[qv], n_results=UPLAW_TOPK,
+                                include=["documents", "metadatas", "distances"])
+                for doc, m, dist in zip(ur["documents"][0], ur["metadatas"][0], ur["distances"][0]):
+                    if dist is not None and dist > UPLAW_MAX_DIST:
+                        continue
+                    s2 = _src(doc, m, dist)
+                    s2["type"] = "uplaw"
+                    s2["uplaw"] = True
+                    strength = (m or {}).get("적용강도") or "준거"
+                    s2["적용강도"] = strength
+                    srcs.append(s2)
+                    blocks.append(f"[{s2['tag']} (상위 법령 — 사내 규정 아님 · 적용강도: {strength}"
+                                  f" · 출처: 경제·인문사회연구회)]\n{doc}")
+        except Exception as e:  # noqa: BLE001 — 레이어 실패는 기본 회수로 우아하게 강등
+            print(f"⚠ 상위 법령 레이어 실패(무시): {e}")
 
     # 표 무결성 격리(P0-3, docs/22): 손상 표 블록에 경고 라벨 — 수치 게이트(P0-1)와 UI 배지가 소비.
     if TABLE_GUARD:

@@ -4,7 +4,7 @@ import Link from "next/link";
 import Layout from "../components/Layout";
 import {
   AdminDashboard, AdminCorpus, AdminTableRestore, AdminTrust,
-  AdminReports, AdminUsage, AdminUsers, AdminFlags,
+  AdminReports, AdminUsage, AdminUsers, AdminFlags, AdminFaqBridge,
 } from "../components/admin";
 import { api, ApiError } from "../lib/api";
 import { SITE_NAME } from "../lib/site";
@@ -14,12 +14,13 @@ import styles from "../styles/Admin.module.css";
 // 관리자 페이지(v1.1 UX 개편, docs/21) — **탭 셸만** 담당한다. 각 탭 내용은 components/admin/의
 // 독립 컴포넌트가 자체 데이터·상태를 소유(docs/53 UI 관례). 탭 상태는 URL 해시(#corpus 등)와
 // 동기화(새로고침·딥링크 유지). 접근은 백엔드 403이 방어(여기선 flagsManage로 게이트 확인).
-type Tab = "dash" | "corpus" | "restore" | "trust" | "reports" | "usage" | "users" | "flags";
-const TAB_KEYS: Tab[] = ["dash", "corpus", "restore", "trust", "reports", "usage", "users", "flags"];
+type Tab = "dash" | "corpus" | "restore" | "faq" | "trust" | "reports" | "usage" | "users" | "flags";
+const TAB_KEYS: Tab[] = ["dash", "corpus", "restore", "faq", "trust", "reports", "usage", "users", "flags"];
 const TABS: { k: Tab; label: string }[] = [
   { k: "dash", label: "📊 대시보드" },
   { k: "corpus", label: "📚 코퍼스 관리" },
   { k: "restore", label: "🔧 표 복원" },
+  { k: "faq", label: "🌉 FAQ 브리지" },
   { k: "trust", label: "🛡 신뢰" },
   { k: "reports", label: "📮 의견함" },
   { k: "usage", label: "📈 통계" },
@@ -30,6 +31,7 @@ const TABS: { k: Tab; label: string }[] = [
 export default function AdminPage() {
   const corpusOn = useFlag("corpus_admin");
   const restoreOn = useFlag("table_restore");
+  const faqOn = useFlag("faq_bridge");
   const usersOn = useFlag("user_directory");
   const trustOn = useFlag("trust_ops");
   const reportsOn = useFlag("feedback_center"); // docs/51: 📮 의견함
@@ -67,7 +69,7 @@ export default function AdminPage() {
 
   // 플래그로 잠긴 탭은 표시하지 않는다(백엔드가 최종 방어). dash·usage·flags는 항상 노출.
   const gated: Partial<Record<Tab, boolean>> = {
-    corpus: corpusOn, restore: restoreOn, trust: trustOn, reports: reportsOn, users: usersOn,
+    corpus: corpusOn, restore: restoreOn, faq: faqOn, trust: trustOn, reports: reportsOn, users: usersOn,
   };
   const visibleTabs = TABS.filter((t) => gated[t.k] !== false);
 
@@ -95,6 +97,7 @@ export default function AdminPage() {
           {tab === "dash" ? <AdminDashboard /> : null}
           {tab === "corpus" && corpusOn ? <AdminCorpus /> : null}
           {tab === "restore" && restoreOn ? <AdminTableRestore /> : null}
+          {tab === "faq" && faqOn ? <AdminFaqBridge /> : null}
           {tab === "trust" && trustOn ? <AdminTrust /> : null}
           {tab === "reports" && reportsOn ? <AdminReports /> : null}
           {tab === "usage" ? <AdminUsage /> : null}

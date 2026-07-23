@@ -92,7 +92,7 @@
   border-radius: 999px;
   padding: 8px 14px;
   cursor: pointer;
-  transition: all 0.1s;
+  transition: color 0.1s ease, border-color 0.1s ease, background-color 0.1s ease;
 }
 .exChip:hover { border-color: var(--color-primary); color: var(--color-primary); }
 
@@ -150,7 +150,7 @@
   padding: 4px 9px;
   cursor: pointer;
   opacity: 0.65;
-  transition: all 0.1s;
+  transition: color 0.1s ease, border-color 0.1s ease, background-color 0.1s ease;
 }
 .fbBtn:hover { opacity: 1; border-color: var(--color-border-strong); }
 .fbUp { opacity: 1; border-color: var(--color-primary); background: var(--color-primary-weak); }
@@ -250,7 +250,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  transition: all 0.1s;
+  transition: color 0.1s ease, border-color 0.1s ease, background-color 0.1s ease;
 }
 .srcCard:hover { border-color: var(--color-primary); background: var(--color-surface); }
 .srcCardFlat { cursor: default; }
@@ -561,3 +561,11 @@
   white-space: nowrap;
 }
 .stop:hover { background: var(--color-danger-bg, var(--color-surface)); }
+
+/* 상위 법령 칩(docs/61 U4) — 사내 규정과 층위 구분(경고 아님·정보성 중립 톤) */
+.uplawChip {
+  display: inline-flex; align-items: center; gap: 2px; margin-left: 6px;
+  font-size: 10.5px; font-weight: 700; border-radius: 999px; padding: 1px 7px;
+  color: var(--color-text-secondary); border: 1px dashed var(--color-border);
+  background: var(--color-bg-subtle); white-space: nowrap;
+}

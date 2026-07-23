@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# 커밋 메시지 규칙(docs/60) — Conventional Commits 변형.
+#   <type>(<scope>)?: <제목>   · type = feat|fix|docs|style|refactor|perf|test|chore|build|ci|revert|polish|harden|refine|merge
+#   merge 커밋(Merge branch …)과 revert 자동 메시지는 통과.
+msg_file="$1"
+first_line=$(head -n1 "$msg_file")
+
+# 자동 생성 메시지 허용
+case "$first_line" in
+  Merge\ *|Revert\ *|fixup!\ *|squash!\ *) exit 0 ;;
+esac
+
+pattern='^(feat|fix|docs|style|refactor|perf|test|chore|build|ci|revert|polish|harden|refine|merge)(\([^)]+\))?!?: .+'
+if ! echo "$first_line" | grep -qE "$pattern"; then
+  echo "✗ 커밋 메시지 규칙 위반(docs/60):" >&2
+  echo "  형식: <type>(<scope>): <제목>  — 예: feat(deadlines): 기한 사전 추가" >&2
+  echo "  type: feat fix docs style refactor perf test chore build ci revert polish harden refine" >&2
+  echo "  현재: $first_line" >&2
+  exit 1
+fi
+exit 0

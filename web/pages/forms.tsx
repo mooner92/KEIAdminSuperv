@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { GetStaticProps } from "next";
 import Layout from "../components/Layout";
 import PageHero from "../components/common/PageHero";
+import PagedList from "../components/common/PagedList";
 import { useFlag } from "../lib/flags";
 import { SITE_NAME } from "../lib/site";
 import { track } from "../lib/track";
@@ -23,8 +24,6 @@ export default function FormsPage({ forms }: { forms: FormEntry[] }) {
   const [q, setQ] = useState("");
   const [regFilter, setRegFilter] = useState<Set<string>>(new Set()); // 규정명 필터(체크박스)
   const [regQ, setRegQ] = useState(""); // 필터 패널 내 규정 검색
-  const [pageSize, setPageSize] = useState(30); // 10/30/50개씩 보기(docs/50)
-  const [page, setPage] = useState(1);
   const [filterOpen, setFilterOpen] = useState(false); // 모바일(≤760px): 규정 필터 기본 접힘(Explorer 관례)
   // 사용량(docs/35): 검색은 1.2s 디바운스 1건 — 검색어 자체는 보내지 않음
   useEffect(() => {
@@ -66,12 +65,8 @@ export default function FormsPage({ forms }: { forms: FormEntry[] }) {
     () => (regFilter.size ? searched.filter((e) => regFilter.has(e.규정명)) : searched),
     [searched, regFilter]
   );
-  const pageCount = Math.max(1, Math.ceil(shown.length / pageSize));
-  const cur = Math.min(page, pageCount);
-  const paged = shown.slice((cur - 1) * pageSize, cur * pageSize);
   const toggleReg = (r: string) =>
     setRegFilter((prev) => { const n = new Set(prev); n.has(r) ? n.delete(r) : n.add(r); return n; });
-  useEffect(() => { setPage(1); }, [q, regFilter, pageSize]); // 조건 변경 → 1페이지
 
   if (!on) {
     return (
@@ -86,7 +81,7 @@ export default function FormsPage({ forms }: { forms: FormEntry[] }) {
     <Layout>
       <Head><title>{`서식 찾기 · ${SITE_NAME}`}</title><meta name="robots" content="noindex, nofollow" /></Head>
       <PageHero title="서식 찾기"
-        lead={`규정 별지 서식 ${forms.filter((e) => e.구분 !== "연구관리").length}종 + 연구관리양식(PMS) ${forms.filter((e) => e.구분 === "연구관리").length}종을 한곳에서 — 이름·규정명·번호로 검색하고 바로 열어보세요.`} />
+        lead={`규정 별지 서식 ${forms.filter((e) => !e.구분 || e.구분 === "별지").length}종 + 연구관리양식(PMS) ${forms.filter((e) => e.구분 === "연구관리").length}종 + 상위법령 별표 ${forms.filter((e) => e.구분 === "상위법령").length}종(법제처 원문)을 한곳에서 — 이름·규정명·번호로 검색하고 바로 열어보세요.`} />
 
       {/* 모바일 전용 필터 토글(≤760px) — 목록이 첫 화면(docs/48 관례) */}
       <button type="button" className={f.filterToggle}
@@ -130,75 +125,62 @@ export default function FormsPage({ forms }: { forms: FormEntry[] }) {
             aria-label="서식 검색"
             autoFocus
           />
-          <div className={f.metaRow}>
-            <p className={f.count}>
-              {shown.length}건 · {shown.length === 0 ? 0 : (cur - 1) * pageSize + 1}–{Math.min(cur * pageSize, shown.length)}
-              {q ? ` · "${q}"` : ""}{regFilter.size ? ` · 규정 ${regFilter.size}개 필터` : ""}
-            </p>
-            <div className={f.pager}>
-              <span className={f.pageSizeGrp}>
-                {[10, 30, 50].map((n) => (
-                  <button key={n} className={`${f.psBtn} ${pageSize === n ? f.psActive : ""}`}
-                    onClick={() => setPageSize(n)}>{n}</button>
-                ))}
-                <span className={f.psUnit}>개씩</span>
-              </span>
-              <span className={f.pageNav}>
-                <button className={f.navBtn} disabled={cur <= 1} onClick={() => setPage(cur - 1)} aria-label="이전 페이지">‹</button>
-                <span className={f.pageInfo}>{cur} / {pageCount}</span>
-                <button className={f.navBtn} disabled={cur >= pageCount} onClick={() => setPage(cur + 1)} aria-label="다음 페이지">›</button>
-              </span>
-            </div>
-          </div>
-
-          <div className={f.tableWrap}>
-            <table className={f.table}>
-              <thead><tr><th>서식명</th><th>규정</th><th>번호</th><th>원문 서식</th><th></th></tr></thead>
-              <tbody>
-                {paged.map((e) => (
-                  <tr key={`${e.slug}#${e.호}`}>
-                    <td className={f.name}>
-                      {e.서식명}
-                      {typeof e.쪽수 === "number" && e.쪽수 > 0 ? (
-                        <span
-                          className={`${f.pages} ${e.쪽수 === 1 ? f.pages1 : f.pagesN}`}
-                          title={e.쪽수 === 1 ? "미리보기 PDF가 한 장에 담겨요" : `미리보기 PDF ${e.쪽수}장`}>
-                          {e.쪽수 === 1 ? "한 장" : `${e.쪽수}장`}
-                        </span>
-                      ) : null}
-                    </td>
-                    <td>{e.규정명}</td>
-                    <td className={f.no}>{e.호 || "—"}</td>
-                    <td className={f.dlCell}>
-                      {e.pdf ? (
-                        <a className={f.dl} href={e.pdf} download
-                          title={e.구분 === "연구관리" ? "PDF 미리보기 — 어떻게 생긴 양식인지 바로 확인" : "이 별지만 담긴 원문 PDF"}>PDF ↓</a>
-                      ) : (
-                        <span className={f.dlNone}>—</span>
-                      )}
-                      {e.hwp && e.hwp !== e.pdf ? (
-                        <a className={f.dl} href={e.hwp} download
-                          title={e.구분 === "연구관리" ? "원본 파일 — 실제 작성·제출용" : "규정 원문 전체 한글파일 — 서식 편집·작성용"}>
-                          {(e.hwp.split(".").pop() || "원본").toUpperCase().replace("%20", "")} ↓
-                        </a>
-                      ) : null}
-                    </td>
-                    <td>
-                      {e.slug ? (
-                        <Link className={f.go} href={`/d/${encodeURIComponent(e.slug)}/#${encodeURIComponent(e.anchor)}`}
-                          onClick={() => track("forms_open")}>
-                          {e.구분 === "연구관리" ? "안내 화면 →" : "원문 보기 →"}
-                        </Link>
-                      ) : null}
-                    </td>
-                  </tr>
-                ))}
-                {shown.length === 0 ? (
-                  <tr><td colSpan={4} className={f.empty}>검색 결과가 없어요 — 다른 이름이나 규정명으로 찾아보세요.</td></tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
+          {/* 공용 PagedList — 상단 한 줄(건수 · N개씩 · ‹n/N›). 손수 만든 페이저 제거 */}
+          <PagedList
+            items={shown}
+            unit="건"
+            defaultSize={30}
+            resetKey={`${q}|${[...regFilter].sort().join(",")}`}
+            empty="검색 결과가 없어요 — 다른 이름이나 규정명으로 찾아보세요."
+          >
+            {(paged) => (
+              <div className={f.tableWrap}>
+                <table className={f.table}>
+                  <thead><tr><th>서식명</th><th>규정</th><th>번호</th><th>원문 서식</th><th></th></tr></thead>
+                  <tbody>
+                    {paged.map((e) => (
+                      <tr key={`${e.slug}#${e.호}`}>
+                        <td className={f.name}>
+                          {e.서식명}
+                          {typeof e.쪽수 === "number" && e.쪽수 > 0 ? (
+                            <span
+                              className={`${f.pages} ${e.쪽수 === 1 ? f.pages1 : f.pagesN}`}
+                              title={e.쪽수 === 1 ? "미리보기 PDF가 한 장에 담겨요" : `미리보기 PDF ${e.쪽수}장`}>
+                              {e.쪽수}.p
+                            </span>
+                          ) : null}
+                        </td>
+                        <td>{e.규정명}</td>
+                        <td className={f.no}>{e.호 || "—"}</td>
+                        <td className={f.dlCell}>
+                          {e.pdf ? (
+                            <a className={f.dl} href={e.pdf} download
+                              title={e.구분 === "연구관리" ? "PDF 미리보기 — 어떻게 생긴 양식인지 바로 확인" : "이 별지만 담긴 원문 PDF"}>PDF ↓</a>
+                          ) : (
+                            <span className={f.dlNone}>—</span>
+                          )}
+                          {e.hwp && e.hwp !== e.pdf ? (
+                            <a className={f.dl} href={e.hwp} download
+                              title={e.구분 === "연구관리" ? "원본 파일 — 실제 작성·제출용" : "규정 원문 전체 한글파일 — 서식 편집·작성용"}>
+                              {(e.hwp.split(".").pop() || "원본").toUpperCase().replace("%20", "")} ↓
+                            </a>
+                          ) : null}
+                        </td>
+                        <td>
+                          {e.slug ? (
+                            <Link className={f.go} href={`/d/${encodeURIComponent(e.slug)}/#${encodeURIComponent(e.anchor)}`}
+                              onClick={() => track("forms_open")}>
+                              {e.구분 === "연구관리" ? "안내 화면 →" : e.구분 === "상위법령" ? "법령 본문 →" : "원문 보기 →"}
+                            </Link>
+                          ) : null}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </PagedList>
           <p className={f.note}>
             ※ 폐지(삭제)된 서식은 목록에 나오지 않아요. 실제 제출은 전자결재(ERP·그룹웨어) 양식이 우선일 수
             있으니 담당 부서 안내를 함께 확인하세요.

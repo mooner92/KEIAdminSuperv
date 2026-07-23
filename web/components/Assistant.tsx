@@ -6,7 +6,7 @@ import { useFlag, useFlagsSettled } from "../lib/flags";
 import { useAuth } from "../lib/auth";
 import type { DocMeta } from "../lib/vault";
 import type { LandingCounts } from "./Landing";
-import type { JourneyChip } from "../pages/index";
+import type { JourneyChip } from "../lib/api";
 
 /** 인증 게이트: 공유 AuthContext(useAuth) 기준 — 미로그인이면 랜딩(flag landing_page) 또는 Login,
  * 로그인 상태면 ChatApp. 로그인/로그아웃이 AuthContext를 갱신하므로 Layout의 GNB도 즉시 반영된다.

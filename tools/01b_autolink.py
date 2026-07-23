@@ -45,7 +45,11 @@ def norm(s: str) -> str:
 
 
 def build_registry(vault: Path):
-    """규정명 → 파일 stem (확장자 제외). 원문(regulation)만 대상."""
+    """규정명 → 파일 stem (확장자 제외). 원문(regulation) + 상위법령(uplaw, docs/61).
+
+    상위법령을 링크 **대상**에 넣으면 사내 규정 원문의 법령 인용(「근로기준법」 제60조 등)이
+    [[근로기준법#제60조]] 그래프 엣지가 된다(사내 규정 → 상위 법령 방향). 멘션 스캔 자체는
+    계속 20_규정원문만 — 상위법령 원문은 수정하지 않는다."""
     reg = {}
     for md in (vault / "20_규정원문").rglob("*.md"):
         if md.name == "README.md":
@@ -54,6 +58,12 @@ def build_registry(vault: Path):
         if meta.get("type") == "regulation":
             name = (meta.get("규정명") or "").strip()
             if name and name != "목차":
+                reg.setdefault(name, md.stem)
+    for md in (vault / "25_상위법령").rglob("*.md"):
+        meta, _, _ = split_fm(md.read_text(encoding="utf-8"))
+        if meta.get("type") == "uplaw":
+            name = (meta.get("법령명") or "").strip()
+            if name:
                 reg.setdefault(name, md.stem)
     return reg
 

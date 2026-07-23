@@ -49,7 +49,11 @@ export type Source = {
   표깨짐?: boolean; // P0-3(docs/22): HWP 변환에서 표 구조 손상 — '⚠ 표 확인' 배지(수치는 원문 확인)
   scope_anchor?: boolean; // P0-2(docs/22): 인용 규정의 목적·적용범위(제1~2조) 자동첨부 — 🔗 배지
   value_store?: boolean; // 지렛대③(docs/24): 검수 완료 표에서 결정적 조회한 값 — 📊 배지
+  uplaw?: boolean; // docs/61 U4: 상위 법령 레이어(kei_uplaw) 보조 근거 — ⚖ 배지(사내 규정 아님)
+  procedure_pack?: boolean; // 절차 팩 자동첨부(시스템·기안·편철 보정) — 🔗 배지
+  적용강도?: string; // 상위 법령 적용강도(직접|준거|참고) — 칩 툴팁
 };
+export type JourneyChip = { id: string; title: string; emoji: string }; // 여정 칩(빈 화면 상황 시작) — pages/index에 있던 것을 이동(components→pages 역참조 순환 해소, madge R1)
 export type Suggestion = { type: "ask" | "journey"; label: string; q?: string; journey?: string };
 export type Feedback = "up" | "down" | null;
 export type Message = {
@@ -320,5 +324,16 @@ export const api = {
   tableRestoreApply: (name: string) =>
     j<{ matched: number; replaced: { file: string; 표: string; 행: number }[]; backups: string[]; manual_needed: string[] }>(
       "/corpus/table-restore/apply", { method: "POST", body: JSON.stringify({ name }) }),
+  // FAQ 브리지(docs/58 §6) — 자가평가 검색실패 오답 후보를 사람이 승인해 볼트 FAQ로 편입
+  faqCandidates: () => j<{ candidates: FaqCandidate[] }>("/faq-candidates"),
+  faqApply: (id: string, 질문?: string, 인용?: string) =>
+    j<{ slug: string; path: string }>("/faq-candidates/apply",
+      { method: "POST", body: JSON.stringify({ id, 질문: 질문 || "", 인용: 인용 || "" }) }),
+  faqDismiss: (id: string) => j<{ ok: boolean }>("/faq-candidates/dismiss", { method: "POST", body: JSON.stringify({ id }) }),
   stats: (days?: number) => j<Stats>(`/stats${days ? `?days=${days}` : ""}`), // 관리자 전용 대시보드
+};
+
+export type FaqCandidate = {
+  id: string; date: string; 질문: string; 인용: string; 규정명: string; 조: string; 증거: string;
+  상태: "pending" | "applied" | "dismissed";
 };

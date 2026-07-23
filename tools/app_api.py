@@ -176,6 +176,30 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-12-31",
     },
+    "thinking_orb": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "채팅 대기 표시를 점격자 '사고 구슬'(자체 canvas, thinking-orbs 컨셉 차용·의존성 0)로. "
+                       "검색 중=경선 스캔 · 작성 중=궤도 입자. off면 기존 이모지 표시.",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
+    "procedure_pack": {
+        "default": False,  # 백엔드 플래그 — rag_core 회수 시 조회
+        "description": "절차 팩(어떻게 신청?류 질문): 시스템 화면·기안 결재상신·편철(기록물철) 중 근거에 "
+                       "빠진 층을 보조 첨부 + SYSTEM 규칙16(요건→경로→기안·결재선→편철→후속 단계 구성). "
+                       "실존 청크 인용만·무생성.",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
+    "uplaw_layer": {
+        "default": False,  # 백엔드 플래그 — rag_core가 회수 시 조회(_uplaw_on)
+        "description": "상위 법령 레이어(docs/61 U4) — 사내 규정 회수에 더해 NRC 공통규정 등 상위 규범을 "
+                       "별도 컬렉션(kei_uplaw)에서 보조 회수, '(상위 법령 — 사내 규정 아님)' 라벨로 첨부. "
+                       "⛔ 거부 가드레일 불변(SYSTEM 규칙15가 '사내 확인 안 됨 → 상위 규범 안내' 구분 답변 강제). "
+                       "UI ⚖ 상위 법령 칩.",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
     "graph_expand_regs": {
         "default": False,  # ⛔ off로 배포 — top-k 희석 위험이라 평가로 이득 입증 후 on(하이브리드·다양성과 동일 규율)
         "description": "검색 시 회수 조문이 준용/참조하는 다른 규정 조문을 근거에 자동 첨부(규정↔규정 1홉 확장). "
@@ -297,6 +321,37 @@ FLAG_REGISTRY: dict = {
         "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
         "description": "답변 해부 레이아웃(docs/38 §B) — 생성 답변을 핵심답 콜아웃 + 절차 스테퍼로 '재배치·재스타일만'. "
                        "⛔ 문구 불변(CSS 데코레이션만, 텍스트 파싱·재조립 없음 → 내용 유실·순서변경 0). 가독성 향상.",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
+    "deadlines_hub": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "기한 사전 /deadlines(docs/57) — 전 규정 상대기한 228건 역방향 브라우저(사건→규정) + "
+                       "기준일→마감일 산술 계산·.ics. 서식 찾기와 동형, 추가 기능(/now) 허브 진입. 무LLM·창작 0.",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
+    "reader_glass": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "리퀴드글라스 돋보기(docs/59) — 문서(조문·규정 본문)를 읽을 때 커서 위치를 확대하는 유리 "
+                       "렌즈. 확대는 DOM 복제+scale(전 브라우저), 가장자리 굴절은 SVG feDisplacementMap "
+                       "backdrop-filter(Chrome, 미지원 시 CSS 글라스로 폴백). 조밀한 규정 본문 가독 보조.",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
+    "quality_board": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "품질 게시판 /quality(docs/58) — 매일 자가평가 60문항의 '오늘의 정답률 N%'·30일 추이·"
+                       "카테고리×유형 약점 지도·문항별 판정/근거 열람. 자동 생성·자동 채점(검수 전) 명시. "
+                       "합성 문항만(실사용자 질문 미포함). 추가 기능(/now) 허브 진입.",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
+    "faq_bridge": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "FAQ 브리지(docs/58 §6) — 자가평가 '검색실패' 오답의 FAQ 후보를 관리자가 열람·승인해 "
+                       "볼트(10_업무가이드/FAQ/)에 편입하는 /admin 탭. ⛔ 자동 편입 없음 — 답은 원문 인용+"
+                       "[[링크]]만, 편입 후 재색인해야 검색 반영. 검수상태는 미검수 유지(사람이 별도 확정).",
         "owner": "platform",
         "expires": "2026-12-31",
     },
@@ -1241,6 +1296,133 @@ def table_restore_apply(body: RestoreApplyIn, admin: User = Depends(current_admi
         s.add(CorpusAudit(slug=body.name, action="table_restore", actor=admin.username))
         s.commit()
     return res
+
+
+# ── FAQ 브리지(docs/58 §6): 자가평가 '검색실패' 오답 → 사람 승인 → 볼트 FAQ 편입 ──
+# daily_publish가 매일 eval/faq_candidates/<date>.md 초안(원문 인용+[[출처]])을 쌓는다.
+# 여기서는 그 초안을 목록으로 보여주고, 관리자의 명시적 [편입] 행위로만 볼트에 기록한다.
+# ⛔ 자동 편입 금지(절대 규칙) — 답은 원문 인용+링크만(생성 문장 없음), 검수상태는 미검수 유지.
+import hashlib
+
+FAQ_CAND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "eval", "faq_candidates")
+
+
+def _faq_cand_id(question: str) -> str:
+    return hashlib.sha1(question.strip().encode("utf-8")).hexdigest()[:12]
+
+
+def _faq_candidates() -> list:
+    """faq_candidates/*.md 파싱 → 후보 목록(같은 질문은 최신 날짜만)."""
+    out: dict = {}
+    if not os.path.isdir(FAQ_CAND_DIR):
+        return []
+    for fn in sorted(os.listdir(FAQ_CAND_DIR)):
+        if not fn.endswith(".md"):
+            continue
+        date = fn[:-3]
+        try:
+            text = open(os.path.join(FAQ_CAND_DIR, fn), encoding="utf-8").read()
+        except OSError:
+            continue
+        for block in re.split(r"^## Q\. ", text, flags=re.M)[1:]:
+            lines = block.strip().splitlines()
+            question = lines[0].strip() if lines else ""
+            if not question:
+                continue
+            quote = (re.search(r"「(.+?)」", block, re.S) or [None, ""])[1].strip()
+            src = (re.search(r"출처: \[\[(.+?)\]\]", block) or [None, ""])[1]
+            reg, _, jo = src.partition("#")
+            evidence = (re.search(r"오답 증거: (.*)", block) or [None, ""])[1].strip()
+            out[question] = {"id": _faq_cand_id(question), "date": date, "질문": question,
+                             "인용": quote, "규정명": reg, "조": jo, "증거": evidence}
+    return list(out.values())
+
+
+def _faq_states() -> dict:
+    """후보 id → 최종 상태(applied|dismissed) — CorpusAudit 재사용(faq_apply/faq_dismiss)."""
+    with Session(engine) as s:
+        rows = s.exec(select(CorpusAudit).where(CorpusAudit.action.in_(("faq_apply", "faq_dismiss")))  # type: ignore[attr-defined]
+                      .order_by(CorpusAudit.at)).all()
+    return {r.slug: ("applied" if r.action == "faq_apply" else "dismissed") for r in rows}
+
+
+@router.get("/faq-candidates")
+def faq_candidates_list(admin: User = Depends(current_admin)):
+    st = _faq_states()
+    cands = _faq_candidates()
+    for c in cands:
+        c["상태"] = st.get(c["id"], "pending")
+    cands.sort(key=lambda c: (c["상태"] != "pending", c["date"]), reverse=False)
+    return {"candidates": cands}
+
+
+class FaqApplyIn(BaseModel):
+    id: str
+    질문: str = ""   # 관리자가 다듬은 최종 질문(비면 초안 그대로)
+    인용: str = ""   # 관리자가 다듬은 원문 인용(비면 초안 그대로)
+
+
+@router.post("/faq-candidates/apply")
+def faq_candidates_apply(body: FaqApplyIn, admin: User = Depends(current_admin)):
+    """관리자: FAQ 후보를 볼트(10_업무가이드/FAQ/)에 편입 — 사람의 명시적 승인 행위.
+    ⛔ 본문은 질문 + 원문 인용 + [[출처]] 링크만(생성 답변 없음). 검수상태 미검수 유지."""
+    cand = next((c for c in _faq_candidates() if c["id"] == body.id), None)
+    if not cand:
+        raise HTTPException(404, "해당 FAQ 후보가 없습니다.")
+    if _faq_states().get(body.id) == "applied":
+        raise HTTPException(409, "이미 편입된 후보입니다.")
+    question = (body.질문 or cand["질문"]).strip()
+    quote = (body.인용 or cand["인용"]).strip()
+    if not quote:
+        raise HTTPException(409, "원문 인용이 비어 있어 편입할 수 없습니다(⛔ 답 생성 금지 — 인용 필수).")
+    vault = _vault_dir()
+    faq_dir = os.path.join(vault, "10_업무가이드", "FAQ")
+    os.makedirs(faq_dir, exist_ok=True)
+    base = "FAQ-" + re.sub(r"[\\/:*?\"<>|#\[\]\s]+", "-", question).strip("-")[:40]
+    slug, i = base, 2
+    while os.path.exists(os.path.join(faq_dir, f"{slug}.md")):
+        slug = f"{base}-{i}"; i += 1
+    link = f"[[{cand['규정명']}#{cand['조']}]]" if cand["조"] else f"[[{cand['규정명']}]]"
+    today = datetime.date.today().isoformat()
+    note = (
+        "---\n"
+        "type: guide\n"
+        f"제목: 'FAQ: {question}'\n"
+        "분류: FAQ\n"
+        "대상: 전 직원\n"
+        "관련규정:\n"
+        f"  - \"[[{cand['규정명']}]]\"\n"
+        f"최종검토일: {today}\n"
+        f"검토자: {admin.username}\n"
+        "검수상태: 미검수\n"
+        "태그: [FAQ, 자가평가-브리지]\n"
+        "---\n\n"
+        f"# FAQ: {question}\n\n"
+        f"**규정 원문** — 「{quote}」 {link}\n\n"
+        f"> 이 항목은 자가평가에서 검색이 놓친 질문을 잇기 위해 관리자 승인으로 편입한 FAQ입니다.\n"
+        f"> 정확한 조건·수치는 반드시 원문({link})에서 확인하세요.\n"
+    )
+    with open(os.path.join(faq_dir, f"{slug}.md"), "w", encoding="utf-8") as f:
+        f.write(note)
+    _mark_stale([slug])  # 코퍼스 탭 '⟳ 재색인 필요' — 재색인해야 검색에 반영
+    _corpus_cache["t"] = 0
+    with Session(engine) as s:
+        s.add(CorpusAudit(slug=body.id, action="faq_apply", actor=admin.username))
+        s.commit()
+    return {"slug": slug, "path": f"10_업무가이드/FAQ/{slug}.md"}
+
+
+class FaqDismissIn(BaseModel):
+    id: str
+
+
+@router.post("/faq-candidates/dismiss")
+def faq_candidates_dismiss(body: FaqDismissIn, admin: User = Depends(current_admin)):
+    """관리자: 부적절 후보 기각(목록에서 '기각' 상태로 — 파일은 보존, 이력만)."""
+    with Session(engine) as s:
+        s.add(CorpusAudit(slug=body.id, action="faq_dismiss", actor=admin.username))
+        s.commit()
+    return {"ok": True}
 
 
 # ── P3: 업로드 → 변환 미리보기 → 승인 편입 (docs/20) ─────────────────────────
