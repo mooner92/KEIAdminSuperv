@@ -35,9 +35,9 @@ a.stripItemTitle:hover { color: var(--color-primary); }
 
 /* ── ⭐ 이번 달 히어로 ── */
 .hero {
-  border: 1.5px solid var(--color-primary);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
+  border: 1px solid rgba(242, 112, 29, 0.25);
+  border-radius: 22px; /* 호롱 4b — 이번 달 그라데이션 틴트 히어로 */
+  background: linear-gradient(135deg, rgba(242, 112, 29, 0.08), rgba(249, 168, 37, 0.05));
   box-shadow: var(--shadow-card);
   padding: var(--space-4) var(--space-5);
   margin-bottom: var(--space-5);
@@ -81,7 +81,7 @@ a.heroTitle:hover { color: var(--color-primary); }
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .cell:hover { border-color: var(--color-border-strong); box-shadow: var(--shadow-card); }
-.cellNow { border: 1.5px solid var(--color-primary); }
+.cellNow { border-color: transparent; box-shadow: 0 0 0 2px rgba(242, 112, 29, 0.5); /* 호롱 4b 불꽃 링 */ }
 .cellHead {
   margin: 0 0 var(--space-2); display: flex; align-items: baseline; gap: 3px;
   color: var(--color-text);

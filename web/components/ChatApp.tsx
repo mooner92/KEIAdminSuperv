@@ -6,6 +6,7 @@ import ApprovalDrawer from "./ApprovalDrawer";
 import { api, type ChatMeta, type Message, type Source, type Suggestion, type User } from "../lib/api";
 import type { DocMeta } from "../lib/vault";
 import type { JourneyChip } from "../lib/api";
+import HorongMark from "./common/HorongMark";
 import { ThinkingOrb } from "thinking-orbs"; // MIT(Jakub Antalik) — 사용자 지시로 외부 UI 0 원칙의 명시적 예외(CLAUDE.md)
 import { useFlag } from "../lib/flags";
 import { useBackClose } from "../lib/useBackClose";
@@ -592,7 +593,7 @@ export default function ChatApp({
         <div className={styles.thread} ref={threadRef}>
           {empty ? (
             <div className={styles.welcome}>
-              <div className={styles.wIcon}>💬</div>
+              <div className={styles.wIcon}><HorongMark size={56} /></div>
               <h2 className={styles.wTitle}>무엇이 궁금하세요?</h2>
               <p className={styles.wLead}>
                 사내 규정을 근거로 답해 드려요. 답변마다 <b>출처 조문</b>이 함께 저장됩니다.
@@ -601,7 +602,7 @@ export default function ChatApp({
                 /* 상황 시작 칩(docs/38 §A) — 정적 예시 4개를 '대체'(칩 그룹 난립 방지). 트렌딩과만 공존 */
                 <div className={styles.situWrap}>
                   <span className={styles.trendingLabel}>🧭 상황으로 시작해 보세요</span>
-                  <div className={styles.examples}>
+                  <div className={styles.situGrid} data-fadeup>
                     {(situMore ? situations : situations.slice(0, SITU_PRIMARY)).map((s) => (
                       <button key={s.id}
                         className={`${styles.exChip} ${situSel === s.id ? styles.situChipOn : ""}`}

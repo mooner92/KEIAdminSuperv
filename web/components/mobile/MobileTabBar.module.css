@@ -1,5 +1,5 @@
 /* 모바일 하단 탭바(docs/54 v2) — 시맨틱 토큰만(다크모드 호환). 데스크톱에선 통째로 숨김. */
-.bar { display: none; }
+.bar { display: none; } /* 데스크톱 숨김 — 유리 재질·활성색은 ≤640px 블록(호롱 06 반영) */
 
 @media (max-width: 640px) {
   .bar {
@@ -25,5 +25,6 @@
   }
   .icon { font-size: 20px; line-height: 1; }
   .label { font-size: 10.5px; font-weight: 700; letter-spacing: 0.01em; }
-  .on { color: var(--color-primary); }
+  .on { color: #c9530b; font-weight: 800; }
+[data-theme="dark"] .on { color: #f5a24a; }
 }

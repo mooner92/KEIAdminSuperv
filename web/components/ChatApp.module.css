@@ -580,3 +580,18 @@
 
 /* 호롱 1a — AI 답변 라벨 */
 .aiName { color: var(--color-primary-strong); font-weight: 800; }
+
+/* ── 호롱 1b — 빈 화면: 로고 히어로 + 상황 카드 그리드 ── */
+.situGrid {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;
+  width: 100%; max-width: 560px; margin: 4px auto 0;
+}
+@media (max-width: 720px) { .situGrid { grid-template-columns: repeat(2, 1fr); } }
+.situGrid .exChip {
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: 16px; padding: 13px 12px; font-size: 13px; font-weight: 600;
+  box-shadow: var(--shadow-card); text-align: center;
+  transition: var(--transition-ui);
+}
+.situGrid .exChip:hover { transform: translateY(-3px); box-shadow: var(--shadow-pop); }
+.situGrid .situMoreBtn { background: var(--color-surface-hover); box-shadow: none; font-weight: 500; }

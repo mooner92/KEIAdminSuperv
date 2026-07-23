@@ -110,7 +110,7 @@ export default function NowPage({ seasonal, revised, notes, terms, formsCount, d
 
       {/* ── 호롱 04: 도구 4종 대형 2×2 ── */}
       <h2 className={n.sectionLabel}>도구</h2>
-      <div className={n.toolGrid}>
+      <div className={n.toolGrid} data-fadeup>
         {tools.map((sc) => <ShortcutCard key={sc.href} {...sc} large />)}
       </div>
 

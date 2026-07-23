@@ -237,3 +237,16 @@ h2 { letter-spacing: -0.01em; }
     scroll-behavior: auto !important;
   }
 }
+
+/* ── 호롱 모션 폴리시(Phase 4) — 진입 fade-up 16px + 스태거 60ms ──
+   사용: 컨테이너에 data-fadeup — 직계 자식들이 순차 진입. reduced-motion에선 정지. */
+@keyframes hr-fade-up { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+[data-fadeup] > * { animation: hr-fade-up 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+[data-fadeup] > *:nth-child(2) { animation-delay: 60ms; }
+[data-fadeup] > *:nth-child(3) { animation-delay: 120ms; }
+[data-fadeup] > *:nth-child(4) { animation-delay: 180ms; }
+[data-fadeup] > *:nth-child(5) { animation-delay: 240ms; }
+[data-fadeup] > *:nth-child(6) { animation-delay: 300ms; }
+@media (prefers-reduced-motion: reduce) {
+  [data-fadeup] > * { animation: none; }
+}
