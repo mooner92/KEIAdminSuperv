@@ -5,6 +5,7 @@ import Layout from "../components/Layout";
 import PageHero from "../components/common/PageHero";
 import PagedList from "../components/common/PagedList";
 import DeadlineBrowseRow from "../components/deadlines/DeadlineBrowseRow";
+import DocDrawer from "../components/DocDrawer";
 import { useFlag } from "../lib/flags";
 import { CORPUS_AS_OF, SITE_NAME } from "../lib/site";
 import { track } from "../lib/track";
@@ -27,6 +28,7 @@ export default function DeadlinesPage({ deadlines }: { deadlines: DeadlineEntry[
   const [regFilter, setRegFilter] = useState<Set<string>>(new Set());
   const [regQ, setRegQ] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
+  const [doc, setDoc] = useState<{ slug: string; anchor: string } | null>(null); // 우측 조문 드로어
 
   useEffect(() => {
     if (!q.trim()) return;
@@ -144,7 +146,10 @@ export default function DeadlinesPage({ deadlines }: { deadlines: DeadlineEntry[
           >
             {(paged) => (
               <ul className={f.list}>
-                {paged.map((e, i) => <DeadlineBrowseRow key={`${e.규정명}#${e.조}#${i}`} e={e} />)}
+                {paged.map((e, i) => (
+                  <DeadlineBrowseRow key={`${e.규정명}#${e.조}#${i}`} e={e}
+                    onOpenDoc={(slug, anchor) => setDoc({ slug, anchor })} />
+                ))}
               </ul>
             )}
           </PagedList>
@@ -155,6 +160,8 @@ export default function DeadlinesPage({ deadlines }: { deadlines: DeadlineEntry[
           </p>
         </div>
       </div>
+      {/* 조문 사이드 드로어 — 목록 흐름을 유지한 채 원문 확인(LLM 근거 열람과 동일 컴포넌트) */}
+      <DocDrawer slug={doc?.slug ?? null} anchor={doc?.anchor ?? ""} onClose={() => setDoc(null)} />
     </Layout>
   );
 }

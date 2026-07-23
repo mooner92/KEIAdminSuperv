@@ -7,7 +7,11 @@ import d from "../../styles/Deadlines.module.css";
 // 기한 사전(docs/57) 브라우즈 행. 정보 순서(사용자 확정): **① 뭘 하는 기한인지(행동)가 제목**
 // → ② 언제부터 얼마 이내인지(사건+오프셋) → ③ 근거 규정·원문 → ④ 계산기.
 // 계산은 DeadlineCalc의 순수 산술 헬퍼 재사용(DRY). ⛔ 절대 규칙1: 오프셋·원문 불변, 마감일=산술.
-export default function DeadlineBrowseRow({ e }: { e: DeadlineEntry }) {
+export default function DeadlineBrowseRow({ e, onOpenDoc }: {
+  e: DeadlineEntry;
+  // 조문을 새 페이지 대신 우측 드로어로(LLM 근거 열람과 동일 UX — 흐름 유지, 사용자 지적)
+  onOpenDoc?: (slug: string, anchor: string) => void;
+}) {
   const [base, setBase] = useState("");
   const isCap = e.type === "기간한도";
   const canCalc = e.n > 0 && !!e.unit;
@@ -33,7 +37,13 @@ export default function DeadlineBrowseRow({ e }: { e: DeadlineEntry }) {
         <b className={d.offset}>{e.n}{e.unit} {e.dir === "전" ? "전까지" : "이내"}</b>
       </div>
       <div className={d.regLine}>
-        {e.slug ? (
+        {e.slug && onOpenDoc ? (
+          <button type="button" className={d.regLink}
+            onClick={() => onOpenDoc(e.slug as string, e.조)}
+            title="옆 패널에서 조문 바로 보기">
+            {e.규정명} {e.조} →
+          </button>
+        ) : e.slug ? (
           <Link className={d.regLink} href={`/d/${encodeURIComponent(e.slug)}/#${encodeURIComponent(e.조)}`}>
             {e.규정명} {e.조} →
           </Link>
