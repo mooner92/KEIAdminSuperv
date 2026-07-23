@@ -81,7 +81,7 @@ export default function FormsPage({ forms }: { forms: FormEntry[] }) {
     <Layout>
       <Head><title>{`서식 찾기 · ${SITE_NAME}`}</title><meta name="robots" content="noindex, nofollow" /></Head>
       <PageHero title="서식 찾기"
-        lead={`규정 별지 서식 ${forms.filter((e) => e.구분 !== "연구관리").length}종 + 연구관리양식(PMS) ${forms.filter((e) => e.구분 === "연구관리").length}종을 한곳에서 — 이름·규정명·번호로 검색하고 바로 열어보세요.`} />
+        lead={`규정 별지 서식 ${forms.filter((e) => !e.구분 || e.구분 === "별지").length}종 + 연구관리양식(PMS) ${forms.filter((e) => e.구분 === "연구관리").length}종 + 상위법령 별표 ${forms.filter((e) => e.구분 === "상위법령").length}종(법제처 원문)을 한곳에서 — 이름·규정명·번호로 검색하고 바로 열어보세요.`} />
 
       {/* 모바일 전용 필터 토글(≤760px) — 목록이 첫 화면(docs/48 관례) */}
       <button type="button" className={f.filterToggle}
@@ -170,7 +170,7 @@ export default function FormsPage({ forms }: { forms: FormEntry[] }) {
                           {e.slug ? (
                             <Link className={f.go} href={`/d/${encodeURIComponent(e.slug)}/#${encodeURIComponent(e.anchor)}`}
                               onClick={() => track("forms_open")}>
-                              {e.구분 === "연구관리" ? "안내 화면 →" : "원문 보기 →"}
+                              {e.구분 === "연구관리" ? "안내 화면 →" : e.구분 === "상위법령" ? "법령 본문 →" : "원문 보기 →"}
                             </Link>
                           ) : null}
                         </td>
