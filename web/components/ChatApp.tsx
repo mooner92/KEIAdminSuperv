@@ -5,7 +5,7 @@ import DocDrawer from "./DocDrawer";
 import ApprovalDrawer from "./ApprovalDrawer";
 import { api, type ChatMeta, type Message, type Source, type Suggestion, type User } from "../lib/api";
 import type { DocMeta } from "../lib/vault";
-import type { JourneyChip } from "../pages/index";
+import type { JourneyChip } from "../lib/api";
 import { useFlag } from "../lib/flags";
 import { useBackClose } from "../lib/useBackClose";
 import { CORPUS_AS_OF, SITE_NAME } from "../lib/site";

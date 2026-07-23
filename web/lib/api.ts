@@ -52,6 +52,7 @@ export type Source = {
   uplaw?: boolean; // docs/61 U4: 상위 법령 레이어(kei_uplaw) 보조 근거 — ⚖ 배지(사내 규정 아님)
   적용강도?: string; // 상위 법령 적용강도(직접|준거|참고) — 칩 툴팁
 };
+export type JourneyChip = { id: string; title: string; emoji: string }; // 여정 칩(빈 화면 상황 시작) — pages/index에 있던 것을 이동(components→pages 역참조 순환 해소, madge R1)
 export type Suggestion = { type: "ask" | "journey"; label: string; q?: string; journey?: string };
 export type Feedback = "up" | "down" | null;
 export type Message = {

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://unpkg.com/knip@latest/schema.json",
+  "entry": [
+    "pages/**/*.tsx",
+    "pages/**/*.ts",
+    "server.js",
+    "scripts/emit-docdata.mts"
+  ],
+  "project": [
+    "components/**/*.{ts,tsx}",
+    "lib/**/*.{ts,tsx}",
+    "pages/**/*.{ts,tsx}"
+  ],
+  "ignore": [
+    "verify-*.mjs",
+    "ecosystem.config.js",
+    "next.config.js"
+  ],
+  "ignoreDependencies": [
+    "sharp",
+    "playwright"
+  ]
+}

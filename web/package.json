@@ -7,7 +7,9 @@
     "dev": "next dev -p 3100",
     "build": "next build && node --experimental-strip-types scripts/emit-docdata.mts",
     "serve": "node server.js",
-    "lint": "next lint"
+    "lint": "next lint",
+    "lint:deps": "depcruise pages components lib --config .dependency-cruiser.cjs",
+    "lint:dead": "knip --no-config-hints"
   },
   "dependencies": {
     "gray-matter": "^4.0.3",
@@ -22,6 +24,7 @@
     "@types/node": "^20.14.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
+    "dependency-cruiser": "^18.1.0",
     "playwright": "^1.61.0",
     "typescript": "^5.5.0"
   }

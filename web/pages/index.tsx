@@ -7,7 +7,8 @@ import { getAllDocs, loadJourneys, type DocMeta } from "../lib/vault";
 import type { LandingCounts } from "../components/Landing";
 
 // 상황 시작 칩(docs/38 §A)용 여정 최소 정보 — 빌드타임 실존 여정만 노출(하드코딩 드리프트 방지)
-export type JourneyChip = { id: string; title: string; emoji: string };
+import type { JourneyChip } from "../lib/api";
+export type { JourneyChip }; // 하위 호환 re-export(외부 참조 대비)
 
 export default function Home({ docs, counts, journeys }: { docs: DocMeta[]; counts: LandingCounts; journeys: JourneyChip[] }) {
   return (
