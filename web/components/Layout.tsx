@@ -2,6 +2,8 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import ThemeToggle from "./common/ThemeToggle";
+import HorongMark from "./common/HorongMark";
+import AccountMenu from "./common/AccountMenu";
 import MobileTabBar from "./mobile/MobileTabBar";
 import { useFlag } from "../lib/flags";
 import { useAuth } from "../lib/auth";
@@ -131,19 +133,17 @@ export default function Layout({
       <header className={styles.header}>
         <div className={styles.inner}>
           <Link href="/" className={styles.brand}>
-            <span className={styles.mark}>KEI</span>
-            <span className={styles.brandText}>행정 가이드</span>
+            <HorongMark size={27} />
+            <span className={styles.brandText}>호롱</span>
+            <span className={styles.brandSub}>KEI 행정 가이드</span>
           </Link>
-          {/* 앱 메뉴(GNB)는 로그인 후에만 — 비로그인(랜딩/로그인)엔 숨긴다. 인증 확인 전엔 미표시(플래시 방지) */}
+          {/* 앱 메뉴(GNB)는 로그인 후에만. 호롱 IA(design-revolution): 7탭 → 3탭 —
+              그래프·결재선·업무한장·캘린더 라우트는 유지, '업무 도구'(/now) 허브가 흡수(Phase 3). */}
           {isAuthed ? (
             <nav className={styles.nav}>
               <Link href="/" className={nav("/")} aria-current={pathname === "/" ? "page" : undefined}>질문하기</Link>
-              <Link href="/browse/" className={nav("/browse")} aria-current={pathname.startsWith("/browse") ? "page" : undefined}>규정 둘러보기</Link>
-              <Link href="/graph/" className={`${styles.navSecondary} ${nav("/graph") || ""}`} aria-current={pathname.startsWith("/graph") ? "page" : undefined}>관계 그래프</Link>
-              {approvalNav ? <Link href="/approval/" className={`${styles.navSecondary} ${nav("/approval") || ""}`} aria-current={pathname.startsWith("/approval") ? "page" : undefined}>결재선</Link> : null}
-              {journeyNav ? <Link href="/journey/" className={`${styles.navSecondary} ${nav("/journey") || ""}`} aria-current={pathname.startsWith("/journey") ? "page" : undefined}>업무 한 장</Link> : null}
-              {eventsOn ? <Link href="/calendar/" className={`${styles.navSecondary} ${nav("/calendar") || ""}`} aria-current={pathname.startsWith("/calendar") ? "page" : undefined}>업무 캘린더</Link> : null}
-              {eventsOn ? <Link href="/now/" className={nav("/now")} aria-current={pathname.startsWith("/now") ? "page" : undefined}>추가 기능</Link> : null}
+              <Link href="/browse/" className={nav("/browse")} aria-current={pathname.startsWith("/browse") ? "page" : undefined}>규정 찾기</Link>
+              {eventsOn ? <Link href="/now/" className={nav("/now")} aria-current={pathname.startsWith("/now") ? "page" : undefined}>업무 도구</Link> : null}
             </nav>
           ) : (
             <span className={styles.nav} aria-hidden />
@@ -155,8 +155,8 @@ export default function Layout({
                 🔔<span className={styles.maintBadge}>{maintUnread}</span>
               </Link>
             ) : null}
-            <ThemeToggle />
-            <span className={styles.flag}>🔒 사내 전용</span>
+            <span className={styles.flag} title="사내 전용" aria-label="사내 전용">🔒</span>
+            {isAuthed ? <AccountMenu /> : <ThemeToggle />}
           </div>
         </div>
       </header>
@@ -170,7 +170,7 @@ export default function Layout({
       </main>
       <footer className={styles.footer}>
         <div className={styles.inner}>
-          <span>KEI 행정 가이드 · 내부 전용 (Cloudflare Zero Trust 뒤) · 인터넷 공개 금지</span>
+          <span>호롱 · KEI 내부 전용 (Cloudflare Zero Trust 뒤) · 인터넷 공개 금지</span>
           <span className={styles.footerRight}>
             <span className={styles.asOf} title="이 날짜 기준의 규정 원문을 근거로 답합니다. 이후 개정은 반영되지 않았을 수 있어요.">
               📑 규정집 기준일 {CORPUS_AS_OF}

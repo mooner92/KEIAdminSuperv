@@ -113,7 +113,7 @@
 .heroTitle { margin: 0 0 22px; font-size: clamp(52px, 8.5vw, 104px); font-weight: 800; letter-spacing: -0.045em; line-height: 1.04; }
 /* docs/46 그라디언트 규율 — 전체에서 이 한 줄만. KEI 블루→퍼플→핑크(다크 토큰 3정지, 주황 금지) */
 .heroGrad {
-  background: linear-gradient(96deg, #3182f6 0%, #8b5cf6 52%, #e0508a 100%);
+  background: var(--hr-grad-word); /* 호롱 02 — 잎→불꽃 워드 그라데이션 */
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -157,7 +157,12 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.78;
 }
-.heroMeta b { font-size: 15px; font-weight: 800; letter-spacing: 0; margin-left: 2px; font-variant-numeric: tabular-nums; }
+.heroMeta b {
+  font-size: 17px; font-weight: 800; margin-left: 3px;
+  font-variant-numeric: tabular-nums lining-nums; letter-spacing: -0.03em;
+  background: var(--hr-grad-word); -webkit-background-clip: text; background-clip: text;
+  color: transparent; -webkit-text-fill-color: transparent; /* 호롱 — 숫자 브랜드 모먼트 */
+}
 .scrollCue {
   margin: 56px 0 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 11px; letter-spacing: 0.34em; opacity: 0.55;
@@ -380,4 +385,29 @@
 @media (max-width: 760px) {
   .section { padding: 64px 0; }
   .hero { padding: 80px 0 64px; }
+}
+
+/* 호롱 02 — 잉크 패널 신뢰 배너 */
+.trustBanner {
+  margin: var(--space-4) 0;
+  background: #1d1f1d; border-radius: 28px; padding: 44px 48px;
+  display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 44px; align-items: center;
+}
+[data-theme="dark"] .trustBanner { background: #0e0f0d; border: 1px solid var(--color-border); }
+.trustLabel { font-size: 12px; font-weight: 700; color: #8a908c; letter-spacing: 0.02em; }
+.trustText { margin: 12px 0 0; font-size: 27px; font-weight: 800; line-height: 1.35; color: #f2f3f0; letter-spacing: -0.02em; }
+.trustGrad {
+  background: var(--hr-grad-flame); -webkit-background-clip: text; background-clip: text;
+  color: transparent; -webkit-text-fill-color: transparent;
+}
+.trustStats { display: grid; grid-template-columns: 1fr 1fr; gap: 20px 24px; }
+.trustStat { display: flex; flex-direction: column; gap: 2px; }
+.trustStat b {
+  font-size: 30px; font-weight: 800; letter-spacing: -0.04em; line-height: 1.1;
+  font-variant-numeric: tabular-nums lining-nums; color: #fff;
+}
+.trustStat span { font-size: 12.5px; color: #a3a8a4; }
+@media (max-width: 760px) {
+  .trustBanner { grid-template-columns: 1fr; gap: 28px; padding: 32px 28px; }
+  .trustText { font-size: 22px; }
 }

@@ -20,7 +20,7 @@
 .chev { color: var(--color-text-tertiary); font-size: 12px; }
 
 .dot { flex: 0 0 auto; width: 10px; height: 10px; border-radius: 50%; background: var(--color-border-strong); }
-.dot[data-section="규정집"] { background: var(--accent-규정집, #256ef4); }
+.dot[data-section="규정집"] { background: var(--accent-규정집, #4f8dc4); }
 .dot[data-section="가이드"] { background: var(--accent-가이드, #3fa654); }
 .dot[data-section="용어집"] { background: var(--accent-용어집, #ffb114); }
 .dot[data-section="시스템"] { background: var(--accent-시스템, #8b5cf6); }

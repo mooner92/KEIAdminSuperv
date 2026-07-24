@@ -390,6 +390,14 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-12-31",
     },
+    "signup_open": {
+        "default": False,  # on이면 @kei.re.kr 이메일+8자 비번 즉시 활성+로그인(승인·코드 없음).
+        "description": "즉시 가입(docs/29 §3 완화, 2026-07-24) — KEI 이메일 형식만 확인해 바로 이용. "
+                       "사내망(Cloudflare ZT)이 1차 관문이라 안전. signup_approval보다 우선, IP당 "
+                       "10회/시간 레이트리밋은 유지. off면 기존(승인제 또는 코드 인증).",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
     "signup_approval": {
         "default": False,  # off면 이메일 6자리 코드 인증. on이면 관리자 승인제(메일 서버 불가 시).
         "description": "가입 인증 방식(docs/36 §10) — on이면 이메일 코드 대신 관리자 승인. "
@@ -812,6 +820,17 @@ def register(body: AuthIn, request: Request, response: Response):
             s.commit()
             set_cookie(response, make_token(u.id))
             return {"id": u.id, "username": u.username, "is_admin": True, "bootstrap": True}
+        # 즉시 가입(flag signup_open): 도메인 검증 통과분은 바로 활성+로그인(승인·코드 없음).
+        # 사내망(ZT)이 1차 관문 + IP 레이트리밋이 남용 방어. 이메일 소유 증명은 생략(사내 전용 서비스).
+        if bool(effective_flags().get("signup_open")):
+            s.commit()
+            u = s.exec(select(User).where(User.username == email)).first()
+            u.verified = True
+            s.add(u)
+            s.commit()
+            set_cookie(response, make_token(u.id))
+            _seclog.info(f"signup-open activated {email}")
+            return {"id": u.id, "username": u.username, "is_admin": is_admin(u), "open_signup": True}
         if approval:
             # 승인제: 코드 미발송. 관리자가 /admin 사용자 탭에서 승인하면 활성.
             s.commit()
@@ -2394,7 +2413,7 @@ def reject_user(uid: int, admin: User = Depends(current_admin)):
 
 # ───────────────────────── 운영 대시보드(관리자) ─────────────────────────
 # 거부(가드레일 발동) 답변 감지 — rag_core SYSTEM의 "규정에서 확인되지 않습니다" 계열.
-REFUSAL_RE = re.compile(r"확인되지\s*않|확인할\s*수\s*없|규정에서\s*확인")
+REFUSAL_RE = re.compile(r"확인되지\s*않|확인할\s*수\s*없|찾을\s*수\s*없|근거가\s*없|명시(되어|돼)?\s*있지\s*않|명시되지\s*않|포함(되어|돼)?\s*있지\s*않|포함되지\s*않|나와\s*있지\s*않|규정(되어|돼)?\s*있지\s*않|규정되지\s*않|규정에서\s*확인|해당\s*내용(은|이)?\s*없|정보가\s*없|알\s*수\s*없")  # 게시판 거부율 — daily_grade와 동기(거부 표현 확장)
 # k-익명성: 질문 텍스트는 서로 다른 사용자 K명 이상이 물었을 때만 노출(개인 채팅 보호).
 # 서버사이드 RAG라 진짜 E2E 암호화는 불가(LLM이 평문을 읽어야 함) → 관리자에겐 '집계'만 보인다.
 K_ANON = max(2, int(os.environ.get("STATS_MIN_USERS", "3")))

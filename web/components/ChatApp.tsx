@@ -6,6 +6,7 @@ import ApprovalDrawer from "./ApprovalDrawer";
 import { api, type ChatMeta, type Message, type Source, type Suggestion, type User } from "../lib/api";
 import type { DocMeta } from "../lib/vault";
 import type { JourneyChip } from "../lib/api";
+import HorongMark from "./common/HorongMark";
 import { ThinkingOrb } from "thinking-orbs"; // MIT(Jakub Antalik) — 사용자 지시로 외부 UI 0 원칙의 명시적 예외(CLAUDE.md)
 import { useFlag } from "../lib/flags";
 import { useBackClose } from "../lib/useBackClose";
@@ -224,7 +225,7 @@ export default function ChatApp({
   const APPROVAL_KW = [
     "국내출장", "해외출장", "시내출장", "출장", "연차", "휴가", "병가", "휴직", "복직", "퇴직",
     "파견", "연구연수", "교육연수", "연수", "교육", "채용", "겸직", "자문", "강사", "초청",
-    "출판", "구매", "계약", "예산", "여비", "법인카드", "물품", "행사",
+    "출판", "구매", "구입", "도서", "계약", "예산", "여비", "법인카드", "물품", "행사", "인쇄",
   ];
   const approvalHint = useMemo(() => {
     if (!approvalOn || messages.length === 0) return null;
@@ -236,8 +237,11 @@ export default function ChatApp({
     const prevUser = [...messages.slice(0, aiIdx)].reverse().find((x) => x.role === "user");
     const text = `${prevUser?.content || ""}\n${ai.content || ""}`;
     if (!/결재|기안|상신|전결|품의/.test(text)) return null;
-    const q = (prevUser?.content || "") + (ai.content || "");
-    return { query: APPROVAL_KW.find((k) => q.includes(k)) || "" };
+    // 프리셋은 **질문 우선** 매칭 — 답변까지 한 문자열로 뒤지면 답변에 섞인 무관 업무 단어
+    // (예: 도서 구입 답변 속 '국내출장' 오결합)가 배열 순서상 앞이라 칩을 점령한다(실측 버그).
+    const uq = prevUser?.content || "";
+    const fromQ = APPROVAL_KW.find((k) => uq.includes(k));
+    return { query: fromQ || APPROVAL_KW.find((k) => (ai.content || "").includes(k)) || "" };
   }, [approvalOn, messages, activeMsgId]);
 
   useEffect(() => {
@@ -592,7 +596,7 @@ export default function ChatApp({
         <div className={styles.thread} ref={threadRef}>
           {empty ? (
             <div className={styles.welcome}>
-              <div className={styles.wIcon}>💬</div>
+              <div className={styles.wIcon}><HorongMark size={56} /></div>
               <h2 className={styles.wTitle}>무엇이 궁금하세요?</h2>
               <p className={styles.wLead}>
                 사내 규정을 근거로 답해 드려요. 답변마다 <b>출처 조문</b>이 함께 저장됩니다.
@@ -601,7 +605,7 @@ export default function ChatApp({
                 /* 상황 시작 칩(docs/38 §A) — 정적 예시 4개를 '대체'(칩 그룹 난립 방지). 트렌딩과만 공존 */
                 <div className={styles.situWrap}>
                   <span className={styles.trendingLabel}>🧭 상황으로 시작해 보세요</span>
-                  <div className={styles.examples}>
+                  <div className={styles.situGrid} data-fadeup>
                     {(situMore ? situations : situations.slice(0, SITU_PRIMARY)).map((s) => (
                       <button key={s.id}
                         className={`${styles.exChip} ${situSel === s.id ? styles.situChipOn : ""}`}
@@ -672,7 +676,7 @@ export default function ChatApp({
                 ) : (
                   <li key={m.id} className={styles.aiRow}>
                     <span className={styles.aiTag}>
-                      LLM{fmtT(m.created_at) ? <span className={styles.msgTime}> · {fmtT(m.created_at)}</span> : null}
+                      <span className={styles.aiName}>호롱</span>{fmtT(m.created_at) ? <span className={styles.msgTime}> · {fmtT(m.created_at)}</span> : null}
                     </span>
                     <div
                       className={`${styles.aiBubble} ${m.id === activeMsgId ? styles.aiActive : ""} ${

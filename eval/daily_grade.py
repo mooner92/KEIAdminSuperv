@@ -18,7 +18,7 @@ import sys
 
 from daily_common import DAILY_DIR, chroma_col, llm_json, load_bank, norm_q, save_bank
 
-REFUSAL_RE = re.compile(r"확인되지\s*않|확인할\s*수\s*없|찾을\s*수\s*없|근거가\s*없")
+REFUSAL_RE = re.compile(r"확인되지\s*않|확인할\s*수\s*없|찾을\s*수\s*없|근거가\s*없|명시(되어|돼)?\s*있지\s*않|명시되지\s*않|포함(되어|돼)?\s*있지\s*않|포함되지\s*않|나와\s*있지\s*않|규정(되어|돼)?\s*있지\s*않|규정되지\s*않|규정에서\s*확인|해당\s*내용(은|이)?\s*없|정보가\s*없|알\s*수\s*없")  # 거부 표현 확장(실측: 명시/포함되지 않음 미인식으로 정상 거부를 오답 처리 — daily 07-24 [5][6])
 VAL_RE = re.compile(r"\d[\d,]*(?:\.\d+)?\s*(?:원|만원|천원|억원|%|퍼센트|일|개월|년|주|시간|회|명|점|급|호)")
 
 JUDGE_SYS = (

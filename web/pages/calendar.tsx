@@ -8,7 +8,8 @@ import TitleLink from "../components/calendar/TitleLink";
 import { useFlag } from "../lib/flags";
 import { SITE_NAME } from "../lib/site";
 import { track } from "../lib/track";
-import { loadSeasonal, type SeasonalItem } from "../lib/vault";
+import MonthDetail from "../components/calendar/MonthDetail";
+import { loadMonthlySurvey, loadSeasonal, type MonthlySurvey, type SeasonalItem } from "../lib/vault";
 import c from "../styles/Calendar.module.css";
 
 // 업무 캘린더(docs/39·40·43, flag events_tab) — "이번 달 중심 + 연간 그리드".
@@ -18,10 +19,11 @@ import c from "../styles/Calendar.module.css";
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
-export default function CalendarPage({ seasonal }: { seasonal: SeasonalItem[] }) {
+export default function CalendarPage({ seasonal, survey }: { seasonal: SeasonalItem[]; survey: MonthlySurvey | null }) {
   const on = useFlag("events_tab");
   const [realMonth, setRealMonth] = useState<number | null>(null);
   const [everyOpen, setEveryOpen] = useState(false);
+  const [detailMonth, setDetailMonth] = useState<number | null>(null); // 월 클릭 상세(3개년 관측)
   useEffect(() => {
     if (!on) return;
     setRealMonth(new Date().getMonth() + 1);
@@ -112,9 +114,14 @@ export default function CalendarPage({ seasonal }: { seasonal: SeasonalItem[] })
       <div className={c.yearGrid}>
         {MONTHS.map((m) => (
           <MonthCell key={m} month={m} isNow={realMonth === m}
-            items={seasonal.filter((s) => s.month === m)} />
+            items={seasonal.filter((s) => s.month === m)}
+            onOpen={survey ? () => setDetailMonth(detailMonth === m ? null : m) : undefined}
+            opened={detailMonth === m} />
         ))}
       </div>
+      {survey && detailMonth != null ? (
+        <MonthDetail month={detailMonth} survey={survey} onClose={() => setDetailMonth(null)} />
+      ) : null}
 
       <p className={c.foot}>
         ⓘ 제목을 누르면 관련 문서로 이동해요 · ⁎ 자료 확정 전 · 대외업무 항목의 시기·건수는
@@ -125,4 +132,4 @@ export default function CalendarPage({ seasonal }: { seasonal: SeasonalItem[] })
   );
 }
 
-export const getStaticProps: GetStaticProps = () => ({ props: { seasonal: loadSeasonal() } });
+export const getStaticProps: GetStaticProps = () => ({ props: { seasonal: loadSeasonal(), survey: loadMonthlySurvey() } });

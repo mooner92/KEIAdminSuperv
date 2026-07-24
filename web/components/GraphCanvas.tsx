@@ -22,21 +22,22 @@ const ForceGraph2D = dynamic(
 
 // KRDS accent 토큰과 정렬(globals.css --accent-*). 캔버스(react-force-graph)는 CSS 변수를
 // 못 읽어 테마별 hex를 직접 둔다 — 토큰이 바뀌면 여기도 동기화할 것.
+// 호롱 저채도 악센트(globals --accent-*와 동기 — 캔버스는 CSS 변수 못 읽어 hex 유지)
 const SECTION_COLOR_LIGHT: Record<string, string> = {
-  규정집: "#256ef4", // --blue500
-  가이드: "#3fa654", // --green500
-  용어집: "#ffb114", // --orange500
-  시스템: "#8b5cf6",
-  대외업무: "#d63384",
-  상위법령: "#64748b", // slate — 사내 규정 아님(중립·참고 톤)
+  규정집: "#4f8dc4",
+  가이드: "#35906a",
+  용어집: "#e9a13b",
+  시스템: "#8d7ac9",
+  대외업무: "#cf6d96",
+  상위법령: "#7f8a94",
 };
 const SECTION_COLOR_DARK: Record<string, string> = {
-  규정집: "#4c87f6",
-  가이드: "#2dd08f",
-  용어집: "#ffb547",
-  시스템: "#a78bfa",
-  대외업무: "#f06fa8",
-  상위법령: "#94a3b8",
+  규정집: "#7fb2dd",
+  가이드: "#5fbf93",
+  용어집: "#dcb26a",
+  시스템: "#a794dd",
+  대외업무: "#e08cb0",
+  상위법령: "#9aa5ae",
 };
 
 export default function GraphCanvas({
@@ -130,7 +131,7 @@ export default function GraphCanvas({
         nodeColor={(n: any) => palette[n.section] || (dark ? "#7c8590" : "#8b95a1")}
         linkColor={() => (dark ? "rgba(233,237,243,0.16)" : "rgba(25,31,40,0.10)")}
         linkWidth={1}
-        backgroundColor={dark ? "#20242c" : "#ffffff"}
+        backgroundColor={dark ? "#1e201d" : "#ffffff"} /* 호롱 웜 서피스 */
         cooldownTicks={120}
         onNodeClick={(n: any) =>
           onNodeSelect ? onNodeSelect(String(n.id)) : router.push(`/d/${n.id}/`)

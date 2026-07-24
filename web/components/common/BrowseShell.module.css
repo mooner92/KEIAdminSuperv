@@ -1,0 +1,55 @@
+/* 공용 브라우즈 셸 — Explorer(문서 탭)의 검증 값 승격(구조 계약은 BrowseShell.tsx 주석) */
+.wrap {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 248px 1fr;
+  grid-template-rows: minmax(0, 1fr);
+  gap: var(--space-5);
+  overflow: hidden;
+}
+.side {
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-4) var(--space-4) var(--space-5);
+}
+.sideHead { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-3); }
+.sideTitle { font-size: 14px; font-weight: 800; color: var(--color-text); }
+.reset {
+  border: none; background: var(--color-bg-subtle); color: var(--color-text-secondary);
+  font-size: 12px; font-weight: 600; border-radius: 999px; padding: var(--space-1) var(--space-3);
+  cursor: pointer; transition: var(--transition-ui), transform 0.12s ease;
+}
+.reset:hover { color: var(--color-primary); }
+.content { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.head { flex: 0 0 auto; }
+.body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+/* PagedList 협력 계약: root(div)를 column-flex로 만들어 컨트롤 줄은 고정,
+   그 안의 목록 래퍼(.scrollArea)만 스크롤 */
+.pagedFill > div { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.scrollArea {
+  flex: 1; min-height: 0; overflow-y: auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+.mToggle { display: none; }
+@media (max-width: 760px) {
+  .wrap { display: block; overflow: visible; }
+  .side { display: none; margin-bottom: var(--space-4); }
+  .sideOpenM { display: block; }
+  .content { display: block; }
+  .body, .pagedFill > div { display: block; }
+  .scrollArea { overflow-y: visible; }
+  .mToggle {
+    display: block; width: 100%; margin-bottom: var(--space-3);
+    border: 1px solid var(--color-border); background: var(--color-surface);
+    border-radius: 999px; padding: 8px 14px; font: inherit; font-size: 13px; font-weight: 600;
+    color: var(--color-text-secondary); cursor: pointer;
+  }
+}

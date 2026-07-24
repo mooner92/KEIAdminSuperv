@@ -38,7 +38,8 @@
   display: flex;
   align-items: center;
   background: var(--color-header-bg);
-  backdrop-filter: saturate(180%) blur(8px);
+  backdrop-filter: saturate(180%) blur(20px); /* 호롱 유리 재질 */
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
   border-bottom: 1px solid var(--color-border);
 }
 .header .inner {
@@ -54,15 +55,8 @@
   font-size: 17px;
   letter-spacing: -0.01em;
 }
-.mark {
-  background: var(--color-primary);
-  color: var(--color-on-primary);
-  border-radius: var(--radius-sm);
-  padding: 2px 8px;
-  font-size: 14px;
-  font-weight: 900;
-}
-.brandText { color: var(--color-text); }
+.brandText { color: var(--color-text); font-size: 17.5px; font-weight: 800; letter-spacing: -0.02em; }
+.brandSub { color: var(--color-text-tertiary); font-size: 11.5px; font-weight: 600; margin-left: 2px; }
 .nav {
   display: flex;
   gap: var(--space-4);
@@ -74,23 +68,29 @@
      nav 자체가 접히고(min-width:0) 내부만 스크롤(모바일 미디어쿼리에서 overflow-x) */
   min-width: 0;
 }
-.nav a { color: var(--color-text-secondary); padding: 4px 2px; flex: 0 0 auto; white-space: nowrap; transition: var(--transition-ui); }
-.nav a:hover { color: var(--color-primary); }
-/* v1 ⑩(S5-#15): 현재 페이지 표시 */
-.navActive { color: var(--color-text) !important; font-weight: 800; border-bottom: 2px solid var(--color-primary); padding-bottom: 2px !important; }
+.nav a {
+  color: var(--color-text-secondary); padding: 7px 14px; flex: 0 0 auto; white-space: nowrap;
+  border-radius: 999px; transition: var(--transition-ui);
+}
+.nav a:hover { background: rgba(28, 30, 28, 0.05); color: var(--color-text); }
+[data-theme="dark"] .nav a:hover { background: rgba(255, 255, 255, 0.06); }
+/* 호롱: 활성 = 흰 알약 + 소프트 그림자(밑줄 제거) */
+.navActive {
+  color: var(--color-text) !important; font-weight: 700;
+  background: var(--color-surface) !important;
+  box-shadow: 0 1px 3px rgba(20, 24, 20, 0.08);
+}
 .headerRight {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
 }
 .flag {
-  font-size: 12.5px;
-  color: var(--color-text-secondary);
-  background: var(--color-bg-subtle);
-  border: 1px solid var(--color-border);
-  border-radius: 999px;
-  padding: var(--space-1) var(--space-3);
+  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; font-size: 15px; border-radius: 999px;
+  color: var(--color-text-secondary); cursor: default; transition: var(--transition-ui);
 }
+.flag:hover { background: var(--color-surface-hover); }
 .crumbBar {
   border-bottom: 1px solid var(--color-border);
   background: var(--color-surface);
@@ -129,6 +129,11 @@
   font-weight: 600;
   padding: var(--space-2) var(--space-5);
 }
+/* 호롱 다크 — 앰버 틴트가 탁한 카키로 보이던 것 교정: 옅은 틴트 + 밝은 앰버 텍스트 */
+[data-theme="dark"] .banner {
+  background: rgba(249, 168, 37, 0.08);
+  color: #f5c98a;
+}
 
 @media (max-width: 880px) {
   /* 모바일: fill 고정 해제 → 일반 스크롤로 폴백(둘러보기/그래프) */
@@ -151,7 +156,6 @@
     scrollbar-width: none;
   }
   .nav::-webkit-scrollbar { display: none; }
-  .flag { display: none; } /* '🔒 사내 전용' 칩은 좁은 화면에서 nav에 자리를 양보 */
 
   /* ── 모바일 셸(docs/54 v2, flag mobile_shell · Layout이 data-mshell 부여) ──
      내비는 하단 탭바가 전담 → 상단은 로고+🔔+테마만(난잡함 제거). 푸터 숨김(링크는 ☰더보기로).
@@ -183,3 +187,12 @@
   background: var(--color-danger, #d6455c); color: #fff;
   border-radius: 999px; font-size: 10px; font-weight: 800; padding: 0 3px;
 }
+
+/* 호롱 셸 — 헤더 아바타(34px 잎 그라데이션 원, 이니셜) */
+.avatar {
+  flex: 0 0 auto; width: 34px; height: 34px; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--hr-grad-leaf); color: #fff; font-size: 14px; font-weight: 800;
+  letter-spacing: 0; user-select: none;
+}
+@media (max-width: 640px) { .avatar { display: none; } }

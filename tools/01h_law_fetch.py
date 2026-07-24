@@ -18,6 +18,7 @@ allowlist(tools/law_allowlist.json)의 법령·행정규칙만 수집한다 — 
 """
 import argparse
 import datetime
+import html
 import json
 import os
 import re
@@ -139,10 +140,13 @@ def fetch_annexes(items, only: str = "", force: bool = False) -> int:
             gu = (u.findtext("별표구분") or "별표").strip()
             no = int(u.findtext("별표번호") or "0")
             gaji = int(u.findtext("별표가지번호") or "0")
-            title = (u.findtext("별표제목") or "").strip()
+            # API 제목이 이중 이스케이프(&lt;개정...&gt;)로 오는 경우 해제(실측: 혁신법 별표3)
+            title = html.unescape(html.unescape((u.findtext("별표제목") or "").strip()))
             link = (u.findtext("별표서식PDF파일링크") or "").strip()
             if not link:
                 continue
+            if title.startswith("삭제"):
+                continue  # 폐지(삭제) 별표 제외 — 서식 찾기 원칙(기존 별지와 동일)과 정합
             # 별표번호 0 = 무번호 단일 별표(원문 표기 [별표]) — '별표 0' 오표기 방지
             if gu != "별표":
                 label = f"{gu} 제{no}호" if no else gu
@@ -163,8 +167,14 @@ def fetch_annexes(items, only: str = "", force: bool = False) -> int:
                 except Exception as e:  # noqa: BLE001
                     print(f"  ✗ {hit['이름']} {label}: 다운로드 실패 {e}")
                     continue
+            pages = None
+            try:  # 쪽수(서식 찾기 N.p 배지) — PyMuPDF 실측
+                import fitz
+                pages = len(fitz.open(dst))
+            except Exception:  # noqa: BLE001 — 쪽수 실패는 배지만 생략
+                pass
             manifest.append({"법령명": hit["이름"], "라벨": label, "제목": title,
-                             "pdf": f"{hit['이름']}/{fname}", "구분": gu,
+                             "pdf": f"{hit['이름']}/{fname}", "구분": gu, "쪽수": pages,
                              "출처": "법제처 국가법령정보센터"})
         print(f"· {hit['이름']}: 별표·서식 {sum(1 for m in manifest if m['법령명']==hit['이름'])}건")
     (ANNEX_DIR / "manifest.json").write_text(

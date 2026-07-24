@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { api, ApiError, type User } from "../lib/api";
 import { track, setTrackAuthed } from "../lib/track";
 import { useFlag } from "../lib/flags";
+import HorongMark from "./common/HorongMark";
 import styles from "./Login.module.css";
 
 /** 로그인 / 회원가입 — 사내 전용. 성공 시 onAuthed(user).
@@ -37,7 +38,10 @@ export default function Login({ onAuthed, embedded }: { onAuthed: (u: User) => v
         authed(await api.login(username, password));
       } else if (mode === "register") {
         const r = await api.register(username, password);
-        if (r.pending_approval) {
+        if (r.open_signup || r.bootstrap) {
+          // 즉시 가입(flag signup_open) 또는 관리자 부트스트랩 → 바로 로그인
+          authed({ id: r.id!, username: r.username!, is_admin: !!r.is_admin });
+        } else if (r.pending_approval) {
           // 관리자 승인제: 코드 단계 없이 '승인 대기' 안내
           setMode("pending");
           setInfo(`${r.email} 가입 신청이 접수됐어요. 관리자 승인 후 로그인할 수 있습니다.`);
@@ -85,7 +89,7 @@ export default function Login({ onAuthed, embedded }: { onAuthed: (u: User) => v
     <div className={embedded ? styles.wrapEmbedded : styles.wrap}>
       <div className={styles.card}>
         <div className={styles.brand}>
-          <span className={styles.mark}>KEI</span> 행정 LLM
+          <HorongMark size={24} /> 호롱 <span style={{fontSize:11.5,fontWeight:600,color:"var(--color-text-tertiary)"}}>KEI 행정 가이드</span>
         </div>
         <h1 className={styles.title}>
           {mode === "login" ? "로그인" : mode === "register" ? "회원가입"

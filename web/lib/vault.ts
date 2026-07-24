@@ -281,6 +281,26 @@ export type SeasonalItem = {
   근거slug?: string | null; // 근거 문서 제목 → slug 해석(링크용)
 };
 
+// 대외업무 월 상세(01r_seasonal_survey — 3개년 전수조사 추출, docs/39 보강 2026-07-24).
+// ⛔ 운영 통계 — 규정 아님. 캘린더 월 클릭 상세 패널이 소비.
+export type MonthlySurvey = {
+  totals: { year: string; n: string }[];
+  months: Record<string, {
+    counts: { year: string; n: number | null }[];
+    features: { year: string; text: string }[];
+    notes: string[];
+  }>;
+};
+export function loadMonthlySurvey(): MonthlySurvey | null {
+  const fp = path.join(VAULT_DIR, "90_관리", "_calendar", "monthly_survey.json");
+  if (!fs.existsSync(fp)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(fp, "utf-8"));
+  } catch {
+    return null;
+  }
+}
+
 export function loadSeasonal(): SeasonalItem[] {
   const fp = path.join(VAULT_DIR, "90_관리", "_calendar", "seasonal.json");
   if (!fs.existsSync(fp)) return [];
@@ -346,6 +366,12 @@ export type FormEntry = {
 // 'ConfirmationCertificateRegardingRestrictions…') 표시명이 거대한 런온이 되는 문제.
 // 괄호 안이 15자↑ & 대부분(≥70%) ASCII 영숫자면 '영문/코드 런온'으로 보고 제거.
 // ⚠ 한글이 2자↑ 남을 때만 정리본 채택(영문 전용 서식은 원문 유지) · 데이터(manifest)는 불변.
+// 서식명 표시 정리(호롱 폴리시) — kordoc 재변환 문서의 제목 헤딩(## )·볼드(**) 마커가
+// 서식명에 노출되는 것 방지(개인정보보호지침 별지10 '## 위임장' 실측). 데이터(원문)는 불변.
+function cleanFormTitle(t: string): string {
+  return t.replace(/^#{1,6}\s*/, "").replace(/\*\*/g, "").trim();
+}
+
 function cleanPmsTitle(s: string): string {
   const cleaned = s
     .replace(/\(([^)]{15,})\)/g, (m, inner: string) => {
@@ -408,7 +434,7 @@ function loadUplawForms(): FormEntry[] {
   const mf = path.join(process.cwd(), "public", "forms-pdf", "uplaw", "manifest.json");
   if (!fs.existsSync(mf)) return [];
   try {
-    const items: { 법령명: string; 라벨: string; 제목: string; pdf: string; 구분: string }[] =
+    const items: { 법령명: string; 라벨: string; 제목: string; pdf: string; 구분: string; 쪽수?: number | null }[] =
       JSON.parse(fs.readFileSync(mf, "utf-8"));
     const stems = new Set(getAllDocs().map((d) => d.slug));
     return items.map((it) => ({
@@ -421,7 +447,7 @@ function loadUplawForms(): FormEntry[] {
       pdf: `/forms-pdf/uplaw/${it.pdf}`,
       hwp: null,
       구분: "상위법령" as const,
-      쪽수: null,
+      쪽수: it.쪽수 ?? null,
     }));
   } catch {
     return [];
@@ -474,7 +500,7 @@ export function loadForms(): FormEntry[] {
       const mfName = (mfe?.name || "").trim();
       if (mfName && /[가-힣A-Za-z]{2,}/.test(mfName)) title = mfName.slice(0, 40);
       out.push({ 규정명: doc.title, slug: meta.slug, 호: label, 호수: Number(m[1].split("-")[0]),
-                 서식명: title || "(서식명 미기재)", anchor: label,
+                 서식명: cleanFormTitle(title) || "(서식명 미기재)", anchor: label,
                  pdf: mfe ? `/${mfe.pdf}` : null,
                  hwp: mf?.hwp ? `/${mf.hwp}` : null,
                  쪽수: mfe?.pages ? mfe.pages[1] - mfe.pages[0] + 1 : null });
