@@ -49,15 +49,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
-      await api.logout();
+      await api.logout();  // 서버 세션 쿠키 무효화(fail-closed)
     } catch {
-      // 서버 세션 무효화 실패(네트워크·오류) — 클라이언트만 로그아웃하면 쿠키가 남아 새로고침 시
-      // 재로그인될 수 있다(공유 PC 위험). 하드 리로드로 서버에 세션 상태를 재확인시킨다.
-      apply(null);
-      if (typeof window !== "undefined") window.location.reload();
-      return;
+      // 무효화 실패해도 진행 — 아래 하드 이동이 서버 게이트 재검을 강제한다.
     }
     apply(null);
+    // ⛔ SPA 라우팅(router.push)이 아니라 하드 이동 — 이미 렌더된 보호 페이지가 로그아웃 후에도
+    // 남아 기능이 쓰이던 문제(사용자 제보). location.replace로 ① 전체 재로드 → server.js 로그인
+    // 게이트가 쿠키 부재를 재확인해 랜딩 셸만 서빙 ② 히스토리 교체 → 뒤로가기해도 보호 페이지로
+    // 못 돌아감(게이트가 다시 막음). 캐시된 정적 페이지도 게이트 뒤라 콘텐츠는 재요청돼야 뜬다.
+    if (typeof window !== "undefined") window.location.replace("/");
   }, [apply]);
 
   return <Ctx.Provider value={{ user, ready, setUser: apply, logout }}>{children}</Ctx.Provider>;
