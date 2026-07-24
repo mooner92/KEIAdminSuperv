@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import ThemeToggle from "./common/ThemeToggle";
 import HorongMark from "./common/HorongMark";
+import AccountMenu from "./common/AccountMenu";
 import MobileTabBar from "./mobile/MobileTabBar";
 import { useFlag } from "../lib/flags";
 import { useAuth } from "../lib/auth";
@@ -154,13 +155,8 @@ export default function Layout({
                 🔔<span className={styles.maintBadge}>{maintUnread}</span>
               </Link>
             ) : null}
-            <ThemeToggle />
             <span className={styles.flag}>🔒 사내 전용</span>
-            {isAuthed && user ? (
-              <span className={styles.avatar} title={user.username} aria-hidden>
-                {(user.username || "?").trim().charAt(0).toUpperCase()}
-              </span>
-            ) : null}
+            {isAuthed ? <AccountMenu /> : <ThemeToggle />}
           </div>
         </div>
       </header>
