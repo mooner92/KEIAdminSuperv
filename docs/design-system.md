@@ -105,3 +105,10 @@
 ## 호롱 그라데이션 원칙 (2026-07-24, 사용자 확정)
 - **그라데이션은 항상 2색**: 다색 스펙트럼(파랑→초록→노랑→주황)은 텍스트·CTA에서 산만 — 워드/통계/CTA는 주황→노랑(`--hr-grad-word`, `--hr-grad-flame`), 보조는 잎(`--hr-grad-leaf` 파랑→초록).
 - 유일 예외: HorongMark 로고 심볼(브랜드 정체성 — 다색 유지).
+
+## 호롱(Horong) 리뉴얼 개요 (2026-07-24, design_handoff_horong)
+- **정본**: 핸드오프 zip(README + designs/*.dc.html + web-ready 토큰). 구현 = feat/design-revolution → dev.
+- 토큰: globals.css 시맨틱 블록(엠버 primary #e06a12·웜 화이트/잉크·저채도 악센트 6종·radius 10/14/20).
+- 셸: 유리 헤더(blur 20)·GNB 3탭·활성 흰 알약·아바타(잎 그라데이션)·34px 원형 테마 토글.
+- 공용 컴포넌트: HorongMark(로고), BrowseShell(필터 고정+목록 스크롤 계약 — Explorer 마이그레이션 대상), .hrCheck(커스텀 체크박스).
+- 브랜드 모먼트 전용 그라데이션: 로고·히어로 워드·주 CTA·활성 1곳 — 남용 금지.
