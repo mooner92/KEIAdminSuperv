@@ -108,7 +108,7 @@ export default function DeadlinesPage({ deadlines }: { deadlines: DeadlineEntry[
               const checked = regFilter.has(r);
               return (
                 <label key={r} className={`${f.regItem} ${!checked && n === 0 ? f.regMuted : ""}`}>
-                  <input type="checkbox" checked={checked} onChange={() => toggleReg(r)} />
+                  <input type="checkbox" className={f.hrCheck} checked={checked} onChange={() => toggleReg(r)} />
                   <span className={f.regName}>{r}</span>
                   <span className={f.regCount}>{n}</span>
                 </label>

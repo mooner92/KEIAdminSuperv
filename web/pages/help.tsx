@@ -138,9 +138,8 @@ export default function Help() {
           <h2>할 수 있는 것</h2>
           <ul>
             <li><b><Link href="/">질문하기</Link></b> — 행정 업무를 물으면 사내 규정·가이드·시스템 안내를 근거(출처)와 함께 답합니다.</li>
-            <li><b><Link href="/browse/">규정 둘러보기</Link></b> — 원문 검색·필터, <b><Link href="/graph/">관계 그래프</Link></b> — 규정 간 연결 탐색.</li>
-            <li><b><Link href="/approval/">결재선</Link></b> — 위임전결규정 별표 기준 전결권자 조회.</li>
-            {formsOn ? <li><b><Link href="/forms/">서식 찾기</Link></b> — 규정 별지 서식을 이름·번호로 검색해 원문으로 바로 이동.</li> : null}
+            <li><b><Link href="/browse/">규정 찾기</Link></b> — 한 화면에서 <b>문서</b>(원문 검색·필터)·<b>서식</b>(별지 서식)·<b>그래프</b>(규정 간 연결)를 탭으로 오가며 봅니다.</li>
+            <li><b><Link href="/now/">업무 도구</Link></b> — 결재선(전결권자 조회)·업무 한 장·업무 캘린더·기한 사전을 한곳에 모았습니다.</li>
           </ul>
         </section>
 
