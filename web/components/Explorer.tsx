@@ -189,7 +189,7 @@ export default function Explorer({ docs }: { docs: DocMeta[] }) {
     const checked = f[group].has(value);
     return (
       <label className={`${styles.check} ${n === 0 && !checked ? styles.checkMuted : ""}`}>
-        <input type="checkbox" checked={checked} onChange={() => toggle(group, value)} />
+        <input type="checkbox" className={styles.hrCheck} checked={checked} onChange={() => toggle(group, value)} />
         <span className={styles.checkLabel}>{label}</span>
         <span className={styles.checkCount}>{n}</span>
       </label>

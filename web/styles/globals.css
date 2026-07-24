@@ -250,3 +250,24 @@ h2 { letter-spacing: -0.01em; }
 @media (prefers-reduced-motion: reduce) {
   [data-fadeup] > * { animation: none; }
 }
+
+/* ── 호롱 03 — 커스텀 체크박스(17px radius6, 선택 시 그라데이션 채움 ✓) ──
+   사용: 라벨 안 input에 className hrCheck. 네이티브 accent-color 대체. */
+.hrCheck {
+  appearance: none; -webkit-appearance: none;
+  width: 17px; height: 17px; flex: 0 0 auto; margin: 0;
+  border: 1.5px solid var(--color-border-strong); border-radius: 6px;
+  background: var(--color-surface); cursor: pointer; position: relative;
+  transition: var(--transition-ui);
+}
+.hrCheck:hover { border-color: var(--color-primary); }
+.hrCheck:checked {
+  border-color: transparent;
+  background: var(--hr-grad-flame);
+}
+.hrCheck:checked::after {
+  content: ""; position: absolute; left: 5px; top: 2px;
+  width: 4px; height: 8px; border: solid #fff; border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.hrCheck:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
