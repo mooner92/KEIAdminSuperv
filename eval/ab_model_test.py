@@ -29,13 +29,9 @@ AB_DIR = HERE / "ab"
 AB_DIR.mkdir(exist_ok=True)
 
 sys.path.insert(0, str(HERE))
+sys.path.insert(0, str(ROOT / "tools"))
 from daily_common import LLM_MODEL, llm_json, load_bank, norm_q  # noqa: E402
-
-# 거부·골든 판정(regress_refusal.py와 동일 기준)
-REFUSAL_RE = re.compile(
-    r"확인되지\s*않|확인할\s*수\s*없|찾을\s*수\s*없|근거가\s*없|명시(되어|돼)?\s*있지\s*않|"
-    r"명시되지\s*않|포함(되어|돼)?\s*있지\s*않|포함되지\s*않|나와\s*있지\s*않|규정에서\s*확인|"
-    r"해당\s*내용(은|이)?\s*없|정보가\s*없|알\s*수\s*없")
+from refusal_detect import is_refusal  # noqa: E402 — 단일 정본(specs/01 P0), 결론부 스코프(T9)
 
 JUDGE_SYS = (
     "너는 채점자다. [질문, 챗봇 답변, 정답 근거 문장]이 주어진다. 답변이 근거와 부합하는지 다음 "
@@ -113,7 +109,7 @@ def grade(tags: list) -> int:
         lat = sorted(r["지연s"] for r in recs)
         res["지연중앙값"] = lat[len(lat) // 2] if lat else 0
         for i, r in enumerate(g):
-            refused = bool(REFUSAL_RE.search(r["답변"]))
+            refused = is_refusal(r["답변"])
             if refused:
                 res["과잉거부"] += 1
                 res["오답"] += 1
@@ -132,7 +128,7 @@ def grade(tags: list) -> int:
             if (i + 1) % 20 == 0:
                 print(f"[{tag}] 채점 {i + 1}/{len(g)}")
         for r in rf:
-            if REFUSAL_RE.search(r["답변"]):
+            if is_refusal(r["답변"]):
                 res["거부성공"] += 1
         rows[tag] = res
 

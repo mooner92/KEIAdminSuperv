@@ -2412,8 +2412,9 @@ def reject_user(uid: int, admin: User = Depends(current_admin)):
 
 
 # ───────────────────────── 운영 대시보드(관리자) ─────────────────────────
-# 거부(가드레일 발동) 답변 감지 — rag_core SYSTEM의 "규정에서 확인되지 않습니다" 계열.
-REFUSAL_RE = re.compile(r"확인되지\s*않|확인할\s*수\s*없|찾을\s*수\s*없|근거가\s*없|명시(되어|돼)?\s*있지\s*않|명시되지\s*않|포함(되어|돼)?\s*있지\s*않|포함되지\s*않|나와\s*있지\s*않|규정(되어|돼)?\s*있지\s*않|규정되지\s*않|규정에서\s*확인|해당\s*내용(은|이)?\s*없|정보가\s*없|알\s*수\s*없")  # 게시판 거부율 — daily_grade와 동기(거부 표현 확장)
+# 거부(가드레일 발동) 답변 감지 — 단일 정본 refusal_detect(specs/01 P0, T9):
+# 결론부 스코프 + 부정형 한정("규정에서 확인된" 긍정문·꼬리 부가안내를 거부로 오집계하던 결함 수정).
+from refusal_detect import is_refusal as _is_refusal  # noqa: E402
 # k-익명성: 질문 텍스트는 서로 다른 사용자 K명 이상이 물었을 때만 노출(개인 채팅 보호).
 # 서버사이드 RAG라 진짜 E2E 암호화는 불가(LLM이 평문을 읽어야 함) → 관리자에겐 '집계'만 보인다.
 K_ANON = max(2, int(os.environ.get("STATS_MIN_USERS", "3")))
@@ -2440,7 +2441,7 @@ def stats(admin: User = Depends(current_admin), days: int = 30):
     recent = [m for m in msgs if m.created_at >= since]
     user_msgs = [m for m in recent if m.role == "user" and (m.content or "").strip()]
     ai_msgs = [m for m in recent if m.role == "assistant"]
-    refusals = [m for m in ai_msgs if REFUSAL_RE.search(m.content or "")]
+    refusals = [m for m in ai_msgs if _is_refusal(m.content or "")]
 
     # 세션별 시간순 정렬 → 거부 답변의 직전 사용자 질문(콘텐츠 갭) 추적
     by_session: dict = {}

@@ -16,9 +16,10 @@ import json
 import re
 import sys
 
-from daily_common import DAILY_DIR, chroma_col, llm_json, load_bank, norm_q, save_bank
+from daily_common import DAILY_DIR, ROOT, chroma_col, llm_json, load_bank, norm_q, save_bank
 
-REFUSAL_RE = re.compile(r"확인되지\s*않|확인할\s*수\s*없|찾을\s*수\s*없|근거가\s*없|명시(되어|돼)?\s*있지\s*않|명시되지\s*않|포함(되어|돼)?\s*있지\s*않|포함되지\s*않|나와\s*있지\s*않|규정(되어|돼)?\s*있지\s*않|규정되지\s*않|규정에서\s*확인|해당\s*내용(은|이)?\s*없|정보가\s*없|알\s*수\s*없")  # 거부 표현 확장(실측: 명시/포함되지 않음 미인식으로 정상 거부를 오답 처리 — daily 07-24 [5][6])
+sys.path.insert(0, str(ROOT / "tools"))
+from refusal_detect import is_refusal  # 단일 정본(specs/01 P0) — 결론부 스코프+부정형 한정(T9)
 VAL_RE = re.compile(r"\d[\d,]*(?:\.\d+)?\s*(?:원|만원|천원|억원|%|퍼센트|일|개월|년|주|시간|회|명|점|급|호)")
 
 JUDGE_SYS = (
@@ -82,9 +83,9 @@ def main() -> int:
             item.update({"판정": "판정불가", "증거": "답변 수집 실패"})
             results.append(item)
             continue
-        # 거부형 — 거부 계열이면 정답
+        # 거부형 — 결론부가 거부 계열이면 정답(T9: 꼬리 부가문구·긍정문 오탐 제거)
         if q["유형"] == "거부형":
-            ok = bool(REFUSAL_RE.search(답변))
+            ok = is_refusal(답변)
             item.update({"판정": "정답" if ok else "오답",
                          "증거": "" if ok else "코퍼스에 없는 주제인데 거부하지 않고 답변함(환각 위험)",
                          "원인": None if ok else "생성환각"})

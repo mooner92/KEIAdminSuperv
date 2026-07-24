@@ -32,13 +32,9 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "tools"))
 
-# 거부 표현은 모델이 다양하게 쓴다 — 좁게 잡으면 정상 거부를 오답 처리한다.
-# (실측 2026-07-20: "명시되어 있지 않습니다"를 못 잡아 MISS 오판 → 아래로 확장)
-REFUSAL_RE = re.compile(
-    r"확인되지\s*않|찾을\s*수\s*없|근거가\s*없|자료에\s*없|규정에서\s*확인|"
-    r"명시(되어|되지)?\s*있지\s*않|명시되지\s*않|나와\s*있지\s*않|포함되어\s*있지\s*않|"
-    r"기재되어\s*있지\s*않|다루지\s*않|언급되지\s*않|알\s*수\s*없"
-)
+# 거부 판정은 단일 정본 refusal_detect(specs/01 P0, T9) — 결론부 스코프+부정형 한정.
+# (과거 이 파일의 자체 정규식은 '규정에서 확인'이 긍정문 "규정에서 확인된"까지 매칭하는 결함 공유)
+from refusal_detect import is_refusal  # noqa: E402
 CITE_RE = re.compile(r"\[[^\]\n]+\]|출처|근거")
 
 
@@ -76,7 +72,7 @@ def main() -> int:
 
         # ⓓ 거부 문항
         if r.get("refusal"):
-            refused = bool(REFUSAL_RE.search(ans))
+            refused = is_refusal(ans)
             verdict = "PASS" if refused else "MISS"
             results.append({"id": r["id"], "verdict": verdict, "refused": refused,
                             "question": r["question"], "answer": ans[:400]})
