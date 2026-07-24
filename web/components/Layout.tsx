@@ -155,7 +155,7 @@ export default function Layout({
                 🔔<span className={styles.maintBadge}>{maintUnread}</span>
               </Link>
             ) : null}
-            <span className={styles.flag}>🔒 사내 전용</span>
+            <span className={styles.flag} title="사내 전용" aria-label="사내 전용">🔒</span>
             {isAuthed ? <AccountMenu /> : <ThemeToggle />}
           </div>
         </div>
