@@ -18,6 +18,7 @@ ROOT = HERE.parent
 AB = HERE / "ab"
 AB.mkdir(exist_ok=True)
 sys.path.insert(0, str(HERE))
+sys.path.insert(0, str(ROOT / "tools"))  # rag_core 내부 import(bm25_index 등) 해석용
 from daily_common import load_bank  # noqa: E402
 
 # 표적 실측 케이스(2026-07-24 A/B에서 검색실패로 확정 — specs/01 §0)

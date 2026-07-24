@@ -1353,6 +1353,20 @@ def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None
     else:
         order = list(cand)
 
+    # 어휘 안전석(RAG_RERANK_KEEP_LEX, 기본 1 — 하이브리드 모드에서만): keep_dense와 대칭 설계.
+    # 실측(specs/01 P2, 2026-07-25): BM25가 압도적 1위로 발굴한 문서(명패→학술행사진행가이드
+    # 40.1 vs 2위 25.0)를 리랭커가 표면 유사도로 퇴출 — 어휘 발굴도 밀집 상위처럼 '퇴출만' 금지.
+    # 순위는 리랭커 존중(맨 뒷자리 삽입), 밀집 안전석(protected)과 충돌하지 않는 자리만 교체.
+    if use_hybrid and use_rerank and rscore:
+        keep_lex = int(os.environ.get("RAG_RERANK_KEEP_LEX", "1"))
+        lex_top = [i for i in lex_ids[:keep_lex] if i not in order[:k]]
+        for li in lex_top:
+            dense_guard = set(cand[:int(os.environ.get("RAG_RERANK_KEEP_DENSE", "2"))])
+            for j in range(k - 1, -1, -1):
+                if order[j] not in dense_guard:
+                    order = order[:j] + [li] + [x for x in order[j:] if x != li]
+                    break
+
     if use_div and len(order) > k:
         chosen = _select_diverse(order, k, lambda i: (getdoc(i)[1] or {}).get("type", ""))
     else:
