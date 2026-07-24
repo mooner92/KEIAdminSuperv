@@ -10,16 +10,21 @@ export default function MonthCell({ month, items, isNow, onOpen, opened }: {
   opened?: boolean;
 }) {
   return (
-    <section className={`${c.cell} ${isNow ? c.cellNow : ""}`} aria-label={`${month}월 업무`}>
+    <section
+      className={`${c.cell} ${isNow ? c.cellNow : ""} ${onOpen ? c.cellClickable : ""} ${opened ? c.cellOpened : ""}`}
+      aria-label={`${month}월 업무`}
+      onClick={onOpen ? (e) => {
+        // 카드 전체 클릭 = 상세 토글(사용자 지시) — 단, 항목 링크 클릭은 문서 이동 우선
+        if ((e.target as HTMLElement).closest("a")) return;
+        onOpen();
+      } : undefined}
+      role={onOpen ? "button" : undefined}
+      aria-expanded={onOpen ? opened : undefined}>
       <h3 className={c.cellHead}>
         <span className={c.cellNum}>{month}</span>
         <span className={c.cellWol}>월</span>
         {isNow ? <span className={c.nowBadge}>이번 달</span> : null}
-        {onOpen ? (
-          <button type="button" className={`${c.cellMore} ${opened ? c.cellMoreOn : ""}`}
-            onClick={onOpen} aria-expanded={opened}
-            title="이 달의 대외업무 3개년 관측 상세">{opened ? "상세 ▴" : "상세 ▾"}</button>
-        ) : null}
+        {onOpen ? <span className={`${c.cellChevron} ${opened ? c.cellChevronOn : ""}`} aria-hidden>▾</span> : null}
       </h3>
       {items.length === 0 ? (
         <p className={c.cellEmpty}>—</p>

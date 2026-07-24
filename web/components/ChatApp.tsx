@@ -225,7 +225,7 @@ export default function ChatApp({
   const APPROVAL_KW = [
     "국내출장", "해외출장", "시내출장", "출장", "연차", "휴가", "병가", "휴직", "복직", "퇴직",
     "파견", "연구연수", "교육연수", "연수", "교육", "채용", "겸직", "자문", "강사", "초청",
-    "출판", "구매", "계약", "예산", "여비", "법인카드", "물품", "행사",
+    "출판", "구매", "구입", "도서", "계약", "예산", "여비", "법인카드", "물품", "행사", "인쇄",
   ];
   const approvalHint = useMemo(() => {
     if (!approvalOn || messages.length === 0) return null;
@@ -237,8 +237,11 @@ export default function ChatApp({
     const prevUser = [...messages.slice(0, aiIdx)].reverse().find((x) => x.role === "user");
     const text = `${prevUser?.content || ""}\n${ai.content || ""}`;
     if (!/결재|기안|상신|전결|품의/.test(text)) return null;
-    const q = (prevUser?.content || "") + (ai.content || "");
-    return { query: APPROVAL_KW.find((k) => q.includes(k)) || "" };
+    // 프리셋은 **질문 우선** 매칭 — 답변까지 한 문자열로 뒤지면 답변에 섞인 무관 업무 단어
+    // (예: 도서 구입 답변 속 '국내출장' 오결합)가 배열 순서상 앞이라 칩을 점령한다(실측 버그).
+    const uq = prevUser?.content || "";
+    const fromQ = APPROVAL_KW.find((k) => uq.includes(k));
+    return { query: fromQ || APPROVAL_KW.find((k) => (ai.content || "").includes(k)) || "" };
   }, [approvalOn, messages, activeMsgId]);
 
   useEffect(() => {

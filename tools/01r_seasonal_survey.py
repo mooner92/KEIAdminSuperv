@@ -68,6 +68,88 @@ def parse_year(p: Path) -> dict:
     return out
 
 
+ROW_RE = re.compile(
+    r"^\|\s*(\d{4}-\d{2}-\d{2})\s*\|\s*(\d{4}-\d{2}-\d{2})\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*[^|]+?\s*\|\s*([^|]+?)\s*\|",
+    re.M)  # 요구일 | 기한 | 질의명 | 요구처 | 부서 | (담당자 — ⛔개인정보 미추출) | 상태
+
+
+def parse_rows(files) -> list:
+    rows = []
+    for pth in files:
+        yl = year_label(pth.name)
+        for m in ROW_RE.finditer(pth.read_text(encoding="utf-8")):
+            rows.append({"year": yl, "req": m.group(1), "due": m.group(2),
+                         "title": m.group(3).strip(), "from": m.group(4).strip(),
+                         "dept": m.group(5).strip()})
+    return rows
+
+
+def enrich_notes(files, years) -> None:
+    """50_대외업무 각 노트에 '3개년 관측 상세(자동)' 섹션을 멱등 삽입(마커 교체).
+    ⛔ 담당자 열은 추출하지 않는다(개인정보). 질의명·요구처·부서·기한만."""
+    import statistics
+    from collections import Counter
+    rows = parse_rows(files)
+    print(f"개별 요구 행 파싱: {len(rows)}건")
+    MS, ME = "<!-- 01r-observed-start -->", "<!-- 01r-observed-end -->"
+    ydir = VAULT / "50_대외업무"
+    for pat, notes in NOTE_MAP:
+        rx = re.compile(pat)
+        sub = [r for r in rows if rx.search(r["title"])]
+        if not sub:
+            continue
+        per_year = Counter(r["year"] for r in sub)
+        per_month = Counter(int(r["req"][5:7]) for r in sub)
+        top_months = ", ".join(f"{m}월({n})" for m, n in per_month.most_common(3))
+        srcs = Counter(r["from"] for r in sub).most_common(3)
+        depts = Counter(r["dept"] for r in sub).most_common(2)
+        import datetime as _dt
+        gaps = []
+        for r in sub:
+            try:
+                gaps.append((_dt.date.fromisoformat(r["due"]) - _dt.date.fromisoformat(r["req"])).days)
+            except ValueError:
+                pass
+        gap_med = statistics.median(gaps) if gaps else None
+        gap_min = min(gaps) if gaps else None
+        # 대표 질의명 — 최신 연도에서 서로 다른 월 5건(실명 없음: title·from·기한 간격만)
+        latest_label = years[-1]["label"]
+        seen_mo, examples = set(), []
+        for r in sorted((r for r in sub if r["year"] == latest_label), key=lambda x: x["req"]):
+            mo = r["req"][5:7]
+            if mo in seen_mo:
+                continue
+            seen_mo.add(mo)
+            examples.append(r)
+            if len(examples) >= 5:
+                break
+        lines = [MS,
+                 "#### 3개년 관측 상세 (01r 자동 추출 — 운영 통계, 규정 아님)",
+                 f"- 관측 건수: " + " / ".join(f"{y['label']} {per_year.get(y['label'], 0)}건" for y in years),
+                 f"- 집중 월(요구일 기준): {top_months}",
+                 f"- 주요 요구처: " + ", ".join(f"{k}({n})" for k, n in srcs),
+                 f"- 주 담당 부서(관측): " + ", ".join(f"{k}({n})" for k, n in depts)]
+        if gap_med is not None:
+            lines.append(f"- 제출 여유(요구일→기한): 중앙값 {gap_med:.0f}일 · 최단 {gap_min}일 — 기한이 촉박한 편이니 요구 접수 즉시 착수")
+        if examples:
+            lines.append("- 대표 요구 사례(최신 관측연도):")
+            for r in examples:
+                lines.append(f"  - {r['req']} 「{r['title'][:60]}」 ← {r['from']} (기한 {r['due']})")
+        lines.append(ME)
+        block = "\n".join(lines)
+        for note in notes:
+            np = ydir / f"{note}.md"
+            if not np.exists():
+                continue
+            t = np.read_text(encoding="utf-8")
+            if MS in t:
+                t = re.sub(re.escape(MS) + r".*?" + re.escape(ME), block, t, flags=re.S)
+            else:
+                t = t.rstrip() + "\n\n" + block + "\n"
+            np.write_text(t, encoding="utf-8")
+        print(f"  보강: {pat} → {len(sub)}건 → {notes}")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--src", default=str(Path.home() / "erps" / "대외업무 시즌캘린더"))
@@ -137,6 +219,8 @@ type: guide
     npath = VAULT / "50_대외업무" / "대외업무 연간 사이클.md"
     npath.write_text("\n".join(note_lines) + "\n", encoding="utf-8")
     print(f"② {npath.relative_to(VAULT)} 기록 ({npath.stat().st_size//1024}KB)")
+    # ③ 업무별 노트 관측 상세 보강(사용자 지적 — 노트 부실)
+    enrich_notes(files, years)
     return 0
 
 
