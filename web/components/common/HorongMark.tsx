@@ -9,12 +9,12 @@ export default function HorongMark({ size = 27 }: { size?: number }) {
     <svg width={size} height={size} viewBox="0 0 64 64" aria-label="호롱">
       <defs>
         <linearGradient id={gid} x1="0" y1="1" x2="0" y2="0">
+          {/* v2(2026-07-24) — 물 파랑 ~14%·풀 초록 ~24% 위로 노랑·앰버·주황이 위쪽 3/4(밝아짐) */}
           <stop offset="0" stopColor="#2f74b8" />
-          <stop offset="0.3" stopColor="#2c9c62" />
-          <stop offset="0.52" stopColor="#7ec13c" />
-          <stop offset="0.72" stopColor="#f6b40e" />
-          <stop offset="0.88" stopColor="#f57f17" />
-          <stop offset="1" stopColor="#ef5a11" />
+          <stop offset="0.2" stopColor="#2c9c62" />
+          <stop offset="0.33" stopColor="#5db54a" />
+          <stop offset="0.48" stopColor="#ffd54f" />
+          <stop offset="1" stopColor="#e8420b" />
         </linearGradient>
       </defs>
       <path d="M32.5 4.5 C 31 12 24.5 17.5 20 23.5 C 15.5 29.5 13.5 35 14.5 41

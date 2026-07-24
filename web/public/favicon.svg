@@ -1,9 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
     <linearGradient id="h" x1="0" y1="1" x2="0" y2="0">
-      <stop offset="0" stop-color="#2f74b8"/><stop offset="0.3" stop-color="#2c9c62"/>
-      <stop offset="0.52" stop-color="#7ec13c"/><stop offset="0.72" stop-color="#f6b40e"/>
-      <stop offset="0.88" stop-color="#f57f17"/><stop offset="1" stop-color="#ef5a11"/>
+      <stop offset="0" stop-color="#2f74b8"/><stop offset="0.2" stop-color="#2c9c62"/><stop offset="0.33" stop-color="#5db54a"/><stop offset="0.48" stop-color="#ffd54f"/><stop offset="1" stop-color="#e8420b"/>
     </linearGradient>
   </defs>
   <path d="M32.5 4.5 C 31 12 24.5 17.5 20 23.5 C 15.5 29.5 13.5 35 14.5 41 C 16 51 23.5 57.5 32 57.5 C 40.5 57.5 48 51 49.5 41 C 50.5 35 48.5 29.5 44 23.5 C 39.5 17.5 34 12 32.5 4.5 Z" fill="url(#h)"/>
