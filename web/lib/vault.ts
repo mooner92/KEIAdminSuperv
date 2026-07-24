@@ -414,7 +414,7 @@ function loadUplawForms(): FormEntry[] {
   const mf = path.join(process.cwd(), "public", "forms-pdf", "uplaw", "manifest.json");
   if (!fs.existsSync(mf)) return [];
   try {
-    const items: { 법령명: string; 라벨: string; 제목: string; pdf: string; 구분: string }[] =
+    const items: { 법령명: string; 라벨: string; 제목: string; pdf: string; 구분: string; 쪽수?: number | null }[] =
       JSON.parse(fs.readFileSync(mf, "utf-8"));
     const stems = new Set(getAllDocs().map((d) => d.slug));
     return items.map((it) => ({
@@ -427,7 +427,7 @@ function loadUplawForms(): FormEntry[] {
       pdf: `/forms-pdf/uplaw/${it.pdf}`,
       hwp: null,
       구분: "상위법령" as const,
-      쪽수: null,
+      쪽수: it.쪽수 ?? null,
     }));
   } catch {
     return [];
