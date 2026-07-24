@@ -61,7 +61,7 @@
   padding: 1px 5px;
 }
 .md pre {
-  background: var(--grey900);
+  background: #1d1f1d; /* 호롱 잉크 (코드블록) */
   color: #e5e8eb;
   padding: 14px 16px;
   border-radius: var(--radius-md);
