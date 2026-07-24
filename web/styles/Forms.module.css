@@ -123,3 +123,31 @@
 
 .dlCell { white-space: nowrap; }
 .dlCell .dl + .dl { margin-left: 10px; }
+
+/* 호롱 — 규정 찾기 '서식' 탭 리드 문구(PageHero 대체) */
+.tabLead { margin: 0 0 14px; font-size: 13.5px; color: var(--color-text-secondary); line-height: 1.6; }
+
+/* BrowseShell 협력 — 표만 스크롤(검색창·컨트롤 고정, 사용자 지적 수정) */
+.shellScroll {
+  flex: 1; min-height: 0; overflow-y: auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+.shellScroll .table { margin: 0; }
+@media (max-width: 760px) { .shellScroll { overflow-y: visible; } }
+
+/* 호롱 03 — 규정 필터 커스텀 체크박스 */
+.hrCheck {
+  appearance: none; -webkit-appearance: none;
+  width: 17px; height: 17px; flex: 0 0 auto; margin: 0;
+  border: 1.5px solid var(--color-border-strong); border-radius: 6px;
+  background: var(--color-surface); cursor: pointer; position: relative; transition: var(--transition-ui);
+}
+.hrCheck:hover { border-color: var(--color-primary); }
+.hrCheck:checked { border-color: transparent; background: var(--hr-grad-flame); }
+.hrCheck:checked::after {
+  content: ""; position: absolute; left: 5px; top: 2px; width: 4px; height: 8px;
+  border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg);
+}

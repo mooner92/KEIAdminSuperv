@@ -68,23 +68,22 @@ export default function NowPage({ seasonal, revised, notes, terms, formsCount, d
   const maxTrend = trending?.length ? Math.max(...trending.map((t) => t.n)) : 1;
 
   // 바로가기 카드 = 데이터(플래그로 게이팅). 모바일 GNB에서 뺀 화면도 허브에서 항상 도달(docs/48).
-  const shortcuts: Shortcut[] = [
-    { icon: "📅", title: "업무 캘린더", href: "/calendar/",
-      desc: `${monthItems.length > 0 ? `이번 달 챙길 일 ${monthItems.length}건 · ` : ""}매월·연간 반복 업무를 한눈에` },
-    ...(formsOn ? [{ icon: "📄", title: "서식 찾기", href: "/forms/",
-      desc: `규정 별지 서식 ${formsCount}종을 이름·규정·번호로 검색` }] : []),
-    ...(deadlinesOn ? [{ icon: "⏱️", title: "기한 사전", href: "/deadlines/",
-      desc: `규정 기한 ${deadlinesCount}건을 사건·의무로 찾고 마감일 계산·캘린더 저장` }] : []),
-    ...(qualityOn ? [{ icon: "📊", title: "품질 게시판", href: "/quality/",
-      desc: "매일 자가평가한 오늘의 정답률과 약점 지도 — 챗봇이 얼마나 정확한지" }] : []),
-    ...(changelogOn ? [{ icon: "✨", title: "새로워진 점", href: "/changelog/",
-      desc: notes[0] ? `최근: ${notes[0].제목}` : "서비스 업데이트 내역" }] : []),
-    { icon: "🕸️", title: "관계 그래프", href: "/graph/",
-      desc: "규정 간 상호참조를 연결망으로 — 관련 규정을 한눈에" },
+  // 호롱 04: 도구 4종은 대형 2×2 — 결재선·업무 한 장·캘린더·기한 사전.
+  const tools: Shortcut[] = [
     ...(approvalOn ? [{ icon: "✅", title: "결재선", href: "/approval/",
       desc: "이 업무 전결권자가 누구인지 규정 근거로 판정" }] : []),
     ...(journeyOn ? [{ icon: "🗺️", title: "업무 한 장", href: "/journey/",
       desc: "출장·연차·법인카드 등 13개 업무의 처음부터 끝까지" }] : []),
+    { icon: "📅", title: "업무 캘린더", href: "/calendar/",
+      desc: `${monthItems.length > 0 ? `이번 달 챙길 일 ${monthItems.length}건 · ` : ""}매월·연간 반복 업무를 한눈에` },
+    ...(deadlinesOn ? [{ icon: "⏱️", title: "기한 사전", href: "/deadlines/",
+      desc: `규정 기한 ${deadlinesCount}건을 사건·의무로 찾고 마감일 계산·캘린더 저장` }] : []),
+  ];
+  const shortcuts: Shortcut[] = [
+    ...(qualityOn ? [{ icon: "📊", title: "품질 게시판", href: "/quality/",
+      desc: "매일 자가평가한 오늘의 정답률과 약점 지도 — 챗봇이 얼마나 정확한지" }] : []),
+    ...(changelogOn ? [{ icon: "✨", title: "새로워진 점", href: "/changelog/",
+      desc: notes[0] ? `최근: ${notes[0].제목}` : "서비스 업데이트 내역" }] : []),
     ...(feedbackOn ? [{ icon: "📮", title: "의견 보내기", href: "/feedback/",
       desc: "원문 오류·빠진 개정본·개선 의견을 제보하고 처리 상태 확인" }] : []),
     // 모바일 셸(docs/54 v2)에선 푸터가 숨어 아래 진입점은 이 허브가 유일 — 데스크톱 허브에도 무해
@@ -107,9 +106,14 @@ export default function NowPage({ seasonal, revised, notes, terms, formsCount, d
   return (
     <Layout>
       <Head><title>{`지금 KEI에서 · ${SITE_NAME}`}</title><meta name="robots" content="noindex, nofollow" /></Head>
-      <PageHero title="추가 기능" lead="자주 쓰는 기능 바로가기와 요즘 흐름을 한곳에 모았어요." />
+      <PageHero title="업무 도구" lead="행정 업무 도구와 요즘 흐름을 한곳에 모았어요." />
 
-      {/* ── 바로가기: 업무 캘린더 · 서식 찾기 · 새로워진 점 (GNB·푸터에서 이리로 정리, docs/41) ── */}
+      {/* ── 호롱 04: 도구 4종 대형 2×2 ── */}
+      <h2 className={n.sectionLabel}>도구</h2>
+      <div className={n.toolGrid} data-fadeup>
+        {tools.map((sc) => <ShortcutCard key={sc.href} {...sc} large />)}
+      </div>
+
       <h2 className={n.sectionLabel}>바로가기</h2>
       <div className={n.shortcutGrid}>
         {shortcuts.map((sc) => <ShortcutCard key={sc.href} {...sc} />)}

@@ -1,4 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="#3182f6"/>
-  <text x="32" y="42" font-family="Arial, sans-serif" font-size="24" font-weight="800" fill="#ffffff" text-anchor="middle">KEI</text>
+  <defs>
+    <linearGradient id="h" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#2f74b8"/><stop offset="0.3" stop-color="#2c9c62"/>
+      <stop offset="0.52" stop-color="#7ec13c"/><stop offset="0.72" stop-color="#f6b40e"/>
+      <stop offset="0.88" stop-color="#f57f17"/><stop offset="1" stop-color="#ef5a11"/>
+    </linearGradient>
+  </defs>
+  <path d="M32.5 4.5 C 31 12 24.5 17.5 20 23.5 C 15.5 29.5 13.5 35 14.5 41 C 16 51 23.5 57.5 32 57.5 C 40.5 57.5 48 51 49.5 41 C 50.5 35 48.5 29.5 44 23.5 C 39.5 17.5 34 12 32.5 4.5 Z" fill="url(#h)"/>
+  <path d="M32 52 C 31.6 44 31.8 36 32.6 24 M32 46 C 29 43.5 26.5 41 24.8 38 M32.2 40 C 35 37.5 37.2 35 38.8 31.8 M32.3 33 C 29.8 30.8 28 28.6 26.8 26" fill="none" stroke="#fff" stroke-width="1.2" stroke-linecap="round" opacity="0.3"/>
 </svg>

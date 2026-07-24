@@ -1,0 +1,20 @@
+/* 호롱 03 — 규정 찾기 세그먼트 컨트롤(회색 트랙 + 흰 알약 썸)
+   ⚠ fill 레이아웃 계약: innerFill(flex column) 아래에서 탭 콘텐츠는 flex:1 + min-height:0을
+   지켜야 푸터를 침범하지 않는다(서식=내부 스크롤, 그래프=flex 채움 — 실측 수정). */
+.segWrap { flex: 0 0 auto; padding: 0 0 10px; display: flex; justify-content: center; }
+.segTrack {
+  display: inline-flex; gap: 2px; padding: 4px;
+  background: #ecede9; border-radius: 999px;
+}
+[data-theme="dark"] .segTrack { background: rgba(255, 255, 255, 0.07); }
+.segBtn {
+  border: none; background: none; cursor: pointer; font: inherit;
+  font-size: 13.5px; font-weight: 600; color: var(--color-text-secondary);
+  padding: 7px 22px; border-radius: 999px; transition: var(--transition-ui);
+}
+.segOn {
+  background: var(--color-surface); color: var(--color-text); font-weight: 700;
+  box-shadow: 0 1px 3px rgba(20, 24, 20, 0.1);
+}
+/* 서식·그래프 탭 — fill 계약 전파(flex column). 서식은 BrowseShell이 자체 스크롤 담당 */
+.tabGraph { flex: 1; min-height: 0; width: 100%; display: flex; flex-direction: column; }

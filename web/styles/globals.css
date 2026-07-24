@@ -34,51 +34,55 @@
   --orange500: #ffb114; /* krds warning-30 */
   --yellow500: #ffc95c; /* krds warning-20 */
 
-  /* ── KEI 시맨틱 토큰 (← 나중에 KEI 메인 컬러로 여기만 교체) ── */
-  --color-primary: var(--blue500);
-  --color-primary-strong: var(--blue600);
-  --color-primary-weak: var(--blue50);
+  /* ── 호롱(Horong) 시맨틱 토큰 — 디자인 리뉴얼(design_handoff_horong, feat/design-revolution) ──
+     브랜드 그라데이션은 브랜드 모먼트 전용(로고·히어로 워드·주 CTA·활성 1곳). */
+  --hr-grad-flame: linear-gradient(135deg, #f2701d, #f9a825);
+  --hr-grad-leaf: linear-gradient(135deg, #3d7dc2, #2e9c66);
+
+  --color-primary: #e06a12;           /* 엠버 — 단색 액션 */
+  --color-primary-strong: #c9530b;    /* 링크·강조 텍스트 */
+  --color-primary-weak: #fdf0e4;
   --color-on-primary: #ffffff;
 
   --color-bg: #ffffff;
-  --color-bg-subtle: var(--grey50);
-  --color-field-bg: var(--grey100); /* 검색·입력 필드 배경(docs/37 D1 — 구 TDS SearchField 톤) */
+  --color-bg-subtle: #fafaf7;         /* 페이지 그라운드(웜 화이트) */
+  --color-field-bg: #f4f5f2;
   --color-surface: #ffffff;
-  --color-surface-hover: var(--grey50);
-  --color-border: #d9dde2; /* KRDS gray-10/20 사이 — 흰 표면과 대비 확보(카드·행 경계 또렷) */
-  --color-border-strong: var(--grey300);
+  --color-surface-hover: #f7f8f5;
+  --color-border: rgba(28, 30, 28, 0.08);        /* 헤어라인 — 진한 테두리 금지 */
+  --color-border-strong: rgba(28, 30, 28, 0.16);
 
-  --color-text: var(--grey900);
-  --color-text-secondary: var(--grey600);
-  --color-text-tertiary: var(--grey500);
-  --color-text-disabled: var(--grey400);
+  --color-text: #1d1f1d;
+  --color-text-secondary: #6f7573;
+  --color-text-tertiary: #a3a8a4;
+  --color-text-disabled: #c9cec9;
 
-  --color-success: var(--green500);
-  --color-warning: var(--orange500);
-  --color-danger: var(--red500);
+  --color-success: #35906a;   /* 잎 */
+  --color-warning: #e9a13b;   /* 앰버 */
+  --color-danger: #d65745;
 
-  /* 섹션 악센트 (규정집/가이드/용어집) */
-  --accent-규정집: var(--blue500);
-  --accent-가이드: var(--green500);
-  --accent-용어집: var(--orange500);
-  --accent-시스템: #8b5cf6;
-  --accent-대외업무: #d63384; /* 대외업무(docs/39) — 규정·가이드와 시각 구분되는 자홍 계열 */
-  --accent-상위법령: #64748b; /* 상위법령(docs/61) — 사내 규정 아님, 중립 슬레이트 */
+  /* 섹션 악센트 — 저채도 재조율(호롱) */
+  --accent-규정집: #4f8dc4;
+  --accent-가이드: #35906a;
+  --accent-용어집: #e9a13b;
+  --accent-시스템: #8d7ac9;
+  --accent-대외업무: #cf6d96;
+  --accent-상위법령: #7f8a94;
 
   /* 상태 배지 / 위험 표면 / 헤더 (다크에선 토큰만 교체) */
-  --badge-warn-bg: #fff6e9;
-  --badge-warn-border: #ffe2b8;
-  --badge-ok-bg: var(--green50);
-  --badge-ok-border: #b9ead4;
-  --color-danger-bg: var(--red50);
-  --color-danger-border: #ffd5d9;
-  --color-header-bg: rgba(255, 255, 255, 0.85);
-  --color-code-bg: var(--grey50);
+  --badge-warn-bg: rgba(233, 161, 59, 0.13);
+  --badge-warn-border: rgba(233, 161, 59, 0.35);
+  --badge-ok-bg: rgba(53, 144, 106, 0.12);
+  --badge-ok-border: rgba(53, 144, 106, 0.3);
+  --color-danger-bg: rgba(214, 87, 69, 0.1);
+  --color-danger-border: rgba(214, 87, 69, 0.3);
+  --color-header-bg: rgba(250, 250, 247, 0.75); /* 유리 헤더(Phase 2) — blur와 짝 */
+  --color-code-bg: #f4f5f2;
 
   /* ── 형태 토큰 ── */
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;          /* 카드 20–24 · 칩/버튼 999 알약(호롱) */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -86,34 +90,37 @@
   --space-5: 24px;
   --space-6: 32px;
   --space-8: 48px;
-  --shadow-card: 0 1px 3px rgba(0, 19, 43, 0.08), 0 1px 2px rgba(0, 19, 43, 0.04);
-  --shadow-pop: 0 6px 20px rgba(0, 19, 43, 0.12);
+  --shadow-card: 0 1px 2px rgba(20, 24, 20, 0.04), 0 10px 28px rgba(20, 24, 20, 0.05);
+  --shadow-pop: 0 20px 48px rgba(20, 24, 20, 0.1);
   /* 인터랙션 전환 — 전 컴포넌트가 동일 타이밍을 쓰도록 단일 토큰(hover/press 통일) */
-  --transition-ui: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
-  --shadow-drawer: -16px 0 48px rgba(0, 19, 43, 0.12); /* 문서 드로어(좌향) — 다크에서 강화 */
+  --transition-ui: color 0.2s cubic-bezier(0.2, 0.7, 0.2, 1), border-color 0.2s cubic-bezier(0.2, 0.7, 0.2, 1), background-color 0.2s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.2s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.2s cubic-bezier(0.2, 0.7, 0.2, 1);
+  --shadow-drawer: -16px 0 48px rgba(20, 24, 20, 0.12); /* 문서 드로어(좌향) — 다크에서 강화 */
 
   /* Pretendard GOV(KRDS 공식 서체, SIL OFL) self-host가 1순위 — 미로드 시 시스템 폰트 폴백 */
   --font-sans: "Pretendard GOV Variable", "Pretendard", "Pretendard Variable", -apple-system,
     BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
   --maxw: 1120px;
-  --header-h: 56px;
+  --header-h: 62px; /* 호롱 셸 */
 
-  /* 랜딩 히어로(docs/36 §0-4) — 의도적으로 테마 불변(라이트/다크 공용 다크 그라디언트) */
-  --hero-bg: linear-gradient(150deg, #0f1623 0%, #142440 55%, #103230 100%);
-  --hero-fg: #f4f7fb;
-  --hero-fg-dim: rgba(244, 247, 251, 0.45);
+  /* 랜딩 히어로(호롱 02) — 웜 그라운드 위 잉크 텍스트, 워드만 그라데이션.
+     신뢰 배너는 잉크 패널(--hero-ink)로 반전 모먼트. */
+  --hero-bg: linear-gradient(150deg, #fafaf7 0%, #f7f5ef 60%, #f4efe6 100%);
+  --hero-fg: #1d1f1d;
+  --hero-fg-dim: rgba(29, 31, 29, 0.45);
+  --hero-ink: #1d1f1d;
+  --hr-grad-word: linear-gradient(100deg, #f2701d, #f7b32b); /* 2색 원칙(사용자 확정) — 주황→노랑 */
 
   /* 랜딩 '컬러 모먼트'(docs/36 P2.5, Apple 스타일) — 섹션별 은은한 컬러 필드.
      콘텐츠 종류 액센트(규정집 파랑·가이드 초록·용어집 주황·시스템 보라)와 의미를 연결한다.
      라이트: 아주 옅은 틴트 필드. 각 섹션은 강한 액센트(숫자·아이브로)로 포인트만. */
-  --sec-blue-bg: #eef4ff;
-  --sec-blue-fg: var(--blue600);
-  --sec-green-bg: #ecfaf3;
-  --sec-green-fg: #0a7d4e;
-  --sec-orange-bg: #fff5e8;
-  --sec-orange-fg: #b9660a;
-  --sec-purple-bg: #f3efff;
-  --sec-purple-fg: #6d4bd6;
+  --sec-blue-bg: rgba(79, 141, 196, 0.09);
+  --sec-blue-fg: #3a76ab;
+  --sec-green-bg: rgba(53, 144, 106, 0.09);
+  --sec-green-fg: #2a7355;
+  --sec-orange-bg: rgba(233, 161, 59, 0.11);
+  --sec-orange-fg: #b47416;
+  --sec-purple-bg: rgba(141, 122, 201, 0.1);
+  --sec-purple-fg: #6f5bb0;
 }
 
 * { box-sizing: border-box; }
@@ -149,57 +156,57 @@ html { transition: background-color 0.2s ease; }
 [data-theme="dark"] {
   /* 다크 원자색: KRDS는 다크 토큰 미제공(공식 킷 실측) — 수동 튜닝 유지,
      주 색조만 KRDS 파랑 계열로 정렬(primary-40/30) */
-  --color-primary: #4c87f6;
-  --color-primary-strong: #86aff9;
-  --color-primary-weak: #16314f;
+  --color-primary: #f2701d;
+  --color-primary-strong: #f5a24a;
+  --color-primary-weak: rgba(249, 168, 37, 0.13);
   --color-on-primary: #ffffff;
 
   /* 레이어 대비를 분명히: 페이지(가장 어두움) < 카드/패널(확실히 밝게) < hover, 경계선은 보이게 */
-  --color-bg: #0f1116;
-  --color-bg-subtle: #15181e; /* body(페이지) + 카드 내부 옅은 영역 */
-  --color-field-bg: #262b34; /* 검색·입력 필드 — 카드보다 살짝 밝게 */
-  --color-surface: #20242c;   /* 카드·패널 — 페이지보다 한 단계 밝게(떠 보이게) */
-  --color-surface-hover: #282e38;
-  --color-border: #2f3540;
-  --color-border-strong: #3d4553;
+  --color-bg: #151614;        /* 웜 잉크(호롱) */
+  --color-bg-subtle: #191b18;
+  --color-field-bg: rgba(255, 255, 255, 0.06);
+  --color-surface: #1e201d;
+  --color-surface-hover: #242622;
+  --color-border: rgba(255, 255, 255, 0.07);
+  --color-border-strong: rgba(255, 255, 255, 0.14);
 
-  --color-text: #edf0f3;
-  --color-text-secondary: #aab2bd;
-  --color-text-tertiary: #7c8590;
-  --color-text-disabled: #565d67;
+  --color-text: #f2f3f0;
+  --color-text-secondary: #a6aca7;
+  --color-text-tertiary: #6f7571;
+  --color-text-disabled: #4b514c;
 
-  --color-success: #2dd08f;
-  --color-warning: #ffb547;
-  --color-danger: #ff6b78;
+  --color-success: #5fbf93;
+  --color-warning: #dcb26a;
+  --color-danger: #ff7a68;
 
-  --accent-규정집: #4c87f6; /* krds primary-40(다크 정렬) */
-  --accent-가이드: #2dd08f;
-  --accent-용어집: #ffb547;
-  --accent-시스템: #a78bfa;
-  --accent-대외업무: #f06fa8; /* 대외업무(다크) */
-  --accent-상위법령: #94a3b8; /* 상위법령(다크) */
+  --accent-규정집: #7fb2dd;
+  --accent-가이드: #5fbf93;
+  --accent-용어집: #dcb26a;
+  --accent-시스템: #a794dd;
+  --accent-대외업무: #e08cb0;
+  --accent-상위법령: #9aa5ae;
 
   /* 랜딩 컬러 모먼트(다크) — 페이지보다 살짝 밝은 틴트 필드 + 밝은 액센트 글자 */
-  --sec-blue-bg: #14202f;
-  --sec-blue-fg: #7db4ff;
-  --sec-green-bg: #10241c;
-  --sec-green-fg: #4ad9a0;
-  --sec-orange-bg: #271d10;
-  --sec-orange-fg: #ffc06b;
-  --sec-purple-bg: #1e1830;
-  --sec-purple-fg: #b79bf5;
+  --sec-blue-bg: rgba(127, 178, 221, 0.1);
+  --sec-blue-fg: #7fb2dd;
+  --sec-green-bg: rgba(95, 191, 147, 0.1);
+  --sec-green-fg: #5fbf93;
+  --sec-orange-bg: rgba(220, 178, 106, 0.12);
+  --sec-orange-fg: #dcb26a;
+  --sec-purple-bg: rgba(167, 148, 221, 0.1);
+  --sec-purple-fg: #a794dd;
 
-  --badge-warn-bg: #3a2e16;
-  --badge-warn-border: #5c4a1f;
-  --badge-ok-bg: #123026;
-  --badge-ok-border: #1f5640;
-  --color-danger-bg: #3a1d20;
-  --color-danger-border: #5e2a30;
-  --color-header-bg: rgba(16, 18, 23, 0.82);
-  --color-code-bg: #181b21;
+  --badge-warn-bg: rgba(220, 178, 106, 0.12);
+  --badge-warn-border: rgba(220, 178, 106, 0.3);
+  --badge-ok-bg: rgba(95, 191, 147, 0.12);
+  --badge-ok-border: rgba(95, 191, 147, 0.3);
+  --color-danger-bg: rgba(255, 122, 104, 0.1);
+  --color-danger-border: rgba(255, 122, 104, 0.3);
+  --color-header-bg: rgba(21, 22, 20, 0.72); /* 유리 헤더(다크) */
+  --color-code-bg: #242622;
 
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.55);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 28px rgba(0, 0, 0, 0.35);
+  --shadow-pop: 0 24px 56px rgba(0, 0, 0, 0.5);
   --shadow-drawer: -16px 0 48px rgba(0, 0, 0, 0.5);
 }
 
@@ -230,3 +237,37 @@ h2 { letter-spacing: -0.01em; }
     scroll-behavior: auto !important;
   }
 }
+
+/* ── 호롱 모션 폴리시(Phase 4) — 진입 fade-up 16px + 스태거 60ms ──
+   사용: 컨테이너에 data-fadeup — 직계 자식들이 순차 진입. reduced-motion에선 정지. */
+@keyframes hr-fade-up { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+[data-fadeup] > * { animation: hr-fade-up 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+[data-fadeup] > *:nth-child(2) { animation-delay: 60ms; }
+[data-fadeup] > *:nth-child(3) { animation-delay: 120ms; }
+[data-fadeup] > *:nth-child(4) { animation-delay: 180ms; }
+[data-fadeup] > *:nth-child(5) { animation-delay: 240ms; }
+[data-fadeup] > *:nth-child(6) { animation-delay: 300ms; }
+@media (prefers-reduced-motion: reduce) {
+  [data-fadeup] > * { animation: none; }
+}
+
+/* ── 호롱 03 — 커스텀 체크박스(17px radius6, 선택 시 그라데이션 채움 ✓) ──
+   사용: 라벨 안 input에 className hrCheck. 네이티브 accent-color 대체. */
+.hrCheck {
+  appearance: none; -webkit-appearance: none;
+  width: 17px; height: 17px; flex: 0 0 auto; margin: 0;
+  border: 1.5px solid var(--color-border-strong); border-radius: 6px;
+  background: var(--color-surface); cursor: pointer; position: relative;
+  transition: var(--transition-ui);
+}
+.hrCheck:hover { border-color: var(--color-primary); }
+.hrCheck:checked {
+  border-color: transparent;
+  background: var(--hr-grad-flame);
+}
+.hrCheck:checked::after {
+  content: ""; position: absolute; left: 5px; top: 2px;
+  width: 4px; height: 8px; border: solid #fff; border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.hrCheck:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
