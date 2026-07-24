@@ -38,7 +38,10 @@ export default function Login({ onAuthed, embedded }: { onAuthed: (u: User) => v
         authed(await api.login(username, password));
       } else if (mode === "register") {
         const r = await api.register(username, password);
-        if (r.pending_approval) {
+        if (r.open_signup || r.bootstrap) {
+          // 즉시 가입(flag signup_open) 또는 관리자 부트스트랩 → 바로 로그인
+          authed({ id: r.id!, username: r.username!, is_admin: !!r.is_admin });
+        } else if (r.pending_approval) {
           // 관리자 승인제: 코드 단계 없이 '승인 대기' 안내
           setMode("pending");
           setInfo(`${r.email} 가입 신청이 접수됐어요. 관리자 승인 후 로그인할 수 있습니다.`);

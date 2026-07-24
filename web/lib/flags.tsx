@@ -13,6 +13,7 @@ export const FLAG_DEFAULTS: Record<string, boolean> = {
   events_tab: false, // docs/35: 지금 KEI에서(/now)+업무 캘린더(/calendar) — GNB 탭+페이지 (release, 만료 2026-12-31)
   usage_analytics: false, // docs/35 §0: 기능 사용량 수집(allowlist·집계만) (release, 만료 2026-12-31)
   landing_page: false, // docs/36: 소개(랜딩) — /about + 비로그인 홈 컴팩트 히어로 (release, 만료 2026-12-31)
+  signup_open: false, // docs/29 §3: 즉시 가입(KEI 이메일 형식만 확인·승인 없음) (release, 만료 2026-12-31)
   signup_approval: false, // docs/36 §10: 가입 인증을 이메일 코드 대신 관리자 승인으로 (SMTP 불가 시)
   graph_expand_regs: false, // 규정↔규정 준용/참조 1홉 확장 (백엔드 실험 플래그)
   uplaw_layer: false,
