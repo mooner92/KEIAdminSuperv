@@ -126,9 +126,11 @@ export default function FormsView({ forms }: { forms: FormEntry[] }) {
                         {e.서식명}
                         {typeof e.쪽수 === "number" && e.쪽수 > 0 ? (
                           <span
-                            className={`${f.pages} ${e.쪽수 === 1 ? f.pages1 : f.pagesN}`}
-                            title={e.쪽수 === 1 ? "미리보기 PDF가 한 장에 담겨요" : `미리보기 PDF ${e.쪽수}장`}>
-                            {e.쪽수}.p
+                            className={`${f.pages} ${e.쪽수 === 1 || e.꼬리넘침 ? f.pages1 : f.pagesN}`}
+                            title={e.쪽수 === 1 ? "미리보기 PDF가 한 장에 담겨요"
+                              : e.꼬리넘침 ? `실질 한 장 — 서식은 첫 장에 담기고 마지막 장은 서명란만 (총 ${e.쪽수}장)`
+                              : `미리보기 PDF ${e.쪽수}장`}>
+                            {e.꼬리넘침 ? "≈1" : e.쪽수}.p
                           </span>
                         ) : null}
                       </td>
