@@ -386,3 +386,28 @@
   .section { padding: 64px 0; }
   .hero { padding: 80px 0 64px; }
 }
+
+/* 호롱 02 — 잉크 패널 신뢰 배너 */
+.trustBanner {
+  margin: var(--space-4) 0;
+  background: #1d1f1d; border-radius: 28px; padding: 44px 48px;
+  display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 44px; align-items: center;
+}
+[data-theme="dark"] .trustBanner { background: #0e0f0d; border: 1px solid var(--color-border); }
+.trustLabel { font-size: 12px; font-weight: 700; color: #8a908c; letter-spacing: 0.02em; }
+.trustText { margin: 12px 0 0; font-size: 27px; font-weight: 800; line-height: 1.35; color: #f2f3f0; letter-spacing: -0.02em; }
+.trustGrad {
+  background: var(--hr-grad-flame); -webkit-background-clip: text; background-clip: text;
+  color: transparent; -webkit-text-fill-color: transparent;
+}
+.trustStats { display: grid; grid-template-columns: 1fr 1fr; gap: 20px 24px; }
+.trustStat { display: flex; flex-direction: column; gap: 2px; }
+.trustStat b {
+  font-size: 30px; font-weight: 800; letter-spacing: -0.04em; line-height: 1.1;
+  font-variant-numeric: tabular-nums lining-nums; color: #fff;
+}
+.trustStat span { font-size: 12.5px; color: #a3a8a4; }
+@media (max-width: 760px) {
+  .trustBanner { grid-template-columns: 1fr; gap: 28px; padding: 32px 28px; }
+  .trustText { font-size: 22px; }
+}

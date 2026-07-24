@@ -156,6 +156,11 @@ export default function Layout({
             ) : null}
             <ThemeToggle />
             <span className={styles.flag}>🔒 사내 전용</span>
+            {isAuthed && user ? (
+              <span className={styles.avatar} title={user.username} aria-hidden>
+                {(user.username || "?").trim().charAt(0).toUpperCase()}
+              </span>
+            ) : null}
           </div>
         </div>
       </header>

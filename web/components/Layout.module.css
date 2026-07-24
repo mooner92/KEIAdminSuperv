@@ -186,3 +186,12 @@
   background: var(--color-danger, #d6455c); color: #fff;
   border-radius: 999px; font-size: 10px; font-weight: 800; padding: 0 3px;
 }
+
+/* 호롱 셸 — 헤더 아바타(34px 잎 그라데이션 원, 이니셜) */
+.avatar {
+  flex: 0 0 auto; width: 34px; height: 34px; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--hr-grad-leaf); color: #fff; font-size: 14px; font-weight: 800;
+  letter-spacing: 0; user-select: none;
+}
+@media (max-width: 640px) { .avatar { display: none; } }

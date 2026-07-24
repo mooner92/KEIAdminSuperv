@@ -233,18 +233,29 @@ function IntroSlides({ counts, ctas }: { counts?: LandingCounts; ctas?: React.Re
           <section className={styles.mSection} data-reveal>
             <Eyebrow tone="tOrange" num="04">신뢰</Eyebrow>
             <h2 className={styles.h2}>믿을 수 있게 운영합니다</h2>
-            {counts ? (
-              <div className={styles.statGrid}>
-                {[
-                  { n: counts.regs, label: "규정 원문" },
-                  { n: counts.guides, label: "업무 가이드" },
-                  { n: counts.terms, label: "행정 용어" },
-                  { n: counts.reviewed, label: "사람 검수 완료" },
-                ].filter((s) => s.n > 0).map((s) => (
-                  <div key={s.label} className={styles.stat}><b>{s.n.toLocaleString()}</b><span>{s.label}</span></div>
-                ))}
+            {/* 호롱 02 — 잉크 패널 신뢰 배너: 좌 약속 인용(불꽃 그라데이션 강조) + 우 통계 */}
+            <div className={styles.trustBanner}>
+              <div className={styles.trustQuote}>
+                <span className={styles.trustLabel}>가장 중요한 약속</span>
+                <p className={styles.trustText}>
+                  “규정에서 확인되지 않으면, <span className={styles.trustGrad}>지어내지 않습니다.</span>”
+                </p>
               </div>
-            ) : null}
+              {counts ? (
+                <div className={styles.trustStats}>
+                  {[
+                    { n: counts.regs, label: "규정 원문" },
+                    { n: counts.guides, label: "업무 가이드" },
+                    { n: counts.terms, label: "행정 용어" },
+                    { n: counts.reviewed, label: "사람 검수 완료" },
+                  ].filter((s) => s.n > 0).map((s) => (
+                    <div key={s.label} className={styles.trustStat}>
+                      <b>{s.n.toLocaleString()}</b><span>{s.label}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
             <p className={styles.trustNote}>
               📑 규정집 기준일 {CORPUS_AS_OF} · 답변은 참고용이며 최종 확인은 규정 원문으로 ·
               🔒 사내 전용 — 모든 데이터는 원내 서버에만 있습니다.
