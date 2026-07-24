@@ -36,7 +36,7 @@
 
   /* ── 호롱(Horong) 시맨틱 토큰 — 디자인 리뉴얼(design_handoff_horong, feat/design-revolution) ──
      브랜드 그라데이션은 브랜드 모먼트 전용(로고·히어로 워드·주 CTA·활성 1곳). */
-  --hr-grad-flame: linear-gradient(135deg, #f2701d, #f9a825 60%, #ffd54f);
+  --hr-grad-flame: linear-gradient(135deg, #f2701d, #f9a825);
   --hr-grad-leaf: linear-gradient(135deg, #3d7dc2, #2e9c66);
 
   --color-primary: #e06a12;           /* 엠버 — 단색 액션 */
@@ -108,7 +108,7 @@
   --hero-fg: #1d1f1d;
   --hero-fg-dim: rgba(29, 31, 29, 0.45);
   --hero-ink: #1d1f1d;
-  --hr-grad-word: linear-gradient(100deg, #2f74b8, #2c9c62 32%, #f7b32b 70%, #f2701d);
+  --hr-grad-word: linear-gradient(100deg, #f2701d, #f7b32b); /* 2색 원칙(사용자 확정) — 주황→노랑 */
 
   /* 랜딩 '컬러 모먼트'(docs/36 P2.5, Apple 스타일) — 섹션별 은은한 컬러 필드.
      콘텐츠 종류 액센트(규정집 파랑·가이드 초록·용어집 주황·시스템 보라)와 의미를 연결한다.
