@@ -390,6 +390,14 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-12-31",
     },
+    "signup_open": {
+        "default": False,  # on이면 @kei.re.kr 이메일+8자 비번 즉시 활성+로그인(승인·코드 없음).
+        "description": "즉시 가입(docs/29 §3 완화, 2026-07-24) — KEI 이메일 형식만 확인해 바로 이용. "
+                       "사내망(Cloudflare ZT)이 1차 관문이라 안전. signup_approval보다 우선, IP당 "
+                       "10회/시간 레이트리밋은 유지. off면 기존(승인제 또는 코드 인증).",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
     "signup_approval": {
         "default": False,  # off면 이메일 6자리 코드 인증. on이면 관리자 승인제(메일 서버 불가 시).
         "description": "가입 인증 방식(docs/36 §10) — on이면 이메일 코드 대신 관리자 승인. "
@@ -812,6 +820,17 @@ def register(body: AuthIn, request: Request, response: Response):
             s.commit()
             set_cookie(response, make_token(u.id))
             return {"id": u.id, "username": u.username, "is_admin": True, "bootstrap": True}
+        # 즉시 가입(flag signup_open): 도메인 검증 통과분은 바로 활성+로그인(승인·코드 없음).
+        # 사내망(ZT)이 1차 관문 + IP 레이트리밋이 남용 방어. 이메일 소유 증명은 생략(사내 전용 서비스).
+        if bool(effective_flags().get("signup_open")):
+            s.commit()
+            u = s.exec(select(User).where(User.username == email)).first()
+            u.verified = True
+            s.add(u)
+            s.commit()
+            set_cookie(response, make_token(u.id))
+            _seclog.info(f"signup-open activated {email}")
+            return {"id": u.id, "username": u.username, "is_admin": is_admin(u), "open_signup": True}
         if approval:
             # 승인제: 코드 미발송. 관리자가 /admin 사용자 탭에서 승인하면 활성.
             s.commit()

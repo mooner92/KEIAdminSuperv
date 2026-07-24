@@ -200,7 +200,7 @@ async function sendMessageStream(id: number, content: string, h: StreamHandlers,
 
 // 가입 정책(docs/29 §3): register는 계정을 만들고 인증 코드를 보낸다(로그인 아님).
 // dev_code는 APP_DEV_ECHO_CODE=1(개발·E2E)일 때만 존재.
-export type RegisterPending = { pending?: true; pending_approval?: true; email: string; dev_code?: string };
+export type RegisterPending = { pending?: true; pending_approval?: true; email?: string; dev_code?: string; open_signup?: true; id?: number; username?: string; is_admin?: boolean; bootstrap?: true };
 export type DirectoryUser = {
   id: number; username: string; created_at: number;
   verified: boolean; is_admin: boolean; chats: number; last_active: number | null;
