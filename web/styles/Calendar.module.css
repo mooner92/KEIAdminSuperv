@@ -110,3 +110,39 @@ a.cellLink:hover { color: var(--color-primary); }
 @media (max-width: 1024px) { .yearGrid { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 760px) { .yearGrid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 480px) { .yearGrid { grid-template-columns: 1fr; grid-auto-rows: auto; } }
+
+/* ── 월 상세 패널(2026-07-24 — 3개년 관측) ── */
+.cellMore {
+  margin-left: auto; border: none; background: none; cursor: pointer; font: inherit;
+  font-size: 11px; font-weight: 700; color: var(--color-text-tertiary);
+  border-radius: 999px; padding: 2px 8px; transition: var(--transition-ui);
+}
+.cellMore:hover { background: var(--color-surface-hover); color: var(--color-primary-strong); }
+.cellMoreOn { color: var(--color-primary-strong); background: var(--color-primary-weak); }
+.detail {
+  margin-top: var(--space-4); border: 1px solid rgba(242, 112, 29, 0.25); border-radius: 22px;
+  background: var(--color-surface); box-shadow: var(--shadow-card); padding: var(--space-4) var(--space-5);
+}
+.detailHead { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-3); }
+.detailTitle { margin: 0; font-size: 15.5px; font-weight: 800; color: var(--color-text); }
+.detailClose { border: none; background: none; cursor: pointer; font-size: 14px; color: var(--color-text-tertiary); }
+.detailCounts { display: flex; flex-direction: column; gap: 6px; margin-bottom: var(--space-3); }
+.countRow { display: grid; grid-template-columns: 130px 1fr 56px; gap: 10px; align-items: center; }
+.countYear { font-size: 11.5px; color: var(--color-text-tertiary); font-variant-numeric: tabular-nums; }
+.countBar { height: 8px; border-radius: 4px; background: var(--color-bg-subtle); overflow: hidden; }
+.countFill { display: block; height: 100%; border-radius: 4px; background: var(--hr-grad-flame); }
+.countN { font-size: 12.5px; text-align: right; font-variant-numeric: tabular-nums; color: var(--color-text); }
+.detailFeats { display: flex; flex-direction: column; gap: 8px; }
+.featRow { margin: 0; font-size: 13px; line-height: 1.65; color: var(--color-text-secondary); }
+.featYear {
+  display: inline-block; margin-right: 6px; font-size: 11px; font-weight: 700;
+  color: var(--color-text-tertiary); background: var(--color-bg-subtle);
+  border-radius: 999px; padding: 1px 8px; font-variant-numeric: tabular-nums;
+}
+.detailNotes { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: var(--space-3); }
+.notesLabel { font-size: 11.5px; font-weight: 700; color: var(--color-text-tertiary); margin-right: 2px; }
+.noteChip {
+  font-size: 12px; font-weight: 600; color: var(--color-primary-strong);
+  background: var(--color-primary-weak); border-radius: 999px; padding: 3px 11px;
+}
+.detailFoot { margin: var(--space-3) 0 0; font-size: 11.5px; color: var(--color-text-tertiary); }

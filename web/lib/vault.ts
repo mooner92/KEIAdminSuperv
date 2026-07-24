@@ -281,6 +281,26 @@ export type SeasonalItem = {
   근거slug?: string | null; // 근거 문서 제목 → slug 해석(링크용)
 };
 
+// 대외업무 월 상세(01r_seasonal_survey — 3개년 전수조사 추출, docs/39 보강 2026-07-24).
+// ⛔ 운영 통계 — 규정 아님. 캘린더 월 클릭 상세 패널이 소비.
+export type MonthlySurvey = {
+  totals: { year: string; n: string }[];
+  months: Record<string, {
+    counts: { year: string; n: number | null }[];
+    features: { year: string; text: string }[];
+    notes: string[];
+  }>;
+};
+export function loadMonthlySurvey(): MonthlySurvey | null {
+  const fp = path.join(VAULT_DIR, "90_관리", "_calendar", "monthly_survey.json");
+  if (!fs.existsSync(fp)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(fp, "utf-8"));
+  } catch {
+    return null;
+  }
+}
+
 export function loadSeasonal(): SeasonalItem[] {
   const fp = path.join(VAULT_DIR, "90_관리", "_calendar", "seasonal.json");
   if (!fs.existsSync(fp)) return [];
