@@ -94,6 +94,7 @@ KEI(한국환경연구원) 행정 초보(신입·전입자)가 "이 업무 어�
   - 상세 = `docs/18-조문정제-무결성.md`(Track A·C), 기한·결재선 = `docs/17` Track B. rag_core 토글 `RAG_ARTICLE_STATUS`(삭제강등·기본on)·`RAG_CLAUSE_XREF`(기본on). 웹 플래그 `article_integrity`(A)·`graph_impact`(C)·`deadline_calc`·`approval_finder`(B). 인덱스 갱신 후 RAG API 재기동 필요.
 - 임베딩: `python tools/02_chunk_and_embed.py --vault KEI-행정가이드 --db tools/chroma`
 - 상위법령 수집: `LAW_OC=<키> python tools/01h_law_fetch.py [--only 근로기준법] [--force]`  (law.go.kr Open API — allowlist(law_allowlist.json)만·정확일치·증분(state) — docs/61 U2ⓐ. NRC는 API 없음: HWP 다운로드→kordoc→`kordoc_adapt --check --parity`→`01y_uplaw_ingest.py`)
+- 상위법령 별표: `LAW_OC=<키> python tools/01h_law_fetch.py --annex [--force]`  (allowlist 법령·**행정규칙(admrul)** 별표·서식 PDF → `web/public/forms-pdf/uplaw/`+manifest, 서식찾기 노출. 법제처 원문 PDF(변환 불필요)·삭제별표 스킵. ⚠ admrul 별표는 `lawService.do`에 **행정규칙일련번호** 필요(행정규칙ID로는 0건). ⛔별표 RAG 텍스트 미수집=평탄화 표 수치 안전(law·admrul 동일). docs/61 v3, 재빌드 시 목록 갱신)
 - 상위법령 색인: `python tools/02_chunk_and_embed.py --vault KEI-행정가이드 --db tools/chroma --layer uplaw`  (25_상위법령만 → 컬렉션 kei_uplaw. 메인(kei_regs)과 물리 분리 — 02가 메인 색인에서 25_를 스킵)
 - 질의:   `python tools/03_rag_query.py --db tools/chroma --q "..."`
 - RAG API: `tools/04_rag_api.py` (FastAPI, OpenAI 호환). **PM2 `kei-rag-api`**(uvicorn, 127.0.0.1:9000)로 상시 구동, env로 Ollama 연결(`tools/ecosystem.config.js`). 응답에 `x_sources`(규정명·조·분류·snippet) 포함 → 근거 패널/문서 드로어 연결.

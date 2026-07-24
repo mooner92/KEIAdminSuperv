@@ -73,6 +73,9 @@ def search_exact(query: str, target: str):
             if _norm_name(name) != want or e.findtext("현행연혁구분") != "현행":
                 continue
             return {"id": e.findtext("행정규칙ID", "").strip(), "이름": name.strip(),
+                    # ⚠ admrul 본문 상세(별표단위 포함)는 lawService.do가 '행정규칙일련번호'를 요구
+                    #   한다(행정규칙ID로는 별표단위 0건 — 2026-07-24 실측, docs/61 v3). 별표 수집용.
+                    "일련번호": e.findtext("행정규칙일련번호", "").strip(),
                     "공포일자": e.findtext("발령일자", ""), "시행일자": e.findtext("시행일자", ""),
                     "소관": e.findtext("소관부처명", ""),
                     "종류": e.findtext("행정규칙종류", "행정규칙"),
@@ -118,23 +121,25 @@ ANNEX_DIR = ROOT.parent / "web" / "public" / "forms-pdf" / "uplaw"
 
 
 def fetch_annexes(items, only: str = "", force: bool = False) -> int:
-    """--annex: allowlist 법령의 별표·서식 PDF 수집(docs/61 v2) → web/public/forms-pdf/uplaw/.
+    """--annex: allowlist 법령·행정규칙의 별표·서식 PDF 수집(docs/61 v2/v3) → web/public/forms-pdf/uplaw/.
 
-    법령 본문 XML의 <별표단위>가 제목+PDF 다운로드 링크를 제공(법제처 원문 PDF — 변환 불필요,
-    원문 무변경·출처 명기 약관 준수). manifest.json은 서식 찾기(loadForms)가 소비.
-    admrul(고시)은 별표단위 미제공 → 스킵(비고). server.js가 forms-pdf를 직서빙(재빌드 불필요)."""
+    본문 XML의 <별표단위>가 제목+PDF 다운로드 링크(별표서식PDF파일링크)를 제공(법제처 원문 PDF —
+    변환 불필요, 원문 무변경·출처 명기 약관 준수). manifest.json은 서식 찾기(loadForms)가 소비.
+    ⚠ admrul(고시)도 lawService.do 본문에 <별표단위>를 제공함이 실측 확정(2026-07-24, docs/61 v3 —
+    연구개발비 사용 기준 30건 등). v2의 'admrul 미제공' 판단은 오류였고 target만 분기하면 동일 경로다.
+    server.js가 forms-pdf를 직서빙(재빌드 불필요)."""
     ANNEX_DIR.mkdir(parents=True, exist_ok=True)
     manifest = []
     n_dl = n_skip = 0
     for it in items:
         if only and only not in it["query"]:
             continue
-        if it["target"] != "law":
-            continue  # admrul 별표는 API 미제공(첨부파일 API 별도) — v2 범위 밖
-        hit = search_exact(it["query"], "law")
+        hit = search_exact(it["query"], it["target"])
         if not hit:
             print(f"✗ {it['query']}: 검색 실패"); continue
-        root = _api("lawService.do", target="law", ID=hit["id"])
+        # admrul 별표단위는 행정규칙일련번호로만 조회됨(위 search_exact 주석) — law는 법령ID 그대로.
+        body_id = hit.get("일련번호") if it["target"] == "admrul" and hit.get("일련번호") else hit["id"]
+        root = _api("lawService.do", target=it["target"], ID=body_id)
         law_dir = ANNEX_DIR / hit["이름"]
         for u in root.iter("별표단위"):
             gu = (u.findtext("별표구분") or "별표").strip()
