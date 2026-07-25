@@ -272,7 +272,7 @@ export function loadBugReports(): BugReport[] {
   return out;
 }
 
-// ── 이벤트탭 "지금 KEI에서"(docs/35) — 시즌 캘린더·최근 개정·용어 목록(빌드타임) ──
+// ── 업무 도구 탭(/now, 옛 이름 "지금 KEI에서", docs/35) — 시즌 캘린더·최근 개정·용어 목록(빌드타임) ──
 export type SeasonalItem = {
   month: number; // 0=매월(상시, docs/39) · 1~12=해당 월
   title: string; desc?: string; 시기?: string;

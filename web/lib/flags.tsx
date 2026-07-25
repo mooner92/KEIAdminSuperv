@@ -10,7 +10,7 @@ export const FLAG_DEFAULTS: Record<string, boolean> = {
   forms_registry: false, // docs/34 ①: /forms 서식 찾기 (release, 만료 2026-12-31)
   chat_stop: false, // docs/34 ③: 채팅 ■ 중단 버튼+2단계 대기 표시 (release, 만료 2026-12-31)
   term_tooltips: false, // docs/45: 용어 인라인 툴팁(점선 밑줄→정의 팝오버). 안전 기본=off(서버 기본은 on)
-  events_tab: false, // docs/35: 지금 KEI에서(/now)+업무 캘린더(/calendar) — GNB 탭+페이지 (release, 만료 2026-12-31)
+  events_tab: false, // docs/35: 업무 도구(/now, 옛 이름 "지금 KEI에서")+업무 캘린더(/calendar) — GNB 탭+페이지 (release, 만료 2026-12-31)
   usage_analytics: false, // docs/35 §0: 기능 사용량 수집(allowlist·집계만) (release, 만료 2026-12-31)
   landing_page: false, // docs/36: 소개(랜딩) — /about + 비로그인 홈 컴팩트 히어로 (release, 만료 2026-12-31)
   signup_open: false, // docs/29 §3: 즉시 가입(KEI 이메일 형식만 확인·승인 없음) (release, 만료 2026-12-31)

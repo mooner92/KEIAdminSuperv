@@ -97,15 +97,15 @@ export default function NowPage({ seasonal, revised, notes, terms, formsCount, d
   if (!on) {
     return (
       <Layout>
-        <Head><title>{`지금 KEI에서 · ${SITE_NAME}`}</title><meta name="robots" content="noindex, nofollow" /></Head>
-        <PageHero title="지금 KEI에서" lead="이 기능은 아직 준비 중이에요. 곧 만나요!" />
+        <Head><title>{`업무 도구 · ${SITE_NAME}`}</title><meta name="robots" content="noindex, nofollow" /></Head>
+        <PageHero title="업무 도구" lead="이 기능은 아직 준비 중이에요. 곧 만나요!" />
       </Layout>
     );
   }
 
   return (
     <Layout>
-      <Head><title>{`지금 KEI에서 · ${SITE_NAME}`}</title><meta name="robots" content="noindex, nofollow" /></Head>
+      <Head><title>{`업무 도구 · ${SITE_NAME}`}</title><meta name="robots" content="noindex, nofollow" /></Head>
       <PageHero title="업무 도구" lead="행정 업무 도구와 요즘 흐름을 한곳에 모았어요." />
 
       {/* ── 호롱 04: 도구 4종 대형 2×2 ── */}
