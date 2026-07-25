@@ -178,13 +178,19 @@
 }
 .hl { background: var(--color-primary-weak); color: var(--color-primary-strong); border-radius: 3px; }
 
-/* 행 우측 액션(다운로드·이동 링크) — 목록 안에서 버튼 티는 최소로 */
+/* 행 우측 액션(다운로드·이동 링크) — 목록 안에서 버튼 티는 최소로.
+ * ⚠ button으로 렌더될 때 전역 button 스타일(테두리·배경)이 새어 들어오므로 여기서 리셋한다. */
 .action {
+  font: inherit;
   font-size: 12.5px;
   font-weight: 700;
   color: var(--color-primary-strong);
   text-decoration: none;
   padding: 3px 8px;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
   border-radius: 999px;
   transition: var(--transition-ui);
 }
