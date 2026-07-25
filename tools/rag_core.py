@@ -60,6 +60,10 @@ INDEX_DIR = os.environ.get("RAG_INDEX_DIR",
 ARTICLE_STATUS = os.environ.get("RAG_ARTICLE_STATUS", "1") not in ("0", "", "false", "False")
 # clause_xref: 조문↔조문 준용·인용 그래프. reg 확장(graph_expand_regs)의 더 완전한 근거로 병합. 기본 on.
 CLAUSE_XREF = os.environ.get("RAG_CLAUSE_XREF", "1") not in ("0", "", "false", "False")
+# 정의형 질문 결정적 라우팅(specs/01 P3): "X란?"류 → defterms.json(01j) 정의 조문 자동첨부. 기본 on.
+DEFTERM_ROUTE = os.environ.get("RAG_DEFTERM_ROUTE", "1") not in ("0", "", "false", "False")
+# 정의형 패턴 게이트(오폭 방지) — 용어 스캔은 이 패턴이 잡힐 때만 수행.
+_DEF_Q_RE = re.compile(r"(?:이?란|라는\s*게|라는\s*것)\s*(?:무엇|뭐|뭔)|의\s*(?:정의|뜻|의미)|(?:정의|뜻|의미)(?:가|는|이)?\s*(?:무엇|뭐|뭔)")
 
 
 def _flag(name: str, default: bool = False) -> bool:
@@ -1133,6 +1137,19 @@ def _value_store_lookup(query: str, limit: int = 2) -> list:
     return scored[:limit]
 
 
+def _ensure_defterms():
+    """defterms.json(01j 정의 바인딩) 용어→정의출처 맵 1회 캐시. specs/01 P3 정의형 라우팅용."""
+    if "defterms" not in _state:
+        with _lock:
+            if "defterms" not in _state:
+                try:
+                    with open(os.path.join(INDEX_DIR, "defterms.json"), encoding="utf-8") as f:
+                        _state["defterms"] = json.load(f).get("terms", {})
+                except Exception:  # noqa: BLE001 — 인덱스 부재 시 빈 맵(라우팅 무발동)
+                    _state["defterms"] = {}
+    return _state["defterms"]
+
+
 def _ensure_article_index():
     """(규정명, 제N조) → 조문 청크 id 정방향 인덱스. 규정↔규정 1홉 확장(reg_refs 대상 조회)용. 1회 캐시."""
     if "art_idx" not in _state:
@@ -1453,6 +1470,36 @@ def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None
                     blocks.append(f"[{s2['tag']} · 준용/참조 규정(자동첨부)]\n{d2}")
         except Exception as e:  # noqa: BLE001
             print(f"⚠ 규정↔규정 확장 실패(무시): {e}")
+
+    # 정의형 질문 결정적 라우팅(specs/01 P3, RAG_DEFTERM_ROUTE): "X란?"류 질문에 defterms.json
+    # (01j 정의 바인딩 282용어)의 정의 조문을 자동첨부. 문헌 비교(HyDE·doc2query·Contextual) 후
+    # 채택 — LLM 0·환각 0·지연 0. 실측 표적: '중복게재란?' → 학술지발간규정 제17조(밀집·BM25 모두 미회수).
+    if DEFTERM_ROUTE and _DEF_Q_RE.search(query):
+        try:
+            terms = _ensure_defterms()
+            qn = re.sub(r"\s+", "", query)
+            hits = sorted((t for t in terms if len(t) >= 2 and t.replace(" ", "") in qn),
+                          key=len, reverse=True)[:1]  # 최장일치 1용어(오폭 최소)
+            aidx, amap = _ensure_article_index()
+            have_tags = {s.get("tag") for s in srcs}
+            for t in hits:
+                for b in terms[t][:2]:  # 충돌용어(≤11)는 정의 병기(≤2) — 정직하게 둘 다
+                    aid = aidx.get(((b.get("규정명") or "").strip(), _jo_key(b.get("조") or "")))
+                    if not aid:
+                        continue
+                    d2, m2 = amap[aid]
+                    s2 = _src(d2, m2, None)
+                    if s2["tag"] in have_tags:
+                        continue
+                    have_tags.add(s2["tag"])
+                    s2["defterm_route"] = True  # '용어 정의 자동첨부' 식별(UI/평가)
+                    # ⚠ 맨 앞 삽입 — 질문이 정의를 물으므로 정의 조문이 1순위 근거.
+                    # 뒤에 append하면 컨텍스트 예산(_cap_blocks)에서 절단 1순위가 되어
+                    # x_sources 동기 제외로 무발동처럼 보인다(실측 2026-07-25).
+                    srcs.insert(0, s2)
+                    blocks.insert(0, f"[{s2['tag']} · 용어 정의: {t}(자동첨부)]\n{d2}")
+        except Exception as e:  # noqa: BLE001 — 라우팅 실패는 기본 회수로 우아하게 강등
+            print(f"⚠ 정의어 라우팅 실패(무시): {e}")
 
     # 행위 흐름 1홉 확장(플래그 graph_expand_actions): 신청 화면 회수 시 의무적 후속 단계(정산·결과보고) 첨부.
     if _graph_expand_actions_on() and chosen:
