@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import Section from "../common/Section";
 import { api, type RestoreDoc } from "../../lib/api";
 import styles from "../../styles/Admin.module.css";
 
@@ -35,12 +36,10 @@ export default function AdminTableRestore() {
 
   if (!docs) return <p className={styles.lead}>{msg || "불러오는 중…"}</p>;
   return (
-    <section>
-      <p className={styles.lead}>
-        HWP 변환에서 깨진 표를 <b>원본에서 결정적으로 재추출</b>한 제안입니다(생성 모델 미사용).
+    <Section icon="🔧" title="표 복원" badge={docs.length}
+      desc={<>HWP 변환에서 깨진 표를 <b>원본에서 결정적으로 재추출</b>한 제안입니다(생성 모델 미사용).
         내용을 확인하고 [반영]을 누르면 볼트 원문의 <b>같은 헤더·손상 판정 표만</b> 교체됩니다(원본 백업).
-        ⚠ 원본 병합 구조 표는 자동 반영되지 않아요 — 제안의 줄 분해본을 참고해 수동으로 행을 나눠주세요.
-      </p>
+        ⚠ 원본 병합 구조 표는 자동 반영되지 않아요 — 제안의 줄 분해본을 참고해 수동으로 행을 나눠주세요.</>}>
       {msg ? <p className={styles.restoreMsg}>{msg}</p> : null}
       <ul className={styles.restoreList}>
         {docs.map((d) => {
@@ -102,6 +101,6 @@ export default function AdminTableRestore() {
         })}
         {docs.length === 0 ? <li className={styles.muted}>복원 제안이 없습니다 — tools/01o → 01p를 먼저 실행하세요.</li> : null}
       </ul>
-    </section>
+    </Section>
   );
 }

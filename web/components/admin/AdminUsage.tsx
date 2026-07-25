@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Section from "../common/Section";
 import { api, type Usage } from "../../lib/api";
+import DataTable from "../common/DataTable";
 import styles from "../../styles/Admin.module.css";
 import u from "../../styles/Usage.module.css";
 
@@ -126,9 +128,8 @@ export default function AdminUsage() {
   }, [usage]);
 
   return (
-    <section>
-      <h2 className={styles.h2}>📈 사용량 통계 <span className={styles.dashDays}>
-        집계만 표시 — 개별 행위 미노출 · {usage?.min_users ?? 3}명 미만은 가림(k-익명)</span></h2>
+    <Section icon="📈" title="사용량 통계"
+      desc={`집계만 표시 — 개별 행위 미노출 · ${usage?.min_users ?? 3}명 미만은 가림(k-익명)`}>
 
       {/* 필터 한 줄 — 기간 프리셋이 아래 전부를 스코프 */}
       <div className={u.filterRow}>
@@ -188,23 +189,27 @@ export default function AdminUsage() {
           <details className={u.tableToggle}>
             <summary>표로 보기</summary>
             <div className={u.twoCol}>
-              <table className={u.table}>
-                <thead><tr><th>이벤트</th><th>횟수</th><th>사용자</th></tr></thead>
-                <tbody>{usage.events.map((e) => (
-                  <tr key={e.name}><td>{label(e.name)}</td><td>{e.n}</td>
-                    <td>{e.users ?? `${usage.min_users}명 미만`}</td></tr>))}
-                </tbody>
-              </table>
-              <table className={u.table}>
-                <thead><tr><th>일자</th><th>활성 사용자</th></tr></thead>
-                <tbody>{usage.dau.map((d) => (
-                  <tr key={d.day}><td>{d.day}</td><td>{d.users ?? `${usage.min_users}명 미만`}</td></tr>))}
-                </tbody>
-              </table>
+              <DataTable
+                rows={usage.events}
+                rowKey={(e) => e.name}
+                cols={[
+                  { key: "ev", head: "이벤트", wrap: true, render: (e) => label(e.name) },
+                  { key: "n", head: "횟수", num: true, render: (e) => e.n },
+                  { key: "u", head: "사용자", num: true, render: (e) => e.users ?? `${usage.min_users}명 미만` },
+                ]}
+              />
+              <DataTable
+                rows={usage.dau}
+                rowKey={(d) => d.day}
+                cols={[
+                  { key: "day", head: "일자", render: (d) => d.day },
+                  { key: "users", head: "활성 사용자", num: true, render: (d) => d.users ?? `${usage.min_users}명 미만` },
+                ]}
+              />
             </div>
           </details>
         </>
       )}
-    </section>
+    </Section>
   );
 }

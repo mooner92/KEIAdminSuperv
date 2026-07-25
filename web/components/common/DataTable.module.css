@@ -1,0 +1,41 @@
+/* DataTable — 표 형태 데이터의 공용 스킨(관리자 표·품질 추이표 등).
+ * ⛔ 화면별 .table 사본 금지(specs/03 B2). 넓은 표는 이 래퍼가 가로 스크롤을 책임진다. */
+.wrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+.table th,
+.table td {
+  padding: 9px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+.table th {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-tertiary);
+  background: var(--color-bg-subtle);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.table tbody tr:last-child td { border-bottom: none; }
+.table tbody tr:hover { background: var(--color-surface-hover); }
+/* 값 열(수치) — 자릿수 정렬 */
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+/* 줄바꿈 허용 열(긴 문장) */
+.wrapCell { white-space: normal; min-width: 220px; }
+.empty {
+  padding: 32px;
+  text-align: center;
+  color: var(--color-text-tertiary);
+  font-size: 13.5px;
+}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Section from "../common/Section";
 import { api, type FeedbackRow, type Stats, type Usage } from "../../lib/api";
 import styles from "../../styles/Admin.module.css";
 
@@ -20,16 +21,16 @@ export default function AdminDashboard() {
   const goUsage = () => { window.location.hash = "usage"; };
 
   return (
-    <section>
+    <>
       {stats ? (
-        <section className={styles.dash}>
-          <h2 className={styles.h2}>운영 대시보드{" "}
+        <Section icon="📊" title="운영 대시보드"
+          actions={
             <select className={styles.daysSel} value={days} onChange={(e) => setDays(Number(e.target.value))} aria-label="집계 기간">
               <option value={1}>오늘(1일)</option>
               <option value={7}>주간(7일)</option>
               <option value={30}>월간(30일)</option>
             </select>
-          </h2>
+          }>
           <p className={styles.privacy}>
             🔒 개인정보 보호: 인기 질문·콘텐츠 갭은 서로 다른 <b>{stats.k_anon}명 이상</b>이 물은 항목만
             집계로 표시됩니다. 개별 채팅 내용·작성자는 관리자도 볼 수 없습니다.
@@ -57,7 +58,7 @@ export default function AdminDashboard() {
               </ol>
             </div>
           </div>
-        </section>
+        </Section>
       ) : <p className={styles.lead}>불러오는 중…</p>}
 
       {usage && usage.events.length > 0 ? (
@@ -68,8 +69,7 @@ export default function AdminDashboard() {
       ) : null}
 
       {downs && downs.length > 0 ? (
-        <section className={styles.dash}>
-          <h2 className={styles.h2}>👎 부정 피드백 사유 <span className={styles.dashDays}>최근 {Math.min(downs.length, 20)}건</span></h2>
+        <Section icon="👎" title="부정 피드백 사유" badge={Math.min(downs.length, 20)}>
           <p className={styles.privacy}>🔒 질문·답변 본문은 표시하지 않습니다 — 근거 규정 메타와 사유만(검수 우선순위 참고용).</p>
           <ul className={styles.qlist}>
             {downs.slice(0, 20).map((fb, i) => (
@@ -79,8 +79,8 @@ export default function AdminDashboard() {
               </li>
             ))}
           </ul>
-        </section>
+        </Section>
       ) : null}
-    </section>
+    </>
   );
 }

@@ -1,8 +1,10 @@
 // 서식 찾기 본문(호롱 — 규정 찾기의 '서식' 탭). pages/forms.tsx에서 추출, 동작 불변.
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import BrowseShell from "./common/BrowseShell";
 import PagedList from "./common/PagedList";
+import SearchInput from "./common/SearchInput";
+import { FilterGroup, FilterCheck, FilterSearch, FilterEmpty } from "./common/BrowseFilter";
+import ResultRow, { ResultList, RowTag, RowAction, RowBadge } from "./common/ResultRow";
 import { useFlag } from "../lib/flags";
 import { track } from "../lib/track";
 import type { FormEntry } from "../lib/vault"; // ⚠ loadForms(fs)는 페이지 getStaticProps에서만 — 클라 번들 안전
@@ -77,34 +79,25 @@ export default function FormsView({ forms }: { forms: FormEntry[] }) {
         이름·규정명·번호로 검색하고 바로 열어보세요.
       </p>
       <BrowseShell
-        sideTitle="규정"
+        sideTitle="필터"
         reset={{ count: regFilter.size, onClick: () => setRegFilter(new Set()) }}
         side={
-          <>
-            <input className={f.regSearch} value={regQ} onChange={(e) => setRegQ(e.target.value)}
-              placeholder="규정 이름으로 좁히기" aria-label="규정 필터 검색" />
-            <div className={f.regList}>
-              {regShown.map(([r, n]) => {
-                const checked = regFilter.has(r);
-                return (
-                  <label key={r} className={`${f.regItem} ${!checked && n === 0 ? f.regMuted : ""}`}>
-                    <input type="checkbox" className={f.hrCheck} checked={checked} onChange={() => toggleReg(r)} />
-                    <span className={f.regName}>{r}</span>
-                    <span className={f.regCount}>{n}</span>
-                  </label>
-                );
-              })}
-              {regShown.length === 0 ? <p className={f.regEmpty}>해당 규정이 없어요.</p> : null}
-            </div>
-          </>
+          <FilterGroup title="규정" scroll>
+            <FilterSearch value={regQ} onChange={setRegQ}
+              placeholder="규정 이름으로 좁히기" ariaLabel="규정 필터 검색" />
+            {regShown.map(([r, n]) => (
+              <FilterCheck key={r} label={r} count={n} checked={regFilter.has(r)} onChange={() => toggleReg(r)} />
+            ))}
+            {regShown.length === 0 ? <FilterEmpty>해당 규정이 없어요.</FilterEmpty> : null}
+          </FilterGroup>
         }
         head={
-          <input
-            className={f.search}
+          <SearchInput
             value={q}
             onChange={(e) => setQ(e.target.value)}
+            onClear={() => setQ("")}
             placeholder="서식 이름·규정명·번호로 검색 — 예: 출장, 연구사업이행각서, 별지 3"
-            aria-label="서식 검색"
+            ariaLabel="서식 검색"
           />
         }
       >
@@ -116,51 +109,45 @@ export default function FormsView({ forms }: { forms: FormEntry[] }) {
           empty="검색 결과가 없어요 — 다른 이름이나 규정명으로 찾아보세요."
         >
           {(paged) => (
-            <div className={f.shellScroll}>
-              <table className={f.table}>
-                <thead><tr><th>서식명</th><th>규정</th><th>번호</th><th>원문 서식</th><th></th></tr></thead>
-                <tbody>
-                  {paged.map((e) => (
-                    <tr key={`${e.slug}#${e.호}`}>
-                      <td className={f.name}>
-                        {e.서식명}
-                        {typeof e.쪽수 === "number" && e.쪽수 > 0 ? (
-                          <span
-                            className={`${f.pages} ${e.쪽수 === 1 ? f.pages1 : f.pagesN}`}
-                            title={e.쪽수 === 1 ? "미리보기 PDF가 한 장에 담겨요" : `미리보기 PDF ${e.쪽수}장`}>
-                            {e.쪽수}.p
-                          </span>
-                        ) : null}
-                      </td>
-                      <td>{e.규정명}</td>
-                      <td className={f.no}>{e.호 || "—"}</td>
-                      <td className={f.dlCell}>
-                        {e.pdf ? (
-                          <a className={f.dl} href={e.pdf} download
-                            title={e.구분 === "연구관리" ? "PDF 미리보기 — 어떻게 생긴 양식인지 바로 확인" : "이 별지만 담긴 원문 PDF"}>PDF ↓</a>
-                        ) : (
-                          <span className={f.dlNone}>—</span>
-                        )}
-                        {e.hwp && e.hwp !== e.pdf ? (
-                          <a className={f.dl} href={e.hwp} download
-                            title={e.구분 === "연구관리" ? "원본 파일 — 실제 작성·제출용" : "규정 원문 전체 한글파일 — 서식 편집·작성용"}>
-                            {(e.hwp.split(".").pop() || "원본").toUpperCase().replace("%20", "")} ↓
-                          </a>
-                        ) : null}
-                      </td>
-                      <td>
-                        {e.slug ? (
-                          <Link className={f.go} href={`/d/${encodeURIComponent(e.slug)}/#${encodeURIComponent(e.anchor)}`}
-                            onClick={() => track("forms_open")}>
-                            {e.구분 === "연구관리" ? "안내 화면 →" : e.구분 === "상위법령" ? "법령 본문 →" : "원문 보기 →"}
-                          </Link>
-                        ) : null}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <ResultList>
+              {paged.map((e) => (
+                <ResultRow
+                  key={`${e.slug}#${e.호}`}
+                  lead={e.호 || "—"}
+                  title={e.서식명}
+                  chips={
+                    <>
+                      <RowTag>{e.규정명}</RowTag>
+                      {typeof e.쪽수 === "number" && e.쪽수 > 0 ? (
+                        <RowBadge ok={e.쪽수 === 1 || !!e.꼬리넘침}>
+                          {e.꼬리넘침 ? "≈1장" : `${e.쪽수}장`}
+                        </RowBadge>
+                      ) : null}
+                    </>
+                  }
+                  right={
+                    <>
+                      {e.pdf ? (
+                        <RowAction href={e.pdf} download
+                          title={e.구분 === "연구관리" ? "PDF 미리보기 — 어떻게 생긴 양식인지 바로 확인" : "이 별지만 담긴 원문 PDF"}>PDF ↓</RowAction>
+                      ) : null}
+                      {e.hwp && e.hwp !== e.pdf ? (
+                        <RowAction href={e.hwp} download
+                          title={e.구분 === "연구관리" ? "원본 파일 — 실제 작성·제출용" : "규정 원문 전체 한글파일 — 서식 편집·작성용"}>
+                          {(e.hwp.split(".").pop() || "원본").toUpperCase().replace("%20", "")} ↓
+                        </RowAction>
+                      ) : null}
+                      {e.slug ? (
+                        <RowAction href={`/d/${encodeURIComponent(e.slug)}/#${encodeURIComponent(e.anchor)}`}
+                          onClick={() => track("forms_open")} title="원문 문서에서 이 서식 위치로 이동">
+                          {e.구분 === "연구관리" ? "안내 →" : e.구분 === "상위법령" ? "법령 →" : "원문 →"}
+                        </RowAction>
+                      ) : null}
+                    </>
+                  }
+                />
+              ))}
+            </ResultList>
           )}
         </PagedList>
       </BrowseShell>

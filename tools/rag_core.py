@@ -60,6 +60,10 @@ INDEX_DIR = os.environ.get("RAG_INDEX_DIR",
 ARTICLE_STATUS = os.environ.get("RAG_ARTICLE_STATUS", "1") not in ("0", "", "false", "False")
 # clause_xref: 조문↔조문 준용·인용 그래프. reg 확장(graph_expand_regs)의 더 완전한 근거로 병합. 기본 on.
 CLAUSE_XREF = os.environ.get("RAG_CLAUSE_XREF", "1") not in ("0", "", "false", "False")
+# 정의형 질문 결정적 라우팅(specs/01 P3): "X란?"류 → defterms.json(01j) 정의 조문 자동첨부. 기본 on.
+DEFTERM_ROUTE = os.environ.get("RAG_DEFTERM_ROUTE", "1") not in ("0", "", "false", "False")
+# 정의형 패턴 게이트(오폭 방지) — 용어 스캔은 이 패턴이 잡힐 때만 수행.
+_DEF_Q_RE = re.compile(r"(?:이?란|라는\s*게|라는\s*것)\s*(?:무엇|뭐|뭔)|의\s*(?:정의|뜻|의미)|(?:정의|뜻|의미)(?:가|는|이)?\s*(?:무엇|뭐|뭔)")
 
 
 def _flag(name: str, default: bool = False) -> bool:
@@ -334,8 +338,8 @@ SYSTEM = (
     "(예: 도서 구입 질문에 출장 정산을 붙이지 않는다). 각 단계 출처를 표기한다.\n"
     "17) ⛔ 무관 근거 억지 유추 금지 — [근거] 조문 중 **어느 것도 질문 사안을 직접 규율하지 않을 때**만"
     " '규정에서 확인되지 않습니다'라고 답한다(담당 부서 확인 안내). 특히 사내 시설·편의(구내식당·카페·"
-    " 흡연구역·주차장 등) 이용 규칙은 규정 코퍼스에 대개 없으므로, 표면 단어만 겹치는 다른 주제 조문(예:"
-    " 출장 초청 여비규정)을 끌어와 답을 지어내지 않는다. ⚠ 단, 근거 조문이 질문 사안을 실제로 규율하면"
+    " 흡연구역·주차장·회의실 음식물 반입 등) 이용 규칙은 규정 코퍼스에 대개 없으므로, 표면 단어만 겹치는"
+    " 다른 주제 조문(예: 출장 초청 여비규정, 외부인 접대 식사비 한도)을 끌어와 답을 지어내지 않는다. ⚠ 단, 근거 조문이 질문 사안을 실제로 규율하면"
     " (기한·절차·금액·자격 등 질문이 묻는 것을 그 조문이 다루면) 정상적으로 답한다 — 이 규칙은 '무관한"
     " 조문으로 억지 답' 만 막는 것이지, 근거가 있는 질문까지 거부하라는 뜻이 아니다.\n"
 )
@@ -1133,6 +1137,19 @@ def _value_store_lookup(query: str, limit: int = 2) -> list:
     return scored[:limit]
 
 
+def _ensure_defterms():
+    """defterms.json(01j 정의 바인딩) 용어→정의출처 맵 1회 캐시. specs/01 P3 정의형 라우팅용."""
+    if "defterms" not in _state:
+        with _lock:
+            if "defterms" not in _state:
+                try:
+                    with open(os.path.join(INDEX_DIR, "defterms.json"), encoding="utf-8") as f:
+                        _state["defterms"] = json.load(f).get("terms", {})
+                except Exception:  # noqa: BLE001 — 인덱스 부재 시 빈 맵(라우팅 무발동)
+                    _state["defterms"] = {}
+    return _state["defterms"]
+
+
 def _ensure_article_index():
     """(규정명, 제N조) → 조문 청크 id 정방향 인덱스. 규정↔규정 1홉 확장(reg_refs 대상 조회)용. 1회 캐시."""
     if "art_idx" not in _state:
@@ -1353,6 +1370,20 @@ def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None
     else:
         order = list(cand)
 
+    # 어휘 안전석(RAG_RERANK_KEEP_LEX, 기본 1 — 하이브리드 모드에서만): keep_dense와 대칭 설계.
+    # 실측(specs/01 P2, 2026-07-25): BM25가 압도적 1위로 발굴한 문서(명패→학술행사진행가이드
+    # 40.1 vs 2위 25.0)를 리랭커가 표면 유사도로 퇴출 — 어휘 발굴도 밀집 상위처럼 '퇴출만' 금지.
+    # 순위는 리랭커 존중(맨 뒷자리 삽입), 밀집 안전석(protected)과 충돌하지 않는 자리만 교체.
+    if use_hybrid and use_rerank and rscore:
+        keep_lex = int(os.environ.get("RAG_RERANK_KEEP_LEX", "1"))
+        lex_top = [i for i in lex_ids[:keep_lex] if i not in order[:k]]
+        for li in lex_top:
+            dense_guard = set(cand[:int(os.environ.get("RAG_RERANK_KEEP_DENSE", "2"))])
+            for j in range(k - 1, -1, -1):
+                if order[j] not in dense_guard:
+                    order = order[:j] + [li] + [x for x in order[j:] if x != li]
+                    break
+
     if use_div and len(order) > k:
         chosen = _select_diverse(order, k, lambda i: (getdoc(i)[1] or {}).get("type", ""))
     else:
@@ -1439,6 +1470,36 @@ def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None
                     blocks.append(f"[{s2['tag']} · 준용/참조 규정(자동첨부)]\n{d2}")
         except Exception as e:  # noqa: BLE001
             print(f"⚠ 규정↔규정 확장 실패(무시): {e}")
+
+    # 정의형 질문 결정적 라우팅(specs/01 P3, RAG_DEFTERM_ROUTE): "X란?"류 질문에 defterms.json
+    # (01j 정의 바인딩 282용어)의 정의 조문을 자동첨부. 문헌 비교(HyDE·doc2query·Contextual) 후
+    # 채택 — LLM 0·환각 0·지연 0. 실측 표적: '중복게재란?' → 학술지발간규정 제17조(밀집·BM25 모두 미회수).
+    if DEFTERM_ROUTE and _DEF_Q_RE.search(query):
+        try:
+            terms = _ensure_defterms()
+            qn = re.sub(r"\s+", "", query)
+            hits = sorted((t for t in terms if len(t) >= 2 and t.replace(" ", "") in qn),
+                          key=len, reverse=True)[:1]  # 최장일치 1용어(오폭 최소)
+            aidx, amap = _ensure_article_index()
+            have_tags = {s.get("tag") for s in srcs}
+            for t in hits:
+                for b in terms[t][:2]:  # 충돌용어(≤11)는 정의 병기(≤2) — 정직하게 둘 다
+                    aid = aidx.get(((b.get("규정명") or "").strip(), _jo_key(b.get("조") or "")))
+                    if not aid:
+                        continue
+                    d2, m2 = amap[aid]
+                    s2 = _src(d2, m2, None)
+                    if s2["tag"] in have_tags:
+                        continue
+                    have_tags.add(s2["tag"])
+                    s2["defterm_route"] = True  # '용어 정의 자동첨부' 식별(UI/평가)
+                    # ⚠ 맨 앞 삽입 — 질문이 정의를 물으므로 정의 조문이 1순위 근거.
+                    # 뒤에 append하면 컨텍스트 예산(_cap_blocks)에서 절단 1순위가 되어
+                    # x_sources 동기 제외로 무발동처럼 보인다(실측 2026-07-25).
+                    srcs.insert(0, s2)
+                    blocks.insert(0, f"[{s2['tag']} · 용어 정의: {t}(자동첨부)]\n{d2}")
+        except Exception as e:  # noqa: BLE001 — 라우팅 실패는 기본 회수로 우아하게 강등
+            print(f"⚠ 정의어 라우팅 실패(무시): {e}")
 
     # 행위 흐름 1홉 확장(플래그 graph_expand_actions): 신청 화면 회수 시 의무적 후속 단계(정산·결과보고) 첨부.
     if _graph_expand_actions_on() and chosen:

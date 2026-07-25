@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import SearchInput from "./common/SearchInput";
+import PagedList from "./common/PagedList";
+import { FilterGroup, FilterCheck } from "./common/BrowseFilter";
+import ResultRow, { ResultList, RowChip, RowTag, RowDate, RowBadge, rowHl } from "./common/ResultRow";
 import type { DocMeta, SectionKey } from "../lib/vault";
 import { useFlag } from "../lib/flags";
 import DocDrawer from "./DocDrawer";
@@ -62,9 +65,8 @@ export default function Explorer({ docs }: { docs: DocMeta[] }) {
     return () => window.removeEventListener("popstate", onPop);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [upgrades]);
-  const [pageSize, setPageSize] = useState(30);
-  const [page, setPage] = useState(1);
   const listRef = useRef<HTMLUListElement>(null);
+  const toTop = () => { if (listRef.current) listRef.current.scrollTop = 0; };
 
   // 사용자 선택 검색범위(플래그 on 모드) — 기본 제목+내용. 플래그는 async 로드라 상수로 초기화.
   const [scope, setScope] = useState<Set<string>>(() => new Set(["title", "content"]));
@@ -145,16 +147,7 @@ export default function Explorer({ docs }: { docs: DocMeta[] }) {
     return (start > 0 ? "…" : "") + text.slice(start, i + needle.length + 72).trim() + "…";
   };
 
-  // 페이지네이션: 271건을 다 그리지 않고 pageSize(10/30/50)씩
   const total = filtered.length;
-  const pageCount = Math.max(1, Math.ceil(total / pageSize));
-  useEffect(() => setPage(1), [q, f, pageSize, scope]); // 필터·검색·범위·페이지크기 바뀌면 1페이지로
-  const cur = Math.min(page, pageCount);
-  const start = (cur - 1) * pageSize;
-  const pageItems = filtered.slice(start, start + pageSize);
-  useEffect(() => {
-    if (listRef.current) listRef.current.scrollTop = 0; // 페이지 이동 시 목록 맨 위로
-  }, [cur]);
 
   // 패싯 카운트(다른 필터를 반영한 각 옵션의 건수)
   const countFor = (group: keyof Filters, value: string) =>
@@ -181,20 +174,13 @@ export default function Explorer({ docs }: { docs: DocMeta[] }) {
     if (!t) return title;
     const i = title.toLowerCase().indexOf(t.toLowerCase());
     if (i < 0) return title;
-    return (<>{title.slice(0, i)}<mark className={styles.hl}>{title.slice(i, i + t.length)}</mark>{title.slice(i + t.length)}</>);
+    return (<>{title.slice(0, i)}<mark className={rowHl}>{title.slice(i, i + t.length)}</mark>{title.slice(i + t.length)}</>);
   };
 
-  const Check = ({ group, value, label }: { group: keyof Filters; value: string; label: string }) => {
-    const n = countFor(group, value);
-    const checked = f[group].has(value);
-    return (
-      <label className={`${styles.check} ${n === 0 && !checked ? styles.checkMuted : ""}`}>
-        <input type="checkbox" className={styles.hrCheck} checked={checked} onChange={() => toggle(group, value)} />
-        <span className={styles.checkLabel}>{label}</span>
-        <span className={styles.checkCount}>{n}</span>
-      </label>
-    );
-  };
+  const Check = ({ group, value, label }: { group: keyof Filters; value: string; label: string }) => (
+    <FilterCheck label={label} count={countFor(group, value)}
+      checked={f[group].has(value)} onChange={() => toggle(group, value)} />
+  );
 
   return (
     <div className={styles.wrap}>
@@ -216,28 +202,15 @@ export default function Explorer({ docs }: { docs: DocMeta[] }) {
           ) : null}
         </div>
 
-        <div className={styles.group}>
-          <div className={styles.groupTitle}>구분</div>
-          {SECTIONS.map((s) => (
-            <Check key={s} group="section" value={s} label={SECTION_LABEL[s]} />
-          ))}
-        </div>
-
-        <div className={styles.group}>
-          <div className={styles.groupTitle}>분류</div>
-          <div className={styles.scrollGroup}>
-            {categories.map((c) => (
-              <Check key={c} group="category" value={c} label={c} />
-            ))}
-          </div>
-        </div>
-
-        <div className={styles.group}>
-          <div className={styles.groupTitle}>검수상태</div>
-          {REVIEWED.map((r) => (
-            <Check key={r} group="reviewed" value={r} label={r} />
-          ))}
-        </div>
+        <FilterGroup title="구분">
+          {SECTIONS.map((s) => (<Check key={s} group="section" value={s} label={SECTION_LABEL[s]} />))}
+        </FilterGroup>
+        <FilterGroup title="분류" scroll>
+          {categories.map((c) => (<Check key={c} group="category" value={c} label={c} />))}
+        </FilterGroup>
+        <FilterGroup title="검수상태">
+          {REVIEWED.map((r) => (<Check key={r} group="reviewed" value={r} label={r} />))}
+        </FilterGroup>
       </aside>
 
       <section className={styles.content}>
@@ -271,71 +244,44 @@ export default function Explorer({ docs }: { docs: DocMeta[] }) {
             </div>
           ) : null}
         </div>
-        <div className={styles.metaRow}>
-          <span className={styles.count}>
-            {total}건{total > 0 ? <span className={styles.range}> · {start + 1}–{start + pageItems.length}</span> : null}
-          </span>
-          <div className={styles.pager}>
-            <div className={styles.pageSize} role="group" aria-label="페이지당 표시 개수">
-              {PAGE_SIZES.map((n) => (
-                <button
-                  key={n}
-                  className={pageSize === n ? `${styles.psBtn} ${styles.psActive}` : styles.psBtn}
-                  onClick={() => setPageSize(n)}
-                >
-                  {n}
-                </button>
-              ))}
-              <span className={styles.psUnit}>개씩</span>
-            </div>
-            {pageCount > 1 ? (
-              <div className={styles.pageNav}>
-                <button className={styles.navBtn} disabled={cur <= 1} onClick={() => setPage(cur - 1)} aria-label="이전 페이지">
-                  ‹
-                </button>
-                <span className={styles.pageInfo}>{cur} / {pageCount}</span>
-                <button className={styles.navBtn} disabled={cur >= pageCount} onClick={() => setPage(cur + 1)} aria-label="다음 페이지">
-                  ›
-                </button>
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        <ul className={styles.list} ref={listRef}>
+        <PagedList
+          items={filtered}
+          unit="건"
+          defaultSize={30}
+          resetKey={`${q}|${[...f.section].sort()}|${[...f.category].sort()}|${[...f.reviewed].sort()}|${[...scope].sort()}`}
+          empty="조건에 맞는 문서가 없어요."
+          onPage={toTop}
+        >
+          {(pageItems) => (
+        <ResultList listRef={listRef}>
           {pageItems.map((d) => {
             const snip = snippetOf(d);
             return (
-            <li key={d.slug}>
-              <button className={styles.row} onClick={() => setOpenSlug(d.slug)}>
-                <span className={styles.regno}>{d.regNo || "—"}</span>
-                <span className={styles.main}>
-                  <span className={styles.title}>{markTitle(d.title)}</span>
-                  <span className={styles.sub}>
-                    <span className={styles.chip} data-section={d.section}>
-                      {SECTION_LABEL[d.section]}
-                    </span>
-                    {d.category ? <span className={styles.tag}>{d.category}</span> : null}
-                    {d.articleCount > 0 ? <span className={styles.tag}>{d.articleCount}개 조문</span> : null}
-                  </span>
-                  {snip ? <span className={styles.snippet}>📄 {snip}</span> : null}
-                </span>
-                <span className={styles.right}>
-                  <span className={styles.date}>{d.revised || "—"}</span>
-                  <span
-                    className={
-                      d.reviewed === "검수완료" ? `${styles.badge} ${styles.badgeOk}` : styles.badge
-                    }
-                  >
-                    {d.reviewed || "미검수"}
-                  </span>
-                </span>
-              </button>
-            </li>
+              <ResultRow
+                key={d.slug}
+                lead={d.regNo || "—"}
+                title={markTitle(d.title)}
+                chips={
+                  <>
+                    <RowChip section={d.section}>{SECTION_LABEL[d.section]}</RowChip>
+                    {d.category ? <RowTag>{d.category}</RowTag> : null}
+                    {d.articleCount > 0 ? <RowTag>{d.articleCount}개 조문</RowTag> : null}
+                  </>
+                }
+                snippet={snip ? `📄 ${snip}` : undefined}
+                right={
+                  <>
+                    <RowDate>{d.revised || "—"}</RowDate>
+                    <RowBadge ok={d.reviewed === "검수완료"}>{d.reviewed || "미검수"}</RowBadge>
+                  </>
+                }
+                onClick={() => setOpenSlug(d.slug)}
+              />
             );
           })}
-          {total === 0 ? <li className={styles.empty}>조건에 맞는 문서가 없어요.</li> : null}
-        </ul>
+        </ResultList>
+          )}
+        </PagedList>
       </section>
 
       <DocDrawer slug={openSlug} onClose={() => setOpenSlug(null)} />

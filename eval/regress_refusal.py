@@ -17,12 +17,10 @@ import re
 import sys
 from pathlib import Path
 
-from daily_common import API, load_bank, norm_q, rag_answer
+from daily_common import API, ROOT, load_bank, norm_q, rag_answer
 
-REFUSAL_RE = re.compile(
-    r"확인되지\s*않|확인할\s*수\s*없|찾을\s*수\s*없|근거가\s*없|명시(되어|돼)?\s*있지\s*않|"
-    r"명시되지\s*않|포함(되어|돼)?\s*있지\s*않|포함되지\s*않|나와\s*있지\s*않|규정에서\s*확인|"
-    r"해당\s*내용(은|이)?\s*없|정보가\s*없")
+sys.path.insert(0, str(ROOT / "tools"))
+from refusal_detect import is_refusal  # 단일 정본(specs/01 P0) — 결론부 스코프+부정형 한정(T9)
 
 MUST_REFUSE = [
     "구내식당에서 외부인을 초대할 수 있는가?",
@@ -58,7 +56,7 @@ def main() -> int:
     r_ok = 0
     for q in MUST_REFUSE:
         ans = rag_answer(q)["content"] or ""
-        refused = bool(REFUSAL_RE.search(ans))
+        refused = is_refusal(ans)
         r_ok += refused
         print(f"  {'✅거부' if refused else '❌응답'} {q[:34]} — {ans[:60].strip()}")
 
@@ -67,7 +65,7 @@ def main() -> int:
     regressions = []
     for b in sample:
         ans = rag_answer(b["질문"])["content"] or ""
-        refused = bool(REFUSAL_RE.search(ans))
+        refused = is_refusal(ans)
         hit = golden_hit(ans, b["골든"])
         ok = (not refused) and hit
         a_ok += ok

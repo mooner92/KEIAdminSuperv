@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import SearchInput from "../common/SearchInput";
 import { api, type CorpusDoc } from "../../lib/api";
 import Section from "../common/Section";
 import styles from "../../styles/Admin.module.css";
@@ -228,8 +229,8 @@ export default function AdminCorpus() {
         </aside>
 
         <div>
-          <input className={styles.corpusSearch} placeholder="문서 검색(제목·슬러그)" value={q}
-            onChange={(e) => setQ(e.target.value)} aria-label="코퍼스 검색" />
+          <SearchInput value={q} onChange={(e) => setQ(e.target.value)} onClear={() => setQ("")}
+            placeholder="문서 검색(제목·슬러그)" ariaLabel="코퍼스 검색" />
           <div className={ex.metaRow}>
             <span className={ex.count}>{filtered.length}건{filtered.length > 0 ? ` · ${(cur - 1) * PAGE + 1}–${(cur - 1) * PAGE + items.length}` : ""}</span>
             {pageCount > 1 ? (

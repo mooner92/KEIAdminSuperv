@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import Layout from "../components/Layout";
 import PageHero from "../components/common/PageHero";
+import DataTable from "../components/common/DataTable";
 import PagedList from "../components/common/PagedList";
 import { useFlag } from "../lib/flags";
 import { SITE_NAME } from "../lib/site";
@@ -107,33 +108,25 @@ export default function QualityPage() {
             {/* 일자별 추이 표(가독성 — 막대는 표본 적을 때 정보가 없음) */}
             <div className={q.trendCard}>
               <div className={q.cardTitle}>최근 정답률 추이 <span className={q.mutedSm}>(최신순 · 최근 90일 보관)</span></div>
-              <div className={q.trendTableWrap}>
-                <table className={q.trendTable}>
-                  <thead><tr><th>날짜</th><th>정답률</th><th></th><th>✅ 정답</th><th>❌ 오답</th><th>🔍 검토</th><th>기타</th></tr></thead>
-                  <tbody>
-                    {[...trend].reverse().map((d) => {
-                      const etc = (d.집계["판정불가"] || 0) + (d.집계["폐기"] || 0);
-                      return (
-                        <tr key={d.date}>
-                          <td className={q.tDate}>{d.date}</td>
-                          <td className={q.tAcc} style={{ color: accColor(d.정답률) }}>{d.정답률}%</td>
-                          <td className={q.tBarCell}>
-                            <span className={q.tBar}><span className={q.tBarFill}
-                              style={{ width: `${d.정답률}%`, background: accColor(d.정답률) }} /></span>
-                          </td>
-                          <td>{d.집계["정답"] || 0}</td>
-                          <td className={(d.집계["오답"] || 0) > 0 ? q.tBad : ""}>{d.집계["오답"] || 0}</td>
-                          <td>{d.집계["검토필요"] || 0}</td>
-                          <td className={q.mutedSm}>{etc || "—"}</td>
-                        </tr>
-                      );
-                    })}
-                    {trend.length === 0 ? (
-                      <tr><td colSpan={7} className={q.emptyRow}>추이 데이터가 쌓이는 중</td></tr>
-                    ) : null}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                rows={[...trend].reverse()}
+                rowKey={(d) => d.date}
+                empty="추이 데이터가 쌓이는 중"
+                cols={[
+                  { key: "date", head: "날짜", render: (d) => <span className={q.tDate}>{d.date}</span> },
+                  { key: "acc", head: "정답률", num: true, render: (d) => (
+                    <span className={q.tAcc} style={{ color: accColor(d.정답률) }}>{d.정답률}%</span>) },
+                  { key: "bar", head: "", render: (d) => (
+                    <span className={q.tBar}><span className={q.tBarFill}
+                      style={{ width: `${d.정답률}%`, background: accColor(d.정답률) }} /></span>) },
+                  { key: "ok", head: "✅ 정답", num: true, render: (d) => d.집계["정답"] || 0 },
+                  { key: "ng", head: "❌ 오답", num: true, render: (d) => (
+                    <span className={(d.집계["오답"] || 0) > 0 ? q.tBad : undefined}>{d.집계["오답"] || 0}</span>) },
+                  { key: "rv", head: "🔍 검토", num: true, render: (d) => d.집계["검토필요"] || 0 },
+                  { key: "etc", head: "기타", num: true, render: (d) => (
+                    <span className={q.mutedSm}>{((d.집계["판정불가"] || 0) + (d.집계["폐기"] || 0)) || "—"}</span>) },
+                ]}
+              />
             </div>
           </section>
 

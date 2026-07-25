@@ -300,6 +300,12 @@ def iter_chunks(vault: Path, layer: str = "main"):
         if md.stem in excluded:   # 관리자 제외(P1) — soft skip
             continue
         meta, body = split_frontmatter(md.read_text(encoding="utf-8"))
+        # 색인제외 선언(specs/02 Full-Vault): 원문 파생 뷰 노트(정의어 사전 등)는 **둘러보기 전용**.
+        # 본문이 이미 색인된 조문의 복사라 RAG에 넣으면 진짜 근거를 밀어낸다(실측: Hit@1 80→68,
+        # Hit@5 92→86 — 2026-07-25 v3 A/B). 정의형 질문은 defterm_route가 원문 조문으로 답한다.
+        # ⚠ split_frontmatter는 순수 파서라 인라인 주석(`true  # 사유`)을 값에 남긴다 — 앞 토큰만 본다.
+        if str(meta.get("색인제외", "")).split("#")[0].strip().lower() in ("true", "yes", "1", "예"):
+            continue
         typ = meta.get("type", "")
         rel = str(md.relative_to(vault))
         if layer == "uplaw":
@@ -366,6 +372,33 @@ def iter_chunks(vault: Path, layer: str = "main"):
 
 
 META_KEYS = ("규정명", "규정번호", "조", "분류", "개정일", "검수상태", "type", "별표", "refs", "reg_refs", "부분", "path", "적용강도")
+
+# ── 결정적 검색 라벨 (specs/01 P1, EMBED_CTX_LABEL=1일 때만) ─────────────────
+# 조문 청크 본문에는 조 헤더만 있고 **소속 규정명이 벡터에 없다** — "중복게재란?"처럼
+# 정답 노트 제목("연구부정행위")이 곧 답의 어휘인 질문을 밀집 검색이 놓친다(실측 2026-07-24).
+# 라벨은 이미 검수된 메타 필드의 **복사**만으로 조립(LLM 미사용 = 환각 0)하고,
+# **임베딩 입력에만** 붙인다 — Chroma documents(모델이 읽는 근거)·메타(출처 표기)는 원문 그대로.
+EMBED_CTX_LABEL = os.environ.get("EMBED_CTX_LABEL", "0") not in ("0", "", "false", "False")
+_LABEL_PREFIX = {"term": "용어: ", "system": "시스템: ", "guide": "가이드: "}
+
+
+def ctx_label(c: dict) -> str:
+    """검색 라벨: '[용어: 초과사례금] ' 꼴. 결정적 — 메타 필드 복사만.
+    실측 확정 구성(2026-07-25, 3회 재색인 A/B — specs/01 §3.3):
+    · **규정명만, 전 타입 적용** — Hit@1 78→81·Hit@5 91→93·표적(명패) 회수 전환. system 라벨이
+      개선 주역(은행에 ERP·PMS 문항 다수): system 제외 시 Hit@1 77로 구보다 후퇴.
+    · **분류 미포함** — '[… · 대외업무…]' 도메인 단어 반복이 그 토픽 질문에 노트군 쏠림 유발(1차 실측).
+    · **일반 행정 어휘와 겹치는 시스템명은 라벨 제외**(현재 '대외업무'뿐) — '대외업무 시스템'
+      라벨이 '시행·접수' 류 질의와 도메인 겹침으로 dense 2위에 올라 리랭커 밀집 안전석(1·2위)에서
+      정답(그룹웨어·문서수발)을 밀어냈다(신뢰 게이트 #5 회귀 실측). KEEP_DENSE=3 확대는 양쪽
+      지표를 깎아 기각(old 78→76)."""
+    name = (c.get("규정명") or "").strip()
+    if not name:
+        return ""
+    if name.startswith("대외업무"):  # 일반 행정 어휘형 시스템명 — 도메인 오염 실측(게이트 #5)
+        return ""
+    prefix = _LABEL_PREFIX.get((c.get("type") or "").strip(), "")
+    return f"[{prefix}{name}] "
 
 
 def main():
@@ -443,9 +476,10 @@ def main():
             pass
     col = client.get_or_create_collection(args.collection, metadata={"hnsw:space": "cosine"})
 
-    print(f"\n청크 {len(chunks)}개 임베딩 중...")
+    print(f"\n청크 {len(chunks)}개 임베딩 중..." + (" (검색 라벨 on — specs/01 P1)" if EMBED_CTX_LABEL else ""))
     embs = model.encode(
-        [c["text"] for c in chunks],
+        # ⚠ 라벨은 임베딩 입력 전용 — 아래 all_docs(근거 원문)에는 절대 넣지 않는다(안전 1겹).
+        [ctx_label(c) + c["text"] if EMBED_CTX_LABEL else c["text"] for c in chunks],
         normalize_embeddings=True,
         batch_size=args.batch_size,
         show_progress_bar=True,

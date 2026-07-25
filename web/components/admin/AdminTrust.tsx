@@ -1,6 +1,8 @@
 import Link from "next/link";
+import Section from "../common/Section";
 import { useEffect, useState } from "react";
 import { api, ApiError, type TrustOps } from "../../lib/api";
+import DataTable from "../common/DataTable";
 import styles from "../../styles/Admin.module.css";
 
 /** 관리자 · 🛡 신뢰(docs/34 ②, flag trust_ops) — 검수의 조준경.
@@ -37,7 +39,7 @@ export default function AdminTrust() {
   if (!data) return <div className={styles.muted}>불러오는 중…</div>;
 
   return (
-    <section aria-label="신뢰 운영">
+    <>
       <div className={styles.trustHead}>
         <p className={styles.muted}>
           🔒 질문·답변 본문은 표시되지 않아요 — 어떤 규정을 먼저 검수하면 위험이 줄어드는지만 봅니다.
@@ -52,55 +54,45 @@ export default function AdminTrust() {
         </label>
       </div>
 
-      <h3 className={styles.trustH3}>🚨 고위험 답변 레이더 <span className={styles.muted}>— 금액이 포함됐는데 근거가 미검수인 답변 ({data.radar.length}건)</span></h3>
+      <Section icon="🚨" title="고위험 답변 레이더" badge={data.radar.length}
+        desc="금액이 포함됐는데 근거가 미검수인 답변 — 먼저 검수하면 위험이 크게 줄어요.">
       {data.radar.length === 0 ? (
         <p className={styles.muted}>해당 없음 — 미검수 근거로 금액을 답한 사례가 없어요. 👍</p>
       ) : (
-        <div className={styles.tableWrap}>
-          <table className={styles.table}>
-            <thead><tr><th>시각</th><th>인용 근거(현재 검수상태)</th><th>미검수</th></tr></thead>
-            <tbody>
-              {data.radar.map((r, i) => (
-                <tr key={i}>
-                  <td>{fmt(r.at)}</td>
-                  <td className={styles.wrapCell}>
-                    {r.근거.map((s, j) => (
-                      // docs/34 수용: 규정명 클릭 → 원문(/d/) — slug 없으면 텍스트 칩 유지
-                      <span key={j} className={styles.srcChip} data-unrev={s.검수상태 !== "검수완료" || undefined}>
-                        {s.slug ? (
-                          <Link href={`/d/${encodeURIComponent(s.slug)}/`}>{s.규정명}</Link>
-                        ) : s.규정명}{s.조 ? ` ${s.조}` : ""}{s.검수상태 !== "검수완료" ? " ⚠" : ""}
-                      </span>
-                    ))}
-                  </td>
-                  <td>{r.n_unreviewed}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          rows={data.radar}
+          cols={[
+            { key: "at", head: "시각", render: (r: any) => fmt(r.at) },
+            { key: "src", head: "인용 근거(현재 검수상태)", wrap: true, render: (r: any) => r.근거.map((s: any, j: number) => (
+              <span key={j} className={styles.srcChip} data-unrev={s.검수상태 !== "검수완료" || undefined}>
+                {s.slug ? <Link href={`/d/${encodeURIComponent(s.slug)}/`}>{s.규정명}</Link> : s.규정명}
+                {s.조 ? ` ${s.조}` : ""}{s.검수상태 !== "검수완료" ? " ⚠" : ""}
+              </span>
+            )) },
+            { key: "n", head: "미검수", num: true, render: (r: any) => r.n_unreviewed },
+          ]}
+        />
       )}
 
-      <h3 className={styles.trustH3}>📐 수요 × 품질 <span className={styles.muted}>— 많이 인용되는데 미검수인 규정부터 검수하면 효과가 큽니다</span></h3>
-      <div className={styles.tableWrap}>
-        <table className={styles.table}>
-          <thead><tr><th>규정</th><th>인용수</th><th>검수상태</th><th>👎</th></tr></thead>
-          <tbody>
-            {data.matrix.slice(0, 20).map((m) => (
-              <tr key={m.규정명}>
-                <td>{m.slug
-                  ? <Link href={`/d/${encodeURIComponent(m.slug)}/`}>{m.규정명}</Link>
-                  : m.규정명}</td>
-                <td>{m.인용수}</td>
-                <td>{m.검수상태 === "검수완료" ? "✅ 검수완료" : "⚠ 미검수"}</td>
-                <td>{m.down || "·"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      </Section>
 
-      <h3 className={styles.trustH3}>👎 피드백 유형</h3>
+      <Section icon="📐" title="수요 × 품질"
+        desc="많이 인용되는데 미검수인 규정부터 검수하면 효과가 큽니다.">
+      <DataTable
+        rows={data.matrix.slice(0, 20)}
+        rowKey={(m: any) => m.규정명}
+        cols={[
+          { key: "reg", head: "규정", wrap: true, render: (m: any) => (m.slug
+            ? <Link href={`/d/${encodeURIComponent(m.slug)}/`}>{m.규정명}</Link> : m.규정명) },
+          { key: "cite", head: "인용수", num: true, render: (m: any) => m.인용수 },
+          { key: "rev", head: "검수상태", render: (m: any) => (m.검수상태 === "검수완료" ? "✅ 검수완료" : "⚠ 미검수") },
+          { key: "down", head: "👎", num: true, render: (m: any) => m.down ?? 0 },
+        ]}
+      />
+
+      </Section>
+
+      <Section icon="👎" title="피드백 유형">
       {data.feedback_types.length === 0 ? (
         <p className={styles.muted}>기간 내 👎 피드백이 없어요.</p>
       ) : (
@@ -117,6 +109,7 @@ export default function AdminTrust() {
           </ul>
         </>
       )}
-    </section>
+      </Section>
+    </>
   );
 }

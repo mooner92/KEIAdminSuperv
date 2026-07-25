@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import SearchInput from "./common/SearchInput";
 import styles from "./ApprovalFinder.module.css";
 
 // Track B: 결재선 판정기 — 위임전결규정 별표(01n) 기반 업무·직급 → 전결권자 조회.
@@ -72,12 +73,12 @@ export default function ApprovalFinder({
   return (
     <div>
       <div className={styles.controls}>
-        <input
-          className={styles.search}
-          placeholder="업무 검색 (예: 출장, 휴가, 계약, 구매)"
+        <SearchInput
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          aria-label="업무 검색"
+          onClear={() => setQ("")}
+          placeholder="업무 검색 (예: 출장, 휴가, 계약, 구매)"
+          ariaLabel="업무 검색"
         />
         <select className={styles.sel} value={role} onChange={(e) => pickRole(e.target.value)} aria-label="신청자 직급">
           <option value="">신청자 직급(전체)</option>

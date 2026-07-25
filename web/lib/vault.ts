@@ -356,6 +356,7 @@ export type FormEntry = {
   hwp: string | null;   // 규정 원문 HWP(전체) — 실편집용. 별지만 HWP 분리는 포맷상 불가(docs/50 §7)
   구분?: "별지" | "연구관리" | "상위법령";  // 서식 출처 — 규정 별지 | PMS 양식 | 상위법령 별표(law.go.kr, docs/61 v2)
   쪽수?: number | null;  // 미리보기 PDF 분량(쪽) — 별지=manifest pages, PMS=01x가 기록. '한 장' 배지용
+  꼬리넘침?: boolean;    // 다쪽이나 끝 장이 서명란 한 줄뿐(01s 판정) — 실질 한 장, 배지 과잉경고 방지(docs/50 §8d)
 };
 
 // PMS 연구관리양식(docs/55 §8③) — 규정 별지가 아니라 '시스템 부착 양식'이라 두 번째 소스.
@@ -410,7 +411,7 @@ function loadPmsForms(): FormEntry[] {
 }
 
 // 01p_byeolji_pdf.py manifest — 규정↔별지↔원문 PDF·서식명(원문 제목). git-external(없으면 빈 객체).
-type ByeoljiManifest = Record<string, { hwp?: string | null; 별지: { label: string; name: string; pdf: string; pages?: [number, number] }[] }>;
+type ByeoljiManifest = Record<string, { hwp?: string | null; 별지: { label: string; name: string; pdf: string; pages?: [number, number]; 꼬리넘침?: boolean }[] }>;
 let _byeoljiMf: ByeoljiManifest | null = null;
 function byeoljiManifest(): ByeoljiManifest {
   if (_byeoljiMf) return _byeoljiMf;
@@ -503,7 +504,8 @@ export function loadForms(): FormEntry[] {
                  서식명: cleanFormTitle(title) || "(서식명 미기재)", anchor: label,
                  pdf: mfe ? `/${mfe.pdf}` : null,
                  hwp: mf?.hwp ? `/${mf.hwp}` : null,
-                 쪽수: mfe?.pages ? mfe.pages[1] - mfe.pages[0] + 1 : null });
+                 쪽수: mfe?.pages ? mfe.pages[1] - mfe.pages[0] + 1 : null,
+                 ...(mfe?.꼬리넘침 ? { 꼬리넘침: true } : {}) });
     }
   }
   out.sort((a, b) => (a.규정명 === b.규정명
