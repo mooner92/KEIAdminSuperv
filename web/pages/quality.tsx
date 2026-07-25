@@ -107,9 +107,12 @@ export default function QualityPage() {
             </div>
             {/* 일자별 추이 표(가독성 — 막대는 표본 적을 때 정보가 없음) */}
             <div className={q.trendCard}>
-              <div className={q.cardTitle}>최근 정답률 추이 <span className={q.mutedSm}>(최신순 · 최근 90일 보관)</span></div>
+              <div className={q.cardTitle}>
+                최근 정답률 추이 <span className={q.mutedSm}>(최신순 · 최근 7일)</span>
+                <Link className={q.moreLink} href="/quality/trend/">모든 테스트 결과 보기 →</Link>
+              </div>
               <DataTable
-                rows={[...trend].reverse()}
+                rows={[...trend].reverse().slice(0, 7)}
                 rowKey={(d) => d.date}
                 empty="추이 데이터가 쌓이는 중"
                 cols={[

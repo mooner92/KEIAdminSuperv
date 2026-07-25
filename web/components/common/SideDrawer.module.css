@@ -1,0 +1,81 @@
+/* SideDrawer — 우측 슬라이드 패널 공용 껍데기(2026-07-25).
+ * 문서 드로어(DocDrawer)의 검증된 형태·모션을 그대로 따르되, 내용은 children으로 자유.
+ * ⛔ 화면별 드로어 사본 금지 — 새 사이드 패널은 이 컴포넌트를 쓴다(specs/03 원칙). */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+}
+.overlay.open { pointer-events: auto; }
+.backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.32);
+  opacity: 0;
+  transition: opacity 0.22s ease;
+}
+.overlay.open .backdrop { opacity: 1; }
+.panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: min(720px, 94vw);
+  background: var(--color-surface);
+  border-left: 1px solid var(--color-border);
+  box-shadow: var(--shadow-drawer, 0 20px 48px rgba(20, 24, 20, 0.18));
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.overlay.open .panel { transform: translateX(0); }
+
+.bar {
+  flex: 0 0 auto;
+  min-height: var(--header-h, 60px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 10px var(--space-4) 10px var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+}
+.titleWrap { min-width: 0; }
+.title {
+  font-size: 15.5px;
+  font-weight: 700;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sub {
+  margin-top: 2px;
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.barActions { display: flex; align-items: center; gap: var(--space-2); flex: 0 0 auto; }
+.close {
+  font: inherit;
+  font-size: 18px;
+  line-height: 1;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-tertiary);
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  transition: var(--transition-ui);
+}
+.close:hover { background: var(--color-surface-hover); color: var(--color-text); }
+
+.body { flex: 1; min-height: 0; overflow: auto; }
+
+@media (max-width: 760px) {
+  .panel { width: 100%; }
+}

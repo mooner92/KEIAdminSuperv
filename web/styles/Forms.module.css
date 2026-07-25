@@ -107,3 +107,16 @@
   content: ""; position: absolute; left: 5px; top: 2px; width: 4px; height: 8px;
   border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg);
 }
+
+/* 서식명 = 미리보기 트리거(2026-07-25) — 링크처럼 보이되 페이지 이동은 없음 */
+.titleBtn {
+  font: inherit;
+  font-weight: 600;
+  color: var(--color-text);
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+.titleBtn:hover { color: var(--color-primary-strong); text-decoration: underline; }
