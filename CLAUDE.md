@@ -119,5 +119,6 @@ KEI(한국환경연구원) 행정 초보(신입·전입자)가 "이 업무 어�
 - 절대 규칙(위 ⛔)을 매 작업에서 지킨다.
 - **문서 최신화 = `docs/53-문서관리-규약.md` §2 매트릭스가 마감 체크리스트** — 사용자 노출 변경은 패치노트(changelog/bugreport, `changelog_lint` 통과) 필수. 수치는 시점 명기, 같은 사실은 정본 한 곳+링크.
 - **컴포넌트 패키지 구조**(사용자 지시 — 모든 UI는 자족 컴포넌트로 묶임): `web/components/common/`=공용 프리미티브(Section·PagedList·Markdown·AsyncState·SearchInput·ScrollRail·ThemeToggle·ErrorBoundary) · `web/components/admin/`=관리자 탭(각 탭 자체 데이터·상태, 배럴 export, admin.tsx는 탭 셸만) · `web/components/{now,calendar}/`=페이지별 카드/셀 · 페이지 헤더는 `common/PageHero`(모든 페이지 공용). 인라인 반복 JSX는 데이터맵+컴포넌트로. 새 관리자 탭·목록은 이 구조를 따른다.
+- **목록형 화면 3종(규정 찾기 문서·서식, 결재선)은 공용 스킨 1벌**(사용자 지시 2026-07-25 — 정본='문서' 탭): `common/BrowseUI.module.css` + `common/BrowseFilter`(FilterGroup 구분선·FilterCheck 패싯카운트·FilterSearch) + `common/ResultRow`(ResultList·ResultRow 3열[lead|제목+칩|우측]·RowChip/RowTag/RowDate/RowBadge/RowAction). ⛔화면별 목록 CSS 사본·테이블 렌더 금지 — 새 목록 화면도 이 조합 + `BrowseShell`(필터고정/목록스크롤) + `PagedList`(상단 한 줄 컨트롤)로. 회귀=`web/verify-browse-unify.mjs`.
 - **관리자/목록 UI 관례**: 묶음은 `common/Section`(패널 톤+19px/800 제목+우측 액션), 목록은 `common/PagedList`(건수·필터 슬롯·N개씩·‹› 전부 **상단 한 줄**, 목록 아래 컨트롤 금지 — 사용자 지시).
 - **요구사항 처리 대장 갱신**: 운영자의 큰 요구사항을 착수/완료할 때 `docs/요구사항-처리대장.md`에 행 추가·갱신(요구사항→docs/NN·대표 커밋·검증·상태). 세부는 docs/NN·커밋에 두고 대장은 **연결 지도**만 — 최종 사용자 제보는 의견함(app.db·docs/51)이 담당(구분).
