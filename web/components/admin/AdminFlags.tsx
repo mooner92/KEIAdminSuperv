@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import SearchInput from "../common/SearchInput";
 import { api, type FlagAudit, type FlagMeta } from "../../lib/api";
 import styles from "../../styles/Admin.module.css";
 
@@ -59,8 +60,8 @@ export default function AdminFlags() {
         변경은 <b>즉시 반영</b>되고 감사 기록이 남습니다. 행을 클릭하면 상세 설명이 펼쳐져요. 다 쓴 플래그는 만료일에 코드에서 제거하세요.
       </p>
       <div className={styles.flagCtrl}>
-        <input className={styles.corpusSearch} placeholder="플래그 검색(키·설명)" value={q}
-          onChange={(e) => setQ(e.target.value)} aria-label="플래그 검색" />
+        <SearchInput value={q} onChange={(e) => setQ(e.target.value)} onClear={() => setQ("")}
+          placeholder="플래그 검색(키·설명)" ariaLabel="플래그 검색" />
         {CHIPS.map((c) => (
           <button key={c.k} className={`${styles.filtChip} ${filt === c.k ? styles.filtOn : ""}`}
             onClick={() => setFilt(c.k)} aria-pressed={filt === c.k}>{c.label}</button>

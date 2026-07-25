@@ -1,4 +1,5 @@
 import Link from "next/link";
+import SearchInput from "../common/SearchInput";
 import { useMemo, useState } from "react";
 import type { GraphData } from "../../lib/vault";
 import { track } from "../../lib/track";
@@ -52,8 +53,8 @@ export default function MobileGraphList({ graph }: { graph: GraphData }) {
 
   return (
     <div className={m.wrap}>
-      <input className={m.search} value={q} onChange={(e) => setQ(e.target.value)}
-        placeholder="규정·문서 이름으로 찾기" aria-label="문서 검색" />
+      <SearchInput value={q} onChange={(e) => setQ(e.target.value)} onClear={() => setQ("")}
+        placeholder="문서 이름으로 검색" ariaLabel="문서 검색" />
       <p className={m.count}>{shown.length}개 문서 · 연결 많은 순</p>
       <ul className={m.list}>
         {shown.slice(0, 200).map((n) => {

@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, type DirectoryUser } from "../../lib/api";
 import PagedList from "../common/PagedList";
+import DataTable from "../common/DataTable";
+import SearchInput from "../common/SearchInput";
+import Section from "../common/Section";
 import styles from "../../styles/Admin.module.css";
 
 /** 관리자 · 사용자 목록(docs/29 §4, flag user_directory).
@@ -57,49 +60,29 @@ export default function AdminUsers() {
       {err ? <div className={styles.err}>{err}</div> : null}
       <PagedList items={filtered} sizes={[10, 30, 50]} unit="명" note="최신 가입순" resetKey={kw}
         empty="일치하는 사용자가 없어요."
-        filterSlot={<input className={styles.corpusSearch} placeholder="아이디 검색"
-          value={kw} onChange={(e) => setKw(e.target.value)} style={{ maxWidth: 220 }} />}>
+        filterSlot={<span style={{ maxWidth: 240, flex: 1 }}>
+          <SearchInput value={kw} onChange={(e) => setKw(e.target.value)} onClear={() => setKw("")}
+            placeholder="아이디 검색" ariaLabel="사용자 아이디 검색" />
+        </span>}>
         {(paged) => (
-      <div className={styles.tableWrap}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>아이디(이메일)</th>
-              <th>가입일</th>
-              <th>마지막 활동</th>
-              <th>채팅 수</th>
-              <th>상태</th>
-              <th>가입 승인</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paged.map((u) => (
-              <tr key={u.id}>
-                <td>
-                  {u.username}
-                  {u.is_admin ? <span className={styles.badgeAdmin}> 관리자</span> : null}
-                </td>
-                <td>{fmt(u.created_at)}</td>
-                <td>{fmt(u.last_active)}</td>
-                <td>{u.chats}</td>
-                <td>{u.verified ? "✅ 인증됨" : "⏳ 승인 대기"}</td>
-                <td>
-                  {u.verified ? (
-                    <span className={styles.muted}>—</span>
-                  ) : (
-                    <span className={styles.rowActions}>
-                      <button className={styles.approveBtn} disabled={busy === u.id}
-                        onClick={() => act(u.id, "approve")}>승인</button>
-                      <button className={styles.rejectBtn} disabled={busy === u.id}
-                        onClick={() => act(u.id, "reject")}>거절</button>
-                    </span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={paged}
+        rowKey={(u) => String(u.id)}
+        cols={[
+          { key: "id", head: "아이디(이메일)", wrap: true, render: (u) => (<>{u.username}{u.is_admin ? <span className={styles.badgeAdmin}> 관리자</span> : null}</>) },
+          { key: "created", head: "가입일", render: (u) => fmt(u.created_at) },
+          { key: "active", head: "마지막 활동", render: (u) => fmt(u.last_active) },
+          { key: "chats", head: "채팅 수", num: true, render: (u) => u.chats },
+          { key: "state", head: "상태", render: (u) => (u.verified ? "✅ 인증됨" : "⏳ 승인 대기") },
+          { key: "act", head: "가입 승인", render: (u) => (
+            u.verified ? <span className={styles.muted}>—</span> : (
+              <span className={styles.rowActions}>
+                <button className={styles.approveBtn} disabled={busy === u.id} onClick={() => act(u.id, "approve")}>승인</button>
+                <button className={styles.rejectBtn} disabled={busy === u.id} onClick={() => act(u.id, "reject")}>거절</button>
+              </span>
+            )) },
+        ]}
+      />
         )}
       </PagedList>
     </section>
