@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import SearchInput from "./common/SearchInput";
+import PagedList from "./common/PagedList";
 import { FilterGroup, FilterCheck } from "./common/BrowseFilter";
 import ResultRow, { ResultList, RowChip, RowTag, RowDate, RowBadge, rowHl } from "./common/ResultRow";
 import type { DocMeta, SectionKey } from "../lib/vault";
@@ -64,9 +65,8 @@ export default function Explorer({ docs }: { docs: DocMeta[] }) {
     return () => window.removeEventListener("popstate", onPop);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [upgrades]);
-  const [pageSize, setPageSize] = useState(30);
-  const [page, setPage] = useState(1);
   const listRef = useRef<HTMLUListElement>(null);
+  const toTop = () => { if (listRef.current) listRef.current.scrollTop = 0; };
 
   // 사용자 선택 검색범위(플래그 on 모드) — 기본 제목+내용. 플래그는 async 로드라 상수로 초기화.
   const [scope, setScope] = useState<Set<string>>(() => new Set(["title", "content"]));
@@ -147,16 +147,7 @@ export default function Explorer({ docs }: { docs: DocMeta[] }) {
     return (start > 0 ? "…" : "") + text.slice(start, i + needle.length + 72).trim() + "…";
   };
 
-  // 페이지네이션: 271건을 다 그리지 않고 pageSize(10/30/50)씩
   const total = filtered.length;
-  const pageCount = Math.max(1, Math.ceil(total / pageSize));
-  useEffect(() => setPage(1), [q, f, pageSize, scope]); // 필터·검색·범위·페이지크기 바뀌면 1페이지로
-  const cur = Math.min(page, pageCount);
-  const start = (cur - 1) * pageSize;
-  const pageItems = filtered.slice(start, start + pageSize);
-  useEffect(() => {
-    if (listRef.current) listRef.current.scrollTop = 0; // 페이지 이동 시 목록 맨 위로
-  }, [cur]);
 
   // 패싯 카운트(다른 필터를 반영한 각 옵션의 건수)
   const countFor = (group: keyof Filters, value: string) =>
@@ -253,38 +244,16 @@ export default function Explorer({ docs }: { docs: DocMeta[] }) {
             </div>
           ) : null}
         </div>
-        <div className={styles.metaRow}>
-          <span className={styles.count}>
-            {total}건{total > 0 ? <span className={styles.range}> · {start + 1}–{start + pageItems.length}</span> : null}
-          </span>
-          <div className={styles.pager}>
-            <div className={styles.pageSize} role="group" aria-label="페이지당 표시 개수">
-              {PAGE_SIZES.map((n) => (
-                <button
-                  key={n}
-                  className={pageSize === n ? `${styles.psBtn} ${styles.psActive}` : styles.psBtn}
-                  onClick={() => setPageSize(n)}
-                >
-                  {n}
-                </button>
-              ))}
-              <span className={styles.psUnit}>개씩</span>
-            </div>
-            {pageCount > 1 ? (
-              <div className={styles.pageNav}>
-                <button className={styles.navBtn} disabled={cur <= 1} onClick={() => setPage(cur - 1)} aria-label="이전 페이지">
-                  ‹
-                </button>
-                <span className={styles.pageInfo}>{cur} / {pageCount}</span>
-                <button className={styles.navBtn} disabled={cur >= pageCount} onClick={() => setPage(cur + 1)} aria-label="다음 페이지">
-                  ›
-                </button>
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        <ResultList listRef={listRef} empty={total === 0 ? "조건에 맞는 문서가 없어요." : null}>
+        <PagedList
+          items={filtered}
+          unit="건"
+          defaultSize={30}
+          resetKey={`${q}|${[...f.section].sort()}|${[...f.category].sort()}|${[...f.reviewed].sort()}|${[...scope].sort()}`}
+          empty="조건에 맞는 문서가 없어요."
+          onPage={toTop}
+        >
+          {(pageItems) => (
+        <ResultList listRef={listRef}>
           {pageItems.map((d) => {
             const snip = snippetOf(d);
             return (
@@ -311,6 +280,8 @@ export default function Explorer({ docs }: { docs: DocMeta[] }) {
             );
           })}
         </ResultList>
+          )}
+        </PagedList>
       </section>
 
       <DocDrawer slug={openSlug} onClose={() => setOpenSlug(null)} />

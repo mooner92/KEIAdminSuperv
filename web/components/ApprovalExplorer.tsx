@@ -4,6 +4,7 @@ import { useFlag } from "../lib/flags";
 import DocDrawer from "./DocDrawer";
 import type { ApprovalRule } from "./ApprovalFinder";
 import styles from "./Explorer.module.css";
+import PagedList from "./common/PagedList";
 import { FilterGroup, FilterCheck } from "./common/BrowseFilter";
 import ResultRow, { ResultList, RowChip, RowTag, RowAction } from "./common/ResultRow";
 import rowStyles from "./ApprovalFinder.module.css";
@@ -36,9 +37,7 @@ export default function ApprovalExplorer({ rules }: { rules: ApprovalRule[] }) {
   };
   const [q, setQ] = useState("");
   const [f, setF] = useState<Filters>({ cat: new Set(), role: new Set(), owner: new Set() });
-  const [pageSize, setPageSize] = useState(30);
   const [filterOpen, setFilterOpen] = useState(false); // 모바일(≤880px): 좌측 필터(직급·구분·전결권자) 기본 접힘 → 토글로 연다(docs/48)
-  const [page, setPage] = useState(1);
   const listRef = useRef<HTMLUListElement>(null);
 
   // 직급 선택 기억(복원은 현재 데이터에 있는 값만)
@@ -99,14 +98,7 @@ export default function ApprovalExplorer({ rules }: { rules: ApprovalRule[] }) {
   );
 
   const total = filtered.length;
-  const pageCount = Math.max(1, Math.ceil(total / pageSize));
-  useEffect(() => setPage(1), [q, f, pageSize]);
-  const cur = Math.min(page, pageCount);
-  const start = (cur - 1) * pageSize;
-  const pageItems = filtered.slice(start, start + pageSize);
-  useEffect(() => {
-    if (listRef.current) listRef.current.scrollTop = 0;
-  }, [cur]);
+  const toTop = () => { if (listRef.current) listRef.current.scrollTop = 0; };
 
   const countFor = (group: keyof Filters, value: string) =>
     rules.filter((r) => {
@@ -190,38 +182,19 @@ export default function ApprovalExplorer({ rules }: { rules: ApprovalRule[] }) {
             ))}
           </div>
         </div>
-        <div className={styles.metaRow}>
-          <span className={styles.count}>
-            {total}건{total > 0 ? <span className={styles.range}> · {start + 1}–{start + pageItems.length}</span> : null}
-          </span>
-          <div className={styles.pager}>
-            <div className={styles.pageSize} role="group" aria-label="페이지당 표시 개수">
-              {PAGE_SIZES.map((n) => (
-                <button
-                  key={n}
-                  className={pageSize === n ? `${styles.psBtn} ${styles.psActive}` : styles.psBtn}
-                  onClick={() => setPageSize(n)}
-                >
-                  {n}
-                </button>
-              ))}
-              <span className={styles.psUnit}>개씩</span>
-            </div>
-            {pageCount > 1 ? (
-              <div className={styles.pageNav}>
-                <button className={styles.navBtn} disabled={cur <= 1} onClick={() => setPage(cur - 1)} aria-label="이전 페이지">‹</button>
-                <span className={styles.pageInfo}>{cur} / {pageCount}</span>
-                <button className={styles.navBtn} disabled={cur >= pageCount} onClick={() => setPage(cur + 1)} aria-label="다음 페이지">›</button>
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        <ResultList listRef={listRef}
-          empty={total === 0 ? "해당 업무를 찾지 못했어요. 다른 키워드나 필터로 시도해 보세요." : null}>
+        <PagedList
+          items={filtered}
+          unit="건"
+          defaultSize={30}
+          resetKey={`${q}|${[...f.cat].sort()}|${[...f.role].sort()}|${[...f.owner].sort()}`}
+          empty="해당 업무를 찾지 못했어요. 다른 키워드나 필터로 시도해 보세요."
+          onPage={toTop}
+        >
+          {(pageItems) => (
+        <ResultList listRef={listRef}>
           {pageItems.map((r, i) => (
             <ResultRow
-              key={`${start + i}`}
+              key={`${r.구분}#${r.업무}#${i}`}
               title={r.업무}
               chips={
                 <>
@@ -245,6 +218,8 @@ export default function ApprovalExplorer({ rules }: { rules: ApprovalRule[] }) {
             />
           ))}
         </ResultList>
+          )}
+        </PagedList>
       </section>
 
       {/* v1 ⑭(S7-#33): 별표 원문 드로어 — 페이지 이동 없이 근거 확인 */}
