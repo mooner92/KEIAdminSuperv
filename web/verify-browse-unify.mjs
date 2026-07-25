@@ -4,12 +4,13 @@ const BASE = "http://localhost:3101";
 const b = await chromium.launch();
 const ctx = await b.newContext({ viewport: { width: 1280, height: 900 } });
 console.log("로그인:", (await ctx.request.post(`${BASE}/api/app/auth/login`, { data: { username: "b6test", password: "test1234" } })).status());
-await ctx.route("**/app/flags**", (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify({ forms_registry: true, approval_finder: true, content_search: true, explore_upgrades: true }) }));
+await ctx.route("**/app/flags**", (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify({ forms_registry: true, approval_finder: true, content_search: true, explore_upgrades: true, deadline_calc: true, deadlines_hub: true }) }));
 const p = await ctx.newPage();
 const shots = [
   ["문서", `${BASE}/browse/?tab=docs`, "browse-docs"],
   ["서식", `${BASE}/browse/?tab=forms`, "browse-forms"],
   ["결재선", `${BASE}/approval/`, "browse-approval"],
+  ["기한사전", `${BASE}/deadlines/`, "browse-deadlines"],
 ];
 for (const [name, url, file] of shots) {
   await p.goto(url, { waitUntil: "networkidle" });

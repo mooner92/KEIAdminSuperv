@@ -1,7 +1,7 @@
 import { useState } from "react";
-import Link from "next/link";
 import { addOffset, downloadIcs, ko } from "../DeadlineCalc";
 import type { DeadlineEntry } from "../../lib/vault";
+import ResultRow, { RowTag, RowAction } from "../common/ResultRow";
 import d from "../../styles/Deadlines.module.css";
 
 // 기한 사전(docs/57) 브라우즈 행. 정보 순서(사용자 확정): **① 뭘 하는 기한인지(행동)가 제목**
@@ -25,52 +25,54 @@ export default function DeadlineBrowseRow({ e, onOpenDoc }: {
   const summary = isCap ? `[기간한도] ${title} — ${e.규정명} ${e.조}` : `[마감] ${title} — ${e.규정명} ${e.조}`;
   const auto = !!(e.라벨행동 || e.라벨사건 || e.라벨대상);
   return (
-    <li className={d.row}>
-      <div className={d.head}>
-        <span className={d.titleMain} title={auto ? "자동 생성 라벨(검수 전) — 원문으로 확인하세요" : undefined}>
-          {title}
-        </span>
-        {isCap ? <span className={d.tag}>기간 한도</span> : null}
-      </div>
-      <div className={d.when}>
-        ⏱ {showWhen ? <>{when} </> : null}
-        <b className={d.offset}>{e.n}{e.unit} {e.dir === "전" ? "전까지" : "이내"}</b>
-      </div>
-      <div className={d.regLine}>
-        {e.slug && onOpenDoc ? (
-          <button type="button" className={d.regLink}
-            onClick={() => onOpenDoc(e.slug as string, e.조)}
-            title="옆 패널에서 조문 바로 보기">
+    <ResultRow
+      title={
+        <span title={auto ? "자동 생성 라벨(검수 전) — 원문으로 확인하세요" : undefined}>{title}</span>
+      }
+      chips={
+        <>
+          {isCap ? <RowTag>기간 한도</RowTag> : null}
+          <span className={d.when}>
+            ⏱ {showWhen ? <>{when} </> : null}
+            <b className={d.offset}>{e.n}{e.unit} {e.dir === "전" ? "전까지" : "이내"}</b>
+          </span>
+        </>
+      }
+      snippet={<>📄 {e.원문}</>}
+      right={
+        e.slug && onOpenDoc ? (
+          <RowAction onClick={() => onOpenDoc(e.slug as string, e.조)} title="옆 패널에서 조문 바로 보기">
             {e.규정명} {e.조} →
-          </button>
+          </RowAction>
         ) : e.slug ? (
-          <Link className={d.regLink} href={`/d/${encodeURIComponent(e.slug)}/#${encodeURIComponent(e.조)}`}>
+          <RowAction href={`/d/${encodeURIComponent(e.slug)}/#${encodeURIComponent(e.조)}`}>
             {e.규정명} {e.조} →
-          </Link>
+          </RowAction>
         ) : (
-          <span className={d.regFlat}>{e.규정명} {e.조}</span>
-        )}
-      </div>
-      <div className={d.src}>📄 {e.원문}</div>
-      {canCalc ? (
-        <div className={d.calc}>
-          <label className={d.calcLabel}>
-            {isCap ? "시작일" : "기준일"}
-            <input type="date" value={base} onChange={(ev) => setBase(ev.target.value)} className={d.date} />
-          </label>
-          {result ? (
-            <>
-              <span className={d.arrow}>→</span>
-              <span className={d.deadline}>{isCap ? "최대" : "마감"} {ko(result)}{isCap ? "까지" : ""}</span>
-              <button className={d.ics} onClick={() => downloadIcs(summary, result, `근거: ${src}\n${e.원문}`)}>
-                📅 캘린더(.ics)
-              </button>
-            </>
-          ) : (
-            <span className={d.hint}>{isCap ? "시작일을 넣으면 최대 기간이 계산돼요" : "날짜를 넣으면 마감일이 계산돼요"}</span>
-          )}
-        </div>
-      ) : null}
-    </li>
+          <RowAction muted>{e.규정명} {e.조}</RowAction>
+        )
+      }
+      body={
+        canCalc ? (
+          <span className={d.calc}>
+            <label className={d.calcLabel}>
+              {isCap ? "시작일" : "기준일"}
+              <input type="date" value={base} onChange={(ev) => setBase(ev.target.value)} className={d.date} />
+            </label>
+            {result ? (
+              <>
+                <span className={d.arrow}>→</span>
+                <span className={d.deadline}>{isCap ? "최대" : "마감"} {ko(result)}{isCap ? "까지" : ""}</span>
+                <button className={d.ics} onClick={() => downloadIcs(summary, result, `근거: ${src}\n${e.원문}`)}>
+                  📅 캘린더(.ics)
+                </button>
+              </>
+            ) : (
+              <span className={d.hint}>{isCap ? "시작일을 넣으면 최대 기간이 계산돼요" : "날짜를 넣으면 마감일이 계산돼요"}</span>
+            )}
+          </span>
+        ) : null
+      }
+    />
   );
 }

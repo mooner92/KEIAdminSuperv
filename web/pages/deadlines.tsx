@@ -4,6 +4,10 @@ import type { GetStaticProps } from "next";
 import Layout from "../components/Layout";
 import PageHero from "../components/common/PageHero";
 import PagedList from "../components/common/PagedList";
+import BrowseShell from "../components/common/BrowseShell";
+import SearchInput from "../components/common/SearchInput";
+import { FilterGroup, FilterCheck, FilterSearch, FilterEmpty } from "../components/common/BrowseFilter";
+import { ResultList } from "../components/common/ResultRow";
 import DeadlineBrowseRow from "../components/deadlines/DeadlineBrowseRow";
 import DocDrawer from "../components/DocDrawer";
 import { useFlag } from "../lib/flags";
@@ -80,86 +84,68 @@ export default function DeadlinesPage({ deadlines }: { deadlines: DeadlineEntry[
 
   const kinds: Kind[] = ["전체", "마감", "기간한도"];
   return (
-    <Layout>
+    <Layout fill>
       <Head><title>{`기한 사전 · ${SITE_NAME}`}</title><meta name="robots" content="noindex, nofollow" /></Head>
       <PageHero title="기한 사전"
         lead={<>규정에 흩어진 <b>기한 {deadlines.length}건</b>을 사건·의무로 찾아, 기준일을 넣으면 마감일이
           계산돼요(.ics 저장). ⚠ 마감일은 원문 오프셋 그대로의 <b>단순 계산</b> — 정확한 기준은 원문·담당 부서
           확인이 필요합니다. <span className={f.leadSub}>규정집 기준일 {CORPUS_AS_OF}</span></>} />
 
-      {/* 모바일 필터 토글(≤760px) */}
-      <button type="button" className={f.filterToggle}
-        onClick={() => setFilterOpen(!filterOpen)} aria-expanded={filterOpen}>
-        {filterOpen ? "규정 필터 접기 ▴" : `규정 필터 열기 ▾${regFilter.size > 0 ? ` · ${regFilter.size}개 적용 중` : ""}`}
-      </button>
-
-      <div className={f.layout}>
-        <aside className={`${f.filters} ${filterOpen ? f.filtersOpenM : ""}`} aria-label="규정 필터">
-          <div className={f.filterHead}>
-            <span className={f.filterTitle}>규정</span>
-            {regFilter.size > 0 ? (
-              <button className={f.reset} onClick={() => setRegFilter(new Set())}>초기화 {regFilter.size}</button>
-            ) : null}
-          </div>
-          <input className={f.regSearch} value={regQ} onChange={(e) => setRegQ(e.target.value)}
-            placeholder="규정 이름으로 좁히기" aria-label="규정 필터 검색" />
-          <div className={f.regList}>
-            {regShown.map(([r, n]) => {
-              const checked = regFilter.has(r);
-              return (
-                <label key={r} className={`${f.regItem} ${!checked && n === 0 ? f.regMuted : ""}`}>
-                  <input type="checkbox" className={f.hrCheck} checked={checked} onChange={() => toggleReg(r)} />
-                  <span className={f.regName}>{r}</span>
-                  <span className={f.regCount}>{n}</span>
-                </label>
-              );
-            })}
-            {regShown.length === 0 ? <p className={f.regEmpty}>해당 규정이 없어요.</p> : null}
-          </div>
-        </aside>
-
-        <div className={f.main}>
-          <input
-            className={f.search}
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="사건·의무·규정명으로 검색 — 예: 출장, 정산, 제출, 복귀"
-            aria-label="기한 검색"
-            autoFocus
-          />
-          {/* 공용 PagedList — 상단 한 줄(건수 · 유형 칩 · N개씩 · ‹n/N›). 손수 만든 페이저 제거 */}
-          <PagedList
-            items={shown}
-            unit="건"
-            defaultSize={30}
-            resetKey={`${q}|${kind}|${[...regFilter].sort().join(",")}`}
-            empty="검색 결과가 없어요 — 다른 사건이나 규정명으로 찾아보세요."
-            filterSlot={
-              <span className={f.kinds} role="tablist" aria-label="기한 유형">
-                {kinds.map((k) => (
-                  <button key={k} role="tab" aria-selected={kind === k}
-                    className={`${f.kindBtn} ${kind === k ? f.kindActive : ""}`}
-                    onClick={() => setKind(k)}>{k}</button>
-                ))}
-              </span>
-            }
-          >
-            {(paged) => (
-              <ul className={f.list}>
-                {paged.map((e, i) => (
-                  <DeadlineBrowseRow key={`${e.규정명}#${e.조}#${i}`} e={e}
-                    onOpenDoc={(slug, anchor) => setDoc({ slug, anchor })} />
-                ))}
-              </ul>
-            )}
-          </PagedList>
-          <p className={f.note}>
-            ※ 기한·오프셋은 규정 원문에서 추출한 값이고, 제목·할 일 라벨은 원문 문장에서 자동 생성한
-            요약입니다(모두 검수 전 — 원문 문장을 항상 함께 표시). 마감일은 기준일 ± 기간의 단순
-            계산입니다. 공휴일·기산일 규칙 등은 원문과 담당 부서 안내를 함께 확인하세요.
-          </p>
-        </div>
-      </div>
+      <BrowseShell
+        sideTitle="필터"
+        reset={{ count: regFilter.size, onClick: () => setRegFilter(new Set()) }}
+        side={
+          <FilterGroup title="규정" scroll>
+            <FilterSearch value={regQ} onChange={setRegQ}
+              placeholder="규정 이름으로 좁히기" ariaLabel="규정 필터 검색" />
+            {regShown.map(([r, n]) => (
+              <FilterCheck key={r} label={r} count={n} checked={regFilter.has(r)} onChange={() => toggleReg(r)} />
+            ))}
+            {regShown.length === 0 ? <FilterEmpty>해당 규정이 없어요.</FilterEmpty> : null}
+          </FilterGroup>
+        }
+        head={
+          <>
+            <SearchInput
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              onClear={() => setQ("")}
+              placeholder="사건·의무·규정명으로 검색 — 예: 출장, 정산, 제출, 복귀"
+              ariaLabel="기한 검색"
+            />
+            <p className={f.note}>
+              ※ 제목·라벨은 원문 문장에서 자동 생성한 요약(검수 전)이라 원문 문장을 항상 함께 보여드려요.
+              공휴일·기산일 규칙은 원문과 담당 부서 안내를 확인하세요.
+            </p>
+          </>
+        }
+      >
+        <PagedList
+          items={shown}
+          unit="건"
+          defaultSize={30}
+          resetKey={`${q}|${kind}|${[...regFilter].sort().join(",")}`}
+          empty="검색 결과가 없어요 — 다른 사건이나 규정명으로 찾아보세요."
+          filterSlot={
+            <span className={f.kinds} role="tablist" aria-label="기한 유형">
+              {kinds.map((k) => (
+                <button key={k} role="tab" aria-selected={kind === k}
+                  className={`${f.kindBtn} ${kind === k ? f.kindActive : ""}`}
+                  onClick={() => setKind(k)}>{k}</button>
+              ))}
+            </span>
+          }
+        >
+          {(paged) => (
+            <ResultList>
+              {paged.map((e, i) => (
+                <DeadlineBrowseRow key={`${e.규정명}#${e.조}#${i}`} e={e}
+                  onOpenDoc={(slug, anchor) => setDoc({ slug, anchor })} />
+              ))}
+            </ResultList>
+          )}
+        </PagedList>
+      </BrowseShell>
       {/* 조문 사이드 드로어 — 목록 흐름을 유지한 채 원문 확인(LLM 근거 열람과 동일 컴포넌트) */}
       <DocDrawer slug={doc?.slug ?? null} anchor={doc?.anchor ?? ""} onClose={() => setDoc(null)} />
     </Layout>

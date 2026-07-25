@@ -202,3 +202,11 @@
   .right { justify-content: flex-start; }
   .title { white-space: normal; }
 }
+
+/* 행 안 도메인 전용 영역(기한 계산기 등) — 제목 블록 아래 전폭, 얇은 구분선으로 분리 */
+.body {
+  display: block;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--color-border);
+}

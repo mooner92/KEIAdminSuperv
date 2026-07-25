@@ -16,12 +16,14 @@ export function ResultList({ children, listRef, empty }: {
 /** 목록 한 행 — 정본은 '문서' 탭(Explorer)의 [번호 | 본문(제목·칩·스니펫) | 우측(메타·배지)] 3열.
  *  lead 없으면 2열로 축소. onClick이 있으면 버튼, href면 링크, 둘 다 없으면 정적 행. */
 export default function ResultRow({
-  lead, title, chips, snippet, right, onClick, href, ariaLabel,
+  lead, title, chips, snippet, body, right, onClick, href, ariaLabel,
 }: {
   lead?: ReactNode;
   title: ReactNode;
   chips?: ReactNode;
   snippet?: ReactNode;
+  /** 행 안의 도메인 전용 영역(예: 기한 사전의 기준일 계산기) — 제목 블록 아래 전폭. */
+  body?: ReactNode;
   right?: ReactNode;
   onClick?: () => void;
   href?: string;
@@ -35,6 +37,7 @@ export default function ResultRow({
         <span className={s.title}>{title}</span>
         {chips ? <span className={s.sub}>{chips}</span> : null}
         {snippet ? <span className={s.snippet}>{snippet}</span> : null}
+        {body ? <span className={s.body}>{body}</span> : null}
       </span>
       {right ? <span className={s.right}>{right}</span> : null}
     </>
