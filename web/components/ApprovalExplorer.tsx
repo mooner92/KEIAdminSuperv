@@ -4,6 +4,8 @@ import { useFlag } from "../lib/flags";
 import DocDrawer from "./DocDrawer";
 import type { ApprovalRule } from "./ApprovalFinder";
 import styles from "./Explorer.module.css";
+import { FilterGroup, FilterCheck } from "./common/BrowseFilter";
+import ResultRow, { ResultList, RowChip, RowTag, RowAction } from "./common/ResultRow";
 import rowStyles from "./ApprovalFinder.module.css";
 
 /**
@@ -130,17 +132,10 @@ export default function ApprovalExplorer({ rules }: { rules: ApprovalRule[] }) {
     try { localStorage.removeItem(ROLES_KEY); } catch { /* ignore */ }
   };
 
-  const Check = ({ group, value, label }: { group: keyof Filters; value: string; label: string }) => {
-    const n = countFor(group, value);
-    const checked = f[group].has(value);
-    return (
-      <label className={`${styles.check} ${n === 0 && !checked ? styles.checkMuted : ""}`}>
-        <input type="checkbox" checked={checked} onChange={() => toggle(group, value)} />
-        <span className={styles.checkLabel}>{label}</span>
-        <span className={styles.checkCount}>{n}</span>
-      </label>
-    );
-  };
+  const Check = ({ group, value, label }: { group: keyof Filters; value: string; label: string }) => (
+    <FilterCheck label={label} count={countFor(group, value)}
+      checked={f[group].has(value)} onChange={() => toggle(group, value)} />
+  );
 
   return (
     <div className={styles.wrap}>
@@ -160,22 +155,15 @@ export default function ApprovalExplorer({ rules }: { rules: ApprovalRule[] }) {
           ) : null}
         </div>
 
-        <div className={styles.group}>
-          <div className={styles.groupTitle}>신청자 직급</div>
+        <FilterGroup title="신청자 직급">
           {roles.map((r) => <Check key={r} group="role" value={r} label={r} />)}
-        </div>
-
-        <div className={styles.group}>
-          <div className={styles.groupTitle}>구분</div>
-          <div className={styles.scrollGroup}>
-            {cats.map((c) => <Check key={c} group="cat" value={c} label={c} />)}
-          </div>
-        </div>
-
-        <div className={styles.group}>
-          <div className={styles.groupTitle}>전결권자</div>
+        </FilterGroup>
+        <FilterGroup title="구분" scroll>
+          {cats.map((c) => <Check key={c} group="cat" value={c} label={c} />)}
+        </FilterGroup>
+        <FilterGroup title="전결권자">
           {owners.map((o) => <Check key={o} group="owner" value={o} label={o} />)}
-        </div>
+        </FilterGroup>
       </aside>
 
       <section className={styles.content}>
@@ -229,33 +217,34 @@ export default function ApprovalExplorer({ rules }: { rules: ApprovalRule[] }) {
           </div>
         </div>
 
-        <ul className={styles.list} ref={listRef}>
+        <ResultList listRef={listRef}
+          empty={total === 0 ? "해당 업무를 찾지 못했어요. 다른 키워드나 필터로 시도해 보세요." : null}>
           {pageItems.map((r, i) => (
-            <li key={`${start + i}`} className={rowStyles.rowLi}>
-              <div className={rowStyles.row}>
-                <div className={rowStyles.rule}>
-                  {r.구분 ? <span className={rowStyles.cat}>{r.구분}</span> : null}
-                  <span className={rowStyles.workName}>{r.업무}</span>
-                  {r.대상 ? <span className={rowStyles.target}>{r.대상}</span> : null}
-                </div>
-                <div className={rowStyles.result}>
-                  전결 <b className={rowStyles.owner}>{r.전결권자}</b>
-                  {r.협의 ? <span className={rowStyles.consult}>협의 {r.협의}</span> : null}
-                  {r.원장 ? <span className={rowStyles.wonjang}>원장 결재</span> : null}
+            <ResultRow
+              key={`${start + i}`}
+              title={r.업무}
+              chips={
+                <>
+                  {r.구분 ? <RowTag>{r.구분}</RowTag> : null}
+                  {r.대상 ? <RowChip>{r.대상}</RowChip> : null}
+                </>
+              }
+              right={
+                <>
+                  <span className={rowStyles.result}>
+                    전결 <b className={rowStyles.owner}>{r.전결권자}</b>
+                    {r.협의 ? <span className={rowStyles.consult}>협의 {r.협의}</span> : null}
+                    {r.원장 ? <span className={rowStyles.wonjang}>원장 결재</span> : null}
+                  </span>
                   {upgrades ? (
-                    <button type="button" className={rowStyles.origBtn} title="위임전결규정 별표 원문에서 확인"
-                      onClick={() => openOrig(r)}>
-                      📜 원문
-                    </button>
+                    <RowAction onClick={() => openOrig(r)}
+                      title="위임전결규정 별표 원문에서 확인">📜 원문</RowAction>
                   ) : null}
-                </div>
-              </div>
-            </li>
+                </>
+              }
+            />
           ))}
-          {total === 0 ? (
-            <li className={rowStyles.empty}>해당 업무를 찾지 못했어요. 다른 키워드나 필터로 시도해 보세요.</li>
-          ) : null}
-        </ul>
+        </ResultList>
       </section>
 
       {/* v1 ⑭(S7-#33): 별표 원문 드로어 — 페이지 이동 없이 근거 확인 */}

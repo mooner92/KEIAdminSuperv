@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import SearchInput from "./common/SearchInput";
+import { FilterGroup, FilterCheck } from "./common/BrowseFilter";
+import ResultRow, { ResultList, RowChip, RowTag, RowDate, RowBadge, rowHl } from "./common/ResultRow";
 import type { DocMeta, SectionKey } from "../lib/vault";
 import { useFlag } from "../lib/flags";
 import DocDrawer from "./DocDrawer";
@@ -181,20 +183,13 @@ export default function Explorer({ docs }: { docs: DocMeta[] }) {
     if (!t) return title;
     const i = title.toLowerCase().indexOf(t.toLowerCase());
     if (i < 0) return title;
-    return (<>{title.slice(0, i)}<mark className={styles.hl}>{title.slice(i, i + t.length)}</mark>{title.slice(i + t.length)}</>);
+    return (<>{title.slice(0, i)}<mark className={rowHl}>{title.slice(i, i + t.length)}</mark>{title.slice(i + t.length)}</>);
   };
 
-  const Check = ({ group, value, label }: { group: keyof Filters; value: string; label: string }) => {
-    const n = countFor(group, value);
-    const checked = f[group].has(value);
-    return (
-      <label className={`${styles.check} ${n === 0 && !checked ? styles.checkMuted : ""}`}>
-        <input type="checkbox" className={styles.hrCheck} checked={checked} onChange={() => toggle(group, value)} />
-        <span className={styles.checkLabel}>{label}</span>
-        <span className={styles.checkCount}>{n}</span>
-      </label>
-    );
-  };
+  const Check = ({ group, value, label }: { group: keyof Filters; value: string; label: string }) => (
+    <FilterCheck label={label} count={countFor(group, value)}
+      checked={f[group].has(value)} onChange={() => toggle(group, value)} />
+  );
 
   return (
     <div className={styles.wrap}>
@@ -216,28 +211,15 @@ export default function Explorer({ docs }: { docs: DocMeta[] }) {
           ) : null}
         </div>
 
-        <div className={styles.group}>
-          <div className={styles.groupTitle}>구분</div>
-          {SECTIONS.map((s) => (
-            <Check key={s} group="section" value={s} label={SECTION_LABEL[s]} />
-          ))}
-        </div>
-
-        <div className={styles.group}>
-          <div className={styles.groupTitle}>분류</div>
-          <div className={styles.scrollGroup}>
-            {categories.map((c) => (
-              <Check key={c} group="category" value={c} label={c} />
-            ))}
-          </div>
-        </div>
-
-        <div className={styles.group}>
-          <div className={styles.groupTitle}>검수상태</div>
-          {REVIEWED.map((r) => (
-            <Check key={r} group="reviewed" value={r} label={r} />
-          ))}
-        </div>
+        <FilterGroup title="구분">
+          {SECTIONS.map((s) => (<Check key={s} group="section" value={s} label={SECTION_LABEL[s]} />))}
+        </FilterGroup>
+        <FilterGroup title="분류" scroll>
+          {categories.map((c) => (<Check key={c} group="category" value={c} label={c} />))}
+        </FilterGroup>
+        <FilterGroup title="검수상태">
+          {REVIEWED.map((r) => (<Check key={r} group="reviewed" value={r} label={r} />))}
+        </FilterGroup>
       </aside>
 
       <section className={styles.content}>
@@ -302,40 +284,33 @@ export default function Explorer({ docs }: { docs: DocMeta[] }) {
           </div>
         </div>
 
-        <ul className={styles.list} ref={listRef}>
+        <ResultList listRef={listRef} empty={total === 0 ? "조건에 맞는 문서가 없어요." : null}>
           {pageItems.map((d) => {
             const snip = snippetOf(d);
             return (
-            <li key={d.slug}>
-              <button className={styles.row} onClick={() => setOpenSlug(d.slug)}>
-                <span className={styles.regno}>{d.regNo || "—"}</span>
-                <span className={styles.main}>
-                  <span className={styles.title}>{markTitle(d.title)}</span>
-                  <span className={styles.sub}>
-                    <span className={styles.chip} data-section={d.section}>
-                      {SECTION_LABEL[d.section]}
-                    </span>
-                    {d.category ? <span className={styles.tag}>{d.category}</span> : null}
-                    {d.articleCount > 0 ? <span className={styles.tag}>{d.articleCount}개 조문</span> : null}
-                  </span>
-                  {snip ? <span className={styles.snippet}>📄 {snip}</span> : null}
-                </span>
-                <span className={styles.right}>
-                  <span className={styles.date}>{d.revised || "—"}</span>
-                  <span
-                    className={
-                      d.reviewed === "검수완료" ? `${styles.badge} ${styles.badgeOk}` : styles.badge
-                    }
-                  >
-                    {d.reviewed || "미검수"}
-                  </span>
-                </span>
-              </button>
-            </li>
+              <ResultRow
+                key={d.slug}
+                lead={d.regNo || "—"}
+                title={markTitle(d.title)}
+                chips={
+                  <>
+                    <RowChip section={d.section}>{SECTION_LABEL[d.section]}</RowChip>
+                    {d.category ? <RowTag>{d.category}</RowTag> : null}
+                    {d.articleCount > 0 ? <RowTag>{d.articleCount}개 조문</RowTag> : null}
+                  </>
+                }
+                snippet={snip ? `📄 ${snip}` : undefined}
+                right={
+                  <>
+                    <RowDate>{d.revised || "—"}</RowDate>
+                    <RowBadge ok={d.reviewed === "검수완료"}>{d.reviewed || "미검수"}</RowBadge>
+                  </>
+                }
+                onClick={() => setOpenSlug(d.slug)}
+              />
             );
           })}
-          {total === 0 ? <li className={styles.empty}>조건에 맞는 문서가 없어요.</li> : null}
-        </ul>
+        </ResultList>
       </section>
 
       <DocDrawer slug={openSlug} onClose={() => setOpenSlug(null)} />
