@@ -3,7 +3,6 @@ import { api, ApiError, type DirectoryUser } from "../../lib/api";
 import PagedList from "../common/PagedList";
 import DataTable from "../common/DataTable";
 import SearchInput from "../common/SearchInput";
-import Section from "../common/Section";
 import styles from "../../styles/Admin.module.css";
 
 /** 관리자 · 사용자 목록(docs/29 §4, flag user_directory).
