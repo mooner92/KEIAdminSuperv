@@ -300,6 +300,12 @@ def iter_chunks(vault: Path, layer: str = "main"):
         if md.stem in excluded:   # 관리자 제외(P1) — soft skip
             continue
         meta, body = split_frontmatter(md.read_text(encoding="utf-8"))
+        # 색인제외 선언(specs/02 Full-Vault): 원문 파생 뷰 노트(정의어 사전 등)는 **둘러보기 전용**.
+        # 본문이 이미 색인된 조문의 복사라 RAG에 넣으면 진짜 근거를 밀어낸다(실측: Hit@1 80→68,
+        # Hit@5 92→86 — 2026-07-25 v3 A/B). 정의형 질문은 defterm_route가 원문 조문으로 답한다.
+        # ⚠ split_frontmatter는 순수 파서라 인라인 주석(`true  # 사유`)을 값에 남긴다 — 앞 토큰만 본다.
+        if str(meta.get("색인제외", "")).split("#")[0].strip().lower() in ("true", "yes", "1", "예"):
+            continue
         typ = meta.get("type", "")
         rel = str(md.relative_to(vault))
         if layer == "uplaw":
