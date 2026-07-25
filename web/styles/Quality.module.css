@@ -85,3 +85,13 @@
 .srcLink { font-size: 12.5px; font-weight: 700; color: var(--color-primary); }
 .srcLink:hover { text-decoration: underline; }
 .emptyRow { color: var(--color-text-tertiary); text-align: center; padding: 20px 0; font-size: 13px; }
+
+/* 추이 카드 제목 줄의 '모든 테스트 결과 보기' 링크(2026-07-25 — 날짜가 쌓여도 메인은 7일만) */
+.moreLink {
+  float: right;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--color-primary-strong);
+  text-decoration: none;
+}
+.moreLink:hover { text-decoration: underline; }
