@@ -5,6 +5,7 @@ import PagedList from "./common/PagedList";
 import SearchInput from "./common/SearchInput";
 import { FilterGroup, FilterCheck, FilterSearch, FilterEmpty } from "./common/BrowseFilter";
 import ResultRow, { ResultList, RowTag, RowAction, RowBadge } from "./common/ResultRow";
+import FormPreviewDrawer from "./forms/FormPreviewDrawer";
 import { useFlag } from "../lib/flags";
 import { track } from "../lib/track";
 import type { FormEntry } from "../lib/vault"; // ⚠ loadForms(fs)는 페이지 getStaticProps에서만 — 클라 번들 안전
@@ -23,6 +24,7 @@ export default function FormsView({ forms }: { forms: FormEntry[] }) {
   const [q, setQ] = useState("");
   const [regFilter, setRegFilter] = useState<Set<string>>(new Set()); // 규정명 필터(체크박스)
   const [regQ, setRegQ] = useState(""); // 필터 패널 내 규정 검색
+  const [preview, setPreview] = useState<FormEntry | null>(null); // 우측 미리보기 패널(페이지 이동 없이 PDF 확인)
   // 사용량(docs/35): 검색은 1.2s 디바운스 1건 — 검색어 자체는 보내지 않음
   useEffect(() => {
     if (!q.trim()) return;
@@ -114,7 +116,10 @@ export default function FormsView({ forms }: { forms: FormEntry[] }) {
                 <ResultRow
                   key={`${e.slug}#${e.호}`}
                   lead={e.호 || "—"}
-                  title={e.서식명}
+                  title={
+                    <button type="button" className={f.titleBtn} onClick={() => setPreview(e)}
+                      title="미리보기 — 오른쪽에서 서식을 바로 확인">{e.서식명}</button>
+                  }
                   chips={
                     <>
                       <RowTag>{e.규정명}</RowTag>
@@ -127,6 +132,9 @@ export default function FormsView({ forms }: { forms: FormEntry[] }) {
                   }
                   right={
                     <>
+                      {e.pdf ? (
+                        <RowAction onClick={() => setPreview(e)} title="오른쪽 패널에서 미리보기">👁 미리보기</RowAction>
+                      ) : null}
                       {e.pdf ? (
                         <RowAction href={e.pdf} download
                           title={e.구분 === "연구관리" ? "PDF 미리보기 — 어떻게 생긴 양식인지 바로 확인" : "이 별지만 담긴 원문 PDF"}>PDF ↓</RowAction>
@@ -151,6 +159,7 @@ export default function FormsView({ forms }: { forms: FormEntry[] }) {
           )}
         </PagedList>
       </BrowseShell>
+      <FormPreviewDrawer entry={preview} onClose={() => setPreview(null)} />
     </>
   );
 }
