@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Section from "../common/Section";
 import { api, type Usage } from "../../lib/api";
 import DataTable from "../common/DataTable";
 import styles from "../../styles/Admin.module.css";
@@ -127,9 +128,8 @@ export default function AdminUsage() {
   }, [usage]);
 
   return (
-    <section>
-      <h2 className={styles.h2}>📈 사용량 통계 <span className={styles.dashDays}>
-        집계만 표시 — 개별 행위 미노출 · {usage?.min_users ?? 3}명 미만은 가림(k-익명)</span></h2>
+    <Section icon="📈" title="사용량 통계"
+      desc={`집계만 표시 — 개별 행위 미노출 · ${usage?.min_users ?? 3}명 미만은 가림(k-익명)`}>
 
       {/* 필터 한 줄 — 기간 프리셋이 아래 전부를 스코프 */}
       <div className={u.filterRow}>
@@ -210,6 +210,6 @@ export default function AdminUsage() {
           </details>
         </>
       )}
-    </section>
+    </Section>
   );
 }

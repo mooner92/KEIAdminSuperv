@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Section from "../common/Section";
 import { api, ApiError, type DirectoryUser } from "../../lib/api";
 import PagedList from "../common/PagedList";
 import DataTable from "../common/DataTable";
@@ -52,10 +53,8 @@ export default function AdminUsers() {
     .sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
 
   return (
-    <section aria-label="사용자 목록">
-      <p className={styles.muted}>
-        총 {rows.length}명{pending > 0 ? ` · ⏳ 승인 대기 ${pending}명` : ""} · 🔒 목록·활동 메타만 표시됩니다 — 사용자의 채팅 내용은 관리자도 볼 수 없습니다.
-      </p>
+    <Section icon="👥" title="사용자" badge={pending || undefined}
+      desc={<>총 {rows.length}명{pending > 0 ? ` · ⏳ 승인 대기 ${pending}명` : ""} · 🔒 목록·활동 메타만 표시됩니다 — 사용자의 채팅 내용은 관리자도 볼 수 없습니다.</>}>
       {err ? <div className={styles.err}>{err}</div> : null}
       <PagedList items={filtered} sizes={[10, 30, 50]} unit="명" note="최신 가입순" resetKey={kw}
         empty="일치하는 사용자가 없어요."
@@ -84,6 +83,6 @@ export default function AdminUsers() {
       />
         )}
       </PagedList>
-    </section>
+    </Section>
   );
 }
