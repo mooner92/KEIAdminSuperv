@@ -87,6 +87,7 @@ KEI(한국환경연구원) 행정 초보(신입·전입자)가 "이 업무 어�
 - 조문정제(Track A, 원문 재마이닝·재임베딩 불필요, 01b 다음·02 전): 공통 파서 `tools/vault_parse.py`.
   - 참조그래프: `python tools/01i_clause_xref.py --vault KEI-행정가이드`  (조문↔조문 준용·인용·별표 → `tools/index/clause_xref.json`. reg 확장 보강 + 드로어 준용칩 + Track C 기반)
   - 정의어:   `python tools/01j_defterms.py --vault KEI-행정가이드`  (규정 원문 정의 바인딩 + 교차 정의충돌 → `defterms.json`)
+  - 정의어 노트: `python tools/01z_defterm_notes.py --vault KEI-행정가이드`  (01j 다음 — defterms를 `30_용어집/규정정의/` 용어 노트 194종 + 허브 '규정 용어 사전'으로 물질화, specs/02 Full-Vault. 정의 원문 복사·출처 위키링크·충돌 병기, 검수완료 노트 보존·멱등. ⚠ 노트는 `색인제외: true` 선언 → **02가 RAG 색인에서 스킵**(원문 조문 복사라 색인 시 진짜 근거를 밀어냄 — 실측 Hit@5 91→84). 둘러보기·용어 툴팁에만 노출)
   - 조문효력: `python tools/01k_article_status.py --vault KEI-행정가이드`  (삭제조문·개정시계열 → `article_status.json`. rag_core 삭제 강등·효력배지)
   - 그래프분석(Track C, 01i 다음): `python tools/01l_graph_analytics.py`  (clause_xref 소비 → `graph_analytics.json`: 개정 파급(reverse 전이폐포)·함께 보는 조문(공동인용)·고립노드. 드로어 `graph_impact` 플래그)
   - 기한(Track B): `python tools/01m_deadlines.py --vault KEI-행정가이드`  (원문 상대기한 ‹기준›+N일 이내 → `deadlines.json`. 드로어 '이 규정의 기한' 패널서 기준일→마감일 순수산술 계산+.ics, `deadline_calc` 플래그. 오프셋 원문 그대로·추측 없음)
