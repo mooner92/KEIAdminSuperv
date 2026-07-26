@@ -31,14 +31,40 @@ MUST_REFUSE = [
 ]
 
 
+# 골든 보존 판정의 노이즈 축(2026-07-25 실측): 답변이 **정확한데도** 표현을 다듬으면
+# 2-그램 보존률이 임계 근처로 떨어져 거짓 회귀가 난다(예: 임금피크 연차 문항 54% vs 임계 55%
+# — 답변은 근거·결론 모두 정확). 순수 2-그램은 "같은 말을 다르게 쓴 것"에 취약하다.
+# ⟹ 두 축 중 **하나만 만족해도 보존**으로 본다:
+#    ① 2-그램 보존률 ≥ COVER_MIN(느슨하게 0.5)
+#    ② **핵심어 보존**: 골든에서 뽑은 내용어(숫자·2자+ 명사구)의 80%+가 답변에 존재
+#       — 조사·어미 차이에 둔감하고, 값·고유어가 빠지면 여전히 잡아낸다.
+COVER_MIN = 0.5
+KEY_MIN = 0.8
+_STOP = {"경우", "때에", "때는", "대하여", "관하여", "따라", "따른", "등의", "등을", "있다", "한다",
+         "하는", "하여", "되는", "위한", "이하", "다음", "각호", "각목", "제항", "그리고", "또는"}
+
+
+def _keywords(text: str) -> set:
+    """내용어 근사 — 숫자 토큰 + 2자 이상 한글/영문 덩어리(불용어 제외)."""
+    toks = set(re.findall(r"\d[\d,.]*|[가-힣A-Za-z]{2,}", text or ""))
+    return {t for t in toks if t not in _STOP}
+
+
 def golden_hit(answer: str, golden: str) -> bool:
-    """골든 문장의 핵심 2-그램이 답변에 60%+ 존재하면 '핵심 보존'."""
+    """골든의 핵심이 답변에 남아 있는가 — 2-그램 또는 핵심어 중 하나만 만족해도 보존."""
     g = norm_q(golden)
     if len(g) < 8:
         return True
     gg = {g[i:i + 2] for i in range(len(g) - 1)}
     a = norm_q(answer)
-    return sum(1 for x in gg if x in a) / max(1, len(gg)) >= 0.55
+    cover = sum(1 for x in gg if x in a) / max(1, len(gg))
+    if cover >= COVER_MIN:
+        return True
+    keys = _keywords(golden)
+    if not keys:
+        return False
+    hit = sum(1 for k in keys if k in (answer or ""))
+    return hit / len(keys) >= KEY_MIN
 
 
 def main() -> int:

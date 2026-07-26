@@ -10,7 +10,7 @@ export const FLAG_DEFAULTS: Record<string, boolean> = {
   forms_registry: false, // docs/34 ①: /forms 서식 찾기 (release, 만료 2026-12-31)
   chat_stop: false, // docs/34 ③: 채팅 ■ 중단 버튼+2단계 대기 표시 (release, 만료 2026-12-31)
   term_tooltips: false, // docs/45: 용어 인라인 툴팁(점선 밑줄→정의 팝오버). 안전 기본=off(서버 기본은 on)
-  events_tab: false, // docs/35: 지금 KEI에서(/now)+업무 캘린더(/calendar) — GNB 탭+페이지 (release, 만료 2026-12-31)
+  events_tab: false, // docs/35: 업무 도구(/now, 옛 이름 "지금 KEI에서")+업무 캘린더(/calendar) — GNB 탭+페이지 (release, 만료 2026-12-31)
   usage_analytics: false, // docs/35 §0: 기능 사용량 수집(allowlist·집계만) (release, 만료 2026-12-31)
   landing_page: false, // docs/36: 소개(랜딩) — /about + 비로그인 홈 컴팩트 히어로 (release, 만료 2026-12-31)
   signup_open: false, // docs/29 §3: 즉시 가입(KEI 이메일 형식만 확인·승인 없음) (release, 만료 2026-12-31)
@@ -26,6 +26,7 @@ export const FLAG_DEFAULTS: Record<string, boolean> = {
   answer_anatomy: false, // docs/38 §B: 답변 해부 레이아웃(핵심답 콜아웃+절차 스테퍼, CSS 데코만·문구 불변) (release, 만료 2026-12-31)
   deadlines_hub: false, // docs/57: 기한 사전 /deadlines(전 규정 상대기한 역방향 브라우저+계산·.ics) (release, 만료 2026-12-31)
   reader_glass: false, // docs/59: 리퀴드글라스 돋보기(문서 읽을 때 커서 확대 + SVG 굴절 rim) (release, 만료 2026-12-31)
+  impact_analysis: false, // specs/05: 개정 영향 분석(/impact) — dev 검증 후 on
   quality_board: false, // docs/58: 품질 게시판 /quality(일일 자가평가 정답률·약점지도·문항열람) (release, 만료 2026-12-31)
   faq_bridge: false, // docs/58 §6: FAQ 브리지 /admin 탭(검색실패 오답 후보 → 사람 승인 편입) (release, 만료 2026-12-31)
   help_hub: false, // docs/31: 도움말 허브(잘 묻는 법·FAQ·푸터 FAQ 링크) (release, 만료 2026-12-31)

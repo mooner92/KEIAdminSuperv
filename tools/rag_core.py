@@ -62,6 +62,14 @@ ARTICLE_STATUS = os.environ.get("RAG_ARTICLE_STATUS", "1") not in ("0", "", "fal
 CLAUSE_XREF = os.environ.get("RAG_CLAUSE_XREF", "1") not in ("0", "", "false", "False")
 # 정의형 질문 결정적 라우팅(specs/01 P3): "X란?"류 → defterms.json(01j) 정의 조문 자동첨부. 기본 on.
 DEFTERM_ROUTE = os.environ.get("RAG_DEFTERM_ROUTE", "1") not in ("0", "", "false", "False")
+# 금액 판정 라우팅(specs/06 D3): "370만원 구매 전결?"류 → amount_rules(01r2) 결정적 판정 첨부.
+# A/B 실측(2026-07-26): 완전 동률(68/86·손실0)·게이트 6/6(수치 이중경고 없음) → 기본 on.
+AMOUNT_ROUTE = os.environ.get("RAG_AMOUNT_ROUTE", "1") not in ("0", "", "false", "False")
+_AMOUNT_Q_RE = re.compile(r"(전결|결재|승인|일상감사|집행|지출|구매|계약|법인카드|업무추진비|가지급)")
+# 개정 영향 라우팅(specs/05 D3): "제N조 바뀌면 뭐가 영향?"류 → impact_by_article(01l) 결정적 첨부.
+# A/B 실측(2026-07-26): 일반 질문 완전 동률(68/86·손실0 — 패턴 게이트 무개입)·게이트 6/6 → 기본 on.
+IMPACT_ROUTE = os.environ.get("RAG_IMPACT_ROUTE", "1") not in ("0", "", "false", "False")
+_IMPACT_Q_RE = re.compile(r"(개정|바뀌|변경|고치|수정)[^.]{0,24}(영향|파급|어디|무엇|뭐)|(영향|파급)[^.]{0,12}(받|미치|주)")
 # 정의형 패턴 게이트(오폭 방지) — 용어 스캔은 이 패턴이 잡힐 때만 수행.
 _DEF_Q_RE = re.compile(r"(?:이?란|라는\s*게|라는\s*것)\s*(?:무엇|뭐|뭔)|의\s*(?:정의|뜻|의미)|(?:정의|뜻|의미)(?:가|는|이)?\s*(?:무엇|뭐|뭔)")
 
@@ -1150,6 +1158,19 @@ def _ensure_defterms():
     return _state["defterms"]
 
 
+def _ensure_impact():
+    """graph_analytics.impact_by_article(01l) 1회 캐시 — specs/05 D3 개정 영향 라우팅용."""
+    if "impact" not in _state:
+        with _lock:
+            if "impact" not in _state:
+                try:
+                    with open(os.path.join(INDEX_DIR, "graph_analytics.json"), encoding="utf-8") as f:
+                        _state["impact"] = json.load(f).get("impact_by_article", {})
+                except Exception:  # noqa: BLE001
+                    _state["impact"] = {}
+    return _state["impact"]
+
+
 def _ensure_article_index():
     """(규정명, 제N조) → 조문 청크 id 정방향 인덱스. 규정↔규정 1홉 확장(reg_refs 대상 조회)용. 1회 캐시."""
     if "art_idx" not in _state:
@@ -1500,6 +1521,59 @@ def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None
                     blocks.insert(0, f"[{s2['tag']} · 용어 정의: {t}(자동첨부)]\n{d2}")
         except Exception as e:  # noqa: BLE001 — 라우팅 실패는 기본 회수로 우아하게 강등
             print(f"⚠ 정의어 라우팅 실패(무시): {e}")
+
+    # 금액 판정 라우팅(specs/06 D3, RAG_AMOUNT_ROUTE): 금액+절차 질문에 amount_judge의 결정적
+    # 판정을 근거 맨 앞 첨부 — 판정·근거(별표 원문행)는 룰 테이블 그대로, LLM은 서술만(환각 0).
+    if AMOUNT_ROUTE and _AMOUNT_Q_RE.search(query):
+        try:
+            import amount_judge as _aj
+            amt = _aj.parse_amount(query)
+            tasks = _aj.find_tasks(query) if amt is not None else []
+            if amt is not None and tasks:
+                r = _aj.judge(tasks[0], amt)
+                if r.get("상태") == "판정":
+                    lines = [f"[금액 전결 판정 — 위임전결규정 별표(결정적 조회)]",
+                             f"· 업무: {r['업무']} · 금액 {amt:,}원 → 구간 '{r['구간표기']}'",
+                             f"· 전결권자: {r['전결권자']}" + (f" · 협의: {r['협의']}" if r.get("협의") else "")
+                             + (" · 원장 결재" if r.get("원장") else ""),
+                             f"· 근거 원문행: {r['근거'].get('원문행','')}",
+                             "⚠ 공식 전결기준(별표 원문 그대로) — 실제 결재선(중간 검토자)은 부서 확인."]
+                    s2 = {"tag": "위임전결규정 별표 · 금액 판정", "규정명": "위임전결규정", "조": "별표",
+                          "분류": "", "snippet": lines[1], "amount_route": True}
+                    srcs.insert(0, s2)
+                    blocks.insert(0, "\n".join(lines))
+        except Exception as e:  # noqa: BLE001 — 라우팅 실패는 기본 회수로 우아하게 강등
+            print(f"⚠ 금액 판정 라우팅 실패(무시): {e}")
+
+    # 개정 영향 라우팅(specs/05 D3, RAG_IMPACT_ROUTE): "이 조 바뀌면 뭐가 영향?"류 질문에
+    # impact_by_article(01l·결정적 그래프)을 근거 블록으로 첨부 — 목록은 인덱스 그대로(LLM 무관·환각 0),
+    # LLM은 서술만. 조키는 질문에서 '규정명…제N조' 최장 매칭.
+    if IMPACT_ROUTE and _IMPACT_Q_RE.search(query):
+        try:
+            imp = _ensure_impact()
+            qn = re.sub(r"\s+", "", query)
+            best = ""
+            for key in imp:
+                reg, jo = key.split("#", 1)
+                if reg.replace(" ", "") in qn and jo in qn and len(key) > len(best):
+                    best = key
+            if best:
+                v = imp[best]
+                lines = [f"[개정 영향 분석 — {best.replace('#', ' ')} 를 인용·준용하는 곳(01l 그래프, 확인 후보)]"]
+                for fld, lab in (("direct", "직접 인용"), ("transitive", "간접(전이)"),
+                                 ("guides", "가이드·안내"), ("forms", "별표·서식"), ("deadlines", "기한")):
+                    xs = v.get(fld) or []
+                    if xs:
+                        lines.append(f"· {lab}({len(xs)}): " + ", ".join(str(x) for x in xs[:10])
+                                     + (" 외" if len(xs) > 10 else ""))
+                lines.append("⚠ 위 목록은 그래프 기반 확인 후보이며 수정 대상 확정이 아님 — /impact 화면에서 상세 확인.")
+                reg = best.split("#")[0]
+                s2 = {"tag": f"{best.replace('#', ' ')} · 개정 영향", "규정명": reg, "조": best.split("#")[1],
+                      "분류": "", "snippet": lines[1] if len(lines) > 1 else "", "impact_route": True}
+                srcs.insert(0, s2)
+                blocks.insert(0, "\n".join(lines))
+        except Exception as e:  # noqa: BLE001 — 라우팅 실패는 기본 회수로 우아하게 강등
+            print(f"⚠ 개정영향 라우팅 실패(무시): {e}")
 
     # 행위 흐름 1홉 확장(플래그 graph_expand_actions): 신청 화면 회수 시 의무적 후속 단계(정산·결과보고) 첨부.
     if _graph_expand_actions_on() and chosen:
