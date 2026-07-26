@@ -95,3 +95,11 @@
   text-decoration: none;
 }
 .moreLink:hover { text-decoration: underline; }
+
+/* 이력 표의 날짜 = 그날 상세 패널 트리거(specs/07 C) */
+.dateBtn {
+  font: inherit; font-weight: 600; color: var(--color-primary-strong);
+  background: none; border: none; padding: 0; cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.dateBtn:hover { text-decoration: underline; }
