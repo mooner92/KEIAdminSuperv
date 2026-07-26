@@ -35,12 +35,23 @@ def main() -> int:
         for attempt in range(2):  # 빈 답변/오류 시 1회 재시도(일시적 서버 부하 대비)
             try:
                 t = time.time()
-                r = rag_answer(q["질문"])
-                if r["content"].strip():
-                    ans = {"id": q["id"], "답변": r["content"],
+                # 복합 시나리오의 멀티턴(specs/07 A): 턴을 **서비스와 같은 경로**로 이어 물어야
+                # condense_query(맥락 유지) 회귀가 평가에 편입된다. 근거·답변은 턴별로 모아둔다.
+                turns = q.get("턴") or [q["질문"]]
+                hist, outs, srcs = [], [], []
+                for tq in turns:
+                    r = rag_answer(tq, history=hist)
+                    outs.append(r["content"])
+                    srcs += r["x_sources"]
+                    hist.append((tq, r["content"]))
+                content = "\n\n".join(o for o in outs if o.strip())
+                if content.strip():
+                    ans = {"id": q["id"], "답변": content,
                            "x_sources": [{k: s.get(k) for k in ("규정명", "조", "snippet")}
-                                         for s in r["x_sources"][:8]],
+                                         for s in srcs[:8]],
                            "소요": round(time.time() - t, 1)}
+                    if len(turns) > 1:
+                        ans["턴답변"] = outs
                     break
             except Exception as ex:  # noqa: BLE001
                 print(f"  ⚠ [{q['id']}] 시도{attempt+1} {ex}", file=sys.stderr)

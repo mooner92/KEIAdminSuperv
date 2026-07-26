@@ -266,3 +266,7 @@
   .row { grid-template-columns: 1fr; gap: 8px; padding: 14px var(--space-4); }
   .right { justify-content: flex-start; }
 }
+
+/* 결재선: 검색 + 금액 입력 한 줄(specs/06 D2) — 좁은 화면에선 자연 줄바꿈 */
+.searchRow { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.searchRow > :first-child { flex: 1 1 320px; min-width: 240px; }

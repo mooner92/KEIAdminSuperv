@@ -16,6 +16,8 @@ import json
 import re
 import sys
 
+import axes  # 결정적 축 채점(specs/07 B)
+import scenarios  # 복합 시나리오 채점(specs/07 A)
 from daily_common import DAILY_DIR, ROOT, chroma_col, llm_json, load_bank, norm_q, save_bank
 
 sys.path.insert(0, str(ROOT / "tools"))
@@ -47,6 +49,22 @@ def get_chunk(cid: str, col) -> str:
         return r["documents"][0] if r["documents"] else ""
     except Exception:  # noqa: BLE001
         return ""
+
+
+# 근거가 질문 사안을 '직접 규율'하는지 판단할 때 무시할 일반어 — 이런 말은 어느 근거에나 있어
+# governed를 남발시킨다(거부형 오답을 전부 삼켜 과잉응답 감시가 죽는다).
+_GENERIC = {"방법", "요청", "경우", "절차", "규정", "기준", "관련", "사항", "내용", "확인", "가능",
+            "신청", "처리", "이용", "사용", "어디", "무엇", "누구", "언제", "얼마", "지급", "관리"}
+
+
+def _governed(question: str, srcs: list) -> bool:
+    """거부형 문항에서 — 회수된 근거가 질문의 **고유 사안어**를 담고 있는가(결정적).
+    담고 있으면 '코퍼스 밖'이라는 시드 가정이 틀렸을 수 있으므로 오답으로 단정하지 않는다."""
+    keys = [w for w in re.findall(r"[가-힣]{2,}", question) if w not in _GENERIC]
+    if not keys:
+        return False
+    blob = " ".join((s.get("snippet") or "") + (s.get("규정명") or "") for s in (srcs or [])[:3])
+    return any(k in blob for k in keys)
 
 
 def classify_cause(item, golden: str) -> str:
@@ -83,12 +101,40 @@ def main() -> int:
             item.update({"판정": "판정불가", "증거": "답변 수집 실패"})
             results.append(item)
             continue
-        # 거부형 — 결론부가 거부 계열이면 정답(T9: 꼬리 부가문구·긍정문 오탐 제거)
+        # 복합 시나리오 — 근거가 여러 개다. 골든별 개별 대조(결정적)로 채점하고,
+        # 멀티턴이면 후속 턴에서 맥락을 잃었는지(거부로 새는지)까지 본다.
+        if q.get("형식") == "복합":
+            판정, 증거, 원인 = scenarios.grade_scenario(q, 답변)
+            turns = a.get("턴답변") or []
+            if 판정 == "정답" and len(turns) > 1 and is_refusal(turns[-1]):
+                판정, 증거, 원인 = "부분", "후속 턴에서 맥락을 잃고 거부함(멀티턴 회귀)", "검색실패"
+            item.update({"판정": 판정, "증거": 증거, "원인": 원인})
+            results.append(item)
+            continue
+        # 축 문항 — 파생 인덱스가 정답을 이미 가지고 있으므로 **LLM 없이** 결정적으로 채점한다.
+        # (채점기 오판이 개선 방향을 오도한 T7·T9 계열 사고가 이 축들에선 구조적으로 불가능)
+        if q.get("축"):
+            판정, 증거, 원인 = axes.grade(q, 답변)
+            item.update({"판정": 판정, "증거": 증거, "원인": 원인})
+            results.append(item)
+            continue
+        # 거부형 — 결론부가 거부 계열이면 정답(T9: 꼬리 부가문구·긍정문 오탐 제거).
+        # ⚠ 2026-07-26: "정답=거부"라는 **시드 가정 자체가 검증된 적이 없었다**. 볼트 전수 감사
+        #   결과 시드 20개 중 16개가 코퍼스에 언급이 있었고, '탕비실 커피머신 수리'는 물품 지침
+        #   제15조가 실제로 규율한다(모델이 정확히 인용해 답했는데 오답으로 집계됨).
+        #   → 거부하지 않은 답을 **일률적으로 오답 처리하지 않는다**(T7·T9와 같은 계열의 측정 오류).
         if q["유형"] == "거부형":
-            ok = is_refusal(답변)
-            item.update({"판정": "정답" if ok else "오답",
-                         "증거": "" if ok else "코퍼스에 없는 주제인데 거부하지 않고 답변함(환각 위험)",
-                         "원인": None if ok else "생성환각"})
+            if is_refusal(답변):
+                item.update({"판정": "정답", "증거": "", "원인": None})
+            elif _governed(q["질문"], a.get("x_sources", [])):
+                item.update({"판정": "검토필요",
+                             "증거": "거부하지 않았으나 인용 근거가 질문 사안을 실제로 규율할 수 있음 "
+                                   "— 시드('코퍼스 밖') 가정 재검토 필요",
+                             "원인": "시드재검토"})
+            else:
+                item.update({"판정": "오답",
+                             "증거": "코퍼스에 없는 주제인데 근거 없이 답변함(환각)",
+                             "원인": "생성환각"})
             results.append(item)
             continue
         golden = get_chunk((q.get("출처") or {}).get("청크id", ""), col)

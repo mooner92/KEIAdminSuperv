@@ -1,123 +1,177 @@
-# KEI 행정 가이드 — 디자인 시스템 (Design System)
+# 호롱(Horong) 디자인 시스템 — 정본
 
-> 사내 웹 서비스의 UI를 **일관되게** 만들고 유지하기 위한 원칙·토큰·컴포넌트 규약.
-> 기반: **자체 토큰 시스템(원자 팔레트 = KRDS 공식 토큰 값) + Pretendard GOV** + **Next.js**. 코드: [`../web/`](../web/).
-> ⚠ 2026-07 TDS(Toss Design System) 완전 제거 — 라이선스 무명시(docs/37 D1). 아래 이력 항목의 TDS 언급은 당시 기록.
-
----
-
-## 0. 기술 스택 (확정)
-- **Next.js 14 (Pages Router)** + TypeScript. 전사 방침: 원내 서비스는 Next.js로 개발.
-- **정적 export**(`output: "export"`) → `web/server.js`(PM2 `kei-guide`, 0.0.0.0:3100) 또는 `nginx 127.0.0.1` → Cloudflare Zero Trust(사내 전용). 서버 런타임 불필요.
-- **LLM(RAG 채팅)**: 클라이언트가 같은 오리진 `/api/*`(정적 서버가 로컬 LLM API `127.0.0.1:9000`로 리버스 프록시)로 호출 → 정적 export를 유지하면서 동적 답변. 생성=격리 Ollama v0.31.1(Qwen3.5-9B, GGUF Q4_K_M), 검색=KURE-v1+Chroma.
-- **로그인·채팅기록·멀티턴·스트리밍**: `/api/app/*`(SQLite/SQLModel + bcrypt·PyJWT httpOnly 쿠키). 답변(메시지)마다 근거 조문을 저장해 지난 답변의 근거를 다시 볼 수 있다. 답변은 **SSE로 타자치듯 스트리밍**(`?stream=1`: `meta`→`delta`→`done`), 근거가 먼저 뜨고 본문이 흐른다.
-- **UI 라이브러리 없음**: 컴포넌트 전부 자체 구현(검색 입력=`SearchInput`). 서체 Pretendard GOV(SIL OFL) self-host. React 18 고정.
-- 스타일: **CSS 변수 토큰 + CSS Modules**(SSG 안전). 콘텐츠 렌더는 `react-markdown` + `remark-gfm`.
-  - Pages Router 유지: 정적 export(SSG)와 마찰이 적다.
+> 사내 웹 서비스(`web/`)의 UI를 **일관되게** 만들고 유지하기 위한 **원칙 · 토큰 · 컴포넌트 규약**.
+> 기반: 자체 토큰 시스템 + Pretendard GOV self-host + Next.js 14(Pages Router) · 외부 UI 라이브러리 0.
+>
+> **정본 지도** — 같은 사실은 한 곳에만 둔다(docs/53).
+> | 무엇 | 어디 |
+> |---|---|
+> | 원칙·규약(이 문서) | `docs/design-system.md` |
+> | 토큰 **실제 값** | [`../web/styles/globals.css`](../web/styles/globals.css) — 코드가 정본, 아래 표는 요약 |
+> | 디자인 원본(시안·핸드오프) | [`../design/horong/`](../design/horong/) — 2026-07-24 스냅샷 |
+> | 화면·기능 목록 | `CLAUDE.md` |
+>
+> ⚠ 2026-07 TDS(Toss Design System) 완전 제거 — 라이선스 무명시(docs/37 D1). 아래 이력의 TDS 언급은 당시 기록.
 
 ---
 
-## 1. 디자인 원칙
-1. **가독성 우선.** 밀집 표(legacy)를 버리고 여백·계층·타이포로 "읽기 쉬움"을 만든다. 한 행 = 한 문서, 메타데이터는 보조.
-2. **원자 팔레트 위에.** 색은 KRDS 공식 토큰 값을 원자로 쓰고(github.com/KRDS-uiux/krds-uiux), 그 위에 **KEI 시맨틱 토큰**을 얹는다.
-3. **시맨틱 토큰만 본다.** 컴포넌트는 `--blue500` 같은 원자색을 직접 쓰지 않고 `--color-primary` 같은 **의미 토큰**만 참조한다. → 브랜드 컬러 교체가 한 곳에서 끝난다.
-4. **데스크톱 우선 반응형.** 주 사용 환경은 데스크톱(밀집 정보). 모바일은 1열로 우아하게 무너진다.
-5. **내부 전용.** 외부 폰트/애널리틱스/CDN 의존을 피한다(시스템 한글 폰트 폴백, `noindex`). 데이터는 망 밖으로 안 나간다.
-6. **콘텐츠와 코드 분리.** 볼트(규정 마크다운)는 `web/` 밖에 있고 빌드타임 read-only로만 소비한다. UI 코드만 레포에 둔다.
+## 1. 디자인 원칙 (Principles)
+
+이 10개가 이 시스템의 헌법이다. 새 화면·컴포넌트를 만들 때 **먼저 이 목록에 비춰 본다.**
+
+### 기반 원칙
+
+**P1. 시맨틱 토큰만 본다.**
+컴포넌트는 `--blue500` 같은 원자색을 직접 쓰지 않고 `--color-primary` 같은 **의미 토큰**만 참조한다.
+브랜드 교체가 `globals.css` 한 블록에서 끝나야 한다 — 실제로 KRDS 블루 → 호롱 엠버 전환이 이 원칙 덕에
+토큰 블록 교체만으로 전 화면에 반영됐다. **하드코딩된 색은 회귀다.**
+
+**P2. 콘텐츠와 코드를 분리한다.**
+볼트(규정 마크다운)는 `web/` 밖에 있고 빌드타임 read-only로만 소비한다. 레포에는 UI 코드만 둔다.
+디자인 시안의 더미 데이터도 예외가 아니다 — 실제 규정 값이 섞이면 정제 후 반입한다.
+
+**P3. 가독성 우선.**
+밀집 표를 버리고 여백·계층·타이포로 "읽기 쉬움"을 만든다. 한 행 = 한 문서, 메타데이터는 보조.
+한글은 `word-break: keep-all`.
+
+**P4. 데스크톱 우선 반응형.**
+주 사용 환경은 데스크톱(밀집 정보). 모바일은 1열로 우아하게 무너지고, 하단 유리 탭바 3탭으로 전환된다.
+
+**P5. 내부 전용.**
+외부 폰트·애널리틱스·CDN 의존을 피한다(self-host, `noindex`). 데이터는 망 밖으로 나가지 않는다.
+
+### 호롱 브랜드 원칙 (2026-07-24)
+
+**P6. 소프트 미니멀 — 선이 아니라 톤으로 나눈다.**
+구획은 **여백 + 패널 톤(`--color-field-bg`) + 8% 헤어라인**으로 만든다.
+⛔ 1px 이상의 진한 보더·아웃라인 금지. 라운드 10/14/20(+알약 999), 그림자는 폭신하고 옅게.
+
+**P7. 그라데이션은 브랜드 모먼트 전용, 그리고 항상 2색.**
+쓸 수 있는 곳: **로고 · 히어로 워드 · 주 CTA · 활성 상태 1곳**. 그 외에는 단색 토큰을 쓴다.
+다색 스펙트럼(파랑→초록→노랑→주황)은 텍스트·CTA에서 산만해 **2색으로 고정**한다
+(`--hr-grad-flame` 주황→노랑 / `--hr-grad-leaf` 파랑→초록).
+유일 예외 = HorongMark 로고 심볼(브랜드 정체성이라 다색 유지).
+
+**P8. 색만으로 정보를 전달하지 않는다.**
+칩·배지는 텍스트를 병기한다(검수완료/미검수, 정답/오답). 본문 대비 AA 이상, `:focus-visible` 포커스 링 유지.
+
+### 구현 규약
+
+**P9. 화면별 CSS 사본을 만들지 않는다.**
+목록형 화면 4종(규정 찾기 문서·서식, 결재선, 기한 사전)은 **공용 스킨 1벌**을 쓴다
+(`common/BrowseUI.module.css` + `BrowseFilter` + `ResultRow`). 도메인 위젯은 `body` 슬롯으로 끼운다.
+⛔ 화면마다 목록 CSS를 복제하거나 테이블로 직접 렌더하지 않는다. 회귀 = `web/verify-browse-unify.mjs`.
+
+**P10. 레이아웃 패턴은 화면 성격에 맞춘다.**
+`BrowseShell`(필터 고정 + 목록만 스크롤)은 **fill 페이지의 '필터 + 스크롤 목록'**에만 쓴다.
+행마다 큰 위젯이 붙는 화면(기한 사전의 날짜 계산기)은 **페이지 전체 스크롤**이 옳다 —
+고정 필터가 오히려 불편하다. 공유 조각(`.hrCheck`·시맨틱 토큰·`PagedList`)은 전 화면 통일하되,
+레이아웃 패턴만 성격별로 분기한다.
 
 ---
 
-## 2. 컬러 토큰
-원자 팔레트(KRDS 값) → KEI 시맨틱 토큰. 정의: [`../web/styles/globals.css`](../web/styles/globals.css).
+## 2. 브랜드
 
-| 시맨틱 토큰 | 현재 매핑(KRDS 원자) | 용도 |
-|---|---|---|
-| `--color-primary` | `blue500` `#3182f6` | 주요 액션·링크·선택 |
-| `--color-text` / `-secondary` / `-tertiary` | `grey900/600/500` | 본문 / 보조 / 흐림 |
-| `--color-bg` / `-bg-subtle` | `#fff` / `grey50` | 페이지 / 옅은 배경 |
-| `--color-surface` | `#fff` | 카드·리스트 표면 |
-| `--color-border` / `-strong` | `grey200/300` | 구분선 |
-| `--color-success/warning/danger` | `green500/orange500/red500` | 상태(검수완료/미검수/경고) |
-| `--accent-규정집/가이드/용어집/시스템` | `blue/green/orange/violet`(시스템=`#8b5cf6`, 다크 `#a78bfa`) | 섹션 구분 칩(4개 섹션) |
-
-> [!tip] KEI 메인 컬러로 바꾸기
-> `globals.css`의 **시맨틱 토큰 블록만** 교체한다(예: `--color-primary: #<KEI색>`). 컴포넌트는 안 건드린다.
-> 라이트는 `:root`, 다크는 `[data-theme="dark"]` **두 블록**을 같이 손본다.
-
-### 2-1. 다크모드 · 테마 시스템
-- 선호: **라이트 · 다크 · 시스템(OS 따름)** 3단. `lib/theme.tsx`(컨텍스트)가 선호를 `localStorage`에 저장하고, 적용값을 `<html data-theme>`로 내려 `[data-theme="dark"]` 토큰을 분기한다. 헤더의 `ThemeToggle`로 순환.
-- 깜빡임(FOUC) 방지: `_document.tsx`의 인라인 스크립트가 **페인트 전에** `data-theme`를 설정.
-- 토큰만 바꾸면 끝(원칙 3): 다크는 `globals.css`의 `[data-theme="dark"]` 한 블록. 컴포넌트는 시맨틱 토큰만 보므로 자동 적응(배지·헤더·표 줄무늬 등도 `--badge-*`/`--color-header-bg`/`--color-code-bg`로 토큰화).
-- 자체 컴포넌트는 시맨틱 토큰만 참조하므로 별도 테마 래퍼 없이 라이트/다크 자동 전환.
+- **이름**: 호롱 (부제 "KEI 행정 가이드"). `lib/site.ts`의 `SITE_NAME`이 타이틀·브레드크럼 전역에 반영된다.
+- **심볼**: 잎이면서 물방울이면서 불꽃. 정적 물방울 실루엣 + 옅은 잎맥, 불은 그라데이션으로만 표현.
+  `web/components/common/HorongMark.tsx` — 같은 페이지에 여러 개 렌더되므로 `useId()`로 gradient id 충돌 방지.
+  파비콘도 동일 SVG(외부 에셋 0).
+- **IA 3탭**: 질문하기 `/` · 규정 찾기 `/browse` · 업무 도구 `/now`.
+  이전 7탭(그래프·결재선·업무 한 장·캘린더…)은 각 허브로 흡수 — **라우트는 살아 있다**(딥링크 보존).
 
 ---
 
-## 3. 타이포그래피 · 간격
-- 폰트: `Pretendard` → 시스템 한글 폰트 폴백. 본문 15.5px / 1.55–1.75. 한글은 `word-break: keep-all`.
-- 위계: 페이지 제목 26–28px/800, 섹션(제N조 등) 17–20px/700, 본문 15.5px.
-- 간격 스케일(4의 배수): `--space-1`(4) … `--space-8`(48). 모서리: `--radius-sm/md/lg` = 6/10/16.
-- 그림자: `--shadow-card`(은은) / `--shadow-pop`(팝오버).
+## 3. 토큰
+
+⚠ **값의 정본은 [`web/styles/globals.css`](../web/styles/globals.css)** — 라이트 `:root`, 다크 `[data-theme="dark"]`
+두 블록. 아래는 읽기용 요약이며, 코드와 어긋나면 코드가 맞다.
+
+| 시맨틱 토큰 | 라이트 | 다크 | 용도 |
+|---|---|---|---|
+| `--color-primary` | `#e06a12` | `#f2701d` | 엠버 — 단색 액션 |
+| `--color-primary-strong` | `#c9530b` | `#f5a24a` | 링크·강조 텍스트 |
+| `--color-primary-weak` | `#fdf0e4` | `rgba(249,168,37,.13)` | 옅은 강조 배경 |
+| `--color-bg` / `-bg-subtle` | `#ffffff` / `#fafaf7` | `#191b18` / `#151614` | 표면 / 페이지 그라운드(웜) |
+| `--color-surface` / `-hover` | `#ffffff` / `#f7f8f5` | `#1e201d` / `#242622` | 카드 |
+| `--color-field-bg` | `#f4f5f2` | `rgba(255,255,255,.06)` | 입력·패널 톤 |
+| `--color-border` / `-strong` | `rgba(28,30,28,.08)` / `.16` | `rgba(255,255,255,.07)` / `.14` | **헤어라인**(P6) |
+| `--color-text` / `-secondary` / `-tertiary` | `#1d1f1d` / `#6f7573` / `#a3a8a4` | `#f2f3f0` / `#a6aca7` / `#6f7571` | 본문 / 보조 / 흐림 |
+| `--color-success` / `-warning` / `-danger` | `#35906a` / `#e9a13b` / `#d65745` | `#5fbf93` / `#dcb26a` / `#ff7a68` | 상태 |
+| `--accent-규정집/가이드/용어집/시스템/대외업무/상위법령` | `#4f8dc4` `#35906a` `#e9a13b` `#8d7ac9` `#cf6d96` `#7f8a94` | 밝힘 6종 | 섹션 칩 |
+| `--hr-grad-flame` / `-leaf` | 주황→노랑 / 파랑→초록 | 동일 | **브랜드 모먼트 전용**(P7) |
+
+- **라운드** 10/14/20(+알약 999) · **그림자** `--shadow-card`(은은) / `--shadow-pop`(팝오버).
+- **타이포** Pretendard GOV self-host. 본문 15.5px/1.55–1.75 · 페이지 제목 26–28px/800 · 섹션 17–20px/700.
+- **간격** 4의 배수 스케일 `--space-1`(4) … `--space-8`(48).
+
+### 3-1. 테마 시스템
+- 선호 3단: **라이트 · 다크 · 시스템(OS 따름, 기본값)**. `lib/theme.tsx`가 선호를 `localStorage`에 두고
+  적용값을 `<html data-theme>`로 내린다.
+- `ThemeToggle` 클릭은 **라이트↔다크 이진 전환**(resolved 기준). `system`은 기본값으로만 존재하고 UI에 노출되지 않는다.
+- FOUC 방지: `_document.tsx` 인라인 스크립트가 **페인트 전에** `data-theme`를 설정.
+- 다크 대응은 토큰 한 블록으로 끝난다(P1) — 배지·헤더·코드 배경도 `--badge-*` 등으로 토큰화돼 있다.
 
 ---
 
-## 4. 컴포넌트 규약
-| 컴포넌트 | 위치 | 규약 |
-|---|---|---|
-| **Layout** | `web/components/Layout.tsx` | sticky 헤더(브랜드 · 내비 · **테마 토글** · 사내전용 플래그) · `--maxw`(1120) 중앙 정렬 · breadcrumb · footer(내부전용 고지) |
-| **테마 토글** | `web/components/ThemeToggle.tsx` · `lib/theme.tsx` | 라이트/다크/시스템 순환. `data-theme`로 토큰 분기, `localStorage` 보관, FOUC 방지(`_document`) |
-| **LLM(ChatApp)** | `Assistant.tsx`(인증 게이트) · `ChatApp.tsx` | 홈(`/`). 로그인 시 좌측 **대화목록**(새/선택/삭제) · 중앙 **멀티턴 채팅**(`/api/app/chats/{id}/messages`) · 우측 **메시지별 근거 패널**(지난 답변 클릭 → 그때의 근거). 근거 카드 클릭 → 문서 드로어. 면책 고지 상시 |
-| **로그인(Login)** | `web/components/Login.tsx` | 로그인/회원가입(bcrypt + JWT httpOnly 쿠키). 미인증 시 게이트가 노출. 채팅기록은 계정별 보관 |
-| **둘러보기(Explorer)** | `web/components/Explorer.tsx` | `/browse` 좌측 **체크박스 필터**(구분·분류·검수상태, 패싯 카운트) + `SearchField` + 행. 행 클릭 = 페이지 이동 없이 **문서 드로어**로 본문. 행 = `규정번호 │ 제목·칩 │ 개정일·상태badge` |
-| **칩(섹션)** | — | 규정집=blue, 가이드=green, 용어집=orange. `data-section`으로 색 분기 |
-| **상태 배지** | — | `미검수`=orange, `검수완료`=green. 항상 표시(거버넌스) |
-| **Markdown** | `web/components/Markdown.tsx` | `[[위키링크]]`는 빌드타임에 `/d/<slug>/#조` 링크로 변환 → 내부는 `next/link`. **제N조 헤딩에 id 부여 → 조 단위 점프(앵커)**. 표/인용/코드 토큰 스타일 |
-| **관계 그래프** | `web/components/GraphCanvas.tsx` | `react-force-graph-2d`로 규정 상호참조를 노드·간선으로 시각화. 노드 클릭 → 해당 문서로 이동. 코드 스플릿(동적 import)으로 초기 번들과 분리 |
-| **문서 드로어(DocDrawer)** | `web/components/DocDrawer.tsx` | Notion형 우측 슬라이드인. `out/docdata/<slug>.json` 지연 로드(빌드 산출, `scripts/emit-docdata.mts`가 `lib/vault.ts` 재사용 → 페이지와 동일 본문). 제N조 앵커 스크롤, 내부링크·백링크는 드로어 안에서 전환, ESC/배경 닫기 |
-| 검색 입력 | `components/SearchInput.tsx` | 자체 구현(회색 라운드 필드·돋보기·클리어) — 구 TDS SearchField 대체 |
+## 4. 셸 · 모션
+
+- **헤더(62px)**: 유리 재질 `rgba(250,250,247,.75)` + `backdrop-filter: blur(20px) saturate(180%)`, 하단 1px 헤어라인.
+  좌측 HorongMark + 워드마크, 중앙 GNB 3탭(활성 = 흰 알약 + 옅은 그림자), 우측 `🔒 사내 전용` 알약 · 테마 토글 · 아바타.
+- **푸터**: 한 줄 — 좌 내부전용 고지 + 📑 규정집 기준일(`lib/site.ts`의 `CORPUS_AS_OF`), 우 도움말·소개·의견·빌드ID.
+- **모바일**: 하단 유리 탭바 3탭(질문/규정/도구). 채팅 근거는 "근거 N개 보기" 접이식.
+- **모션**: 전환 `0.2s cubic-bezier(.2,.7,.2,1)` · 진입 fade-up 16px(스태거 60ms) · 호버 리프트 −2~4px + 그림자 심화 ·
+  배경 글로우 블롭 float 9–12s(랜딩·채팅 빈 화면 한정).
+  `prefers-reduced-motion: reduce`에서 리프트·플로트 정지.
 
 ---
 
-## 5. 접근성
-- 키보드 포커스 링(`:focus-visible`), 탭 `role="tab"`/`aria-selected`, 검색 `aria-label`, breadcrumb `aria-label`.
-- 색만으로 정보 전달 금지(칩/배지에 텍스트 병기). 본문 대비 AA 이상.
+## 5. 컴포넌트 규약
+
+**패키지 구조**(사용자 지시 — 모든 UI는 자족 컴포넌트로 묶인다):
+`components/common/`=공용 프리미티브 · `components/admin/`=관리자 탭 · `components/{now,calendar,quality,…}/`=페이지 패키지.
+인라인 반복 JSX는 데이터맵 + 컴포넌트로 바꾼다.
+
+| 공용 프리미티브 | 계약 |
+|---|---|
+| `PageHero` | 모든 페이지 헤더 |
+| `Section` | 묶음 = 패널 톤 + 19px/800 제목 + 우측 액션 슬롯 |
+| `PagedList` | 건수·필터 슬롯·N개씩·‹› 를 **전부 상단 한 줄**에. ⛔ 목록 아래 컨트롤 금지 |
+| `BrowseShell` | 필터 고정 + 목록만 스크롤 + 모바일 접이 (적용 범위는 P10) |
+| `BrowseFilter` | `FilterGroup`(구분선) · `FilterCheck`(패싯 카운트) · `FilterSearch` |
+| `ResultRow` | 3열 `lead │ 제목+칩 │ 우측` + `RowChip/RowTag/RowDate/RowBadge/RowAction`, 도메인 위젯은 `body` 슬롯 |
+| `SideDrawer` | 우측 슬라이드인 · Esc/배경 닫기 · 포커스 이동. 문서 드로어·서식 미리보기·품질 상세가 공유 |
+| `SearchInput` · `AmountInput` · `AsyncState` · `DataTable` · `ScrollRail` · `ThemeToggle` · `ErrorBoundary` | — |
+
+| 주요 화면 컴포넌트 | 위치 · 규약 |
+|---|---|
+| **ChatApp** | `components/ChatApp.tsx` — 3패널(대화목록 264 / 스레드 / 근거 348). 사용자 말풍선 = 잎 그라데이션. 답변 = 흰 카드 + "호롱" 라벨. 근거 1위 = 엠버 테두리 + 옅은 틴트 |
+| **Explorer / FormsView** | 규정 찾기 문서·서식 탭. 세그먼트 컨트롤(문서/서식/그래프), `/forms`·`/graph`는 리다이렉트 |
+| **DocDrawer** | `out/docdata/<slug>.json` 지연 로드. 제N조 앵커 스크롤, 내부링크·백링크는 드로어 안에서 전환 |
+| **Markdown** | `[[위키링크]]` → 빌드타임 `/d/<slug>/#조`. 제N조 헤딩 id 부여. 용어 툴팁 치환(스트리밍 안전) |
+| **상태 배지** | `미검수`=warning · `검수완료`=success. **항상 표시**(거버넌스) |
+
+**신규 기능은 기능 플래그로 감싼다** — 백엔드 `FLAG_REGISTRY` + 프론트 `lib/flags.tsx`(`useFlag`), `/admin`에서 토글.
 
 ---
 
-## 6. 로드맵 (이 디자인 시스템 기준)
-- [x] W0 파운데이션: Next.js+TDS 스캐폴드, 토큰, 정적 export
-- [x] W1 목록·문서·검색·백링크 (가독성 재설계)
-- [x] W2 TDS 컴포넌트 심화(`SearchField`·`SegmentedControl` 도입 — 목록 검색/섹션탭)
-- [x] W2 제N조 단위 앵커(헤딩 id) → 조 단위 점프
-- [x] W3 관계 그래프 뷰(`react-force-graph-2d`, 노드 클릭→문서 이동, 코드 스플릿)
-- [x] W4 LLM(RAG 채팅) 통합 — `/api/rag/chat`(server.js 프록시 → 로컬 RAG API), 근거 조문 패널, 출처 카드
-- [x] W5 둘러보기 좌측 체크박스 필터 + Notion형 문서 드로어(지연 로드, 페이지 이동 없는 읽기)
-- [x] W6 로그인 + 채팅기록 영속화(SQLite/SQLModel) + 멀티턴 기억 + 메시지별 근거 저장 (`/api/app/*`)
-- [x] W7 LLM 응답 스트리밍(SSE) — `?stream=1`(`meta`→`delta`→`done`), 근거 먼저·본문 타자치듯
-- [x] W8 다크모드 + 테마 시스템(라이트·다크·시스템) — `[data-theme]` 토큰 분기, FOUC 방지, TDS `ColorSchemeArea` 연동
-- [x] W9 **사내 시스템 별도 섹션 '시스템'(보라 `--accent-시스템`)** — 둘러보기 라벨 '사내 시스템'(ERP·EIP·PMS·웹메일·그룹웨어·웹디스크·전자도서관 7개 시스템)·그래프 4번째 색·칩. 코퍼스 4개 섹션 + 교차링크로 그래프 293노드·357연결
-- [ ] KEI 메인 컬러 토큰 교체 (미정 — 사용자가 색을 주면 `globals.css` 토큰 한 블록 교체)
-- [x] 번들 경량화 1차 — TDS·emotion 제거(docs/37 D1)
-- [ ] 관계 그래프를 LLM 화면에 임베드(질문↔노드 상호 탐색)
-- [x] TDS 제거 완료(docs/37) — 컴포넌트는 전부 자체 구현으로
+## 6. 검증
 
-> 최종 수정: 2026-06-19 · 변경 시 이 문서를 먼저 갱신하고 코드에 반영한다(원칙 3 일관성).
+실렌더로 확인한다(스냅샷·번들 검사로는 못 잡는다). `cd web && node verify-*.mjs`:
+`verify-browse-unify`(목록 통일) · `verify-quality-history` · `verify-pdf-frame`(헤더 기반 프레이밍) · `verify-flags` · `verify-drawer` 등.
+⚠ headless에서 한글이 □로 깨지면 `~/.fonts`에 한글·이모지 폰트 설치 후 `fc-cache -f`.
 
-## 호롱 그라데이션 원칙 (2026-07-24, 사용자 확정)
-- **그라데이션은 항상 2색**: 다색 스펙트럼(파랑→초록→노랑→주황)은 텍스트·CTA에서 산만 — 워드/통계/CTA는 주황→노랑(`--hr-grad-word`, `--hr-grad-flame`), 보조는 잎(`--hr-grad-leaf` 파랑→초록).
-- 유일 예외: HorongMark 로고 심볼(브랜드 정체성 — 다색 유지).
+---
 
-## 호롱(Horong) 리뉴얼 개요 (2026-07-24, design_handoff_horong)
-- **정본**: 핸드오프 zip(README + designs/*.dc.html + web-ready 토큰). 구현 = feat/design-revolution → dev.
-- 토큰: globals.css 시맨틱 블록(엠버 primary #e06a12·웜 화이트/잉크·저채도 악센트 6종·radius 10/14/20).
-- 셸: 유리 헤더(blur 20)·GNB 3탭·활성 흰 알약·아바타(잎 그라데이션)·34px 원형 테마 토글.
-- 공용 컴포넌트: HorongMark(로고), BrowseShell(필터 고정+목록 스크롤 계약 — Explorer 마이그레이션 대상), .hrCheck(커스텀 체크박스).
-- 브랜드 모먼트 전용 그라데이션: 로고·히어로 워드·주 CTA·활성 1곳 — 남용 금지.
+## 7. 이력
 
-## 화면 레이아웃 통일 방침 (호롱, 2026-07-24)
-- **BrowseShell**(필터 고정 + 목록만 스크롤 + 모바일 접이) 적용 범위 = **fill 페이지의 '필터+스크롤 목록'**:
-  규정 찾기 문서(Explorer)·서식(FormsView). Explorer는 BrowseShell의 **원본 구조**(추출원) —
-  이미 동일 계약이라 재마이그레이션은 순수 churn/회귀 리스크라 미실시(정본으로 유지).
-- **일반 스크롤 페이지는 BrowseShell 미적용이 옳다**: 기한 사전은 행마다 날짜 계산 위젯이 있어 키가
-  크므로 페이지 전체 스크롤이 자연스럽다(필터 고정+목록 스크롤이 오히려 불편). 화면 성격에 맞춘 것.
-- 공유 조각(`.hrCheck` 커스텀 체크박스·시맨틱 토큰·PagedList)은 전 화면 통일 — 레이아웃 패턴만 성격별 분기.
-- 호롱 롤아웃 상태: 전 화면 시맨틱 토큰 자동 적용 확인(하드코딩 구 토큰 0). IA 3탭 반영(도움말 문구 포함).
+| 시점 | 내용 |
+|---|---|
+| 2026-06 | 자체 토큰 + Pretendard, Next.js 정적 export, 문서·검색·그래프·RAG 채팅 |
+| 2026-07-05 | 로그인·채팅기록·멀티턴·SSE 스트리밍 · 다크모드 + 테마 3단 |
+| 2026-07-22 | **TDS 완전 제거**(라이선스 무명시, docs/37 D1) → KRDS 값 기반 자체 토큰 |
+| **2026-07-24** | **호롱 전면 리뉴얼** — 엠버 팔레트·유리 셸·GNB 3탭·HorongMark·그라데이션 2색 원칙 (`design/horong/`) |
+| 2026-07-25 | 컴포넌트 전수 통일(목록형 4종 공용 스킨 1벌) |
+| 2026-07-27 | 디자인 핸드오프 원본 레포 반입 + 이 문서 원칙 중심 재정리 |
+
+> 변경 시 **이 문서를 먼저 갱신하고 코드에 반영한다**(P1 일관성). 값이 바뀌면 `globals.css`가 정본이고,
+> 결정의 이유는 여기에 남긴다.

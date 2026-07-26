@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+body{margin:0;background:#fafaf7;color:#1d1f1d;font-family:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#c9530b;text-decoration:none}a:hover{color:#9c3f06}
+</style>
+
+<title>호롱 — 토큰</title>
+</head>
+<body>
+<!-- 정적 디자인 레퍼런스 — data-hover / data-focus 속성은 :hover / :focus 상태의 스타일 스펙입니다 -->
+
+<div style="max-width:980px;margin:0 auto;padding:56px 32px 96px">
+  <p style="margin:0 0 12px;font-size:13px;font-weight:700;color:#c9530b">호롱 v2 — 개발 반영용</p>
+  <h1 style="margin:0 0 12px;font-size:42px;font-weight:800;letter-spacing:-0.03em">CSS 토큰 핸드오프</h1>
+  <p style="margin:0 0 36px;font-size:15.5px;line-height:1.7;color:#6f7573;max-width:720px">현재 앱의 <code style="background:#f4f5f2;border-radius:6px;padding:1px 7px;font-size:13.5px">web/styles/globals.css</code>는 "KEI 시맨틱 토큰 블록만 교체하면 된다"고 설계돼 있어요. 아래 두 블록을 그 자리에 붙여 넣으면 전 화면이 호롱 팔레트로 전환됩니다 — <b style="color:#1d1f1d">변수 이름은 기존과 동일</b>하게 유지했습니다.</p>
+
+  <h2 style="margin:0 0 14px;font-size:21px;font-weight:800;letter-spacing:-0.02em">1 · 라이트 (기본)</h2>
+  <pre style="background:#1d1f1d;color:#e8eae6;border-radius:18px;padding:24px 26px;font-size:12.5px;line-height:1.8;overflow-x:auto;margin:0 0 28px"><code>:root {
+  /* ── 호롱 브랜드 그라데이션 (신규) — 브랜드 모먼트 전용 ── */
+  --hr-grad-flame: linear-gradient(135deg, #f2701d, #f9a825 60%, #ffd54f);  /* 불꽃: 주 CTA·전송·활성 */
+  --hr-grad-leaf:  linear-gradient(135deg, #3d7dc2, #2e9c66);               /* 잎: 사용자 말풍선·아바타 */
+
+  /* ── KEI 시맨틱 토큰 (기존 블록 교체) ── */
+  --color-primary: #e06a12;           /* 엠버 — 단색 액션 */
+  --color-primary-strong: #c9530b;    /* 링크·강조 텍스트 (본문 대비 확보) */
+  --color-primary-weak: #fdf0e4;      /* 틴트 배경 */
+  --color-on-primary: #ffffff;
+
+  --color-bg: #ffffff;
+  --color-bg-subtle: #fafaf7;         /* 페이지 그라운드(웜 화이트) */
+  --color-field-bg: #f4f5f2;          /* 입력 필드 */
+  --color-surface: #ffffff;
+  --color-surface-hover: #f7f8f5;
+  --color-border: rgba(28, 30, 28, 0.08);        /* 헤어라인 — 진한 테두리 금지 */
+  --color-border-strong: rgba(28, 30, 28, 0.16);
+
+  --color-text: #1d1f1d;
+  --color-text-secondary: #6f7573;
+  --color-text-tertiary: #a3a8a4;
+  --color-text-disabled: #c9cec9;
+
+  --color-success: #35906a;   /* 잎 */
+  --color-warning: #e9a13b;   /* 앰버 */
+  --color-danger: #d65745;
+
+  /* 섹션 악센트 — 저채도로 재조율 */
+  --accent-규정집: #4f8dc4;
+  --accent-가이드: #35906a;
+  --accent-용어집: #e9a13b;
+  --accent-시스템: #8d7ac9;
+  --accent-대외업무: #cf6d96;
+  --accent-상위법령: #7f8a94;
+
+  /* 형태 — 둥글고 부드럽게 */
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;          /* 카드 20–24, 칩·버튼은 999px 알약 */
+  --shadow-card: 0 1px 2px rgba(20,24,20,0.04), 0 10px 28px rgba(20,24,20,0.05);
+  --shadow-pop: 0 20px 48px rgba(20,24,20,0.10);
+  --transition-ui: all 0.2s cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  --font-sans: "Pretendard GOV Variable", "Pretendard Variable", Pretendard,
+    -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", system-ui, sans-serif;
+}</code></pre>
+
+  <h2 style="margin:0 0 14px;font-size:21px;font-weight:800;letter-spacing:-0.02em">2 · 다크</h2>
+  <pre style="background:#1d1f1d;color:#e8eae6;border-radius:18px;padding:24px 26px;font-size:12.5px;line-height:1.8;overflow-x:auto;margin:0 0 28px"><code>[data-theme="dark"] {
+  --color-primary: #f2701d;
+  --color-primary-strong: #f5a24a;
+  --color-primary-weak: rgba(249, 168, 37, 0.13);
+  --color-on-primary: #ffffff;
+
+  --color-bg: #151614;                /* 웜 잉크 */
+  --color-bg-subtle: #191b18;
+  --color-field-bg: rgba(255,255,255,0.06);
+  --color-surface: #1e201d;
+  --color-surface-hover: #242622;
+  --color-border: rgba(255,255,255,0.07);
+  --color-border-strong: rgba(255,255,255,0.14);
+
+  --color-text: #f2f3f0;
+  --color-text-secondary: #a6aca7;
+  --color-text-tertiary: #6f7571;
+  --color-text-disabled: #4b514c;
+
+  --color-success: #5fbf93;
+  --color-warning: #dcb26a;
+  --color-danger: #ff7a68;
+
+  --accent-규정집: #7fb2dd;  --accent-가이드: #5fbf93;  --accent-용어집: #dcb26a;
+  --accent-시스템: #a794dd;  --accent-대외업무: #e08cb0;  --accent-상위법령: #9aa5ae;
+
+  --shadow-card: 0 1px 2px rgba(0,0,0,0.4), 0 10px 28px rgba(0,0,0,0.35);
+  --shadow-pop: 0 24px 56px rgba(0,0,0,0.5);
+}</code></pre>
+
+  <h2 style="margin:0 0 14px;font-size:21px;font-weight:800;letter-spacing:-0.02em">3 · 로고 SVG (최종안)</h2>
+  <div style="display:grid;grid-template-columns:auto 1fr;gap:24px;align-items:start;margin:0 0 28px">
+    <div style="background:#fff;border-radius:18px;box-shadow:0 1px 2px rgba(20,24,20,0.04),0 10px 28px rgba(20,24,20,0.05);padding:24px;display:flex;align-items:center;justify-content:center">
+      <svg width="96" height="96" viewBox="0 0 64 64" aria-label="호롱 심볼">
+        <defs><linearGradient id="hf" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#2f74b8"></stop><stop offset="0.2" stop-color="#2c9c62"></stop><stop offset="0.33" stop-color="#5db54a"></stop><stop offset="0.48" stop-color="#ffd54f"></stop><stop offset="0.66" stop-color="#f9a825"></stop><stop offset="1" stop-color="#e8420b"></stop></linearGradient></defs>
+        <path d="M32.5 4.5 C 31 12 24.5 17.5 20 23.5 C 15.5 29.5 13.5 35 14.5 41 C 16 51 23.5 57.5 32 57.5 C 40.5 57.5 48 51 49.5 41 C 50.5 35 48.5 29.5 44 23.5 C 39.5 17.5 34 12 32.5 4.5 Z" fill="url(#hf)"></path>
+        <path d="M32 52 C 31.6 44 31.8 36 32.6 24 M32 46 C 29 43.5 26.5 41 24.8 38 M32.2 40 C 35 37.5 37.2 35 38.8 31.8 M32.3 33 C 29.8 30.8 28 28.6 26.8 26" fill="none" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round" opacity="0.3"></path>
+      </svg>
+    </div>
+    <pre style="background:#1d1f1d;color:#e8eae6;border-radius:18px;padding:20px 22px;font-size:11.5px;line-height:1.7;overflow-x:auto;margin:0"><code>&lt;svg viewBox="0 0 64 64" aria-label="호롱"&gt;
+  &lt;defs&gt;
+    &lt;linearGradient id="horong" x1="0" y1="1" x2="0" y2="0"&gt;
+      &lt;stop offset="0"    stop-color="#2f74b8"/&gt;  &lt;!-- 깊은 파랑 --&gt;
+      &lt;stop offset="0.2" stop-color="#2c9c62"/&gt;  &lt;!-- 잎 초록 --&gt;
+      &lt;stop offset="0.33" stop-color="#5db54a"/&gt;  &lt;!-- 라임 --&gt;
+      &lt;stop offset="0.48" stop-color="#ffd54f"/&gt;  &lt;!-- 노랑 --&gt;
+      &lt;stop offset="0.66" stop-color="#f9a825"/&gt;  &lt;!-- 주황 --&gt;
+      &lt;stop offset="1"    stop-color="#e8420b"/&gt;  &lt;!-- 불꽃 끝 --&gt;
+    &lt;/linearGradient&gt;
+  &lt;/defs&gt;
+  &lt;path d="M32.5 4.5 C 31 12 24.5 17.5 20 23.5 C 15.5 29.5 13.5 35 14.5 41 C 16 51 23.5 57.5 32 57.5 C 40.5 57.5 48 51 49.5 41 C 50.5 35 48.5 29.5 44 23.5 C 39.5 17.5 34 12 32.5 4.5 Z"
+        fill="url(#horong)"/&gt;
+  &lt;!-- 잎맥 — 가지처럼 뻗는 주름(옅게) --&gt;
+  &lt;path d="M32 52 C 31.6 44 31.8 36 32.6 24 M32 46 C 29 43.5 26.5 41 24.8 38
+           M32.2 40 C 35 37.5 37.2 35 38.8 31.8 M32.3 33 C 29.8 30.8 28 28.6 26.8 26"
+        fill="none" stroke="#fff" stroke-width="1.2"
+        stroke-linecap="round" opacity="0.3"/&gt;
+&lt;/svg&gt;</code></pre>
+  </div>
+
+  <h2 style="margin:0 0 14px;font-size:21px;font-weight:800;letter-spacing:-0.02em">4 · 사용 규칙</h2>
+  <div style="background:#fff;border-radius:18px;box-shadow:0 1px 2px rgba(20,24,20,0.04),0 10px 28px rgba(20,24,20,0.05);padding:26px 30px;margin-bottom:28px">
+    <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px;font-size:14.5px;line-height:1.65">
+      <li style="display:flex;gap:12px"><span style="width:8px;height:8px;border-radius:50%;background:linear-gradient(135deg,#f2701d,#f9a825);flex:0 0 auto;margin-top:7px"></span><span><b>그라데이션은 브랜드 모먼트에만</b> — 로고, 히어로 워드, 주 CTA(전송·새 대화·로그인), 활성 상태 1곳. 배지·보더·본문에는 단색만.</span></li>
+      <li style="display:flex;gap:12px"><span style="width:8px;height:8px;border-radius:50%;background:linear-gradient(135deg,#3d7dc2,#2e9c66);flex:0 0 auto;margin-top:7px"></span><span><b>테두리 대신 공기</b> — 구획은 여백 + 패널 톤(#F4F5F2) + 8% 헤어라인. 1px 이상의 진한 보더·아웃라인 금지.</span></li>
+      <li style="display:flex;gap:12px"><span style="width:8px;height:8px;border-radius:50%;background:linear-gradient(135deg,#f2701d,#f9a825);flex:0 0 auto;margin-top:7px"></span><span><b>본문 크기 액센트 텍스트는 딥 스텝</b> — 링크·강조는 #C9530B(라이트)/#F5A24A(다크). #E06A12 원색은 큰 요소 전용.</span></li>
+      <li style="display:flex;gap:12px"><span style="width:8px;height:8px;border-radius:50%;background:linear-gradient(135deg,#3d7dc2,#2e9c66);flex:0 0 auto;margin-top:7px"></span><span><b>모션</b> — 전환 0.2s cubic-bezier(.2,.7,.2,1) · 진입 fade-up(16px) 스태거 60ms · 헤더 blur(20px) saturate(180%) 유리 · 호버 -2~4px 리프트 + 그림자 심화 · <code style="background:#f4f5f2;border-radius:6px;padding:1px 6px;font-size:12px">prefers-reduced-motion</code> 시 리프트·플리커 정지.</span></li>
+      <li style="display:flex;gap:12px"><span style="width:8px;height:8px;border-radius:50%;background:linear-gradient(135deg,#f2701d,#f9a825);flex:0 0 auto;margin-top:7px"></span><span><b>타입</b> — Pretendard(GOV) 단일 스택. 큰 제목 800/−0.03em, 본문 15px/1.6, 숫자 tabular-nums. 모노 폰트·대문자 라벨 사용 안 함.</span></li>
+      <li style="display:flex;gap:12px"><span style="width:8px;height:8px;border-radius:50%;background:linear-gradient(135deg,#3d7dc2,#2e9c66);flex:0 0 auto;margin-top:7px"></span><span><b>IA</b> — GNB 3탭(질문하기 · 규정 찾기 · 업무 도구). 규정 찾기 안에 문서/서식/그래프 세그먼트, 업무 도구 안에 결재선·업무 한 장·캘린더·기한 사전. 도움말·소개·의견·새로워진 점은 푸터.</span></li>
+    </ul>
+  </div>
+
+  <h2 style="margin:0 0 14px;font-size:21px;font-weight:800;letter-spacing:-0.02em">5 · 기존 → 호롱 매핑 요약</h2>
+  <div style="background:#fff;border-radius:18px;box-shadow:0 1px 2px rgba(20,24,20,0.04),0 10px 28px rgba(20,24,20,0.05);padding:10px 8px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:10px 18px;font-size:12px;font-weight:700;color:#a3a8a4"><span>항목</span><span>기존 (KRDS)</span><span>호롱 v2</span></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:12px 18px;border-radius:12px;font-size:13.5px;align-items:center" data-hover="background:#f7f8f5"><b>주 색</b><span style="color:#6f7573">KRDS 블루 #256EF4</span><span><i style="display:inline-block;width:12px;height:12px;border-radius:4px;background:#e06a12;vertical-align:-1px;margin-right:6px"></i>엠버 #E06A12 + 불꽃 그라데이션</span></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:12px 18px;border-radius:12px;font-size:13.5px;align-items:center" data-hover="background:#f7f8f5"><b>보조 색</b><span style="color:#6f7573">—</span><span><i style="display:inline-block;width:12px;height:12px;border-radius:4px;background:linear-gradient(135deg,#3d7dc2,#2e9c66);vertical-align:-1px;margin-right:6px"></i>잎 그라데이션 #3D7DC2→#2E9C66</span></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:12px 18px;border-radius:12px;font-size:13.5px;align-items:center" data-hover="background:#f7f8f5"><b>라운드</b><span style="color:#6f7573">6 / 10 / 16px</span><span>10 / 14 / 20px + 알약 999px</span></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:12px 18px;border-radius:12px;font-size:13.5px;align-items:center" data-hover="background:#f7f8f5"><b>보더</b><span style="color:#6f7573">#D9DDE2 1px 상시</span><span>8% 헤어라인 최소화 — 그림자·톤으로 구획</span></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:12px 18px;border-radius:12px;font-size:13.5px;align-items:center" data-hover="background:#f7f8f5"><b>서체</b><span style="color:#6f7573">Pretendard GOV</span><span>동일(유지) — 굵기 위계만 강화</span></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:12px 18px;border-radius:12px;font-size:13.5px;align-items:center" data-hover="background:#f7f8f5"><b>GNB</b><span style="color:#6f7573">7탭 + 푸터 링크 다수</span><span>3탭 + 세그먼트 · 푸터 정리</span></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:12px 18px;border-radius:12px;font-size:13.5px;align-items:center" data-hover="background:#f7f8f5"><b>브랜드</b><span style="color:#6f7573">KEI 사각 마크 + 행정 가이드</span><span>호롱 불꽃잎 심볼 + 워드마크</span></div>
+  </div>
+  <p style="margin:24px 0 0;font-size:13px;color:#a3a8a4">함께 보기: <a href="horong/00 호롱 브랜드.dc.html">00 브랜드</a> · <a href="horong/01 메인 3안.dc.html">01 메인 3안</a> · <a href="horong/02 랜딩 로그인.dc.html">02 랜딩</a> · <a href="horong/03 규정 찾기.dc.html">03 규정 찾기</a> · <a href="horong/04 업무 도구.dc.html">04 업무 도구</a> · <a href="horong/05 다크 모드.dc.html">05 다크</a> · <a href="horong/06 모바일.dc.html">06 모바일</a></p>
+</div>
+
+</body>
+</html>

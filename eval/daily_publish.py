@@ -12,6 +12,7 @@
 import argparse
 import datetime
 import json
+import re
 from collections import Counter, defaultdict
 from pathlib import PurePosixPath
 
@@ -70,10 +71,25 @@ def main() -> int:
     quant_stats = {"정량": acc_of([r for r in items if r.get("정량여부")]),
                    "정성": acc_of([r for r in items if not r.get("정량여부")])}
     cause_stats = dict(Counter(r["원인"] for r in items if r.get("원인")))
+    # ── 축별 정답률(specs/07 B): 결정적 축은 정답이 인덱스에서 나오므로 여기 하락 = 기능 회귀 ──
+    axis_stats = {a: acc_of([r for r in items if r.get("축") == a])
+                  for a in sorted({r["축"] for r in items if r.get("축")})}
+    # ── 다양성 지표(specs/07 §4-2): 측정하지 않으면 문항은 다시 정형화된다 ──
+    qs = [r["질문"] for r in items]
+    tails = Counter(re.sub(r"[?？]\s*$", "", q)[-6:] for q in qs)
+    diversity = {
+        "문항수": len(qs),
+        "평균길이": round(sum(len(q) for q in qs) / max(1, len(qs)), 1),
+        "말미top": tails.most_common(5),
+        "말미집중도": round(100 * tails.most_common(1)[0][1] / max(1, len(qs)), 1) if tails else 0,
+        "출처문서수": len({(r.get("출처") or {}).get("규정명", "") for r in items if r.get("출처")}),
+        "축비중": round(100 * sum(1 for r in items if r.get("축")) / max(1, len(items)), 1),
+    }
 
     # ── 확정 리포트(내부) ──
-    final = {**g, "약점지도": {"주제": topic_stats, "유형": type_stats, "정량정성": quant_stats},
-             "원인": cause_stats, "확정시각": datetime.datetime.now().isoformat(timespec="seconds")}
+    final = {**g, "약점지도": {"주제": topic_stats, "유형": type_stats, "정량정성": quant_stats,
+                            "축": axis_stats},
+             "원인": cause_stats, "다양성": diversity, "확정시각": datetime.datetime.now().isoformat(timespec="seconds")}
     (DAILY_DIR / f"{args.date}.json").write_text(
         json.dumps(final, ensure_ascii=False, indent=1), encoding="utf-8")
 
@@ -82,10 +98,11 @@ def main() -> int:
     qdir.mkdir(parents=True, exist_ok=True)
     pub_items = [{k: r.get(k) for k in
                   ("id", "질문", "유형", "정량여부", "주제", "분류", "판정", "증거", "원인",
-                   "답변", "근거문장", "출처", "회귀")} for r in items]
+                   "답변", "근거문장", "출처", "회귀", "축")} for r in items]
     (qdir / f"{args.date}.json").write_text(json.dumps(
         {"date": args.date, "정답률": g["정답률"], "집계": g["집계"],
-         "약점지도": final["약점지도"], "원인": cause_stats, "문항": pub_items},
+         "약점지도": final["약점지도"], "원인": cause_stats, "다양성": diversity,
+         "문항": pub_items},
         ensure_ascii=False, indent=1), encoding="utf-8")
     # index.json — 최근 90일 추이
     idx_f = qdir.parent / "index.json"

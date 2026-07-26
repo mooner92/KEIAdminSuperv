@@ -6,6 +6,7 @@ import PageHero from "../../components/common/PageHero";
 import PagedList from "../../components/common/PagedList";
 import DataTable from "../../components/common/DataTable";
 import AsyncState from "../../components/common/AsyncState";
+import DayDetailDrawer from "../../components/quality/DayDetailDrawer";
 import { useFlag } from "../../lib/flags";
 import { SITE_NAME } from "../../lib/site";
 import q from "../../styles/Quality.module.css";
@@ -29,6 +30,7 @@ export default function QualityTrendPage() {
   const on = useFlag("quality_board");
   const [idx, setIdx] = useState<Idx | null>(null);
   const [err, setErr] = useState("");
+  const [openDate, setOpenDate] = useState<string | null>(null); // 그날 상세 패널(specs/07 C)
 
   useEffect(() => {
     fetch("/quality/index.json")
@@ -57,7 +59,7 @@ export default function QualityTrendPage() {
       <Head><title>{`전체 자가평가 이력 · ${SITE_NAME}`}</title><meta name="robots" content="noindex, nofollow" /></Head>
       <PageHero
         title="전체 자가평가 이력"
-        lead={<>매일 새벽 자동 평가의 <b>누적 기록</b>이에요(최근 90일 보관).{평균 != null ? <> 기간 평균 정답률 <b>{평균}%</b>.</> : null}{" "}
+        lead={<>매일 새벽 자동 평가의 <b>누적 기록</b>이에요(최근 90일 보관). <b>날짜를 누르면</b> 그날 확인이 필요했던 문항을 옆에서 볼 수 있어요.{평균 != null ? <> 기간 평균 정답률 <b>{평균}%</b>.</> : null}{" "}
           <Link className={q.moreLink} href="/quality/">← 품질 게시판으로</Link></>}
       />
       {!idx || err ? (
@@ -75,7 +77,9 @@ export default function QualityTrendPage() {
               rows={paged}
               rowKey={(d) => d.date}
               cols={[
-                { key: "date", head: "날짜", render: (d) => <span className={q.tDate}>{d.date}</span> },
+                { key: "date", head: "날짜", render: (d) => (
+                  <button type="button" className={q.dateBtn} onClick={() => setOpenDate(d.date)}
+                    title="이날 확인이 필요했던 문항 보기">{d.date}</button>) },
                 { key: "acc", head: "정답률", num: true, render: (d) => (
                   <span className={q.tAcc} style={{ color: accColor(d.정답률) }}>
                     {d.정답률 == null ? "—" : `${d.정답률}%`}
@@ -96,6 +100,7 @@ export default function QualityTrendPage() {
           )}
         </PagedList>
       )}
+      <DayDetailDrawer date={openDate} onClose={() => setOpenDate(null)} />
     </Layout>
   );
 }

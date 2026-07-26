@@ -33,6 +33,14 @@ FAQ_DIR = HERE / "faq_candidates"
 TYPE_QUOTA = {"값형": 0.4, "절차형": 0.3, "조건형": 0.2, "거부형": 0.1}
 # 섹션(청크 type) 쿼터 — 규정 40 · 가이드 25 · 시스템 25 · 용어 10 (거부형 제외 분에 적용)
 SECTION_QUOTA = {"regulation": 0.40, "guide": 0.25, "system": 0.25, "term": 0.10}
+# 출제 후보 최소 길이 — **섹션마다 다르다**(2026-07-26 실측 결함).
+# 일괄 200자였을 때 용어 청크는 240개 중 14개(6%)만 후보에 들어, 용어 쿼터 10%가 실제로는
+# 2.5%로 떨어지고 같은 용어 몇 개가 돌았다. 용어 노트는 '한 개념 = 한 노트'라 원래 짧다.
+# ⚠ 낮춘다고 품질이 떨어지지는 않는다 — 골든 문장 실존 게이트가 뒤를 받친다(모호하면 폐기).
+MIN_CHUNK = {"regulation": 200, "guide": 200, "system": 200, "term": 80}
+# 복합 시나리오 비중(specs/07 A) — 신규 문항 중. 단일을 남기는 이유는 코퍼스 전체를 도는
+# **청크 커버리지 순환**이 복합만으로는 달성되지 않기 때문(여정 13종은 코퍼스의 일부만 덮는다).
+SCEN_RATIO = float(os.environ.get("DAILY_EVAL_SCEN", "0.25"))
 
 # 주제 키워드 사전(약점 지도 태깅·다중 허용) — APPROVAL_KW·여정 13종 관례 재사용
 TOPIC_KW = {
@@ -55,8 +63,28 @@ REFUSAL_SEEDS = [
     "체력단련실(헬스장) 이용", "사내 카페 운영시간", "흡연구역 위치", "탕비실 비품",
     "사옥 냉난방 온도", "엘리베이터 점검 일정", "직원 기숙사 배정", "반려동물 동반 출근",
     "사내 도서관 야간 개방", "옥상 정원 이용", "전기차 충전소 이용", "택배 보관",
-    "사내 이발소", "은행 지점 입점", "우편물 발송 대행", "회의실 음식물 반입",
+    "사내 이발소", "은행 지점 입점", "회의실 음식물 반입",
+    # 2026-07-26 교체분 — audit_refusal_seeds.py로 '코퍼스 무언급' 확인한 것만 추가.
+    # ⛔ 제외: "탕비실 비품"(물품 지침 제15조가 수리·보수를 규율) ·
+    #         "우편물 발송 대행"(문서관리규정 제32조가 인편·우편 발송을 규율)
+    "사내 편의점 할인", "무인 택배함 이용", "명상실 예약", "사내 세탁 서비스",
 ]
+
+
+# ── 출제 자족성 게이트(2026-07-26 실측 결함) ───────────────────────────────────────
+# 질문이 **지시어로 시작하면** 지시 대상이 없다 — 맥락 밖에서 답할 수 없는 문항.
+# 실측(2026-07-26): PMS 화면 필드명("초청기관 지급의 출장비")에서 "유사한 출장비가 지급되나요?"가
+# 생성돼 정상 답변이 오답으로 집계됐다.
+#
+# ⚠ 함께 시도했다가 **철회**한 게이트: "골든은 서술어로 끝나는 문장이어야 한다".
+#   이 코퍼스의 가이드·시스템 문서는 **개조식**이라("미준수시 1일 3점씩 감점", "연 15일의 유급휴가
+#   부여") 정상 골든의 53%(96/180)가 걸렸다. 명사구 라벨과 개조식 서술은 형태로 구분되지 않는다.
+_DEICTIC = re.compile(r"^(이|그|저|해당|동|위|앞|본|유사한|같은|이러한|그러한|다음의)\s")
+
+
+def is_self_contained(question: str) -> bool:
+    """질문이 홀로 성립하는가 — 지시 대상 없는 지시어 시작 배제."""
+    return not _DEICTIC.match((question or "").strip())
 
 
 def llm(messages, temperature=0.0, max_tokens=300) -> str:
@@ -77,10 +105,15 @@ def llm_json(messages, temperature=0.0, max_tokens=300) -> dict:
         return {}
 
 
-def rag_answer(question: str) -> dict:
-    """실서비스 동등 답변(/v1, 리랭커 등 서비스 구성 그대로). {content, x_sources}."""
-    body = json.dumps({"model": "kei-admin-rag",
-                       "messages": [{"role": "user", "content": question}]}).encode()
+def rag_answer(question: str, history: list | None = None) -> dict:
+    """실서비스 동등 답변(/v1, 리랭커 등 서비스 구성 그대로). {content, x_sources}.
+    history = 이전 턴 [(질문, 답변), …] — 복합 시나리오의 후속 턴 평가용(specs/07 A).
+    멀티턴은 서비스와 같은 경로(rag_core.condense_query)를 타야 회귀가 의미를 가진다."""
+    msgs = []
+    for hq, ha in (history or []):
+        msgs += [{"role": "user", "content": hq}, {"role": "assistant", "content": ha}]
+    msgs.append({"role": "user", "content": question})
+    body = json.dumps({"model": "kei-admin-rag", "messages": msgs}).encode()
     req = urllib.request.Request(f"{API}/v1/chat/completions", data=body,
                                  headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=300) as r:

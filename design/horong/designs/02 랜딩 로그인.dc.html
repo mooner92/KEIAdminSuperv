@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+body{margin:0;background:#fafaf7;color:#1d1f1d;font-family:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#c9530b;text-decoration:none}a:hover{color:#9c3f06}
+@keyframes rise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+@keyframes glowPulse{0%,100%{opacity:.5;transform:scale(1)}50%{opacity:.85;transform:scale(1.07)}}
+@keyframes coreFlick{0%,100%{opacity:.9;transform:translateY(0) scale(1)}35%{opacity:.6;transform:translateY(-1.2px) scale(1.05)}65%{opacity:1;transform:translateY(.6px) scale(.97)}}
+@keyframes floatA{0%,100%{transform:translate(0,0)}50%{transform:translate(24px,-16px)}}
+@keyframes floatB{0%,100%{transform:translate(0,0)}50%{transform:translate(-18px,14px)}}
+</style>
+</helmet>
+<div style="min-height:100vh;display:flex;flex-direction:column;position:relative;overflow:hidden">
+  <svg width="0" height="0" style="position:absolute"><defs>
+    <linearGradient id="gLeafFlame" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#2f74b8"></stop><stop offset="0.2" stop-color="#2c9c62"></stop><stop offset="0.33" stop-color="#5db54a"></stop><stop offset="0.48" stop-color="#ffd54f"></stop><stop offset="0.66" stop-color="#f9a825"></stop><stop offset="1" stop-color="#e8420b"></stop></linearGradient>
+    <radialGradient id="gGlow" cx="0.5" cy="0.35" r="0.65"><stop offset="0.66" stop-color="#f9a825" stop-opacity="0.5"></stop><stop offset="0.66" stop-color="#f9a825" stop-opacity="0"></stop></radialGradient>
+  </defs></svg>
+  <div style="position:absolute;top:-160px;left:-120px;width:600px;height:600px;border-radius:50%;background:radial-gradient(circle,rgba(63,164,115,0.13),transparent 65%);animation:floatB 12s ease-in-out infinite" aria-hidden="true"></div>
+  <div style="position:absolute;top:120px;right:-140px;width:640px;height:640px;border-radius:50%;background:radial-gradient(circle,rgba(249,168,37,0.15),transparent 65%);animation:floatA 10s ease-in-out infinite" aria-hidden="true"></div>
+
+  <header style="position:relative;z-index:3;background:rgba(250,250,247,0.72);backdrop-filter:blur(20px) saturate(180%);border-bottom:1px solid rgba(28,30,28,0.06)">
+    <div style="max-width:1220px;margin:0 auto;height:62px;padding:0 32px;display:flex;align-items:center;gap:28px">
+      <span style="display:inline-flex;align-items:center;gap:9px">
+        <svg width="27" height="27" viewBox="0 0 64 64" aria-hidden="true"><path d="M32.5 4.5 C 31 12 24.5 17.5 20 23.5 C 15.5 29.5 13.5 35 14.5 41 C 16 51 23.5 57.5 32 57.5 C 40.5 57.5 48 51 49.5 41 C 50.5 35 48.5 29.5 44 23.5 C 39.5 17.5 34 12 32.5 4.5 Z" fill="url(#gLeafFlame)"></path><path d="M32 52 C 31.6 44 31.8 36 32.6 24 M32 46 C 29 43.5 26.5 41 24.8 38 M32.2 40 C 35 37.5 37.2 35 38.8 31.8 M32.3 33 C 29.8 30.8 28 28.6 26.8 26" fill="none" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round" opacity="0.3"></path></svg>
+        <b style="font-size:17.5px;font-weight:800;letter-spacing:-0.02em">호롱</b>
+        <span style="font-size:11.5px;font-weight:600;color:#a3a8a4;margin-top:3px">KEI 행정 가이드</span>
+      </span>
+      <span style="margin-left:auto;background:#f4f5f2;color:#6f7573;font-size:11.5px;font-weight:600;padding:5px 12px;border-radius:999px">🔒 사내 전용 · KEI 임직원</span>
+    </div>
+  </header>
+
+  <main style="position:relative;z-index:2;flex:1">
+    <div style="max-width:1220px;margin:0 auto;padding:0 32px">
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:64px;align-items:center;padding:76px 0 64px">
+        <section>
+          <p style="margin:0 0 18px;display:inline-flex;align-items:center;gap:8px;background:#fff;border-radius:999px;padding:7px 16px;box-shadow:0 2px 8px rgba(20,24,20,0.06);font-size:13px;font-weight:700;color:#35906a;animation:rise .8s cubic-bezier(.2,.7,.2,1) both"><span style="width:7px;height:7px;border-radius:50%;background:#3fa473"></span>규정 기반 행정 도우미</p>
+          <h1 style="margin:0 0 20px;font-size:clamp(44px,4.8vw,66px);font-weight:800;letter-spacing:-0.032em;line-height:1.07;animation:rise .8s cubic-bezier(.2,.7,.2,1) .08s both">물어보면,<br><span style="background:linear-gradient(100deg,#2f74b8,#2c9c62 32%,#f7b32b 70%,#f2701d);-webkit-background-clip:text;background-clip:text;color:transparent">규정이 답합니다.</span></h1>
+          <p style="margin:0 0 30px;font-size:17.5px;line-height:1.7;color:#6f7573;max-width:540px;animation:rise .8s cubic-bezier(.2,.7,.2,1) .16s both">"이 업무, 어떻게 처리하지?" — 호롱이 사내 규정을 근거로 답하고,<br>모든 답변에 <b style="color:#1d1f1d">[규정명 제N조]</b> 출처를 답니다.</p>
+          <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:40px;animation:rise .8s cubic-bezier(.2,.7,.2,1) .24s both">
+            <span style="background:#fff;border-radius:999px;padding:10px 18px;font-size:14px;font-weight:600;color:#4b514f;box-shadow:0 2px 10px rgba(20,24,20,0.05)">💬 출장 여비 정산은 어떻게 하나요?</span>
+            <span style="background:#fff;border-radius:999px;padding:10px 18px;font-size:14px;font-weight:600;color:#4b514f;box-shadow:0 2px 10px rgba(20,24,20,0.05)">💬 연차휴가는 어떻게 신청하나요?</span>
+            <span style="background:#fff;border-radius:999px;padding:10px 18px;font-size:14px;font-weight:600;color:#4b514f;box-shadow:0 2px 10px rgba(20,24,20,0.05)">💬 법인카드 사용 원칙이 궁금해요</span>
+          </div>
+          <div style="display:flex;gap:36px;flex-wrap:wrap;animation:rise .8s cubic-bezier(.2,.7,.2,1) .32s both">
+            <span><b style="display:block;font-size:30px;font-weight:800;letter-spacing:-0.02em;font-variant-numeric:tabular-nums">111</b><span style="font-size:12.5px;font-weight:600;color:#a3a8a4">규정 원문</span></span>
+            <span><b style="display:block;font-size:30px;font-weight:800;letter-spacing:-0.02em;font-variant-numeric:tabular-nums">65</b><span style="font-size:12.5px;font-weight:600;color:#a3a8a4">업무 가이드</span></span>
+            <span><b style="display:block;font-size:30px;font-weight:800;letter-spacing:-0.02em;font-variant-numeric:tabular-nums">119</b><span style="font-size:12.5px;font-weight:600;color:#a3a8a4">행정 용어</span></span>
+            <span><b style="display:block;font-size:30px;font-weight:800;letter-spacing:-0.02em;background:linear-gradient(135deg,#f2701d,#f9a825);-webkit-background-clip:text;background-clip:text;color:transparent;font-variant-numeric:tabular-nums">100%</b><span style="font-size:12.5px;font-weight:600;color:#a3a8a4">출처 표기</span></span>
+          </div>
+        </section>
+        <aside style="animation:rise .8s cubic-bezier(.2,.7,.2,1) .2s both">
+          <div style="background:rgba(255,255,255,0.86);backdrop-filter:blur(20px);border-radius:26px;box-shadow:0 2px 8px rgba(20,24,20,0.05),0 28px 64px rgba(20,24,20,0.1);padding:36px">
+            <div style="position:relative;width:56px;height:56px;margin-bottom:18px">
+              
+              <svg width="56" height="56" viewBox="0 0 64 64" style="position:relative" aria-hidden="true"><path d="M32.5 4.5 C 31 12 24.5 17.5 20 23.5 C 15.5 29.5 13.5 35 14.5 41 C 16 51 23.5 57.5 32 57.5 C 40.5 57.5 48 51 49.5 41 C 50.5 35 48.5 29.5 44 23.5 C 39.5 17.5 34 12 32.5 4.5 Z" fill="url(#gLeafFlame)"></path><path d="M32 52 C 31.6 44 31.8 36 32.6 24 M32 46 C 29 43.5 26.5 41 24.8 38 M32.2 40 C 35 37.5 37.2 35 38.8 31.8 M32.3 33 C 29.8 30.8 28 28.6 26.8 26" fill="none" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round" opacity="0.3"></path></svg>
+            </div>
+            <h2 style="margin:0 0 6px;font-size:24px;font-weight:800;letter-spacing:-0.02em">로그인</h2>
+            <p style="margin:0 0 24px;font-size:13.5px;line-height:1.6;color:#6f7573">채팅 기록은 계정별로 안전하게 보관돼요.</p>
+            <div style="display:flex;flex-direction:column;gap:12px">
+              <input placeholder="name@example.com" style="width:100%;border:1.5px solid transparent;border-radius:14px;background:#f4f5f2;padding:14px 16px;font:inherit;font-size:15px;color:#1d1f1d;outline:none;transition:border-color .2s,background .2s" style-focus="border-color:rgba(242,112,29,0.5);background:#fff">
+              <input type="password" placeholder="비밀번호" style="width:100%;border:1.5px solid transparent;border-radius:14px;background:#f4f5f2;padding:14px 16px;font:inherit;font-size:15px;color:#1d1f1d;outline:none;transition:border-color .2s,background .2s" style-focus="border-color:rgba(242,112,29,0.5);background:#fff">
+              <button style="width:100%;border:none;border-radius:14px;background:linear-gradient(135deg,#f2701d,#f9a825);color:#fff;font:inherit;font-size:15.5px;font-weight:800;padding:14px;cursor:pointer;box-shadow:0 8px 20px rgba(242,112,29,0.3);transition:transform .15s" style-hover="transform:translateY(-1px)">로그인</button>
+              <button style="width:100%;border:none;border-radius:14px;background:#f4f5f2;color:#4b514f;font:inherit;font-size:14px;font-weight:700;padding:13px;cursor:pointer" style-hover="background:#ecede9">회원가입 — @kei.re.kr 인증</button>
+            </div>
+            <p style="margin:20px 0 0;font-size:12px;line-height:1.6;color:#a3a8a4;text-align:center">🔒 내부 전용 · 입력 정보는 사내 서버에만 저장됩니다.<br>비밀번호 재설정은 시스템 관리자에게 요청하세요.</p>
+          </div>
+        </aside>
+      </div>
+      <section style="margin:12px 0 72px;background:#1d1f1d;border-radius:28px;padding:52px 56px;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:48px;align-items:center;position:relative;overflow:hidden">
+        <div style="position:absolute;top:-80px;right:60px;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle,rgba(249,168,37,0.2),transparent 65%);animation:glowPulse 4.5s ease-in-out infinite" aria-hidden="true"></div>
+        <div style="position:relative">
+          <p style="margin:0 0 12px;font-size:12.5px;font-weight:700;color:rgba(255,255,255,0.55)">가장 중요한 약속</p>
+          <p style="margin:0;font-size:clamp(26px,3vw,38px);font-weight:800;letter-spacing:-0.02em;line-height:1.25;color:#fff">"규정에서 확인되지 않으면,<br><span style="background:linear-gradient(100deg,#f7b32b,#f2701d);-webkit-background-clip:text;background-clip:text;color:transparent">지어내지 않습니다."</span></p>
+        </div>
+        <p style="position:relative;margin:0;font-size:14px;line-height:1.75;color:rgba(255,255,255,0.65)">근거 없는 답 대신 "확인되지 않습니다"라고 말해요. 아는 것과 모르는 것의 구분 — 호롱의 첫 번째 원칙입니다.</p>
+      </section>
+    </div>
+  </main>
+  <footer style="position:relative;z-index:2;border-top:1px solid rgba(28,30,28,0.06)">
+    <div style="max-width:1220px;margin:0 auto;padding:18px 32px;display:flex;gap:24px;font-size:12.5px;color:#a3a8a4;flex-wrap:wrap">
+      <span>호롱 · KEI 내부 전용 (Cloudflare Zero Trust 뒤) · 인터넷 공개 금지</span>
+      <span>규정집 기준일 2026.06.19</span>
+      <span style="margin-left:auto;display:flex;gap:18px"><a href="#" style="color:inherit">도움말</a><a href="#" style="color:inherit">소개</a><span>v.dev</span></span>
+    </div>
+  </footer>
+</div>
+</x-dc>
+</body>
+</html>
