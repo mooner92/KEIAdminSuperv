@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import SearchInput from "./common/SearchInput";
 import PagedList from "./common/PagedList";
+import BrowseShell from "./common/BrowseShell";
 import { FilterGroup, FilterCheck } from "./common/BrowseFilter";
 import ResultRow, { ResultList, RowChip, RowTag, RowDate, RowBadge, rowHl } from "./common/ResultRow";
 import type { DocMeta, SectionKey } from "../lib/vault";
@@ -44,7 +45,6 @@ export default function Explorer({ docs }: { docs: DocMeta[] }) {
   const contentSearchOn = useFlag("content_search");
   const upgrades = useFlag("explore_upgrades"); // v1 ⑬(S7): URL 딥링크 등
   const [q, setQ] = useState("");
-  const [filterOpen, setFilterOpen] = useState(false); // 모바일(≤880px): 필터 기본 접힘 — 목록(조문)이 첫 화면(docs/48)
   const [f, setF] = useState<Filters>({ section: new Set(), category: new Set(), reviewed: new Set() });
   const [openSlug, setOpenSlugRaw] = useState<string | null>(null);
   // v1 ⑬(S7-#27): 드로어 상태 URL 동기화(?doc=슬러그) — 딥링크 공유·브라우저 뒤로가기 연동(flag)
@@ -182,39 +182,25 @@ export default function Explorer({ docs }: { docs: DocMeta[] }) {
       checked={f[group].has(value)} onChange={() => toggle(group, value)} />
   );
 
-  return (
-    <div className={styles.wrap}>
-      {/* 모바일 전용 필터 토글 — 데스크톱에선 숨김(사이드바 상시) */}
-      <button
-        className={styles.filterToggle}
-        onClick={() => setFilterOpen(!filterOpen)}
-        aria-expanded={filterOpen}
-      >
-        {filterOpen ? "필터 접기 ▴" : `필터 열기 ▾${activeCount > 0 ? ` · ${activeCount}개 적용 중` : ""}`}
-      </button>
-      <aside className={`${styles.side} ${filterOpen ? styles.sideOpenM : ""}`}>
-        <div className={styles.sideHead}>
-          <span className={styles.sideTitle}>필터</span>
-          {activeCount > 0 ? (
-            <button className={styles.reset} onClick={reset}>
-              초기화 {activeCount}
-            </button>
-          ) : null}
-        </div>
-
-        <FilterGroup title="구분">
+  // ⚠ 2026-07-27: 자체 셸 → 공용 BrowseShell로 이관.
+  // 자체 구조에는 BrowseShell의 `.pagedFill > div` flex 전파 계약이 없어 **목록이 스크롤되지 않았다**
+  // (필터만 스크롤 · 목록 아래 항목에 도달 불가). "이미 동일 계약이라 이관 불필요"라는 판단이 틀렸다.
+  const filters = (
+    <>
+      <FilterGroup title="구분">
           {SECTIONS.map((s) => (<Check key={s} group="section" value={s} label={SECTION_LABEL[s]} />))}
         </FilterGroup>
         <FilterGroup title="분류" scroll>
           {categories.map((c) => (<Check key={c} group="category" value={c} label={c} />))}
         </FilterGroup>
-        <FilterGroup title="검수상태">
-          {REVIEWED.map((r) => (<Check key={r} group="reviewed" value={r} label={r} />))}
-        </FilterGroup>
-      </aside>
+      <FilterGroup title="검수상태">
+        {REVIEWED.map((r) => (<Check key={r} group="reviewed" value={r} label={r} />))}
+      </FilterGroup>
+    </>
+  );
 
-      <section className={styles.content}>
-        <div className={styles.searchWrap}>
+  const head = (
+    <div className={styles.searchWrap}>
           <SearchInput
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -242,8 +228,17 @@ export default function Explorer({ docs }: { docs: DocMeta[] }) {
                 </button>
               ))}
             </div>
-          ) : null}
-        </div>
+      ) : null}
+    </div>
+  );
+
+  return (
+    <>
+      <BrowseShell
+        side={filters}
+        head={head}
+        reset={activeCount > 0 ? { count: activeCount, onClick: reset } : null}
+      >
         <PagedList
           items={filtered}
           unit="건"
@@ -282,9 +277,8 @@ export default function Explorer({ docs }: { docs: DocMeta[] }) {
         </ResultList>
           )}
         </PagedList>
-      </section>
-
+      </BrowseShell>
       <DocDrawer slug={openSlug} onClose={() => setOpenSlug(null)} />
-    </div>
+    </>
   );
 }

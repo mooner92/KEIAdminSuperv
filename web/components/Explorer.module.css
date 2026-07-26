@@ -1,43 +1,3 @@
-.wrap {
-  flex: 1; /* fill 레이아웃에서 남은 높이를 채움 */
-  min-height: 0;
-  display: grid;
-  grid-template-columns: 248px 1fr;
-  grid-template-rows: minmax(0, 1fr); /* 행을 컨테이너 높이로 고정 → 내부 스크롤 */
-  gap: var(--space-5);
-  overflow: hidden;
-}
-
-/* ── 좌측 필터 사이드바 (자체 내부 스크롤) ── */
-.side {
-  min-height: 0;
-  overflow-y: auto;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
-  padding: var(--space-4) var(--space-4) var(--space-5);
-}
-.sideHead {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-3);
-}
-.sideTitle { font-size: 14px; font-weight: 800; color: var(--color-text); }
-.reset {
-  border: none;
-  background: var(--color-bg-subtle);
-  color: var(--color-text-secondary);
-  font-size: 12px;
-  font-weight: 600;
-  border-radius: 999px;
-  padding: var(--space-1) var(--space-3);
-  cursor: pointer;
-  transition: var(--transition-ui), transform 0.12s ease;
-}
-.reset:hover { color: var(--color-primary); }
-.reset:active { transform: scale(0.96); }
 
 .group { padding: var(--space-3) 0; border-top: 1px solid var(--color-border); }
 .group:first-of-type { border-top: none; }
@@ -91,7 +51,6 @@
 .checkMuted { opacity: 0.45; }
 
 /* ── 결과 (검색·메타는 고정, 목록만 내부 스크롤) ── */
-.content { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .searchWrap { flex: 0 0 auto; max-width: 560px; margin-bottom: var(--space-3); }
 /* 검색 범위 선택 칩(content_search) */
 .scopeRow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
@@ -144,21 +103,6 @@
   min-width: 46px;
   text-align: center;
 }
-
-.list {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
-}
-/* 카드 호버형(호롱 03) — 구분선 대신 여백 */
-.list > li + li { margin-top: 2px; }
 
 .row {
   width: 100%;
@@ -238,35 +182,5 @@
 }
 
 /* 모바일 필터 토글 — 데스크톱 숨김 */
-.filterToggle { display: none; }
-
-@media (max-width: 880px) {
-  /* 모바일: 고정 그리드 해제 → 일반 흐름(페이지 스크롤). fill 모바일 폴백과 짝 */
-  .wrap { grid-template-columns: 1fr; grid-template-rows: auto; overflow: visible; }
-  /* docs/48: 필터(체크박스 30개)가 첫 화면을 다 먹던 것 → 기본 접힘, 목록(조문) 우선 */
-  .side { display: none; overflow-y: visible; }
-  .sideOpenM { display: block; }
-  .filterToggle {
-    display: block;
-    width: 100%;
-    border: 1px solid var(--color-border);
-    background: var(--color-surface);
-    color: var(--color-text);
-    font: inherit; font-size: 13.5px; font-weight: 700;
-    border-radius: var(--radius-md);
-    padding: 10px 14px;
-    margin-bottom: var(--space-3);
-    cursor: pointer;
-    text-align: left;
-  }
-  .content { display: block; }
-  .list { overflow-y: visible; }
-}
-@media (max-width: 720px) {
-  .row { grid-template-columns: 1fr; gap: 8px; padding: 14px var(--space-4); }
-  .right { justify-content: flex-start; }
-}
-
-/* 결재선: 검색 + 금액 입력 한 줄(specs/06 D2) — 좁은 화면에선 자연 줄바꿈 */
 .searchRow { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
 .searchRow > :first-child { flex: 1 1 320px; min-width: 240px; }
