@@ -18,7 +18,7 @@ from collections import Counter as Counter0
 
 import axes  # 평가 축 레지스트리(specs/07 B) — 결정적 4축
 import scenarios  # 복합 시나리오(specs/07 A) — 여정 기반 다중 근거 문항
-from daily_common import (BANK, SCEN_RATIO, DAILY_DIR, NEW_N, REG_N, REFUSAL_SEEDS, SECTION_QUOTA,
+from daily_common import (BANK, MIN_CHUNK, SCEN_RATIO, DAILY_DIR, NEW_N, REG_N, REFUSAL_SEEDS, SECTION_QUOTA,
                           TYPE_QUOTA, bigrams, chroma_col, jaccard, llm_json, load_bank,
                           norm_q, qhash, save_bank, topics_of)
 
@@ -254,7 +254,7 @@ def main() -> int:
     for i in idx:
         m = got["metadatas"][i]
         sec = m.get("type", "regulation")
-        if sec in by_sec and len(got["documents"][i]) >= 200:  # 너무 짧은 청크 제외
+        if sec in by_sec and len(got["documents"][i]) >= MIN_CHUNK.get(sec, 200):
             by_sec[sec].append(i)
     for sec in by_sec:  # 미출제 청크 우선
         by_sec[sec].sort(key=lambda i: (got["ids"][i] in used_chunks, random.random()))
