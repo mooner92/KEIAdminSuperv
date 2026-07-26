@@ -105,8 +105,8 @@ function Eyebrow({ tone, num, children }: { tone: string; num?: string; children
 /** 관계 그래프 미니 비주얼 — 노드·엣지 SVG(정적, 커밋 가능). 우리의 가장 강한 시각 자산. */
 function GraphVisual() {
   const nodes = [
-    { x: 90, y: 60, r: 15, a: "규정집" }, { x: 200, y: 40, r: 10, a: "가이드" },
-    { x: 250, y: 120, r: 13, a: "규정집" }, { x: 150, y: 130, r: 18, a: "규정집" },
+    { x: 90, y: 60, r: 15, a: "규정" }, { x: 200, y: 40, r: 10, a: "가이드" },
+    { x: 250, y: 120, r: 13, a: "규정" }, { x: 150, y: 130, r: 18, a: "규정" },
     { x: 60, y: 150, r: 9, a: "용어집" }, { x: 300, y: 70, r: 8, a: "시스템" },
   ];
   const edges = [[0, 3], [0, 1], [3, 2], [3, 4], [1, 2], [2, 5], [1, 5]];
@@ -134,7 +134,7 @@ function ChatMockup() {
       <div className={styles.mockBody}>
         <p className={styles.mockUser}>출장 여비 정산은 어떻게 하나요?</p>
         <div className={styles.mockBot}>
-          <p>여비 정산 절차를 규정 근거와 함께 단계별로 안내해요. 금액·한도 같은 수치는 아래 근거의 원문에서 바로 확인할 수 있어요.<span className={styles.mockCursor} aria-hidden /></p>
+          <p>여비 정산 절차를 문서 근거와 함께 단계별로 안내해요. 금액·한도 같은 수치는 아래 근거의 원문에서 바로 확인할 수 있어요.<span className={styles.mockCursor} aria-hidden /></p>
           <div className={styles.mockChips}>
             <span className={styles.mockChip}>📜 규정명 제N조</span>
             <span className={styles.mockChip}>📘 업무 가이드</span>
@@ -161,10 +161,10 @@ function IntroSlides({ counts, ctas }: { counts?: LandingCounts; ctas?: React.Re
             <h1 className={styles.mTitle} data-reveal>
               물어보면,
               <br />
-              <span className={styles.heroGrad}>규정이 답합니다.</span>
+              <span className={styles.heroGrad}>문서가 답합니다.</span>
             </h1>
             <p className={styles.mLead} data-reveal>
-              "이 업무, 어떻게 처리하지?" — 규정을 근거로 답하는 행정 도우미.
+              "이 업무, 어떻게 처리하지?" — 행정 문서를 근거로 답하는 행정 도우미.
               <br />모든 답변에 <b>[규정명 제N조]</b> 출처가 달립니다.
             </p>
             <div className={styles.exampleChips} data-reveal aria-label="예시 질문">
@@ -189,8 +189,8 @@ function IntroSlides({ counts, ctas }: { counts?: LandingCounts; ctas?: React.Re
           {/* 01 질문하기 */}
           <section className={styles.mSection} data-reveal>
             <Eyebrow tone="tBlue" num="01">질문하기</Eyebrow>
-            <h2 className={styles.h2}>말하듯 물으면, 규정이 답합니다</h2>
-            <p className={styles.lead}>어려운 규정 용어를 몰라도 괜찮아요. 평소 말하듯 물어보세요.</p>
+            <h2 className={styles.h2}>말하듯 물으면, 문서가 답합니다</h2>
+            <p className={styles.lead}>어려운 행정 용어를 몰라도 괜찮아요. 평소 말하듯 물어보세요.</p>
             <ChatMockup />
           </section>
 
@@ -217,14 +217,14 @@ function IntroSlides({ counts, ctas }: { counts?: LandingCounts; ctas?: React.Re
               {counts ? (
                 <>규정 {counts.regs} · 가이드 {counts.guides} · 용어 {counts.terms} — 전부 연결돼 있습니다.</>
               ) : (
-                "규정은 서로 연결돼 있어요"
+                "문서는 서로 연결돼 있어요"
               )}
             </h2>
-            <p className={styles.lead}>하나의 규정에서 관련 규정·가이드·서식으로 자연스럽게 이어집니다.</p>
+            <p className={styles.lead}>하나의 문서에서 관련 규정·가이드·서식으로 자연스럽게 이어집니다.</p>
             <GraphVisual />
             <div className={styles.featGrid}>
-              <div className={styles.featCard}><span className={styles.featEmoji}>📚</span><b>규정 둘러보기</b><p>분류별로 탐색하고 원문을 그대로 읽어요.</p></div>
-              <div className={styles.featCard}><span className={styles.featEmoji}>🕸</span><b>관계 그래프</b><p>서로 인용하는 규정을 연결망으로 한눈에.</p></div>
+              <div className={styles.featCard}><span className={styles.featEmoji}>📚</span><b>문서 둘러보기</b><p>분류별로 탐색하고 원문을 그대로 읽어요.</p></div>
+              <div className={styles.featCard}><span className={styles.featEmoji}>🕸</span><b>관계 그래프</b><p>서로 인용하는 문서를 연결망으로 한눈에.</p></div>
               <div className={styles.featCard}><span className={styles.featEmoji}>📄</span><b>서식 찾기</b><p>별지 서식을 번호·이름으로 찾아 바로 이동.</p></div>
             </div>
           </section>
@@ -257,7 +257,7 @@ function IntroSlides({ counts, ctas }: { counts?: LandingCounts; ctas?: React.Re
               ) : null}
             </div>
             <p className={styles.trustNote}>
-              📑 규정집 기준일 {CORPUS_AS_OF} · 답변은 참고용이며 최종 확인은 규정 원문으로 ·
+              📑 문서 기준일 {CORPUS_AS_OF} · 답변은 참고용이며 최종 확인은 규정 원문으로 ·
               🔒 사내 전용 — 모든 데이터는 원내 서버에만 있습니다.
             </p>
           </section>

@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import s from "./BrowseShell.module.css";
 
-/** 공용 브라우즈 셸(호롱 03 → 공용 승격, 사용자 지시 2026-07-24) — "규정 찾기(문서)"의
+/** 공용 브라우즈 셸(호롱 03 → 공용 승격, 사용자 지시 2026-07-24) — "문서 찾기(문서)"의
  * 검증된 구조를 컴포넌트로 정의한 것.
  *
  * 구조 계약(⚠ fill 페이지 전제 — Layout fill의 innerFill(flex column) 아래에서 사용):

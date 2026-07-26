@@ -10,7 +10,7 @@ import DocDrawer from "./DocDrawer";
 import styles from "./Explorer.module.css";
 
 const SECTION_LABEL: Record<string, string> = {
-  규정집: "규정집",
+  규정집: "규정",
   가이드: "연구행정 가이드",
   용어집: "용어집",
   시스템: "사내 시스템",
@@ -38,7 +38,7 @@ const reviewedOf = (d: DocMeta) => (d.reviewed === "검수완료" ? "검수완�
 type Filters = { section: Set<string>; category: Set<string>; reviewed: Set<string> };
 
 /**
- * 규정 둘러보기 — 좌측 체크박스 필터(섹션·분류·검수상태) + 검색 + 결과 목록.
+ * 문서 둘러보기 — 좌측 체크박스 필터(섹션·분류·검수상태) + 검색 + 결과 목록.
  * 행을 클릭하면 페이지 이동 없이 우측 Notion형 드로어로 본문을 연다.
  */
 export default function Explorer({ docs }: { docs: DocMeta[] }) {

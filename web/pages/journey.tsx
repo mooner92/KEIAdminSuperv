@@ -58,7 +58,7 @@ export default function JourneyPage({
       <PageHero title="업무 한 장" lead={<>
         업무의 전체 흐름(누가 · 어느 화면에서 · 언제까지)을 한 장으로 봅니다. 단계를 누르면 근거
         조문과 ERP 경로가 열려요. ⚠ <b>공식 기준은 항상 원문</b> — 실제 결재선·기한은 부서 확인이
-        필요합니다. <span className={styles.leadSub}>규정집 기준일 {CORPUS_AS_OF}</span>
+        필요합니다. <span className={styles.leadSub}>문서 기준일 {CORPUS_AS_OF}</span>
       </>} />
       {!on ? (
         <p className={styles.lead}>이 기능은 아직 준비 중이에요. (관리자가 켜면 사용할 수 있습니다)</p>

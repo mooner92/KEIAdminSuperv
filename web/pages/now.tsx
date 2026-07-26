@@ -92,7 +92,7 @@ export default function NowPage({ seasonal, revised, notes, terms, formsCount, d
     // 모바일 셸(docs/54 v2)에선 푸터가 숨어 아래 진입점은 이 허브가 유일 — 데스크톱 허브에도 무해
     { icon: "❓", title: "도움말", href: "/help/", desc: "사용법·FAQ — 처음이라면 여기부터" },
     ...(landingOn ? [{ icon: "🏛️", title: "소개", href: "/about/",
-      desc: "이 서비스가 무엇인지, 어떤 규정을 근거로 답하는지" }] : []),
+      desc: "이 서비스가 무엇인지, 어떤 문서를 근거로 답하는지" }] : []),
     ...(user?.is_admin ? [{ icon: "🛠️", title: "관리자", href: "/admin/",
       desc: "대시보드·의견함(AI 자동 수정)·통계·기능 플래그" }] : []),
   ];

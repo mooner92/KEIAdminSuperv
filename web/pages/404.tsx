@@ -20,7 +20,7 @@ export default function NotFound() {
         </p>
         <p style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 16 }}>
           <Link href="/">💬 질문하러 가기</Link>
-          <Link href="/browse/">📚 규정 둘러보기</Link>
+          <Link href="/browse/">📚 문서 둘러보기</Link>
         </p>
       </section>
     </Layout>
