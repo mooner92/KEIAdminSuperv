@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import SearchInput from "./common/SearchInput";
+import AmountInput from "./common/AmountInput";
+import AmountReason from "./approval/AmountReason";
+import { amountVerdict, formatWon, parseAmountInput, type AmountRules } from "../lib/amountRules";
 import { useFlag } from "../lib/flags";
 import DocDrawer from "./DocDrawer";
 import type { ApprovalRule } from "./ApprovalFinder";
@@ -27,7 +30,11 @@ type Filters = { cat: Set<string>; role: Set<string>; owner: Set<string> };
 
 const REG_SLUG = "2300_위임전결규정"; // 별표 원문 문서(slug = 파일 stem)
 
-export default function ApprovalExplorer({ rules }: { rules: ApprovalRule[] }) {
+export default function ApprovalExplorer({ rules, amountRules = {} }: {
+  rules: ApprovalRule[];
+  /** 01r2 amount_rules.json(무결성 검증·사다리 정규화 완료) — 금액 축의 유일한 진실원천 */
+  amountRules?: AmountRules;
+}) {
   const upgrades = useFlag("explore_upgrades"); // v1 ⑭(S7-#33): 행→별표 원문 링크
   // 원문 드로어: 업무 경로의 가장 긴 구간을 하이라이트 후보로(표 행 매칭, 실패 시 문서 상단 — fail-soft)
   const [origText, setOrigText] = useState<string | null>(null);
@@ -66,6 +73,11 @@ export default function ApprovalExplorer({ rules }: { rules: ApprovalRule[] }) {
     return Array.from(cnt.keys()).sort((a, b) => (cnt.get(b) || 0) - (cnt.get(a) || 0));
   }, [rules]);
 
+  // 금액 축(specs/06 D2): 입력값 문자열 + 해석된 원 단위. 판정은 amountRules 조회만.
+  const [amountText, setAmountText] = useState("");
+  const amountWon = useMemo(() => parseAmountInput(amountText), [amountText]);
+  const verdictOf = (r: ApprovalRule) => amountVerdict(amountRules, r.구분, r.업무, amountWon);
+
   const matchesQuery = (r: ApprovalRule, tokens: string[]) => {
     if (!tokens.length) return true;
     const hay = norm(r.업무 + " " + r.대상 + " " + r.구분); // 검색 대상 고정: 업무+구분
@@ -79,10 +91,13 @@ export default function ApprovalExplorer({ rules }: { rules: ApprovalRule[] }) {
     // 직급: 선택 직급 행 + 직급 구분 없는 행(금액구간 등 — 누구에게나 적용)은 유지
     if (exclude !== "role" && f.role.size && r.대상 && !f.role.has(r.대상)) return false;
     if (exclude !== "owner" && f.owner.size && !f.owner.has(r.전결권자)) return false;
+    // 금액: 구간이 있는 업무만 좁힌다(금액 무관 규칙은 항상 유지 — 사용자가 놓치지 않게)
+    const v = verdictOf(r);
+    if (v && !v.hit) return false;
     return true;
   };
 
-  const filtered = useMemo(() => rules.filter((r) => passes(r)), [rules, q, f]);
+  const filtered = useMemo(() => rules.filter((r) => passes(r)), [rules, q, f, amountWon]);
 
   // 키워드 칩 건수: 좌측 필터(직급·구분·전결권자) 반영 — 검색어와는 독립
   const kwCount = (kw: string) =>
@@ -160,13 +175,17 @@ export default function ApprovalExplorer({ rules }: { rules: ApprovalRule[] }) {
 
       <section className={styles.content}>
         <div className={styles.searchWrap}>
-          <SearchInput
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            onClear={() => setQ("")}
-            placeholder="업무 검색 — 예: 출장, 휴가, 계약 (아래 칩으로 바로 조회)"
-            ariaLabel="업무 검색"
-          />
+          <div className={styles.searchRow}>
+            <SearchInput
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              onClear={() => setQ("")}
+              placeholder="업무 검색 — 예: 출장, 휴가, 계약 (아래 칩으로 바로 조회)"
+              ariaLabel="업무 검색"
+            />
+            <AmountInput value={amountText} onChange={setAmountText} parsed={amountWon}
+              ariaLabel="금액으로 좁히기" />
+          </div>
           <div className={styles.scopeRow} role="group" aria-label="자주 찾는 업무">
             <span className={styles.scopeLabel}>자주 찾는 업무</span>
             {kwChips.map(({ k, n }) => (
@@ -186,7 +205,7 @@ export default function ApprovalExplorer({ rules }: { rules: ApprovalRule[] }) {
           items={filtered}
           unit="건"
           defaultSize={30}
-          resetKey={`${q}|${[...f.cat].sort()}|${[...f.role].sort()}|${[...f.owner].sort()}`}
+          resetKey={`${q}|${[...f.cat].sort()}|${[...f.role].sort()}|${[...f.owner].sort()}|${amountWon ?? ""}`}
           empty="해당 업무를 찾지 못했어요. 다른 키워드나 필터로 시도해 보세요."
           onPage={toTop}
         >
@@ -202,6 +221,12 @@ export default function ApprovalExplorer({ rules }: { rules: ApprovalRule[] }) {
                   {r.대상 ? <RowChip>{r.대상}</RowChip> : null}
                 </>
               }
+              body={(() => {
+                const v = verdictOf(r);
+                return v?.range && amountWon !== null
+                  ? <AmountReason range={v.range} amountLabel={formatWon(amountWon)} />
+                  : undefined;
+              })()}
               right={
                 <>
                   <span className={rowStyles.result}>

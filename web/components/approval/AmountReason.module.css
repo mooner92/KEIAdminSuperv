@@ -1,0 +1,20 @@
+/* 금액 판정 근거 — 행 안에서 조용히, 그러나 원문까지 도달 가능하게 */
+.wrap { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.badge {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-primary-strong);
+  background: var(--color-primary-weak);
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+.src {
+  font-size: 11.5px;
+  color: var(--color-text-tertiary);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 340px;
+  white-space: nowrap;
+}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { GetStaticProps } from "next";
 import AsyncState from "../components/common/AsyncState";
 import Head from "next/head";
 import { SITE_NAME } from "../lib/site";
@@ -8,6 +9,7 @@ import PageHero from "../components/common/PageHero";
 import ApprovalExplorer from "../components/ApprovalExplorer";
 import { type ApprovalRule } from "../components/ApprovalFinder";
 import { useFlag } from "../lib/flags";
+import { loadAmountRules } from "../lib/vault";
 import styles from "../styles/Home.module.css";
 
 /**
@@ -16,7 +18,7 @@ import styles from "../styles/Home.module.css";
  * 데이터 = 위임전결규정 별표(01n) → out/approval.json lazy fetch.
  * ⛔ 공식 전결기준(별표 원문) 표시 전용 — 실무 결재선(중간 검토자 등)은 부서 확인 안내 필수.
  */
-export default function ApprovalPage() {
+export default function ApprovalPage({ amountRules }: { amountRules: Record<string, any> }) {
   const on = useFlag("approval_finder");
   const [rules, setRules] = useState<ApprovalRule[] | null>(null);
   const [err, setErr] = useState("");
@@ -44,8 +46,11 @@ export default function ApprovalPage() {
       ) : err || rules === null ? (
         <AsyncState loading={!err} error={err} onRetry={load} />
       ) : (
-        <ApprovalExplorer rules={rules} />
+        <ApprovalExplorer rules={rules} amountRules={amountRules} />
       )}
     </Layout>
   );
 }
+
+// 금액 구간 룰(01r2)은 8업무·24구간으로 작아 빌드타임에 실어 보낸다(전결규칙 335건은 기존 런타임 fetch 유지).
+export const getStaticProps: GetStaticProps = () => ({ props: { amountRules: loadAmountRules() } });
