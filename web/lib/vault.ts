@@ -668,3 +668,8 @@ export function loadImpact(): ImpactPayload {
   // 전역 규정명→slug 매핑 1벌(행별 중복 제거 — /impact 페이로드 387KB→슬림)
   return { items: out, regSlugs: reg2slug };
 }
+
+// ── 금액 구간 룰(specs/06) — 01r2 amount_rules.json을 그대로 전달(클라 재파싱 금지) ──
+export function loadAmountRules(): Record<string, any> {
+  return loadJson("amount_rules.json")?.rules || {};
+}

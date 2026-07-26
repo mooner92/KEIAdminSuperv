@@ -1,0 +1,36 @@
+/* 금액 입력(공용) — 검색창과 같은 톤, 상단 컨트롤 줄에 나란히 놓이는 크기 */
+.wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-field-bg);
+  transition: var(--transition-ui);
+}
+.wrap:focus-within { border-color: var(--color-primary); background: var(--color-surface); }
+.icon { font-size: 13px; color: var(--color-text-tertiary); font-weight: 700; }
+.input {
+  font: inherit;
+  font-size: 13px;
+  width: 108px;
+  border: none;
+  background: transparent;
+  color: var(--color-text);
+  outline: none;
+}
+.invalid { color: var(--color-danger); }
+.echo {
+  font-size: 12px;
+  color: var(--color-primary-strong);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.hint { font-size: 12px; color: var(--color-text-tertiary); white-space: nowrap; }
+.clear {
+  font: inherit; font-size: 12px; line-height: 1;
+  border: none; background: transparent; cursor: pointer;
+  color: var(--color-text-tertiary); padding: 2px 4px; border-radius: 999px;
+}
+.clear:hover { background: var(--color-surface-hover); color: var(--color-text); }
