@@ -28,6 +28,17 @@ MUST_REFUSE = [
     "사내 카페 운영 시작 시간이 언제인가요?",
     "흡연 구역은 사내 어디에 위치해 있나요?",
     "주차장은 몇 시까지 이용할 수 있나요?",
+    # 2026-07-26 추가 — 감사로 '코퍼스 무언급' 확인한 주제(audit_refusal_seeds.py)
+    "사내 편의점에서 직원 할인을 받을 수 있나요?",
+    "무인 택배함은 어떻게 이용하나요?",
+]
+
+# 규정이 **실제로 규율하는데** 거부하면 안 되는 것(과잉 거부 감시).
+# 2026-07-26 실측: '탕비실 커피머신 수리'는 거부형 시드였지만 물품 지침 제15조가 규율한다 —
+# 모델이 정확히 인용해 답했는데 오답으로 집계됐다. 시드에서 빼면서 **반대 방향 회귀**로 편입한다.
+MUST_NOT_REFUSE = [
+    ("탕비실에 있는 커피머신이 고장 났는데 수리 요청은 어떻게 하나요?", ["수리", "주관부서"]),
+    ("사무용 물품을 구매하려면 어떤 절차를 밟아야 하나요?", ["부서장", "주관부서"]),
 ]
 
 
@@ -70,6 +81,7 @@ def golden_hit(answer: str, golden: str) -> bool:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--n", type=int, default=20, help="MUST_ANSWER 샘플 수(골든 보유 문항에서)")
+    ap.add_argument("--skip-notrefuse", action="store_true", help="MUST_NOT_REFUSE 축 생략")
     ap.add_argument("--seed", type=int, default=42)
     args = ap.parse_args()
     random.seed(args.seed)
@@ -99,12 +111,25 @@ def main() -> int:
             regressions.append((b["질문"], "거부됨" if refused else "골든불일치"))
         print(f"  {'✅' if ok else '⚠'} {b['질문'][:40]} {'(거부됨!)' if refused else ('(골든미보존)' if not hit else '')}")
 
-    print(f"\n── 결과 ── MUST_REFUSE {r_ok}/{len(MUST_REFUSE)} 거부 · MUST_ANSWER {a_ok}/{len(sample)} 정상")
+    # ③ 과잉 거부 감시 — 규정이 실제로 규율하는데 거부하면 회귀
+    n_ok = n_tot = 0
+    if not args.skip_notrefuse:
+        print(f"\n=== ③ MUST_NOT_REFUSE {len(MUST_NOT_REFUSE)}건 — 규정이 규율하는 사안은 답해야 통과 ===")
+        for q, keys in MUST_NOT_REFUSE:
+            n_tot += 1
+            ans = rag_answer(q)["content"] or ""
+            ok = not is_refusal(ans) and any(k in ans for k in keys)
+            n_ok += ok
+            print(f"  {'✅응답' if ok else '❌거부/누락'} {q[:34]} — {ans[:60].strip()}")
+
+    print(f"\n── 결과 ── MUST_REFUSE {r_ok}/{len(MUST_REFUSE)} 거부 · MUST_ANSWER {a_ok}/{len(sample)} 정상"
+          + (f" · MUST_NOT_REFUSE {n_ok}/{n_tot} 응답" if n_tot else ""))
     if regressions:
         print("⚠ 회귀 의심(정상 질문이 거부/골든불일치):")
         for q, why in regressions:
             print(f"    - {why}: {q[:50]}")
-    passed = r_ok == len(MUST_REFUSE) and a_ok >= len(sample) - 1  # 정상 1건 노이즈 허용
+    passed = (r_ok == len(MUST_REFUSE) and a_ok >= len(sample) - 1  # 정상 1건 노이즈 허용
+              and (n_tot == 0 or n_ok == n_tot))
     print("\n" + ("🎉 회귀 통과 — 거부 강화 + 정상 답변 보존" if passed
                   else "⚠ 회귀 실패 — 프롬프트 재조정 필요"))
     return 0 if passed else 2
