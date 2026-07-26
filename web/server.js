@@ -100,13 +100,19 @@ const CSP = [
   "font-src 'self'",
   "connect-src 'self'",
   "object-src 'none'",
+  // 서식 미리보기(2026-07-25): 우리 PDF를 우리 페이지 안 iframe으로 띄운다. 'self'로만 허용해
+  // 외부 오리진 프레임 로드는 계속 차단(내부 문서를 남의 페이지에 심는 것도 frame-ancestors가 막음).
+  "frame-src 'self'",
   "base-uri 'self'",
   "form-action 'self'",
-  "frame-ancestors 'none'",
+  "frame-ancestors 'self'",
 ].join("; ");
 function secureHeaders(res) {
   res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Frame-Options", "DENY");
+  // ⚠ DENY는 **같은 출처에서도** iframe을 막아 서식 미리보기가 깨졌다(2026-07-25 사용자 제보,
+  // 실제 브라우저에서만 재현 — 헤드리스 검증이 놓친 결함). SAMEORIGIN이면 외부 사이트의
+  // 클릭재킹은 여전히 차단하면서 우리 페이지 안 미리보기는 동작한다.
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
   res.setHeader("Referrer-Policy", "same-origin");
   res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
   res.setHeader("Content-Security-Policy", CSP);
