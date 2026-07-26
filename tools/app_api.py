@@ -363,6 +363,14 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-12-31",
     },
+    "brand_page": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "브랜드 이야기 /brand — 호롱 이름·심볼의 의미, 색, 화면을 만들 때 지키는 원칙 6가지. "
+                       "푸터 구석 진입(사용자 지시 2026-07-27). ⛔ 사용자 언어만 — 파일 경로·토큰 변수명 금지. "
+                       "개발자용 정본은 docs/design-system.md.",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
     "trust_ops": {
         "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
         "description": "관리자 🛡 신뢰 탭(docs/34 ②) — 고위험 답변 레이더·수요×품질 매트릭스·👎 유형 분류. "

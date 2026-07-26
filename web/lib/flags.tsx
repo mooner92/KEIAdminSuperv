@@ -30,6 +30,7 @@ export const FLAG_DEFAULTS: Record<string, boolean> = {
   quality_board: false, // docs/58: 품질 게시판 /quality(일일 자가평가 정답률·약점지도·문항열람) (release, 만료 2026-12-31)
   faq_bridge: false, // docs/58 §6: FAQ 브리지 /admin 탭(검색실패 오답 후보 → 사람 승인 편입) (release, 만료 2026-12-31)
   help_hub: false, // docs/31: 도움말 허브(잘 묻는 법·FAQ·푸터 FAQ 링크) (release, 만료 2026-12-31)
+  brand_page: false, // 브랜드 이야기 /brand(호롱 의미·색·디자인 원칙, 푸터 진입) (release, 만료 2026-12-31)
   source_type_badges: false, // 근거 패널 출처 성격 배지 📜규정(공식)/📘가이드(참고) 구분 (release 플래그, 만료 2026-08-15)
   content_search: false, // 둘러보기 검색 범위 선택(제목·번호·분류·내용) + 원문 내용 전문검색 (release 플래그, 만료 2026-08-31)
   graph_expand_actions: false, // 행위 흐름 확장 — 신청 회수 시 후속 단계(정산·결과보고) 자동첨부 (백엔드, 실험 플래그)
