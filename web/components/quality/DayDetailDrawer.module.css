@@ -1,0 +1,41 @@
+/* 그날의 자가평가 상세 — 패널 내용 전용(껍데기는 공용 SideDrawer) */
+.body { padding: var(--space-4) var(--space-5) var(--space-6); }
+.lead { font-size: 13.5px; color: var(--color-text-secondary); margin: 0 0 var(--space-4); line-height: 1.6; }
+.full {
+  font-size: 12.5px; font-weight: 700; color: var(--color-primary-strong);
+  text-decoration: none; padding: 5px 10px; border-radius: 999px;
+  border: 1px solid var(--color-border); background: var(--color-surface);
+  white-space: nowrap;
+}
+.full:hover { background: var(--color-primary-weak); border-color: var(--color-primary); }
+
+.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
+.item {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 12px var(--space-4);
+  background: var(--color-surface);
+}
+.head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+.badgeBad, .badgeRev {
+  font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+}
+.badgeBad { color: var(--color-danger); background: var(--badge-warn-bg); border: 1px solid var(--badge-warn-border); }
+.badgeRev { color: var(--color-warning); background: var(--badge-warn-bg); border: 1px solid var(--badge-warn-border); }
+.tag {
+  font-size: 11.5px; color: var(--color-text-secondary);
+  background: var(--color-bg-subtle); border: 1px solid var(--color-border);
+  border-radius: 6px; padding: 1px 6px;
+}
+.q { font-size: 14px; font-weight: 600; color: var(--color-text); line-height: 1.5; }
+.ev {
+  margin-top: 6px; font-size: 12.5px; line-height: 1.55;
+  color: var(--color-text-secondary);
+  padding-left: 10px; border-left: 2px solid var(--color-border);
+}
+.src, .srcFlat {
+  display: inline-block; margin-top: 8px; font-size: 12.5px; font-weight: 700;
+  color: var(--color-primary-strong); background: none; border: none; padding: 0; cursor: pointer;
+}
+.srcFlat { color: var(--color-text-tertiary); font-weight: 500; cursor: default; }
+.src:hover { text-decoration: underline; }

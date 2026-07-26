@@ -54,19 +54,28 @@ export default function QualityPage() {
   const [filter, setFilter] = useState<string>("전체"); // 판정 필터
   const [typeF, setTypeF] = useState<string>("전체"); // 유형 필터(값형·절차형·조건형·거부형)
 
+  // ?date=YYYY-MM-DD 지원(specs/07 C) — 이력에서 '전체 문항 보기'로 넘어오는 목적지.
+  // 없으면 최신일(기존 동작). 정적 export라 쿼리는 클라이언트에서 읽는다.
+  const [wanted, setWanted] = useState<string>("");
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setWanted(new URLSearchParams(window.location.search).get("date") || "");
+  }, []);
+
   useEffect(() => {
     if (!on) return;
     fetch("/quality/index.json")
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("no-index"))))
       .then((i: Idx) => {
         setIdx(i);
-        const latest = i.days[i.days.length - 1]?.date;
-        if (!latest) throw new Error("empty");
-        return fetch(`/quality/daily/${latest}.json`).then((r) => r.json());
+        const has = wanted && i.days.some((d) => d.date === wanted);
+        const target = has ? wanted : i.days[i.days.length - 1]?.date;
+        if (!target) throw new Error("empty");
+        return fetch(`/quality/daily/${target}.json`).then((r) => r.json());
       })
       .then((d: Daily) => setDay(d))
       .catch(() => setErr("아직 평가 데이터가 없어요. 매일 새벽 자동 평가 후 채워집니다."));
-  }, [on]);
+  }, [on, wanted]);
 
   const items = useMemo(
     () => (day ? day.문항.filter((i) =>
@@ -96,7 +105,9 @@ export default function QualityPage() {
           {/* 오늘의 정답률 */}
           <section className={q.heroRow}>
             <div className={q.scoreCard}>
-              <div className={q.scoreLabel}>오늘의 정답률 · {day.date}</div>
+              <div className={q.scoreLabel}>
+                {wanted && day.date === wanted ? "그날의 정답률" : "오늘의 정답률"} · {day.date}
+              </div>
               <div className={q.score} style={{ color: accColor(day.정답률) }}>{day.정답률}%</div>
               <div className={q.scoreSub}>
                 {Object.entries(day.집계).map(([k, v]) => {
