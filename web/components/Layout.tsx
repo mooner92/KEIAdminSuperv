@@ -76,6 +76,7 @@ export default function Layout({
   }, [latestNote]);
   const approvalNav = useFlag("approval_finder"); // 결재선 판정기 — 상단 메뉴 노출도 플래그로
   const journeyNav = useFlag("journey_map"); // 업무 한 장(스윔레인) — docs/25
+  const brandOn = useFlag("brand_page"); // 브랜드 이야기(/brand) — 푸터 구석 진입
   const helpHub = useFlag("help_hub"); // 도움말 허브·FAQ(docs/31) — 푸터 FAQ 링크 게이트
   const eventsOn = useFlag("events_tab"); // 추가 기능·업무 캘린더(docs/35·41) — GNB 탭
   const landingOn = useFlag("landing_page"); // 소개 페이지(docs/36) — footer '소개' 진입
@@ -178,6 +179,7 @@ export default function Layout({
             <Link href="/help/" className={styles.adminLink} onClick={closeHelp}
               aria-pressed={onHelp}>{onHelp ? "✕ 도움말 닫기" : "도움말"}</Link>
             {helpHub ? <Link href="/help/#faq" className={styles.adminLink}>FAQ</Link> : null}
+            {brandOn ? <Link href="/brand/" className={styles.adminLink}>브랜드</Link> : null}{/* 호롱 의미·디자인 원칙 */}
             {feedbackOn && isAuthed ? <Link href="/feedback/" className={styles.adminLink}>의견 보내기</Link> : null}{/* docs/51 — 전역 진입점 */}
             {landingOn && isAuthed ? <Link href="/about/" className={styles.adminLink}>소개</Link> : null}{/* 비로그인 홈은 소개가 인라인 — 중복 제거(사용자 요청) */}
             {/* 서식 찾기·새로워진 점은 '추가 기능'(/now) 허브로 이전(docs/41) — 푸터 정리 */}
