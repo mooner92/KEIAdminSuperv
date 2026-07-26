@@ -62,6 +62,10 @@ ARTICLE_STATUS = os.environ.get("RAG_ARTICLE_STATUS", "1") not in ("0", "", "fal
 CLAUSE_XREF = os.environ.get("RAG_CLAUSE_XREF", "1") not in ("0", "", "false", "False")
 # 정의형 질문 결정적 라우팅(specs/01 P3): "X란?"류 → defterms.json(01j) 정의 조문 자동첨부. 기본 on.
 DEFTERM_ROUTE = os.environ.get("RAG_DEFTERM_ROUTE", "1") not in ("0", "", "false", "False")
+# 금액 판정 라우팅(specs/06 D3): "370만원 구매 전결?"류 → amount_rules(01r2) 결정적 판정 첨부.
+# A/B 실측(2026-07-26): 완전 동률(68/86·손실0)·게이트 6/6(수치 이중경고 없음) → 기본 on.
+AMOUNT_ROUTE = os.environ.get("RAG_AMOUNT_ROUTE", "1") not in ("0", "", "false", "False")
+_AMOUNT_Q_RE = re.compile(r"(전결|결재|승인|일상감사|집행|지출|구매|계약|법인카드|업무추진비|가지급)")
 # 개정 영향 라우팅(specs/05 D3): "제N조 바뀌면 뭐가 영향?"류 → impact_by_article(01l) 결정적 첨부.
 # A/B 실측(2026-07-26): 일반 질문 완전 동률(68/86·손실0 — 패턴 게이트 무개입)·게이트 6/6 → 기본 on.
 IMPACT_ROUTE = os.environ.get("RAG_IMPACT_ROUTE", "1") not in ("0", "", "false", "False")
@@ -1517,6 +1521,29 @@ def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None
                     blocks.insert(0, f"[{s2['tag']} · 용어 정의: {t}(자동첨부)]\n{d2}")
         except Exception as e:  # noqa: BLE001 — 라우팅 실패는 기본 회수로 우아하게 강등
             print(f"⚠ 정의어 라우팅 실패(무시): {e}")
+
+    # 금액 판정 라우팅(specs/06 D3, RAG_AMOUNT_ROUTE): 금액+절차 질문에 amount_judge의 결정적
+    # 판정을 근거 맨 앞 첨부 — 판정·근거(별표 원문행)는 룰 테이블 그대로, LLM은 서술만(환각 0).
+    if AMOUNT_ROUTE and _AMOUNT_Q_RE.search(query):
+        try:
+            import amount_judge as _aj
+            amt = _aj.parse_amount(query)
+            tasks = _aj.find_tasks(query) if amt is not None else []
+            if amt is not None and tasks:
+                r = _aj.judge(tasks[0], amt)
+                if r.get("상태") == "판정":
+                    lines = [f"[금액 전결 판정 — 위임전결규정 별표(결정적 조회)]",
+                             f"· 업무: {r['업무']} · 금액 {amt:,}원 → 구간 '{r['구간표기']}'",
+                             f"· 전결권자: {r['전결권자']}" + (f" · 협의: {r['협의']}" if r.get("협의") else "")
+                             + (" · 원장 결재" if r.get("원장") else ""),
+                             f"· 근거 원문행: {r['근거'].get('원문행','')}",
+                             "⚠ 공식 전결기준(별표 원문 그대로) — 실제 결재선(중간 검토자)은 부서 확인."]
+                    s2 = {"tag": "위임전결규정 별표 · 금액 판정", "규정명": "위임전결규정", "조": "별표",
+                          "분류": "", "snippet": lines[1], "amount_route": True}
+                    srcs.insert(0, s2)
+                    blocks.insert(0, "\n".join(lines))
+        except Exception as e:  # noqa: BLE001 — 라우팅 실패는 기본 회수로 우아하게 강등
+            print(f"⚠ 금액 판정 라우팅 실패(무시): {e}")
 
     # 개정 영향 라우팅(specs/05 D3, RAG_IMPACT_ROUTE): "이 조 바뀌면 뭐가 영향?"류 질문에
     # impact_by_article(01l·결정적 그래프)을 근거 블록으로 첨부 — 목록은 인덱스 그대로(LLM 무관·환각 0),
