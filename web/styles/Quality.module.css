@@ -68,10 +68,13 @@
 .vNa { color: var(--color-text-tertiary); border: 1px solid var(--color-border); }
 .qText { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .qMeta { flex: 0 0 auto; display: inline-flex; gap: 5px; align-items: center; }
-.type, .topic, .reg { font-size: 11px; font-weight: 700; border-radius: 999px; padding: 1px 8px; }
+.type, .topic, .reg, .axis { font-size: 11px; font-weight: 700; border-radius: 999px; padding: 1px 8px; }
 .type { color: var(--color-text-tertiary); border: 1px solid var(--color-border); }
 .topic { color: var(--color-text-secondary); background: var(--color-bg-subtle); }
 .reg { color: var(--color-warning); border: 1px solid var(--color-warning); }
+/* 결정적 축 문항(specs/07 B) — LLM 채점 없이 인덱스와 대조되는 문항임을 한눈에 */
+.axis { color: var(--color-primary-strong); background: var(--color-primary-weak);
+  border: 1px solid var(--color-primary-weak); }
 .caret { flex: 0 0 auto; color: var(--color-text-tertiary); font-size: 11px; }
 @media (max-width: 680px) { .qMeta { display: none; } .heroRow { grid-template-columns: 1fr; } }
 

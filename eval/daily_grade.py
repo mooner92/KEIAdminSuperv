@@ -16,6 +16,7 @@ import json
 import re
 import sys
 
+import axes  # 결정적 축 채점(specs/07 B)
 from daily_common import DAILY_DIR, ROOT, chroma_col, llm_json, load_bank, norm_q, save_bank
 
 sys.path.insert(0, str(ROOT / "tools"))
@@ -81,6 +82,13 @@ def main() -> int:
         답변 = a.get("답변", "")
         if not 답변:
             item.update({"판정": "판정불가", "증거": "답변 수집 실패"})
+            results.append(item)
+            continue
+        # 축 문항 — 파생 인덱스가 정답을 이미 가지고 있으므로 **LLM 없이** 결정적으로 채점한다.
+        # (채점기 오판이 개선 방향을 오도한 T7·T9 계열 사고가 이 축들에선 구조적으로 불가능)
+        if q.get("축"):
+            판정, 증거, 원인 = axes.grade(q, 답변)
+            item.update({"판정": 판정, "증거": 증거, "원인": 원인})
             results.append(item)
             continue
         # 거부형 — 결론부가 거부 계열이면 정답(T9: 꼬리 부가문구·긍정문 오탐 제거)

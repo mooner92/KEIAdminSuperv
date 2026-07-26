@@ -15,6 +15,7 @@ import random
 import re
 import sys
 
+import axes  # 평가 축 레지스트리(specs/07 B) — 결정적 4축
 from daily_common import (BANK, DAILY_DIR, NEW_N, REG_N, REFUSAL_SEEDS, SECTION_QUOTA,
                           TYPE_QUOTA, bigrams, chroma_col, jaccard, llm_json, load_bank,
                           norm_q, qhash, save_bank, topics_of)
@@ -104,6 +105,8 @@ def main() -> int:
             src = b.get("출처")
             if not src or b.get("상태") == "retire":
                 continue
+            if b.get("축"):
+                continue  # 축 문항은 청크가 아니라 파생 인덱스가 근거 — 재바인딩 대상 아님
             key = (src.get("규정명", ""), src.get("조", ""))
             cands = by_key.get(key, [])
             if not cands:
@@ -200,7 +203,20 @@ def main() -> int:
 
     # ── 신규 생성 ──
     n_refusal = round(new_n * TYPE_QUOTA["거부형"])
-    n_chunk = new_n - n_refusal
+    # ── 축 문항(specs/07 B): 파생 인덱스에서 결정적으로 출제 — LLM 0회·창작 0.
+    #    새 데이터 기능이 평가에 자동 편입되는 통로다(사람이 문항을 손으로 붙이지 않는다).
+    axis_items = []
+    for it in axes.sample_all(random):
+        h = qhash(it["질문"])
+        gr = bigrams(it["질문"])
+        if h in by_hash or any(jaccard(gr, bg) >= 0.7 for bg in bank_grams):
+            continue
+        item = {**it, "id": f"dq-{args.date}-a{len(axis_items)+1:02d}", "hash": h,
+                "생성일": args.date, "상태": "active", "판정이력": []}
+        axis_items.append({**item, "섹션": "axis"})
+        by_hash[h] = item
+        bank_grams.append(gr)
+    n_chunk = max(0, new_n - n_refusal - len(axis_items))
     # 섹션 쿼터로 청크 표본 추출(미출제 우선)
     col = chroma_col()
     got = col.get(include=["metadatas", "documents"])
@@ -258,6 +274,8 @@ def main() -> int:
         by_hash[h] = item
         bank_grams.append(gr)
 
+    new_items += axis_items
+
     # 거부형
     random.shuffle(REFUSAL_SEEDS)
     for seed in REFUSAL_SEEDS:
@@ -294,6 +312,8 @@ def main() -> int:
     print(f"문항 {len(today)} (신규 {len(new_items)} · 회귀 {len(regression)}) → {out}")
     print("  유형:", dict(Counter(q['유형'] for q in today)))
     print("  주제:", dict(Counter(t for q in today for t in q.get('주제', []))))
+    ax = Counter(q['축'] for q in today if q.get('축'))
+    print(f"  축: {dict(ax)} (사용 가능 {axes.available()})")
     return 0
 
 

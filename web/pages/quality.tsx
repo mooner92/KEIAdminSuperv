@@ -14,15 +14,22 @@ import q from "../styles/Quality.module.css";
 // ⛔ 자동 생성 문항·자동 채점(검수 전) — 개별 답변 보증 아님. 합성 문항만(실사용자 질문 미포함).
 
 type Stat = { 정답?: number; 표본?: number; 정답률?: number | null };
+type Diversity = { 문항수: number; 평균길이: number; 말미top: [string, number][];
+  말미집중도: number; 출처문서수: number; 축비중: number };
+// 결정적 축(specs/07 B) — 정답을 파생 인덱스가 이미 갖고 있어 LLM 채점이 필요 없는 문항들
+const AXIS: Record<string, string> = {
+  amount: "💰 금액전결", impact: "🔗 개정영향", defterm: "📖 정의어", deadline: "⏱ 기한",
+};
 type Item = {
   id: string; 질문: string; 유형: string; 정량여부?: boolean; 주제?: string[]; 분류?: string;
   판정: string; 증거?: string; 원인?: string | null; 답변?: string; 근거문장?: string;
-  출처?: { 규정명: string; 조: string; slug?: string } | null; 회귀?: boolean;
+  출처?: { 규정명: string; 조: string; slug?: string } | null; 회귀?: boolean; 축?: string;
 };
 type Daily = {
   date: string; 정답률: number; 집계: Record<string, number>;
-  약점지도: { 주제: Record<string, Stat>; 유형: Record<string, Stat>; 정량정성: Record<string, Stat> };
-  원인: Record<string, number>; 문항: Item[];
+  약점지도: { 주제: Record<string, Stat>; 유형: Record<string, Stat>; 정량정성: Record<string, Stat>;
+    축?: Record<string, Stat> };
+  원인: Record<string, number>; 다양성?: Diversity; 문항: Item[];
 };
 type Idx = { days: { date: string; 정답률: number; 집계: Record<string, number> }[] };
 
@@ -171,6 +178,11 @@ export default function QualityPage() {
                   </span>
                 ) : null;
               })}
+              {Object.entries(day.약점지도.축 || {}).map(([a, s2]) => (
+                <span key={a} className={q.miniBar} title="결정적 축 — 정답을 인덱스가 보유(LLM 채점 없음)">
+                  <b>{AXIS[a] || a}</b> {s2.정답률 ?? "—"}% <i>({s2.표본}문)</i>
+                </span>
+              ))}
               {Object.entries(day.원인 || {}).map(([c, n]) => (
                 <span key={c} className={q.causeChip}>{CAUSE[c] || c} {n}</span>
               ))}
@@ -215,6 +227,7 @@ export default function QualityPage() {
                           <span className={q.qText}>{it.질문}</span>
                           <span className={q.qMeta}>
                             {it.회귀 ? <span className={q.reg}>재검</span> : null}
+                            {it.축 ? <span className={q.axis}>{AXIS[it.축] || it.축}</span> : null}
                             <span className={q.type}>{it.유형}</span>
                             {(it.주제 || []).slice(0, 1).map((t) => <span key={t} className={q.topic}>{t}</span>)}
                           </span>

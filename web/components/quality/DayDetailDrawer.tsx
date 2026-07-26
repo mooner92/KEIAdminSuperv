@@ -11,7 +11,10 @@ import s from "./DayDetailDrawer.module.css";
 
 type Item = {
   id: string; 질문: string; 유형: string; 판정: string; 증거?: string; 원인?: string;
-  분류?: string; 출처?: { 규정명?: string; 조?: string } | null;
+  분류?: string; 출처?: { 규정명?: string; 조?: string } | null; 축?: string;
+};
+const AXIS: Record<string, string> = {
+  amount: "💰 금액전결", impact: "🔗 개정영향", defterm: "📖 정의어", deadline: "⏱ 기한",
 };
 type Daily = { date: string; 정답률: number; 집계: Record<string, number>; 문항: Item[] };
 
@@ -63,6 +66,7 @@ export default function DayDetailDrawer({ date, onClose, onOpenDoc }: {
               <li key={i.id} className={s.item}>
                 <div className={s.head}>
                   <span className={i.판정 === "오답" ? s.badgeBad : s.badgeRev}>{i.판정}</span>
+                  {i.축 ? <span className={s.tag}>{AXIS[i.축] || i.축}</span> : null}
                   {i.유형 ? <span className={s.tag}>{i.유형}</span> : null}
                   {i.원인 ? <span className={s.tag}>{i.원인}</span> : null}
                 </div>
