@@ -33,8 +33,16 @@ def main() -> int:
     refs = {j["id"]: S._refs(j) for j in js}
     usable = [k for k, v in refs.items() if len(v) >= 2]
     ck(len(usable) >= 8, f"근거 2건 이상 여정 {len(usable)}종 — 복합 출제 가능")
-    ck(all(r["조"].startswith("제") or "별표" in r["조"] for v in refs.values() for r in v),
-       "근거는 조문/별표만(ERP 화면명 등 비조문 제외)")
+    # 계약: 조문/별표는 정확 매칭, 조가 빈 근거는 **문서 단위 매칭**(노드 설명과 2그램 최대 청크).
+    #       ERP 시스템 화면명은 조문 대조 대상이 아니라 제외한다.
+    ck(all(r["조"] == "" or r["조"].startswith("제") or "별표" in r["조"]
+           for v in refs.values() for r in v), "근거 = 조문/별표 또는 문서 단위(조 공란)")
+    ck(not [r for v in refs.values() for r in v if r["규정명"].startswith("ERP 시스템")],
+       "ERP 시스템 화면 근거 제외")
+    ck(S._sim("법인카드는 통상적 업무추진과 관련이 적은 시간·장소에서 사용을 제한한다",
+              "토･일요일, 공휴일, 자택근처 등 통상적 업무추진과 관련이 적은 시간과 장소에서는 원칙적으로 사용을 제한한다") > 0.3
+       and S._sim("연차휴가 신청 방법", "물품 구매 시 조달청 나라장터를 이용한다") < 0.15,
+       "문서 매칭 — 관련 청크는 높고 무관 청크는 낮게")
 
     print("\n② 게이트")
     ck(S._verbatim("현금구매는 원칙적으로 금지한다.", "제8조(구매 방법) … 현금구매는 원칙적으로 금지한다. 다만 …"),

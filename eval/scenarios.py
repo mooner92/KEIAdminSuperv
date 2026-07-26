@@ -67,30 +67,60 @@ def journeys() -> list:
 
 
 def _refs(j: dict) -> list:
-    """여정 노드의 근거 (규정명, 조) — 중복 제거, 순서 보존(업무 흐름 순)."""
+    """여정 노드의 근거 — 중복 제거, 순서 보존(업무 흐름 순).
+
+    조가 비어 있는 근거(가이드·규칙 통째 참조)도 버리지 않는다. 실측: 법인카드사용정산·육아시간사용
+    ·도서구입은 근거가 **전부 조 없는 가이드**라, 조문만 받으면 흔한 업무가 통째로 출제에서 빠졌다
+    (출제 가능 여정 9/13). 이 경우 노드 설명(action)과 가장 맞는 청크를 결정적으로 고른다.
+    """
     seen, out = set(), []
     for n in j.get("nodes", []):
         for r in n.get("근거", []):
             reg, jo = (r.get("규정명") or "").strip(), (r.get("조") or "").strip()
-            if not reg or not jo or not jo.startswith("제") and "별표" not in jo:
-                continue  # ERP 화면명 등 조문 아닌 근거는 청크 대조가 안 됨
+            if not reg or reg.startswith("ERP 시스템"):
+                continue  # ERP 화면명은 조문 대조 대상이 아님
+            if jo and not (jo.startswith("제") or "별표" in jo):
+                jo = ""    # 화면명·기능명 → 문서 단위 매칭으로 강등
             if (reg, jo) in seen:
                 continue
             seen.add((reg, jo))
-            out.append({"규정명": reg, "조": jo, "노드": n.get("name", ""), "stage": n.get("stage", "")})
+            out.append({"규정명": reg, "조": jo, "노드": n.get("name", ""),
+                        "stage": n.get("stage", ""), "action": (n.get("action") or "")[:400]})
     return out
 
 
-def _fetch(col, reg: str, jo: str):
-    """(규정명, 조) → 청크 1개. 조가 '별표 3'처럼 표 청크여도 동일 경로."""
+def _sim(a: str, b: str) -> float:
+    """2그램 겹침 — 노드 설명과 청크의 결정적 매칭(임베딩 불필요)."""
+    x, y = norm_q(a), norm_q(b)
+    if len(x) < 4 or len(y) < 4:
+        return 0.0
+    xg = {x[i:i + 2] for i in range(len(x) - 1)}
+    yg = {y[i:i + 2] for i in range(len(y) - 1)}
+    return len(xg & yg) / max(1, len(xg))
+
+
+def _fetch(col, reg: str, jo: str, action: str = ""):
+    """근거 → 청크 1개.
+    조가 있으면 (규정명, 조) 정확 매칭. 조가 없으면 그 문서의 청크 중 **노드 설명과 가장
+    비슷한 것**을 고른다(결정적 2그램 — LLM·임베딩 없음). 골든 verbatim 게이트가 뒤를 받친다."""
     try:
-        got = col.get(where={"$and": [{"규정명": reg}, {"조": jo}]},
-                      include=["documents", "metadatas"], limit=1)
+        where = {"$and": [{"규정명": reg}, {"조": jo}]} if jo else {"규정명": reg}
+        got = col.get(where=where, include=["documents", "metadatas"], limit=1 if jo else 60)
     except Exception:  # noqa: BLE001
         return None
     if not got.get("ids"):
         return None
-    return {"cid": got["ids"][0], "doc": got["documents"][0], "meta": got["metadatas"][0]}
+    if jo:
+        return {"cid": got["ids"][0], "doc": got["documents"][0], "meta": got["metadatas"][0]}
+    cands = [(i, d) for i, d in enumerate(got["documents"]) if len(d) >= 200]
+    if not cands:
+        return None
+    best = max(cands, key=lambda t: _sim(action, t[1]))
+    if action and _sim(action, best[1]) < 0.15:
+        return None            # 노드와 무관한 청크로 문항을 만들지 않는다
+    i = best[0]
+    return {"cid": got["ids"][i], "doc": got["documents"][i], "meta": got["metadatas"][i],
+            "조": got["metadatas"][i].get("조", "")}
 
 
 def _korean_ok(text: str) -> bool:
@@ -122,9 +152,9 @@ def gen_scenario(j: dict, rng: random.Random, col, with_turn: bool = False) -> d
     for r in refs:
         if len(ev) >= 4:
             break
-        got = _fetch(col, r["규정명"], r["조"])
+        got = _fetch(col, r["규정명"], r["조"], r.get("action", ""))
         if got and len(got["doc"]) >= 120:
-            ev.append({**r, **got})
+            ev.append({**r, **got})     # 조 없는 근거는 _fetch가 실제 청크의 조 라벨을 채운다
     if len(ev) < 2:
         return None
 
