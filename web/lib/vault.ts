@@ -608,3 +608,63 @@ export function loadJourneys(): Journey[] {
   }
   return out;
 }
+
+// tools/index 파생 인덱스 로더(빌드타임 전용) — emit-docdata의 loadJson과 동일 규약(부재 시 null)
+function loadJson(name: string): any {
+  try {
+    const p = path.resolve(process.cwd(), "..", "tools", "index", name);
+    return JSON.parse(fs.readFileSync(p, "utf-8"));
+  } catch {
+    return null;
+  }
+}
+
+// ── 개정 영향 분석(specs/05) — 01l impact_by_article + article_status 결합 슬라이스 ──
+// 목록은 '확인 후보'(과탐 허용) — 화면 문구가 단정을 막는다. 데이터는 전부 결정적(LLM 무관).
+export type ImpactArticle = {
+  key: string; reg: string; jo: string; title: string;
+  revised: string; recentRevised: boolean;   // 최근 90일 개정(빌드 시점 기준)
+  direct?: string[]; transitive?: string[]; guides?: string[]; forms?: string[]; deadlines?: string[];
+};
+export type ImpactPayload = { items: ImpactArticle[]; regSlugs: Record<string, string> };
+
+export function loadImpact(): ImpactPayload {
+  const ga = loadJson("graph_analytics.json");
+  const st = loadJson("article_status.json");
+  const ai: Record<string, any> = ga?.impact_by_article || {};
+  const arts: Record<string, any> = st?.articles || {};
+  const stemOf = (p: string) => (p || "").split("/").pop()?.replace(/\.md$/, "") || "";
+  // 규정명 → slug(원문 문서) 매핑
+  const reg2slug: Record<string, string> = {};
+  for (const v of Object.values(arts) as any[]) {
+    if (v?.규정명 && v?.path) reg2slug[v.규정명] = stemOf(v.path);
+  }
+  const docs = getAllDocs();
+  const title2slug: Record<string, string> = {};
+  for (const d of docs) title2slug[d.title] = d.slug;
+  const now = Date.now();
+  const out: ImpactArticle[] = [];
+  for (const [key, v] of Object.entries(ai) as [string, any][]) {
+    const [reg, jo] = key.split("#");
+    const meta = arts[key] || {};
+    const revised = String(meta.최근개정 || meta.개정일 || "");
+    const rd = revised ? Date.parse(revised.replaceAll(".", "-")) : NaN;
+    // ⚠ Next getStaticProps는 undefined를 직렬화 못 한다(kei_regs_v2 라벨 때와 동일 함정) —
+    //   존재하는 필드만 키를 넣는다.
+    const row: ImpactArticle = {
+      key, reg, jo, title: String(meta.제목 || ""), revised,
+      recentRevised: Number.isFinite(rd) && now - rd < 90 * 86400e3,
+    };
+    for (const t of ["direct", "transitive", "guides", "forms", "deadlines"] as const) {
+      if (Array.isArray(v[t]) && v[t].length) row[t] = v[t];
+    }
+    out.push(row);
+  }
+  // 파급 넓은 순(확인 대상 많은 조문이 위로)
+  const width = (i: ImpactArticle) =>
+    (i.direct?.length || 0) + (i.transitive?.length || 0) + (i.guides?.length || 0) +
+    (i.forms?.length || 0) + (i.deadlines?.length || 0);
+  out.sort((a, b) => width(b) - width(a) || a.key.localeCompare(b.key));
+  // 전역 규정명→slug 매핑 1벌(행별 중복 제거 — /impact 페이로드 387KB→슬림)
+  return { items: out, regSlugs: reg2slug };
+}

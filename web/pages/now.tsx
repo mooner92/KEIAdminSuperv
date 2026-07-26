@@ -34,7 +34,8 @@ export default function NowPage({ seasonal, revised, notes, terms, formsCount, d
   const deadlinesOn = useFlag("deadlines_hub"); // 기한 사전 바로가기 게이트(docs/57)
   const qualityOn = useFlag("quality_board"); // 품질 게시판 게이트(docs/58)
   const changelogOn = useFlag("changelog");  // 새로워진 점 바로가기 게이트
-  const approvalOn = useFlag("approval_finder"); // 결재선 — 모바일 GNB에서 빠진 화면의 허브 도달(docs/48)
+  const approvalOn = useFlag("approval_finder");
+  const impactOn = useFlag("impact_analysis"); // specs/05: 개정 영향 분석 // 결재선 — 모바일 GNB에서 빠진 화면의 허브 도달(docs/48)
   const journeyOn = useFlag("journey_map"); // 업무 한 장 — 〃
   const feedbackOn = useFlag("feedback_center"); // 의견 보내기(docs/51) — 허브 카드
   const landingOn = useFlag("landing_page"); // 소개 — 모바일 셸에선 푸터가 숨어 허브가 유일 진입(docs/54 v2)
@@ -78,6 +79,8 @@ export default function NowPage({ seasonal, revised, notes, terms, formsCount, d
       desc: `${monthItems.length > 0 ? `이번 달 챙길 일 ${monthItems.length}건 · ` : ""}매월·연간 반복 업무를 한눈에` },
     ...(deadlinesOn ? [{ icon: "⏱️", title: "기한 사전", href: "/deadlines/",
       desc: `규정 기한 ${deadlinesCount}건을 사건·의무로 찾고 마감일 계산·캘린더 저장` }] : []),
+    ...(impactOn ? [{ icon: "🧭", title: "개정 영향 분석", href: "/impact/",
+      desc: "조문을 고치면 어디를 확인해야 하는지 — 인용·가이드·서식·기한 지도" }] : []),
   ];
   const shortcuts: Shortcut[] = [
     ...(qualityOn ? [{ icon: "📊", title: "품질 게시판", href: "/quality/",

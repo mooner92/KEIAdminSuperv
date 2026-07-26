@@ -339,6 +339,7 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-12-31",
     },
+    "impact_analysis": {"label": "개정 영향 분석", "desc": "조문 개정 시 확인해야 할 인용 조문·가이드·서식·기한 지도(/impact). specs/05", "expires": "2026-12-31"},
     "quality_board": {
         "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
         "description": "품질 게시판 /quality(docs/58) — 매일 자가평가 60문항의 '오늘의 정답률 N%'·30일 추이·"

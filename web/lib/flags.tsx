@@ -26,6 +26,7 @@ export const FLAG_DEFAULTS: Record<string, boolean> = {
   answer_anatomy: false, // docs/38 §B: 답변 해부 레이아웃(핵심답 콜아웃+절차 스테퍼, CSS 데코만·문구 불변) (release, 만료 2026-12-31)
   deadlines_hub: false, // docs/57: 기한 사전 /deadlines(전 규정 상대기한 역방향 브라우저+계산·.ics) (release, 만료 2026-12-31)
   reader_glass: false, // docs/59: 리퀴드글라스 돋보기(문서 읽을 때 커서 확대 + SVG 굴절 rim) (release, 만료 2026-12-31)
+  impact_analysis: false, // specs/05: 개정 영향 분석(/impact) — dev 검증 후 on
   quality_board: false, // docs/58: 품질 게시판 /quality(일일 자가평가 정답률·약점지도·문항열람) (release, 만료 2026-12-31)
   faq_bridge: false, // docs/58 §6: FAQ 브리지 /admin 탭(검색실패 오답 후보 → 사람 승인 편입) (release, 만료 2026-12-31)
   help_hub: false, // docs/31: 도움말 허브(잘 묻는 법·FAQ·푸터 FAQ 링크) (release, 만료 2026-12-31)
