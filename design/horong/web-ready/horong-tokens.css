@@ -1,0 +1,97 @@
+/* 호롱(Horong) 디자인 토큰 — web/styles/globals.css 의 "KEI 시맨틱 토큰" 블록 교체용
+   변수명은 기존과 동일. 이 파일을 그대로 붙여 넣거나 import 하세요. */
+:root {
+  /* 브랜드 그라데이션(신규) — 로고·히어로 워드·주 CTA·활성 1곳 전용 */
+  --hr-grad-flame: linear-gradient(135deg, #f2701d, #f9a825 60%, #ffd54f);
+  --hr-grad-leaf:  linear-gradient(135deg, #3d7dc2, #2e9c66);
+
+  --color-primary: #e06a12;
+  --color-primary-strong: #c9530b;
+  --color-primary-weak: #fdf0e4;
+  --color-on-primary: #ffffff;
+
+  --color-bg: #ffffff;
+  --color-bg-subtle: #fafaf7;
+  --color-field-bg: #f4f5f2;
+  --color-surface: #ffffff;
+  --color-surface-hover: #f7f8f5;
+  --color-border: rgba(28, 30, 28, 0.08);
+  --color-border-strong: rgba(28, 30, 28, 0.16);
+
+  --color-text: #1d1f1d;
+  --color-text-secondary: #6f7573;
+  --color-text-tertiary: #a3a8a4;
+  --color-text-disabled: #c9cec9;
+
+  --color-success: #35906a;
+  --color-warning: #e9a13b;
+  --color-danger: #d65745;
+
+  --accent-규정집: #4f8dc4;
+  --accent-가이드: #35906a;
+  --accent-용어집: #e9a13b;
+  --accent-시스템: #8d7ac9;
+  --accent-대외업무: #cf6d96;
+  --accent-상위법령: #7f8a94;
+
+  --badge-warn-bg: rgba(233, 161, 59, 0.14);
+  --badge-warn-border: rgba(233, 161, 59, 0.35);
+  --badge-ok-bg: rgba(53, 144, 106, 0.12);
+  --badge-ok-border: rgba(53, 144, 106, 0.3);
+  --color-danger-bg: rgba(214, 87, 69, 0.1);
+  --color-danger-border: rgba(214, 87, 69, 0.3);
+  --color-header-bg: rgba(250, 250, 247, 0.75); /* + backdrop-filter: blur(20px) saturate(180%) */
+  --color-code-bg: #f4f5f2;
+
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --shadow-card: 0 1px 2px rgba(20, 24, 20, 0.04), 0 10px 28px rgba(20, 24, 20, 0.05);
+  --shadow-pop: 0 20px 48px rgba(20, 24, 20, 0.1);
+  --shadow-drawer: -16px 0 48px rgba(20, 24, 20, 0.1);
+  --transition-ui: color 0.2s cubic-bezier(0.2,0.7,0.2,1), border-color 0.2s cubic-bezier(0.2,0.7,0.2,1), background-color 0.2s cubic-bezier(0.2,0.7,0.2,1);
+}
+
+[data-theme="dark"] {
+  --color-primary: #f2701d;
+  --color-primary-strong: #f5a24a;
+  --color-primary-weak: rgba(249, 168, 37, 0.13);
+  --color-on-primary: #ffffff;
+
+  --color-bg: #151614;
+  --color-bg-subtle: #191b18;
+  --color-field-bg: rgba(255, 255, 255, 0.06);
+  --color-surface: #1e201d;
+  --color-surface-hover: #242622;
+  --color-border: rgba(255, 255, 255, 0.07);
+  --color-border-strong: rgba(255, 255, 255, 0.14);
+
+  --color-text: #f2f3f0;
+  --color-text-secondary: #a6aca7;
+  --color-text-tertiary: #6f7571;
+  --color-text-disabled: #4b514c;
+
+  --color-success: #5fbf93;
+  --color-warning: #dcb26a;
+  --color-danger: #ff7a68;
+
+  --accent-규정집: #7fb2dd;
+  --accent-가이드: #5fbf93;
+  --accent-용어집: #dcb26a;
+  --accent-시스템: #a794dd;
+  --accent-대외업무: #e08cb0;
+  --accent-상위법령: #9aa5ae;
+
+  --badge-warn-bg: rgba(220, 178, 106, 0.12);
+  --badge-warn-border: rgba(220, 178, 106, 0.3);
+  --badge-ok-bg: rgba(95, 191, 147, 0.12);
+  --badge-ok-border: rgba(95, 191, 147, 0.3);
+  --color-danger-bg: rgba(255, 122, 104, 0.1);
+  --color-danger-border: rgba(255, 122, 104, 0.3);
+  --color-header-bg: rgba(21, 22, 20, 0.72);
+  --color-code-bg: #242622;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 28px rgba(0, 0, 0, 0.35);
+  --shadow-pop: 0 24px 56px rgba(0, 0, 0, 0.5);
+  --shadow-drawer: -16px 0 48px rgba(0, 0, 0, 0.5);
+}

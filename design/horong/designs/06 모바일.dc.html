@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+body{margin:0;background:#eceded;color:#1d1f1d;font-family:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#c9530b;text-decoration:none}
+@keyframes glowPulse{0%,100%{opacity:.5;transform:scale(1)}50%{opacity:.85;transform:scale(1.07)}}
+@keyframes coreFlick{0%,100%{opacity:.9;transform:translateY(0) scale(1)}35%{opacity:.6;transform:translateY(-1.2px) scale(1.05)}65%{opacity:1;transform:translateY(.6px) scale(.97)}}
+</style>
+</helmet>
+<div style="padding:40px">
+  <svg width="0" height="0" style="position:absolute"><defs>
+    <linearGradient id="gLeafFlame" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#2f74b8"></stop><stop offset="0.2" stop-color="#2c9c62"></stop><stop offset="0.33" stop-color="#5db54a"></stop><stop offset="0.48" stop-color="#ffd54f"></stop><stop offset="0.66" stop-color="#f9a825"></stop><stop offset="1" stop-color="#e8420b"></stop></linearGradient>
+    <radialGradient id="gGlow" cx="0.5" cy="0.35" r="0.65"><stop offset="0.66" stop-color="#f9a825" stop-opacity="0.5"></stop><stop offset="0.66" stop-color="#f9a825" stop-opacity="0"></stop></radialGradient>
+  </defs></svg>
+  <div style="display:flex;gap:40px;align-items:flex-start;flex-wrap:wrap">
+
+    <section id="6a" style="flex:0 0 auto">
+      <div style="display:flex;align-items:baseline;gap:10px;margin:0 0 14px">
+        <a href="#6a" style="background:#1d1f1d;color:#fff;font-weight:800;font-size:13px;padding:4px 12px;border-radius:999px;text-decoration:none">6a</a>
+        <b style="font-size:15px">모바일 — 로그인</b>
+      </div>
+      <div style="width:390px;height:844px;background:#fafaf7;border-radius:44px;box-shadow:0 24px 64px rgba(20,24,20,0.16);overflow:hidden;display:flex;flex-direction:column;position:relative">
+        <div style="position:absolute;top:-80px;right:-90px;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle,rgba(249,168,37,0.16),transparent 65%)" aria-hidden="true"></div>
+        <div style="flex:0 0 auto;height:54px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#1d1f1d">9:41</div>
+        <div style="position:relative;flex:1;padding:40px 28px 28px;display:flex;flex-direction:column">
+          <div style="position:relative;width:76px;height:76px;margin-bottom:20px">
+            
+            <svg width="76" height="76" viewBox="0 0 64 64" style="position:relative" aria-hidden="true"><path d="M32.5 4.5 C 31 12 24.5 17.5 20 23.5 C 15.5 29.5 13.5 35 14.5 41 C 16 51 23.5 57.5 32 57.5 C 40.5 57.5 48 51 49.5 41 C 50.5 35 48.5 29.5 44 23.5 C 39.5 17.5 34 12 32.5 4.5 Z" fill="url(#gLeafFlame)"></path><path d="M32 52 C 31.6 44 31.8 36 32.6 24 M32 46 C 29 43.5 26.5 41 24.8 38 M32.2 40 C 35 37.5 37.2 35 38.8 31.8 M32.3 33 C 29.8 30.8 28 28.6 26.8 26" fill="none" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round" opacity="0.3"></path></svg>
+          </div>
+          <h1 style="margin:0 0 10px;font-size:34px;font-weight:800;letter-spacing:-0.03em;line-height:1.15">물어보면,<br><span style="background:linear-gradient(100deg,#2f74b8,#2c9c62 32%,#f7b32b 70%,#f2701d);-webkit-background-clip:text;background-clip:text;color:transparent">규정이 답합니다.</span></h1>
+          <p style="margin:0 0 28px;font-size:14.5px;line-height:1.65;color:#6f7573">호롱 — KEI 규정 기반 행정 도우미.<br>모든 답변에 <b style="color:#1d1f1d">출처 조문</b>이 붙어요.</p>
+          <input placeholder="name@example.com" style="width:100%;border:1.5px solid transparent;border-radius:14px;background:#f0f1ed;padding:15px 16px;font:inherit;font-size:15px;color:#1d1f1d;outline:none;margin-bottom:10px">
+          <input type="password" placeholder="비밀번호" style="width:100%;border:1.5px solid transparent;border-radius:14px;background:#f0f1ed;padding:15px 16px;font:inherit;font-size:15px;color:#1d1f1d;outline:none;margin-bottom:14px">
+          <button style="width:100%;border:none;border-radius:14px;background:linear-gradient(135deg,#f2701d,#f9a825);color:#fff;font:inherit;font-size:15.5px;font-weight:800;padding:15px;cursor:pointer;box-shadow:0 8px 20px rgba(242,112,29,0.3)">로그인</button>
+          <button style="width:100%;border:none;background:none;color:#6f7573;font:inherit;font-size:13.5px;font-weight:600;padding:14px;cursor:pointer">회원가입 — @kei.re.kr 인증</button>
+          <p style="margin:auto 0 0;font-size:11.5px;line-height:1.6;color:#a3a8a4;text-align:center">🔒 사내 전용 · 입력 정보는 사내 서버에만 저장됩니다</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="6b" style="flex:0 0 auto">
+      <div style="display:flex;align-items:baseline;gap:10px;margin:0 0 14px">
+        <a href="#6b" style="background:#1d1f1d;color:#fff;font-weight:800;font-size:13px;padding:4px 12px;border-radius:999px;text-decoration:none">6b</a>
+        <b style="font-size:15px">모바일 — 질문하기</b>
+      </div>
+      <div style="width:390px;height:844px;background:#fafaf7;border-radius:44px;box-shadow:0 24px 64px rgba(20,24,20,0.16);overflow:hidden;display:flex;flex-direction:column">
+        <div style="flex:0 0 auto;background:rgba(250,250,247,0.85);backdrop-filter:blur(20px);border-bottom:1px solid rgba(28,30,28,0.05)">
+          <div style="height:54px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">9:41</div>
+          <div style="height:48px;padding:0 20px;display:flex;align-items:center;gap:10px">
+            <button style="border:none;background:#f4f5f2;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:14px;color:#4b514f">☰</button>
+            <span style="display:inline-flex;align-items:center;gap:7px;margin:0 auto">
+              <svg width="20" height="20" viewBox="0 0 64 64" aria-hidden="true"><path d="M32.5 4.5 C 31 12 24.5 17.5 20 23.5 C 15.5 29.5 13.5 35 14.5 41 C 16 51 23.5 57.5 32 57.5 C 40.5 57.5 48 51 49.5 41 C 50.5 35 48.5 29.5 44 23.5 C 39.5 17.5 34 12 32.5 4.5 Z" fill="url(#gLeafFlame)"></path></svg>
+              <b style="font-size:15.5px;font-weight:800">호롱</b>
+            </span>
+            <button style="border:none;background:#f4f5f2;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:13px;color:#4b514f">＋</button>
+          </div>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:18px 16px;display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;justify-content:flex-end"><div style="background:linear-gradient(135deg,#3d7dc2,#2e9c66);color:#fff;padding:11px 15px;border-radius:18px 18px 5px 18px;max-width:80%;font-size:14.5px;line-height:1.55;box-shadow:0 5px 14px rgba(63,164,115,0.2)">출장 여비는 어떻게 정산하나요?</div></div>
+          <div style="background:#fff;border-radius:18px;box-shadow:0 1px 2px rgba(20,24,20,0.04),0 8px 22px rgba(20,24,20,0.05);padding:16px 18px">
+            <p style="margin:0 0 8px;display:flex;align-items:center;gap:6px"><b style="font-size:12px;font-weight:800;color:#c9530b">호롱</b><span style="font-size:10.5px;color:#a3a8a4">14:31</span></p>
+            <p style="margin:0 0 10px;font-size:14.5px;font-weight:700;line-height:1.6">출장 여비는 <mark style="background:linear-gradient(180deg,transparent 55%,rgba(249,168,37,0.45) 55%);color:inherit">출장 종료 후 N일 이내</mark>에 여비정산서를 제출해 정산해요.</p>
+            <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">
+              <div style="display:flex;gap:10px;background:#f7f8f5;border-radius:12px;padding:9px 12px"><span style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#f2701d,#f9a825);color:#fff;font-size:10.5px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto">1</span><span style="font-size:13px;line-height:1.55">ERP → 여비정산 신청서 작성</span></div>
+              <div style="display:flex;gap:10px;background:#f7f8f5;border-radius:12px;padding:9px 12px"><span style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#f2701d,#f9a825);color:#fff;font-size:10.5px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto">2</span><span style="font-size:13px;line-height:1.55">증빙 첨부 → 부서장 결재</span></div>
+            </div>
+            <button style="width:100%;border:none;background:linear-gradient(135deg,rgba(242,112,29,0.09),rgba(249,168,37,0.11));border-radius:12px;padding:11px 14px;cursor:pointer;font:inherit;display:flex;align-items:center;gap:8px">
+              <span style="font-size:12.5px;font-weight:800;color:#c9530b">📚 근거 5개 보기</span>
+              <span style="margin-left:auto;font-size:12px;color:#c9530b">▾</span>
+            </button>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button style="border:none;background:#fff;color:#4b514f;font:inherit;font-size:12.5px;font-weight:600;padding:8px 14px;border-radius:999px;cursor:pointer;box-shadow:0 2px 8px rgba(20,24,20,0.05)">신청 절차도 알려줘</button>
+            <button style="border:none;background:#fff;color:#4b514f;font:inherit;font-size:12.5px;font-weight:600;padding:8px 14px;border-radius:999px;cursor:pointer;box-shadow:0 2px 8px rgba(20,24,20,0.05)">🗺️ 업무 한 장</button>
+          </div>
+        </div>
+        <div style="flex:0 0 auto;padding:10px 14px 6px">
+          <div style="background:#fff;border-radius:18px;box-shadow:0 2px 6px rgba(20,24,20,0.05),0 10px 26px rgba(20,24,20,0.07);display:flex;align-items:center;gap:8px;padding:6px 6px 6px 16px">
+            <span style="flex:1;font-size:14px;color:#a3a8a4;padding:10px 0">물어보세요…</span>
+            <button aria-label="보내기" style="flex:0 0 auto;width:38px;height:38px;border:none;border-radius:50%;background:linear-gradient(135deg,#f2701d,#f9a825);color:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 19V6M6 12l6-6 6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+          </div>
+        </div>
+        <div style="flex:0 0 auto;background:rgba(250,250,247,0.85);backdrop-filter:blur(20px);border-top:1px solid rgba(28,30,28,0.05);padding:8px 24px 22px;display:flex">
+          <span style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px"><svg width="22" height="22" viewBox="0 0 64 64" aria-hidden="true"><path d="M32.5 4.5 C 31 12 24.5 17.5 20 23.5 C 15.5 29.5 13.5 35 14.5 41 C 16 51 23.5 57.5 32 57.5 C 40.5 57.5 48 51 49.5 41 C 50.5 35 48.5 29.5 44 23.5 C 39.5 17.5 34 12 32.5 4.5 Z" fill="url(#gLeafFlame)"></path></svg><b style="font-size:10.5px;font-weight:700;color:#c9530b">질문</b></span>
+          <span style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;opacity:.45"><span style="font-size:19px">📚</span><b style="font-size:10.5px;font-weight:600;color:#6f7573">규정</b></span>
+          <span style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;opacity:.45"><span style="font-size:19px">🧰</span><b style="font-size:10.5px;font-weight:600;color:#6f7573">도구</b></span>
+        </div>
+      </div>
+    </section>
+
+    <section id="6c" style="flex:0 0 auto">
+      <div style="display:flex;align-items:baseline;gap:10px;margin:0 0 14px">
+        <a href="#6c" style="background:#1d1f1d;color:#fff;font-weight:800;font-size:13px;padding:4px 12px;border-radius:999px;text-decoration:none">6c</a>
+        <b style="font-size:15px">모바일 — 규정 찾기</b>
+      </div>
+      <div style="width:390px;height:844px;background:#fafaf7;border-radius:44px;box-shadow:0 24px 64px rgba(20,24,20,0.16);overflow:hidden;display:flex;flex-direction:column">
+        <div style="flex:0 0 auto;background:rgba(250,250,247,0.85);backdrop-filter:blur(20px);border-bottom:1px solid rgba(28,30,28,0.05)">
+          <div style="height:54px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">9:41</div>
+          <div style="padding:2px 18px 12px">
+            <h1 style="margin:0 0 12px;font-size:24px;font-weight:800;letter-spacing:-0.025em">규정 찾기</h1>
+            <div style="background:#f0f1ed;border-radius:999px;display:flex;align-items:center;gap:8px;padding:0 16px;height:42px;margin-bottom:10px">
+              <svg viewBox="0 0 20 20" width="15" height="15" aria-hidden="true" style="color:#a3a8a4"><circle cx="9" cy="9" r="5.5" fill="none" stroke="currentColor" stroke-width="1.8"></circle><line x1="13.2" y1="13.2" x2="17" y2="17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></line></svg>
+              <span style="font-size:14px;color:#a3a8a4">제목 · 번호 · 내용 검색</span>
+            </div>
+            <div style="display:inline-flex;background:#ecede9;border-radius:999px;padding:3px">
+              <span style="background:#fff;color:#1d1f1d;font-size:12.5px;font-weight:700;padding:6px 16px;border-radius:999px;box-shadow:0 2px 6px rgba(20,24,20,0.08)">문서</span>
+              <span style="color:#6f7573;font-size:12.5px;font-weight:600;padding:6px 16px">서식</span>
+              <span style="color:#6f7573;font-size:12.5px;font-weight:600;padding:6px 16px">그래프</span>
+            </div>
+          </div>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:14px 14px">
+          <div style="display:flex;gap:6px;margin-bottom:12px;overflow-x:auto">
+            <span style="flex:0 0 auto;background:linear-gradient(135deg,rgba(242,112,29,0.12),rgba(249,168,37,0.14));color:#c9530b;font-size:12px;font-weight:700;padding:6px 13px;border-radius:999px">규정집 111</span>
+            <span style="flex:0 0 auto;background:#fff;color:#6f7573;font-size:12px;font-weight:600;padding:6px 13px;border-radius:999px;box-shadow:0 1px 4px rgba(20,24,20,0.05)">가이드 65</span>
+            <span style="flex:0 0 auto;background:#fff;color:#6f7573;font-size:12px;font-weight:600;padding:6px 13px;border-radius:999px;box-shadow:0 1px 4px rgba(20,24,20,0.05)">용어집 119</span>
+            <span style="flex:0 0 auto;background:#fff;color:#6f7573;font-size:12px;font-weight:600;padding:6px 13px;border-radius:999px;box-shadow:0 1px 4px rgba(20,24,20,0.05)">시스템 54</span>
+          </div>
+          <div style="background:#fff;border-radius:18px;box-shadow:0 1px 2px rgba(20,24,20,0.04),0 8px 22px rgba(20,24,20,0.05);padding:6px">
+            <div style="padding:13px 14px;border-radius:13px" style-hover="background:#f7f8f5">
+              <p style="margin:0 0 5px;display:flex;align-items:center;gap:8px"><b style="font-size:15px">복무규정</b><span style="font-size:10.5px;font-weight:700;color:#2a7355;background:rgba(53,144,106,0.12);padding:2px 8px;border-radius:999px">✓ 검수</span></p>
+              <p style="margin:0;font-size:12px;color:#a3a8a4">1200 · 인사·복무 · 38개 조문 · 2025-11</p>
+            </div>
+            <div style="height:1px;background:rgba(28,30,28,0.05);margin:0 14px"></div>
+            <div style="padding:13px 14px;border-radius:13px">
+              <p style="margin:0 0 5px;display:flex;align-items:center;gap:8px"><b style="font-size:15px">여비규정</b></p>
+              <p style="margin:0;font-size:12px;color:#a3a8a4">2100 · 재무·회계 · 24개 조문 · 2025-08</p>
+            </div>
+            <div style="height:1px;background:rgba(28,30,28,0.05);margin:0 14px"></div>
+            <div style="padding:13px 14px;border-radius:13px">
+              <p style="margin:0 0 5px;display:flex;align-items:center;gap:8px"><b style="font-size:15px">위임전결규정</b></p>
+              <p style="margin:0;font-size:12px;color:#a3a8a4">2300 · 조직·운영 · 12개 조문 · 2024-12</p>
+            </div>
+            <div style="height:1px;background:rgba(28,30,28,0.05);margin:0 14px"></div>
+            <div style="padding:13px 14px;border-radius:13px">
+              <p style="margin:0 0 5px;display:flex;align-items:center;gap:8px"><b style="font-size:15px">출장비 정산 가이드</b><span style="font-size:10.5px;font-weight:700;color:#2a7355;background:rgba(53,144,106,0.12);padding:2px 8px;border-radius:999px">가이드</span></p>
+              <p style="margin:0;font-size:12px;color:#a3a8a4">재무·회계 · 미검수</p>
+            </div>
+            <div style="height:1px;background:rgba(28,30,28,0.05);margin:0 14px"></div>
+            <div style="padding:13px 14px;border-radius:13px">
+              <p style="margin:0 0 5px;display:flex;align-items:center;gap:8px"><b style="font-size:15px">전결</b><span style="font-size:10.5px;font-weight:700;color:#8a6d1f;background:rgba(233,161,59,0.16);padding:2px 8px;border-radius:999px">용어집</span></p>
+              <p style="margin:0;font-size:12px;color:#a3a8a4">행정 용어</p>
+            </div>
+          </div>
+        </div>
+        <div style="flex:0 0 auto;background:rgba(250,250,247,0.85);backdrop-filter:blur(20px);border-top:1px solid rgba(28,30,28,0.05);padding:8px 24px 22px;display:flex">
+          <span style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;opacity:.45"><svg width="22" height="22" viewBox="0 0 64 64" aria-hidden="true"><path d="M32.5 4.5 C 31 12 24.5 17.5 20 23.5 C 15.5 29.5 13.5 35 14.5 41 C 16 51 23.5 57.5 32 57.5 C 40.5 57.5 48 51 49.5 41 C 50.5 35 48.5 29.5 44 23.5 C 39.5 17.5 34 12 32.5 4.5 Z" fill="url(#gLeafFlame)"></path></svg><b style="font-size:10.5px;font-weight:600;color:#6f7573">질문</b></span>
+          <span style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px"><span style="font-size:19px">📚</span><b style="font-size:10.5px;font-weight:700;color:#c9530b">규정</b></span>
+          <span style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;opacity:.45"><span style="font-size:19px">🧰</span><b style="font-size:10.5px;font-weight:600;color:#6f7573">도구</b></span>
+        </div>
+      </div>
+    </section>
+
+    <section id="6d" style="flex:0 0 auto">
+      <div style="display:flex;align-items:baseline;gap:10px;margin:0 0 14px">
+        <a href="#6d" style="background:#1d1f1d;color:#fff;font-weight:800;font-size:13px;padding:4px 12px;border-radius:999px;text-decoration:none">6d</a>
+        <b style="font-size:15px">모바일 — 업무 도구</b>
+      </div>
+      <div style="width:390px;height:844px;background:#fafaf7;border-radius:44px;box-shadow:0 24px 64px rgba(20,24,20,0.16);overflow:hidden;display:flex;flex-direction:column">
+        <div style="flex:0 0 auto;background:rgba(250,250,247,0.85);backdrop-filter:blur(20px);border-bottom:1px solid rgba(28,30,28,0.05)">
+          <div style="height:54px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">9:41</div>
+          <div style="padding:2px 18px 14px"><h1 style="margin:0;font-size:24px;font-weight:800;letter-spacing:-0.025em">업무 도구</h1></div>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:16px 16px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+            <div style="background:#fff;border-radius:18px;padding:18px;box-shadow:0 1px 2px rgba(20,24,20,0.04),0 8px 22px rgba(20,24,20,0.05)">
+              <span style="width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#f2701d,#f9a825);display:inline-flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:10px">✅</span>
+              <b style="display:block;font-size:15px;font-weight:800;margin-bottom:3px">결재선</b>
+              <span style="font-size:12px;color:#a3a8a4;line-height:1.5">누가 전결하나요?</span>
+            </div>
+            <div style="background:#fff;border-radius:18px;padding:18px;box-shadow:0 1px 2px rgba(20,24,20,0.04),0 8px 22px rgba(20,24,20,0.05)">
+              <span style="width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#3d7dc2,#2e9c66);display:inline-flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:10px">🗺️</span>
+              <b style="display:block;font-size:15px;font-weight:800;margin-bottom:3px">업무 한 장</b>
+              <span style="font-size:12px;color:#a3a8a4;line-height:1.5">전체 흐름 한눈에</span>
+            </div>
+            <div style="background:#fff;border-radius:18px;padding:18px;box-shadow:0 1px 2px rgba(20,24,20,0.04),0 8px 22px rgba(20,24,20,0.05)">
+              <span style="width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#4f8dc4,#7fb2dd);display:inline-flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:10px">📅</span>
+              <b style="display:block;font-size:15px;font-weight:800;margin-bottom:3px">업무 캘린더</b>
+              <span style="font-size:12px;color:#a3a8a4;line-height:1.5">이번 달 3건</span>
+            </div>
+            <div style="background:#fff;border-radius:18px;padding:18px;box-shadow:0 1px 2px rgba(20,24,20,0.04),0 8px 22px rgba(20,24,20,0.05)">
+              <span style="width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#e9a13b,#f7c948);display:inline-flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:10px">⏱️</span>
+              <b style="display:block;font-size:15px;font-weight:800;margin-bottom:3px">기한 사전</b>
+              <span style="font-size:12px;color:#a3a8a4;line-height:1.5">마감일 계산</span>
+            </div>
+          </div>
+          <div style="background:linear-gradient(135deg,rgba(242,112,29,0.07),rgba(249,168,37,0.1));border-radius:18px;padding:18px;margin-bottom:12px">
+            <p style="margin:0 0 10px;font-size:13px;font-weight:800;color:#9c3f06">📅 7월 챙길 일 3건</p>
+            <p style="margin:0 0 6px;font-size:13.5px;font-weight:600">상반기 연구사업 중간보고</p>
+            <p style="margin:0 0 6px;font-size:13.5px;font-weight:600">하계 휴가 사용 계획 제출</p>
+            <p style="margin:0;font-size:13.5px;font-weight:600">대외요구자료 2분기 실적</p>
+          </div>
+          <div style="background:#f4f5f2;border-radius:18px;padding:18px">
+            <p style="margin:0 0 10px;font-size:12.5px;font-weight:700;color:#a3a8a4">📈 요즘 많이 찾는</p>
+            <div style="display:flex;flex-wrap:wrap;gap:7px">
+              <span style="background:#fff;font-size:12.5px;font-weight:600;color:#4b514f;padding:6px 13px;border-radius:999px">연차휴가</span>
+              <span style="background:#fff;font-size:12.5px;font-weight:600;color:#4b514f;padding:6px 13px;border-radius:999px">여비</span>
+              <span style="background:#fff;font-size:12.5px;font-weight:600;color:#4b514f;padding:6px 13px;border-radius:999px">법인카드</span>
+              <span style="background:#fff;font-size:12.5px;font-weight:600;color:#4b514f;padding:6px 13px;border-radius:999px">전결</span>
+            </div>
+          </div>
+          <p style="margin:14px 4px 0;font-size:11.5px;color:#a3a8a4;text-align:center">도움말 · 의견 보내기 · 소개 · 새로워진 점</p>
+        </div>
+        <div style="flex:0 0 auto;background:rgba(250,250,247,0.85);backdrop-filter:blur(20px);border-top:1px solid rgba(28,30,28,0.05);padding:8px 24px 22px;display:flex">
+          <span style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;opacity:.45"><svg width="22" height="22" viewBox="0 0 64 64" aria-hidden="true"><path d="M32.5 4.5 C 31 12 24.5 17.5 20 23.5 C 15.5 29.5 13.5 35 14.5 41 C 16 51 23.5 57.5 32 57.5 C 40.5 57.5 48 51 49.5 41 C 50.5 35 48.5 29.5 44 23.5 C 39.5 17.5 34 12 32.5 4.5 Z" fill="url(#gLeafFlame)"></path></svg><b style="font-size:10.5px;font-weight:600;color:#6f7573">질문</b></span>
+          <span style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;opacity:.45"><span style="font-size:19px">📚</span><b style="font-size:10.5px;font-weight:600;color:#6f7573">규정</b></span>
+          <span style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px"><span style="font-size:19px">🧰</span><b style="font-size:10.5px;font-weight:700;color:#c9530b">도구</b></span>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

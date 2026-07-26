@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+body{margin:0;background:#fafaf7;color:#1d1f1d;font-family:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#c9530b;text-decoration:none}a:hover{color:#9c3f06}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@keyframes glowPulse{0%,100%{opacity:.55;transform:scale(1)}50%{opacity:.9;transform:scale(1.06)}}
+@keyframes coreFlick{0%,100%{opacity:.9;transform:translateY(0) scale(1)}35%{opacity:.6;transform:translateY(-1.2px) scale(1.05)}65%{opacity:1;transform:translateY(.6px) scale(.97)}}
+@keyframes floatA{0%,100%{transform:translate(0,0)}50%{transform:translate(16px,-12px)}}
+@keyframes floatB{0%,100%{transform:translate(0,0)}50%{transform:translate(-14px,10px)}}
+</style>
+</helmet>
+<div style="max-width:1180px;margin:0 auto;padding:64px 40px 96px">
+  <svg width="0" height="0" style="position:absolute"><defs>
+    <linearGradient id="gLeafFlame" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#2f74b8"></stop><stop offset="0.2" stop-color="#2c9c62"></stop><stop offset="0.33" stop-color="#5db54a"></stop><stop offset="0.48" stop-color="#ffd54f"></stop><stop offset="1" stop-color="#e8420b"></stop>
+    </linearGradient>
+    <linearGradient id="gFlame" x1="0" y1="0" x2="1" y2="1"><stop offset="1" stop-color="#e8420b"></stop><stop offset="0.66" stop-color="#f9a825"></stop><stop offset="0.48" stop-color="#ffd54f"></stop></linearGradient>
+    <linearGradient id="gLeaf" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3d7dc2"></stop><stop offset="1" stop-color="#2e9c66"></stop></linearGradient>
+    <radialGradient id="gGlow" cx="0.5" cy="0.35" r="0.65"><stop offset="0.66" stop-color="#f9a825" stop-opacity="0.55"></stop><stop offset="0.66" stop-color="#f9a825" stop-opacity="0"></stop></radialGradient>
+  </defs></svg>
+
+  <p style="margin:0 0 14px;font-size:13px;font-weight:700;color:#c9530b;letter-spacing:0.02em;animation:rise .7s cubic-bezier(.2,.7,.2,1) both">호롱 브랜드 v2 — 심플 심볼마크 · 부드러운 모던</p>
+  <h1 style="margin:0 0 16px;font-size:clamp(44px,5vw,64px);font-weight:800;letter-spacing:-0.03em;line-height:1.06;animation:rise .7s cubic-bezier(.2,.7,.2,1) .06s both">잎끝에 불이 켜지면,<br><span style="background:linear-gradient(100deg,#2f74b8,#2c9c62 34%,#f7b32b 72%,#f2701d);-webkit-background-clip:text;background-clip:text;color:transparent">호롱.</span></h1>
+  <p style="margin:0 0 48px;font-size:17px;line-height:1.7;color:#6f7573;max-width:640px;animation:rise .7s cubic-bezier(.2,.7,.2,1) .12s both">나뭇잎(한국환경연구원)과 호롱불(길을 밝히는 안내)을 하나의 실루엣으로. 획도, 테두리도 없이 — 그라데이션 하나가 이야기를 다 합니다. 눈이 편한 저채도 블루→그린, 앰버→오렌지.</p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px">
+    <section style="background:#fff;border-radius:24px;padding:40px;box-shadow:0 1px 2px rgba(20,24,20,0.04),0 12px 32px rgba(20,24,20,0.06);animation:rise .7s cubic-bezier(.2,.7,.2,1) .18s both">
+      <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#a3a8a4">심볼 A — 대표안</p>
+      <h3 style="margin:0 0 24px;font-size:22px;font-weight:800;letter-spacing:-0.02em">불꽃잎 <span style="font-weight:600;color:#a3a8a4;font-size:15px">한 획의 잎이자 불꽃</span></h3>
+      <div style="display:flex;align-items:center;justify-content:center;padding:24px 0 32px;position:relative">
+        
+        <svg width="150" height="150" viewBox="0 0 64 64" aria-label="호롱 심볼 — 불꽃잎" style="position:relative">
+          <path d="M32.5 4.5 C 31 12 24.5 17.5 20 23.5 C 15.5 29.5 13.5 35 14.5 41 C 16 51 23.5 57.5 32 57.5 C 40.5 57.5 48 51 49.5 41 C 50.5 35 48.5 29.5 44 23.5 C 39.5 17.5 34 12 32.5 4.5 Z" fill="url(#gLeafFlame)"></path>
+          <path d="M32 52 C 31.6 44 31.8 36 32.6 24 M32 46 C 29 43.5 26.5 41 24.8 38 M32.2 40 C 35 37.5 37.2 35 38.8 31.8 M32.3 33 C 29.8 30.8 28 28.6 26.8 26" fill="none" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round" opacity="0.3"></path>
+          
+        </svg>
+      </div>
+      <div style="display:flex;align-items:center;gap:28px;justify-content:center">
+        <span style="display:inline-flex;align-items:center;gap:10px"><svg width="30" height="30" viewBox="0 0 64 64" aria-hidden="true"><path d="M32.5 4.5 C 31 12 24.5 17.5 20 23.5 C 15.5 29.5 13.5 35 14.5 41 C 16 51 23.5 57.5 32 57.5 C 40.5 57.5 48 51 49.5 41 C 50.5 35 48.5 29.5 44 23.5 C 39.5 17.5 34 12 32.5 4.5 Z" fill="url(#gLeafFlame)"></path><path d="M32 52 C 31.6 44 31.8 36 32.6 24 M32 46 C 29 43.5 26.5 41 24.8 38 M32.2 40 C 35 37.5 37.2 35 38.8 31.8 M32.3 33 C 29.8 30.8 28 28.6 26.8 26" fill="none" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round" opacity="0.3"></path></svg><b style="font-size:21px;font-weight:800;letter-spacing:-0.02em">호롱</b></span>
+        <span style="display:inline-flex;align-items:center;gap:8px;background:#1d1f1d;border-radius:14px;padding:10px 16px"><svg width="22" height="22" viewBox="0 0 64 64" aria-hidden="true"><path d="M32.5 4.5 C 31 12 24.5 17.5 20 23.5 C 15.5 29.5 13.5 35 14.5 41 C 16 51 23.5 57.5 32 57.5 C 40.5 57.5 48 51 49.5 41 C 50.5 35 48.5 29.5 44 23.5 C 39.5 17.5 34 12 32.5 4.5 Z" fill="url(#gLeafFlame)"></path><path d="M32 52 C 31.6 44 31.8 36 32.6 24 M32 46 C 29 43.5 26.5 41 24.8 38 M32.2 40 C 35 37.5 37.2 35 38.8 31.8 M32.3 33 C 29.8 30.8 28 28.6 26.8 26" fill="none" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round" opacity="0.3"></path></svg><b style="font-size:16px;font-weight:800;color:#fff">호롱</b></span>
+      </div>
+      <p style="margin:24px 0 0;font-size:13.5px;line-height:1.65;color:#6f7573">정갈한 물방울 실루엣에 밝은 불빛 — 물(파랑 ~14%)·풀(초록 ~24%) 위로 노랑·앰버·주황 불빛이 위쪽 4분의 3을 채웁니다. 안쪽에는 가지처럼 뻗는 잎맥 주름만 옅게. 단일 실루엣이라 파비콘·앱 아이콘까지 그대로 줄어듭니다.</p>
+    </section>
+    <section style="background:#fff;border-radius:24px;padding:40px;box-shadow:0 1px 2px rgba(20,24,20,0.04),0 12px 32px rgba(20,24,20,0.06);animation:rise .7s cubic-bezier(.2,.7,.2,1) .24s both">
+      <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#a3a8a4">심볼 B — 대안</p>
+      <h3 style="margin:0 0 24px;font-size:22px;font-weight:800;letter-spacing:-0.02em">호롱빛 <span style="font-weight:600;color:#a3a8a4;font-size:15px">잎사귀 빛살 버스트</span></h3>
+      <div style="display:flex;align-items:center;justify-content:center;padding:24px 0 32px">
+        <svg width="150" height="150" viewBox="0 0 64 64" aria-label="호롱 심볼 B — 빛살">
+          <g fill="url(#gFlame)">
+            <path d="M32 30 C 30 22 30 14 32 5 C 34 14 34 22 32 30 Z"></path>
+            <path d="M32 34 C 34 42 34 50 32 59 C 30 50 30 42 32 34 Z" fill="url(#gLeaf)"></path>
+            <path d="M34 31 C 41 27 48 25 57 24.5 C 49 29 42 31 34 31 Z"></path>
+            <path d="M30 33 C 23 37 16 39 7 39.5 C 15 35 22 33 30 33 Z" fill="url(#gLeaf)"></path>
+            <path d="M34 29 C 39 23 44 18 52 13 C 47 21 41 26 34 29 Z"></path>
+            <path d="M30 35 C 25 41 20 46 12 51 C 17 43 23 38 30 35 Z" fill="url(#gLeaf)"></path>
+            <path d="M30 29 C 25 24 21 19 17 11 C 24 16 28 22 30 29 Z" fill="url(#gLeaf)"></path>
+            <path d="M34 35 C 39 40 43 45 47 53 C 40 48 36 42 34 35 Z"></path>
+          </g>
+          <circle cx="32" cy="32" r="5" fill="#1d1f1d"></circle>
+        </svg>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;justify-content:center">
+        <svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true"><g fill="url(#gFlame)"><path d="M32 30 C 30 22 30 14 32 5 C 34 14 34 22 32 30 Z"></path><path d="M32 34 C 34 42 34 50 32 59 C 30 50 30 42 32 34 Z" fill="url(#gLeaf)"></path><path d="M34 31 C 41 27 48 25 57 24.5 C 49 29 42 31 34 31 Z"></path><path d="M30 33 C 23 37 16 39 7 39.5 C 15 35 22 33 30 33 Z" fill="url(#gLeaf)"></path><path d="M34 29 C 39 23 44 18 52 13 C 47 21 41 26 34 29 Z"></path><path d="M30 35 C 25 41 20 46 12 51 C 17 43 23 38 30 35 Z" fill="url(#gLeaf)"></path><path d="M30 29 C 25 24 21 19 17 11 C 24 16 28 22 30 29 Z" fill="url(#gLeaf)"></path><path d="M34 35 C 39 40 43 45 47 53 C 40 48 36 42 34 35 Z"></path></g><circle cx="32" cy="32" r="5" fill="#1d1f1d"></circle></svg>
+        <b style="font-size:21px;font-weight:800;letter-spacing:-0.02em">호롱</b>
+      </div>
+      <p style="margin:24px 0 0;font-size:13.5px;line-height:1.65;color:#6f7573">보내주신 레퍼런스(코랄 버스트)의 호롱 해석 — 빛살 하나하나가 잎사귀 모양. 위쪽 절반은 불꽃, 아래쪽 절반은 잎 그라데이션으로 "빛이 퍼지는 등불". 포스터·스플래시 같은 큰 화면용 보조 마크로 추천.</p>
+    </section>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:24px">
+    <section style="background:#fff;border-radius:24px;padding:40px;box-shadow:0 1px 2px rgba(20,24,20,0.04),0 12px 32px rgba(20,24,20,0.06);animation:rise .7s cubic-bezier(.2,.7,.2,1) .3s both">
+      <p style="margin:0 0 20px;font-size:13px;font-weight:700;color:#a3a8a4">컬러 — 눈이 편한 저채도</p>
+      <div style="display:flex;gap:10px;margin-bottom:10px">
+        <div style="flex:1;height:88px;border-radius:16px;background:linear-gradient(135deg,#3d7dc2,#2e9c66);display:flex;align-items:flex-end;padding:12px"><span style="font-size:12px;font-weight:700;color:#fff">잎 그라데이션</span></div>
+        <div style="flex:1;height:88px;border-radius:16px;background:linear-gradient(135deg,#f2701d,#f9a825 60%,#ffd54f);display:flex;align-items:flex-end;padding:12px"><span style="font-size:12px;font-weight:700;color:#fff">불꽃 그라데이션</span></div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div style="flex:1;min-width:100px;height:64px;border-radius:14px;background:#1d1f1d;display:flex;align-items:flex-end;padding:10px"><span style="font-size:11px;font-weight:600;color:#fff">잉크 1D1F1D</span></div>
+        <div style="flex:1;min-width:100px;height:64px;border-radius:14px;background:#fafaf7;border:1px solid rgba(28,30,28,0.08);display:flex;align-items:flex-end;padding:10px"><span style="font-size:11px;font-weight:600">그라운드 FAFAF7</span></div>
+        <div style="flex:1;min-width:100px;height:64px;border-radius:14px;background:#f4f5f2;display:flex;align-items:flex-end;padding:10px"><span style="font-size:11px;font-weight:600">패널 F4F5F2</span></div>
+        <div style="flex:1;min-width:100px;height:64px;border-radius:14px;background:#e06a12;display:flex;align-items:flex-end;padding:10px"><span style="font-size:11px;font-weight:600;color:#fff">엠버 E06A12</span></div>
+        <div style="flex:1;min-width:100px;height:64px;border-radius:14px;background:#35906a;display:flex;align-items:flex-end;padding:10px"><span style="font-size:11px;font-weight:600;color:#fff">잎 35906A</span></div>
+        <div style="flex:1;min-width:100px;height:64px;border-radius:14px;background:#4f8dc4;display:flex;align-items:flex-end;padding:10px"><span style="font-size:11px;font-weight:600;color:#fff">하늘 4F8DC4</span></div>
+      </div>
+      <p style="margin:18px 0 0;font-size:13.5px;line-height:1.65;color:#6f7573">그라데이션은 브랜드 모먼트(로고·히어로 워드·주요 CTA·활성 인디케이터)에만. 본문 링크·강조는 단색 엠버 딥 <b style="color:#c9530b">#C9530B</b>, 상태 색은 잎·하늘·앰버 단색으로 차분하게.</p>
+    </section>
+    <section style="background:#fff;border-radius:24px;padding:40px;box-shadow:0 1px 2px rgba(20,24,20,0.04),0 12px 32px rgba(20,24,20,0.06);animation:rise .7s cubic-bezier(.2,.7,.2,1) .36s both">
+      <p style="margin:0 0 20px;font-size:13px;font-weight:700;color:#a3a8a4">무드 — Apple × 나뭇잎</p>
+      <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:14px;font-size:14.5px;line-height:1.6">
+        <li style="display:flex;gap:12px"><span style="width:8px;height:8px;border-radius:50%;background:linear-gradient(135deg,#f2701d,#f9a825);flex:0 0 auto;margin-top:7px"></span><span><b>테두리 대신 공기</b> — 진한 스트로크 제거. 구획은 여백·연한 패널(#F4F5F2)·아주 옅은 헤어라인(8% 잉크)으로.</span></li>
+        <li style="display:flex;gap:12px"><span style="width:8px;height:8px;border-radius:50%;background:linear-gradient(135deg,#3d7dc2,#2e9c66);flex:0 0 auto;margin-top:7px"></span><span><b>둥글고 부드럽게</b> — 라운드 12–24px, 알약 버튼, 폭신한 그림자(0 12px 32px · 6%).</span></li>
+        <li style="display:flex;gap:12px"><span style="width:8px;height:8px;border-radius:50%;background:linear-gradient(135deg,#f2701d,#f9a825);flex:0 0 auto;margin-top:7px"></span><span><b>세련된 모션</b> — 유리 헤더(blur+saturate), 스크롤 리빌(fade-up), 호버 리프트, 그라데이션 글로우가 숨쉬듯 펄스. reduced-motion 존중.</span></li>
+        <li style="display:flex;gap:12px"><span style="width:8px;height:8px;border-radius:50%;background:linear-gradient(135deg,#3d7dc2,#2e9c66);flex:0 0 auto;margin-top:7px"></span><span><b>타입은 Pretendard 하나</b> — 큰 제목 800/−0.03em, 본문 400/1.7, 숫자는 tabular. Archivo·모노 라벨 제거.</span></li>
+      </ul>
+      <div style="margin-top:24px;border-radius:18px;padding:20px;background:linear-gradient(135deg,rgba(91,155,208,0.1),rgba(63,164,115,0.1))">
+        <p style="margin:0 0 10px;font-size:13px;font-weight:700;color:#35906a">메뉴 정리는 유지</p>
+        <p style="margin:0;font-size:13.5px;line-height:1.65;color:#6f7573">7탭 → <b style="color:#1d1f1d">질문하기 · 규정 찾기(문서/서식/그래프) · 업무 도구</b> 3탭. 도움말·소개·의견은 푸터로.</p>
+      </div>
+    </section>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+body{margin:0;background:#fafaf7;color:#1d1f1d;font-family:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#c9530b;text-decoration:none}
+@keyframes hrLeafTick{from{opacity:1}to{opacity:0.12}}
+@keyframes hrLeafBloom{0%{opacity:0;transform:scale(0.45)}18%{opacity:1;transform:scale(1)}55%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(0.55)}}
+@keyframes hrSlowSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.hr-spin *{animation:none !important;opacity:.7 !important}}
+</style>
+</helmet>
+<div style="max-width:1080px;margin:0 auto;padding:56px 40px 96px">
+  <p style="margin:0 0 12px;font-size:13px;font-weight:700;color:#c9530b">호롱빛 — 로딩 스피너</p>
+  <h1 style="margin:0 0 12px;font-size:40px;font-weight:800;letter-spacing:-0.03em">잎이 피고 지며 도는 불빛</h1>
+  <p style="margin:0 0 40px;font-size:15.5px;line-height:1.7;color:#6f7573;max-width:640px">호롱빛(빛살 버스트) 심볼을 로딩 인디케이터로 — 빛살 하나하나가 잎처럼 <b style="color:#1d1f1d">피어났다(스케일+페이드 인) 사그라들며(페이드 아웃)</b> 시계 방향으로 도는 느낌을 만듭니다. GIF가 아니라 순수 SVG+CSS라 어떤 크기에서도 선명해요.</p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
+    <section style="background:#fff;border-radius:24px;padding:36px;box-shadow:0 1px 2px rgba(20,24,20,0.04),0 12px 32px rgba(20,24,20,0.06)">
+      <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#a3a8a4">A — 피고 지는 잎 (대표안)</p>
+      <p style="margin:0 0 24px;font-size:13.5px;color:#6f7573;line-height:1.6">잎이 움트듯 자라나 활짝 폈다가 사그라드는 웨이브가 원을 따라 돕니다. 1.6s 주기.</p>
+      <div style="display:flex;align-items:center;justify-content:center;padding:20px 0 28px">
+        <svg class="hr-spin" width="120" height="120" viewBox="0 0 64 64" role="img" aria-label="불러오는 중">
+          <defs><linearGradient id="spA" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#2c9c62"></stop><stop offset="0.45" stop-color="#7ec13c"></stop><stop offset="0.72" stop-color="#f6b40e"></stop><stop offset="1" stop-color="#ef5a11"></stop></linearGradient></defs>
+          <g style="transform-origin:32px 32px;animation:hrSlowSpin 12s linear infinite">
+            <g transform="rotate(0 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spA)" style="transform-origin:32px 32px;animation:hrLeafBloom 1.6s cubic-bezier(0.3,0,0.4,1) infinite;animation-delay:-1.6s"></path></g>
+            <g transform="rotate(45 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spA)" style="transform-origin:32px 32px;animation:hrLeafBloom 1.6s cubic-bezier(0.3,0,0.4,1) infinite;animation-delay:-1.4s"></path></g>
+            <g transform="rotate(90 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spA)" style="transform-origin:32px 32px;animation:hrLeafBloom 1.6s cubic-bezier(0.3,0,0.4,1) infinite;animation-delay:-1.2s"></path></g>
+            <g transform="rotate(135 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spA)" style="transform-origin:32px 32px;animation:hrLeafBloom 1.6s cubic-bezier(0.3,0,0.4,1) infinite;animation-delay:-1s"></path></g>
+            <g transform="rotate(180 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spA)" style="transform-origin:32px 32px;animation:hrLeafBloom 1.6s cubic-bezier(0.3,0,0.4,1) infinite;animation-delay:-0.8s"></path></g>
+            <g transform="rotate(225 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spA)" style="transform-origin:32px 32px;animation:hrLeafBloom 1.6s cubic-bezier(0.3,0,0.4,1) infinite;animation-delay:-0.6s"></path></g>
+            <g transform="rotate(270 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spA)" style="transform-origin:32px 32px;animation:hrLeafBloom 1.6s cubic-bezier(0.3,0,0.4,1) infinite;animation-delay:-0.4s"></path></g>
+            <g transform="rotate(315 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spA)" style="transform-origin:32px 32px;animation:hrLeafBloom 1.6s cubic-bezier(0.3,0,0.4,1) infinite;animation-delay:-0.2s"></path></g>
+          </g>
+        </svg>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:28px">
+        <svg class="hr-spin" width="40" height="40" viewBox="0 0 64 64" aria-hidden="true">
+          <g style="transform-origin:32px 32px;animation:hrSlowSpin 12s linear infinite">
+            <g transform="rotate(0 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spA)" style="transform-origin:32px 32px;animation:hrLeafBloom 1.6s cubic-bezier(0.3,0,0.4,1) infinite;animation-delay:-1.6s"></path></g>
+            <g transform="rotate(45 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spA)" style="transform-origin:32px 32px;animation:hrLeafBloom 1.6s cubic-bezier(0.3,0,0.4,1) infinite;animation-delay:-1.4s"></path></g>
+            <g transform="rotate(90 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spA)" style="transform-origin:32px 32px;animation:hrLeafBloom 1.6s cubic-bezier(0.3,0,0.4,1) infinite;animation-delay:-1.2s"></path></g>
+            <g transform="rotate(135 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spA)" style="transform-origin:32px 32px;animation:hrLeafBloom 1.6s cubic-bezier(0.3,0,0.4,1) infinite;animation-delay:-1s"></path></g>
+            <g transform="rotate(180 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spA)" style="transform-origin:32px 32px;animation:hrLeafBloom 1.6s cubic-bezier(0.3,0,0.4,1) infinite;animation-delay:-0.8s"></path></g>
+            <g transform="rotate(225 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spA)" style="transform-origin:32px 32px;animation:hrLeafBloom 1.6s cubic-bezier(0.3,0,0.4,1) infinite;animation-delay:-0.6s"></path></g>
+            <g transform="rotate(270 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spA)" style="transform-origin:32px 32px;animation:hrLeafBloom 1.6s cubic-bezier(0.3,0,0.4,1) infinite;animation-delay:-0.4s"></path></g>
+            <g transform="rotate(315 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spA)" style="transform-origin:32px 32px;animation:hrLeafBloom 1.6s cubic-bezier(0.3,0,0.4,1) infinite;animation-delay:-0.2s"></path></g>
+          </g>
+        </svg>
+        <span style="display:inline-flex;align-items:center;gap:10px;background:#f4f5f2;border-radius:999px;padding:9px 18px">
+          <svg class="hr-spin" width="20" height="20" viewBox="0 0 64 64" aria-hidden="true">
+            <g style="transform-origin:32px 32px;animation:hrSlowSpin 12s linear infinite">
+              <g transform="rotate(0 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spA)" style="transform-origin:32px 32px;animation:hrLeafBloom 1.6s cubic-bezier(0.3,0,0.4,1) infinite;animation-delay:-1.6s"></path></g>
+              <g transform="rotate(45 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spA)" style="transform-origin:32px 32px;animation:hrLeafBloom 1.6s cubic-bezier(0.3,0,0.4,1) infinite;animation-delay:-1.4s"></path></g>
+              <g transform="rotate(90 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spA)" style="transform-origin:32px 32px;animation:hrLeafBloom 1.6s cubic-bezier(0.3,0,0.4,1) infinite;animation-delay:-1.2s"></path></g>
+              <g transform="rotate(135 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spA)" style="transform-origin:32px 32px;animation:hrLeafBloom 1.6s cubic-bezier(0.3,0,0.4,1) infinite;animation-delay:-1s"></path></g>
+              <g transform="rotate(180 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spA)" style="transform-origin:32px 32px;animation:hrLeafBloom 1.6s cubic-bezier(0.3,0,0.4,1) infinite;animation-delay:-0.8s"></path></g>
+              <g transform="rotate(225 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spA)" style="transform-origin:32px 32px;animation:hrLeafBloom 1.6s cubic-bezier(0.3,0,0.4,1) infinite;animation-delay:-0.6s"></path></g>
+              <g transform="rotate(270 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spA)" style="transform-origin:32px 32px;animation:hrLeafBloom 1.6s cubic-bezier(0.3,0,0.4,1) infinite;animation-delay:-0.4s"></path></g>
+              <g transform="rotate(315 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spA)" style="transform-origin:32px 32px;animation:hrLeafBloom 1.6s cubic-bezier(0.3,0,0.4,1) infinite;animation-delay:-0.2s"></path></g>
+            </g>
+          </svg>
+          <span style="font-size:13.5px;font-weight:600;color:#6f7573">규정을 살펴보는 중…</span>
+        </span>
+      </div>
+    </section>
+    <section style="background:#151614;border-radius:24px;padding:36px;box-shadow:0 12px 32px rgba(0,0,0,0.25)">
+      <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#6f7571">B — 시계 방향 틱 (iOS 스타일) · 다크</p>
+      <p style="margin:0 0 24px;font-size:13.5px;color:#a6aca7;line-height:1.6">잎은 제자리에 두고 밝기만 차례로 꺼지며 도는 고전 스피너 — 더 차분하고 시스템스러운 버전.</p>
+      <div style="display:flex;align-items:center;justify-content:center;padding:20px 0 28px">
+        <svg class="hr-spin" width="120" height="120" viewBox="0 0 64 64" role="img" aria-label="불러오는 중">
+          <defs><linearGradient id="spB" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#2c9c62"></stop><stop offset="0.45" stop-color="#7ec13c"></stop><stop offset="0.72" stop-color="#f6b40e"></stop><stop offset="1" stop-color="#ef5a11"></stop></linearGradient></defs>
+          <g transform="rotate(0 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spB)" style="animation:hrLeafTick 1s linear infinite;animation-delay:-1s"></path></g>
+          <g transform="rotate(45 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spB)" style="animation:hrLeafTick 1s linear infinite;animation-delay:-0.875s"></path></g>
+          <g transform="rotate(90 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spB)" style="animation:hrLeafTick 1s linear infinite;animation-delay:-0.75s"></path></g>
+          <g transform="rotate(135 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spB)" style="animation:hrLeafTick 1s linear infinite;animation-delay:-0.625s"></path></g>
+          <g transform="rotate(180 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spB)" style="animation:hrLeafTick 1s linear infinite;animation-delay:-0.5s"></path></g>
+          <g transform="rotate(225 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spB)" style="animation:hrLeafTick 1s linear infinite;animation-delay:-0.375s"></path></g>
+          <g transform="rotate(270 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spB)" style="animation:hrLeafTick 1s linear infinite;animation-delay:-0.25s"></path></g>
+          <g transform="rotate(315 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spB)" style="animation:hrLeafTick 1s linear infinite;animation-delay:-0.125s"></path></g>
+        </svg>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center">
+        <span style="display:inline-flex;align-items:center;gap:10px;background:rgba(255,255,255,0.06);border-radius:999px;padding:9px 18px">
+          <svg class="hr-spin" width="20" height="20" viewBox="0 0 64 64" aria-hidden="true">
+            <g transform="rotate(0 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spB)" style="animation:hrLeafTick 1s linear infinite;animation-delay:-1s"></path></g>
+            <g transform="rotate(45 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spB)" style="animation:hrLeafTick 1s linear infinite;animation-delay:-0.875s"></path></g>
+            <g transform="rotate(90 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spB)" style="animation:hrLeafTick 1s linear infinite;animation-delay:-0.75s"></path></g>
+            <g transform="rotate(135 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spB)" style="animation:hrLeafTick 1s linear infinite;animation-delay:-0.625s"></path></g>
+            <g transform="rotate(180 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spB)" style="animation:hrLeafTick 1s linear infinite;animation-delay:-0.5s"></path></g>
+            <g transform="rotate(225 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spB)" style="animation:hrLeafTick 1s linear infinite;animation-delay:-0.375s"></path></g>
+            <g transform="rotate(270 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spB)" style="animation:hrLeafTick 1s linear infinite;animation-delay:-0.25s"></path></g>
+            <g transform="rotate(315 32 32)"><path d="M32 27 C 30.2 20.5 30.2 13 32 5.5 C 33.8 13 33.8 20.5 32 27 Z" fill="url(#spB)" style="animation:hrLeafTick 1s linear infinite;animation-delay:-0.125s"></path></g>
+          </svg>
+          <span style="font-size:13.5px;font-weight:600;color:#a6aca7">답변을 만드는 중…</span>
+        </span>
+      </div>
+    </section>
+  </div>
+  <p style="margin:0;font-size:13px;line-height:1.7;color:#a3a8a4">공통: 순수 SVG+CSS(GIF 아님) · 잎끝은 항상 불꽃 그라데이션 · A는 12s 저속 회전이 겹쳐져 유기적으로, B는 회전 없이 밝기 웨이브만 · <code style="background:#f4f5f2;border-radius:6px;padding:1px 6px;font-size:12px">prefers-reduced-motion</code> 시 정지 상태(70% 불투명)로 대체 · React 컴포넌트는 핸드오프 <code style="background:#f4f5f2;border-radius:6px;padding:1px 6px;font-size:12px">web-ready/HorongSpinner.tsx</code>.</p>
+</div>
+</x-dc>
+</body>
+</html>
