@@ -33,6 +33,9 @@ FAQ_DIR = HERE / "faq_candidates"
 TYPE_QUOTA = {"값형": 0.4, "절차형": 0.3, "조건형": 0.2, "거부형": 0.1}
 # 섹션(청크 type) 쿼터 — 규정 40 · 가이드 25 · 시스템 25 · 용어 10 (거부형 제외 분에 적용)
 SECTION_QUOTA = {"regulation": 0.40, "guide": 0.25, "system": 0.25, "term": 0.10}
+# 복합 시나리오 비중(specs/07 A) — 신규 문항 중. 단일을 남기는 이유는 코퍼스 전체를 도는
+# **청크 커버리지 순환**이 복합만으로는 달성되지 않기 때문(여정 13종은 코퍼스의 일부만 덮는다).
+SCEN_RATIO = float(os.environ.get("DAILY_EVAL_SCEN", "0.25"))
 
 # 주제 키워드 사전(약점 지도 태깅·다중 허용) — APPROVAL_KW·여정 13종 관례 재사용
 TOPIC_KW = {
@@ -77,10 +80,15 @@ def llm_json(messages, temperature=0.0, max_tokens=300) -> dict:
         return {}
 
 
-def rag_answer(question: str) -> dict:
-    """실서비스 동등 답변(/v1, 리랭커 등 서비스 구성 그대로). {content, x_sources}."""
-    body = json.dumps({"model": "kei-admin-rag",
-                       "messages": [{"role": "user", "content": question}]}).encode()
+def rag_answer(question: str, history: list | None = None) -> dict:
+    """실서비스 동등 답변(/v1, 리랭커 등 서비스 구성 그대로). {content, x_sources}.
+    history = 이전 턴 [(질문, 답변), …] — 복합 시나리오의 후속 턴 평가용(specs/07 A).
+    멀티턴은 서비스와 같은 경로(rag_core.condense_query)를 타야 회귀가 의미를 가진다."""
+    msgs = []
+    for hq, ha in (history or []):
+        msgs += [{"role": "user", "content": hq}, {"role": "assistant", "content": ha}]
+    msgs.append({"role": "user", "content": question})
+    body = json.dumps({"model": "kei-admin-rag", "messages": msgs}).encode()
     req = urllib.request.Request(f"{API}/v1/chat/completions", data=body,
                                  headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=300) as r:

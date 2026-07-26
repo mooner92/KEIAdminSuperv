@@ -14,9 +14,11 @@ import json
 import random
 import re
 import sys
+from collections import Counter as Counter0
 
 import axes  # 평가 축 레지스트리(specs/07 B) — 결정적 4축
-from daily_common import (BANK, DAILY_DIR, NEW_N, REG_N, REFUSAL_SEEDS, SECTION_QUOTA,
+import scenarios  # 복합 시나리오(specs/07 A) — 여정 기반 다중 근거 문항
+from daily_common import (BANK, SCEN_RATIO, DAILY_DIR, NEW_N, REG_N, REFUSAL_SEEDS, SECTION_QUOTA,
                           TYPE_QUOTA, bigrams, chroma_col, jaccard, llm_json, load_bank,
                           norm_q, qhash, save_bank, topics_of)
 
@@ -205,6 +207,7 @@ def main() -> int:
     n_refusal = round(new_n * TYPE_QUOTA["거부형"])
     # ── 축 문항(specs/07 B): 파생 인덱스에서 결정적으로 출제 — LLM 0회·창작 0.
     #    새 데이터 기능이 평가에 자동 편입되는 통로다(사람이 문항을 손으로 붙이지 않는다).
+    col = chroma_col()
     axis_items = []
     for it in axes.sample_all(random):
         h = qhash(it["질문"])
@@ -216,9 +219,34 @@ def main() -> int:
         axis_items.append({**item, "섹션": "axis"})
         by_hash[h] = item
         bank_grams.append(gr)
-    n_chunk = max(0, new_n - n_refusal - len(axis_items))
+    # ── 복합 시나리오(specs/07 A): 여정 라운드로빈 — 최근 출제가 적은 여정 우선 ──
+    # 단일 문항을 유지하는 이유: 코퍼스 전체를 도는 **청크 커버리지 순환**은 복합만으론 안 된다.
+    n_scen = round(new_n * SCEN_RATIO)
+    scen_items = []
+    if n_scen:
+        used_j = Counter0(b.get("시나리오", {}).get("여정") for b in bank if b.get("시나리오"))
+        js = sorted(scenarios.journeys(), key=lambda j: (used_j.get(j["id"], 0), random.random()))
+        for j in js:
+            if len(scen_items) >= n_scen:
+                break
+            try:
+                it = scenarios.gen_scenario(j, random, col, with_turn=(len(scen_items) % 2 == 0))
+            except Exception as ex:  # noqa: BLE001
+                print(f"  ⚠ 시나리오 실패 {j['id']}: {ex}", file=sys.stderr)
+                continue
+            if not it:
+                continue
+            h = qhash(it["질문"])
+            gr = bigrams(it["질문"])
+            if h in by_hash or any(jaccard(gr, bg) >= 0.7 for bg in bank_grams):
+                continue
+            item = {**it, "id": f"dq-{args.date}-s{len(scen_items)+1:02d}", "hash": h,
+                    "생성일": args.date, "상태": "active", "판정이력": []}
+            scen_items.append({**item, "섹션": "scenario"})
+            by_hash[h] = item
+            bank_grams.append(gr)
+    n_chunk = max(0, new_n - n_refusal - len(axis_items) - len(scen_items))
     # 섹션 쿼터로 청크 표본 추출(미출제 우선)
-    col = chroma_col()
     got = col.get(include=["metadatas", "documents"])
     idx = list(range(len(got["ids"])))
     random.shuffle(idx)
@@ -274,7 +302,7 @@ def main() -> int:
         by_hash[h] = item
         bank_grams.append(gr)
 
-    new_items += axis_items
+    new_items += axis_items + scen_items
 
     # 거부형
     random.shuffle(REFUSAL_SEEDS)
@@ -314,6 +342,9 @@ def main() -> int:
     print("  주제:", dict(Counter(t for q in today for t in q.get('주제', []))))
     ax = Counter(q['축'] for q in today if q.get('축'))
     print(f"  축: {dict(ax)} (사용 가능 {axes.available()})")
+    sc = [q for q in today if q.get('형식') == '복합']
+    print(f"  복합: {len(sc)}건 (여정 {sorted({q['시나리오']['여정'] for q in sc})} · "
+          f"멀티턴 {sum(1 for q in sc if q.get('턴'))})")
     return 0
 
 

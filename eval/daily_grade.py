@@ -17,6 +17,7 @@ import re
 import sys
 
 import axes  # 결정적 축 채점(specs/07 B)
+import scenarios  # 복합 시나리오 채점(specs/07 A)
 from daily_common import DAILY_DIR, ROOT, chroma_col, llm_json, load_bank, norm_q, save_bank
 
 sys.path.insert(0, str(ROOT / "tools"))
@@ -82,6 +83,16 @@ def main() -> int:
         답변 = a.get("답변", "")
         if not 답변:
             item.update({"판정": "판정불가", "증거": "답변 수집 실패"})
+            results.append(item)
+            continue
+        # 복합 시나리오 — 근거가 여러 개다. 골든별 개별 대조(결정적)로 채점하고,
+        # 멀티턴이면 후속 턴에서 맥락을 잃었는지(거부로 새는지)까지 본다.
+        if q.get("형식") == "복합":
+            판정, 증거, 원인 = scenarios.grade_scenario(q, 답변)
+            turns = a.get("턴답변") or []
+            if 판정 == "정답" and len(turns) > 1 and is_refusal(turns[-1]):
+                판정, 증거, 원인 = "부분", "후속 턴에서 맥락을 잃고 거부함(멀티턴 회귀)", "검색실패"
+            item.update({"판정": 판정, "증거": 증거, "원인": 원인})
             results.append(item)
             continue
         # 축 문항 — 파생 인덱스가 정답을 이미 가지고 있으므로 **LLM 없이** 결정적으로 채점한다.
