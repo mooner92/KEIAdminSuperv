@@ -22,7 +22,7 @@ const TABS: { k: Tab; label: string }[] = [
 const LEADS: Record<Tab, string> = {
   docs: "왼쪽에서 구분·분류·검수상태로 좁히고, 문서를 누르면 오른쪽에서 바로 펼쳐 읽을 수 있어요.",
   forms: "규정 별지·연구관리양식·법령 별표를 한곳에서 검색하고 바로 열어보세요.",
-  graph: "규정 간 상호참조를 노드·링크로 봅니다. 노드를 클릭하면 문서가 열려요.",
+  graph: "문서 간 상호참조를 노드·링크로 봅니다. 노드를 클릭하면 문서가 열려요.",
 };
 
 export default function Browse({ docs, forms, graph }: { docs: DocMeta[]; forms: FormEntry[]; graph: GraphData }) {
@@ -39,14 +39,14 @@ export default function Browse({ docs, forms, graph }: { docs: DocMeta[]; forms:
   return (
     <Layout fill>
       <Head>
-        <title>{`규정 찾기 · ${SITE_NAME}`}</title>
-        <meta name="description" content="KEI 사내 규정·서식·관계 그래프 (내부 전용)" />
+        <title>{`문서 찾기 · ${SITE_NAME}`}</title>
+        <meta name="description" content="KEI 행정 문서·서식·관계 그래프 (내부 전용)" />
         <meta name="robots" content="noindex, nofollow" />
       </Head>
-      <PageHero title="규정 찾기" lead={LEADS[tab]} />
+      <PageHero title="문서 찾기" lead={LEADS[tab]} />
       {/* 세그먼트 컨트롤 — 회색 트랙 + 흰 알약 썸(호롱 03) */}
       <div className={s.segWrap}>
-        <div className={s.segTrack} role="tablist" aria-label="규정 찾기 보기">
+        <div className={s.segTrack} role="tablist" aria-label="문서 찾기 보기">
           {TABS.map((t) => (
             <button key={t.k} role="tab" aria-selected={tab === t.k}
               className={`${s.segBtn} ${tab === t.k ? s.segOn : ""}`}

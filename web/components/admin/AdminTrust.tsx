@@ -77,7 +77,7 @@ export default function AdminTrust() {
       </Section>
 
       <Section icon="📐" title="수요 × 품질"
-        desc="많이 인용되는데 미검수인 규정부터 검수하면 효과가 큽니다.">
+        desc="많이 인용되는데 미검수인 문서부터 검수하면 효과가 큽니다.">
       <DataTable
         rows={data.matrix.slice(0, 20)}
         rowKey={(m: any) => m.규정명}

@@ -15,7 +15,7 @@ export default function Home({ docs, counts, journeys }: { docs: DocMeta[]; coun
     <Layout>
       <Head>
         <title>{SITE_NAME} — 질문하기</title>
-        <meta name="description" content="KEI 사내 규정 기반 행정 LLM (내부 전용)" />
+        <meta name="description" content="KEI 행정 문서 기반 행정 LLM (내부 전용)" />
         <meta name="robots" content="noindex, nofollow" />
       </Head>
       <Assistant docs={docs} counts={counts} journeys={journeys} />

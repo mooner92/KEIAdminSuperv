@@ -100,7 +100,7 @@ export default function Login({ onAuthed, embedded }: { onAuthed: (u: User) => v
             ? "메일로 받은 6자리 인증 코드를 입력하면 가입이 완료됩니다."
             : mode === "pending"
             ? "관리자가 확인하고 승인하면 로그인할 수 있어요."
-            : "사내 규정을 근거로 답하는 행정 LLM입니다. 채팅 기록은 계정별로 안전하게 보관됩니다."}
+            : "사내 행정 문서를 근거로 답하는 행정 LLM입니다. 채팅 기록은 계정별로 안전하게 보관됩니다."}
         </p>
 
         {mode === "pending" ? (

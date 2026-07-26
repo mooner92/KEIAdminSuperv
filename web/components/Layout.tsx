@@ -143,7 +143,7 @@ export default function Layout({
           {isAuthed ? (
             <nav className={styles.nav}>
               <Link href="/" className={nav("/")} aria-current={pathname === "/" ? "page" : undefined}>질문하기</Link>
-              <Link href="/browse/" className={nav("/browse")} aria-current={pathname.startsWith("/browse") ? "page" : undefined}>규정 찾기</Link>
+              <Link href="/browse/" className={nav("/browse")} aria-current={pathname.startsWith("/browse") ? "page" : undefined}>문서 찾기</Link>
               {eventsOn ? <Link href="/now/" className={nav("/now")} aria-current={pathname.startsWith("/now") ? "page" : undefined}>업무 도구</Link> : null}
             </nav>
           ) : (
@@ -173,8 +173,8 @@ export default function Layout({
         <div className={styles.inner}>
           <span>호롱 · KEI 내부 전용 (Cloudflare Zero Trust 뒤) · 인터넷 공개 금지</span>
           <span className={styles.footerRight}>
-            <span className={styles.asOf} title="이 날짜 기준의 규정 원문을 근거로 답합니다. 이후 개정은 반영되지 않았을 수 있어요.">
-              📑 규정집 기준일 {CORPUS_AS_OF}
+            <span className={styles.asOf} title="이 날짜 기준의 행정 문서 원문을 근거로 답합니다. 이후 개정은 반영되지 않았을 수 있어요.">
+              📑 문서 기준일 {CORPUS_AS_OF}
             </span>
             <Link href="/help/" className={styles.adminLink} onClick={closeHelp}
               aria-pressed={onHelp}>{onHelp ? "✕ 도움말 닫기" : "도움말"}</Link>

@@ -16,7 +16,7 @@ export type MobileTab = {
 
 export const MOBILE_TABS: MobileTab[] = [
   { key: "chat", icon: "💬", label: "질문", href: "/", match: ["/"] },
-  { key: "browse", icon: "📚", label: "규정", href: "/browse/", match: ["/browse", "/d/"] },
+  { key: "browse", icon: "📚", label: "문서", href: "/browse/", match: ["/browse", "/d/"] },
   {
     key: "more", icon: "☰", label: "더보기", href: "/now/",
     match: ["/now", "/graph", "/calendar", "/forms", "/approval", "/journey",

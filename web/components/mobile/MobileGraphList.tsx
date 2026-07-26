@@ -10,7 +10,7 @@ import m from "./MobileGraphList.module.css";
 // 그래프의 핵심 가치(관련 규정 찾기)를 캔버스 없이 제공 — react-force-graph를 아예 로드하지 않는다.
 
 const SECTION_LABEL: Record<string, string> = {
-  규정집: "규정집", 가이드: "가이드", 용어집: "용어집", 시스템: "시스템", 대외업무: "대외업무",
+  규정집: "규정", 가이드: "가이드", 용어집: "용어집", 시스템: "시스템", 대외업무: "대외업무",
 };
 
 function norm(s: string) { return s.toLowerCase().replace(/\s+/g, ""); }

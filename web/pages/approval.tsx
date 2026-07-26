@@ -13,7 +13,7 @@ import { loadAmountRules } from "../lib/vault";
 import styles from "../styles/Home.module.css";
 
 /**
- * 결재선 판정기 — 독립 페이지(상단 메뉴). 규정 둘러보기와 동일한 UX:
+ * 결재선 판정기 — 독립 페이지(상단 메뉴). 문서 둘러보기와 동일한 UX:
  * 좌측 체크박스 필터(직급·구분·전결권자) + 검색 범위 태그 + 페이지네이션.
  * 데이터 = 위임전결규정 별표(01n) → out/approval.json lazy fetch.
  * ⛔ 공식 전결기준(별표 원문) 표시 전용 — 실무 결재선(중간 검토자 등)은 부서 확인 안내 필수.

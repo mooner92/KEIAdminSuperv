@@ -86,11 +86,11 @@ export default function FormsView({ forms }: { forms: FormEntry[] }) {
         side={
           <FilterGroup title="규정" scroll>
             <FilterSearch value={regQ} onChange={setRegQ}
-              placeholder="규정 이름으로 좁히기" ariaLabel="규정 필터 검색" />
+              placeholder="문서 이름으로 좁히기" ariaLabel="문서 필터 검색" />
             {regShown.map(([r, n]) => (
               <FilterCheck key={r} label={r} count={n} checked={regFilter.has(r)} onChange={() => toggleReg(r)} />
             ))}
-            {regShown.length === 0 ? <FilterEmpty>해당 규정이 없어요.</FilterEmpty> : null}
+            {regShown.length === 0 ? <FilterEmpty>해당 문서가 없어요.</FilterEmpty> : null}
           </FilterGroup>
         }
         head={

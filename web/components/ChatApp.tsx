@@ -436,7 +436,7 @@ export default function ChatApp({
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const copyAnswer = async (m: Message) => {
     const srcList = (m.sources || []).map((s) => `- ${s.tag}`).join("\n");
-    const text = `${m.content}\n\n[근거 출처]\n${srcList}\n(${SITE_NAME} · 규정집 기준일 ${CORPUS_AS_OF})`;
+    const text = `${m.content}\n\n[근거 출처]\n${srcList}\n(${SITE_NAME} · 문서 기준일 ${CORPUS_AS_OF})`;
     if (await copyText(text)) {
       setCopiedId(m.id);
       setTimeout(() => setCopiedId(null), 1600);
@@ -445,7 +445,7 @@ export default function ChatApp({
     }
   };
 
-  // 부서 문의 핸드오프(docs/38 §A ★) — 내 질문+함께 검색된 규정+기준일을 복사용 텍스트로 조립.
+  // 부서 문의 핸드오프(docs/38 §A ★) — 내 질문+함께 검색된 문서+기준일을 복사용 텍스트로 조립.
   // ⛔ 무엇도 생성하지 않음: 질문·근거 메타는 저장된 그대로, "근거를 찾지 못함"은 거부 사실 그대로.
   const [handoffCopied, setHandoffCopied] = useState<number | null>(null);
   const questionOf = (m: Message): string => {
@@ -463,9 +463,9 @@ export default function ChatApp({
     const text = [
       `[${SITE_NAME} 문의 준비]`,
       q ? `■ 질문: ${q}` : null,
-      "■ 챗봇 확인 결과: 사내 규정에서 명확한 근거를 찾지 못했습니다.",
-      refs.length ? `■ 함께 검색된 규정(참고): ${refs.join(" · ")}` : null,
-      `■ 규정집 기준일: ${CORPUS_AS_OF}`,
+      "■ 챗봇 확인 결과: 사내 행정 문서에서 명확한 근거를 찾지 못했습니다.",
+      refs.length ? `■ 함께 검색된 문서(참고): ${refs.join(" · ")}` : null,
+      `■ 문서 기준일: ${CORPUS_AS_OF}`,
       "※ 위 내용을 참고하여 문의드립니다.",
     ].filter(Boolean).join("\n");
     if (await copyText(text)) {
@@ -703,7 +703,7 @@ export default function ChatApp({
                               state={chatStopOn && m.id === STREAM_ID && phase === "search" ? "searching" : "working"} />
                           ) : null}{" "}
                           {chatStopOn && m.id === STREAM_ID && phase === "search"
-                            ? (orbOn ? "규정 검색 중…" : "🔍 규정 검색 중…")
+                            ? (orbOn ? "문서 검색 중…" : "🔍 문서 검색 중…")
                             : chatStopOn && m.id === STREAM_ID && phase === "write"
                               ? (orbOn ? "근거를 찾았어요 — 답변 작성 중…" : "✍️ 근거를 찾았어요 — 답변 작성 중…")
                               : "근거 조문을 찾아 답변을 작성 중…"}
@@ -757,9 +757,9 @@ export default function ChatApp({
                         분명히 — 큰 박스는 '순차 단계'처럼 읽힘). 질문+참고 조문+기준일을 복사 한 번으로 준비 */}
                     {handoffOn && m.id > 0 && m.content && !isTruncated(m) && REFUSAL_UI_RE.test(m.content) ? (
                       <div className={styles.handoff}>
-                        <span className={styles.handoffText}>🤝 규정 밖 내용이면 담당 부서에 문의해 보세요.</span>
+                        <span className={styles.handoffText}>🤝 문서 밖 내용이면 담당 부서에 문의해 보세요.</span>
                         <button type="button" className={styles.handoffBtn} onClick={() => copyHandoff(m)}
-                          title="내 질문 + 함께 검색된 규정 + 규정집 기준일을 복사 — 메신저·메일에 붙여넣기">
+                          title="내 질문 + 함께 검색된 문서 + 문서 기준일을 복사 — 메신저·메일에 붙여넣기">
                           {handoffCopied === m.id ? "✓ 복사됐어요" : "📋 문의 내용 복사"}
                         </button>
                       </div>
@@ -871,7 +871,7 @@ export default function ChatApp({
           )}
         </div>
         <p className={styles.disclaim}>
-          답변은 규정 원문을 근거로 자동 생성됩니다. 금액·기한 등 중요한 사항은 <b>원문과 담당 부서</b> 확인이 필요합니다.
+          답변은 행정 문서 원문을 근거로 자동 생성됩니다. 금액·기한 등 중요한 사항은 <b>원문과 담당 부서</b> 확인이 필요합니다.
         </p>
       </div>
 
@@ -934,7 +934,7 @@ export default function ChatApp({
                       ) : null}
                       <b>{s.규정명}</b> {s.조}
                       {typeBadges && s.type === "regulation" ? (
-                        <span className={styles.regChip} title="공식 규정 원문 — KEI 규정집의 진실원천(원문 그대로)">
+                        <span className={styles.regChip} title="공식 규정 원문 — 원문 그대로 보존된 문서">
                           📜 규정
                         </span>
                       ) : null}
@@ -1056,7 +1056,7 @@ export default function ChatApp({
           </ul>
         )}
         <Link href="/graph/" className={styles.graphCta}>
-          🕸️ 규정 관계 그래프 보기
+          🕸️ 문서 관계 그래프 보기
         </Link>
       </aside>
 

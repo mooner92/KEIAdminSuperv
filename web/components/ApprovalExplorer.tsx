@@ -13,7 +13,7 @@ import ResultRow, { ResultList, RowChip, RowTag, RowAction } from "./common/Resu
 import rowStyles from "./ApprovalFinder.module.css";
 
 /**
- * 결재선 판정기(전체 페이지) — 규정 둘러보기(Explorer)와 동일한 UX/디자인:
+ * 결재선 판정기(전체 페이지) — 문서 둘러보기(Explorer)와 동일한 UX/디자인:
  * 좌측 체크박스 필터(구분·신청자 직급·전결권자, 패싯 카운트) + 검색 범위 태그 + 페이지네이션.
  * Explorer.module.css를 그대로 재사용해 디자인을 통일한다.
  * ⛔ 위임전결규정 별표 원문 기준 — 실무 결재선은 부서 확인(면책은 페이지 헤더).

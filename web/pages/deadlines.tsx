@@ -87,9 +87,9 @@ export default function DeadlinesPage({ deadlines }: { deadlines: DeadlineEntry[
     <Layout fill>
       <Head><title>{`기한 사전 · ${SITE_NAME}`}</title><meta name="robots" content="noindex, nofollow" /></Head>
       <PageHero title="기한 사전"
-        lead={<>규정에 흩어진 <b>기한 {deadlines.length}건</b>을 사건·의무로 찾아, 기준일을 넣으면 마감일이
+        lead={<>행정 문서에 흩어진 <b>기한 {deadlines.length}건</b>을 사건·의무로 찾아, 기준일을 넣으면 마감일이
           계산돼요(.ics 저장). ⚠ 마감일은 원문 오프셋 그대로의 <b>단순 계산</b> — 정확한 기준은 원문·담당 부서
-          확인이 필요합니다. <span className={f.leadSub}>규정집 기준일 {CORPUS_AS_OF}</span></>} />
+          확인이 필요합니다. <span className={f.leadSub}>문서 기준일 {CORPUS_AS_OF}</span></>} />
 
       <BrowseShell
         sideTitle="필터"
@@ -97,11 +97,11 @@ export default function DeadlinesPage({ deadlines }: { deadlines: DeadlineEntry[
         side={
           <FilterGroup title="규정" scroll>
             <FilterSearch value={regQ} onChange={setRegQ}
-              placeholder="규정 이름으로 좁히기" ariaLabel="규정 필터 검색" />
+              placeholder="문서 이름으로 좁히기" ariaLabel="문서 필터 검색" />
             {regShown.map(([r, n]) => (
               <FilterCheck key={r} label={r} count={n} checked={regFilter.has(r)} onChange={() => toggleReg(r)} />
             ))}
-            {regShown.length === 0 ? <FilterEmpty>해당 규정이 없어요.</FilterEmpty> : null}
+            {regShown.length === 0 ? <FilterEmpty>해당 문서가 없어요.</FilterEmpty> : null}
           </FilterGroup>
         }
         head={

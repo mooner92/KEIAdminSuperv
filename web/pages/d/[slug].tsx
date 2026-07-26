@@ -43,7 +43,7 @@ function BackToList() {
 }
 
 const SECTION_LABEL: Record<string, string> = {
-  규정집: "규정집",
+  규정집: "규정",
   가이드: "연구행정 가이드",
   용어집: "용어집",
   시스템: "사내 시스템",
