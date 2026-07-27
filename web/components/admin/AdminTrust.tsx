@@ -1,14 +1,17 @@
-import Link from "next/link";
 import Section from "../common/Section";
 import { useEffect, useState } from "react";
 import { api, ApiError, type TrustOps } from "../../lib/api";
 import DataTable from "../common/DataTable";
+import DocDrawer from "../DocDrawer";
 import styles from "../../styles/Admin.module.css";
 
 /** 관리자 · 🛡 신뢰(docs/34 ②, flag trust_ops) — 검수의 조준경.
  * 🔒 백엔드가 질문·답변 본문을 반환하지 않는다(P2.5) — 여기 보이는 건 규정 메타·집계뿐. */
 export default function AdminTrust() {
   const [days, setDays] = useState(30);
+  // 사용자 피드백(2026-07-28): 새 탭 이동 대신 규정 보듯 **옆 드로어**로 — 검수 흐름이 안 끊긴다.
+  const [openSlug, setOpenSlug] = useState<string | null>(null);
+  const [openAnchor, setOpenAnchor] = useState("");
   const [data, setData] = useState<TrustOps | null>(null);
   const [err, setErr] = useState("");
   const [retryTick, setRetryTick] = useState(0);
@@ -64,10 +67,18 @@ export default function AdminTrust() {
           cols={[
             { key: "at", head: "시각", render: (r: any) => fmt(r.at) },
             { key: "src", head: "인용 근거(현재 검수상태)", wrap: true, render: (r: any) => r.근거.map((s: any, j: number) => (
-              <span key={j} className={styles.srcChip} data-unrev={s.검수상태 !== "검수완료" || undefined}>
-                {s.slug ? <Link href={`/d/${encodeURIComponent(s.slug)}/`}>{s.규정명}</Link> : s.규정명}
-                {s.조 ? ` ${s.조}` : ""}{s.검수상태 !== "검수완료" ? " ⚠" : ""}
-              </span>
+              s.slug ? (
+                <button key={j} type="button" className={styles.srcChip}
+                  data-unrev={s.검수상태 !== "검수완료" || undefined}
+                  title={`${s.규정명}${s.조 ? ` ${s.조}` : ""} 원문 보기`}
+                  onClick={() => { setOpenSlug(s.slug); setOpenAnchor(s.조 || ""); }}>
+                  {s.규정명}{s.조 ? ` ${s.조}` : ""}{s.검수상태 !== "검수완료" ? " ⚠" : ""}
+                </button>
+              ) : (
+                <span key={j} className={styles.srcChip} data-unrev={s.검수상태 !== "검수완료" || undefined}>
+                  {s.규정명}{s.조 ? ` ${s.조}` : ""}{s.검수상태 !== "검수완료" ? " ⚠" : ""}
+                </span>
+              )
             )) },
             { key: "n", head: "미검수", num: true, render: (r: any) => r.n_unreviewed },
           ]}
@@ -83,7 +94,9 @@ export default function AdminTrust() {
         rowKey={(m: any) => m.규정명}
         cols={[
           { key: "reg", head: "규정", wrap: true, render: (m: any) => (m.slug
-            ? <Link href={`/d/${encodeURIComponent(m.slug)}/`}>{m.규정명}</Link> : m.규정명) },
+            ? <button type="button" className={styles.linkBtn} title={`${m.규정명} 원문 보기`}
+                onClick={() => { setOpenSlug(m.slug); setOpenAnchor(""); }}>{m.규정명}</button>
+            : m.규정명) },
           { key: "cite", head: "인용수", num: true, render: (m: any) => m.인용수 },
           { key: "rev", head: "검수상태", render: (m: any) => (m.검수상태 === "검수완료" ? "✅ 검수완료" : "⚠ 미검수") },
           { key: "down", head: "👎", num: true, render: (m: any) => m.down ?? 0 },
@@ -110,6 +123,9 @@ export default function AdminTrust() {
         </>
       )}
       </Section>
+
+      {/* 근거 칩·규정명 클릭 → 우측 문서 드로어(새 탭 이동 폐지) */}
+      <DocDrawer slug={openSlug} anchor={openAnchor} onClose={() => setOpenSlug(null)} />
     </>
   );
 }

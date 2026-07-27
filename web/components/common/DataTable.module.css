@@ -32,7 +32,10 @@
 /* 값 열(수치) — 자릿수 정렬 */
 .num { text-align: right; font-variant-numeric: tabular-nums; }
 /* 줄바꿈 허용 열(긴 문장) */
-.wrapCell { white-space: normal; min-width: 220px; }
+/* wrap 열: 줄바꿈 허용 + 넓은 셀에서 칩이 잘리지 않게 최소·최대 폭 계약.
+   ⚠ 2026-07-28 실측: 신뢰 레이더의 근거 칩 행이 nowrap 상속으로 우측이 잘려 나갔다. */
+.wrapCell { white-space: normal !important; min-width: 320px; max-width: 720px; }
+.wrapCell > * { white-space: normal; }
 .empty {
   padding: 32px;
   text-align: center;
