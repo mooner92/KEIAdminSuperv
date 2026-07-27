@@ -1,18 +1,221 @@
+/* 호롱 v2 앱 셸(design/horong-v2) — Spotify식 플로팅 패널.
+   페이지 그라운드(--color-bg-subtle) 위에 8px 거터로 패널들이 뜬다.
+   구획은 톤 차이 + 헤어라인(P6) — 진한 보더·유리 재질 없음. */
+
 .root {
-  min-height: 100vh;
+  height: 100dvh;
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  background: var(--color-bg-subtle);
+  overflow: hidden; /* 스크롤은 패널 내부에서만 */
+}
+
+/* ── 비로그인(랜딩/로그인) — 사이드바 없는 풀블리드, 랜딩이 화면을 스스로 구성 ── */
+.anonRoot { min-height: 100vh; background: var(--color-bg-subtle); }
+.anonTheme { position: fixed; top: 14px; right: 16px; z-index: 40; }
+
+/* ── 사이드바(288px, 세로 2패널) ── */
+.sidebar {
+  flex: 0 0 288px;
   display: flex;
   flex-direction: column;
-}
-/* fill 모드: 페이지를 뷰포트에 고정(전체 스크롤 제거). 내부 영역만 스크롤(둘러보기/그래프) */
-.root[data-fill] {
-  height: 100vh;
+  gap: 8px;
   min-height: 0;
+}
+.panelNav {
+  background: var(--color-bg);
+  border-radius: var(--radius-panel);
+  padding: 16px 12px 10px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 8px 14px;
+  text-decoration: none;
+}
+.brandText { color: var(--color-text); font-size: 19px; font-weight: 900; letter-spacing: -0.5px; }
+.brandSub { color: var(--color-text-tertiary); font-size: 11px; font-weight: 600; margin-left: 1px; }
+
+.nav { display: flex; flex-direction: column; gap: 2px; }
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 42px;
+  padding: 0 10px;
+  border-radius: var(--radius-card);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  transition: var(--transition-ui);
+  text-decoration: none;
+}
+.navItem:hover { color: var(--color-text); }
+.navActive { background: var(--color-surface-hover); color: var(--color-text); font-weight: 800; }
+.navRule { height: 1px; background: var(--color-border); margin: 10px 8px; }
+.subNav { display: flex; flex-direction: column; gap: 1px; }
+.subNav .navItem { height: 34px; font-size: 13px; gap: 10px; }
+
+/* ── 패널 B — 대화 라이브러리 ── */
+.panelLib {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg);
+  border-radius: var(--radius-panel);
+  padding: 14px 12px 12px;
+}
+.libHead { display: flex; align-items: center; justify-content: space-between; padding: 0 8px 10px; }
+.libTitle { font-size: 12px; font-weight: 800; letter-spacing: 1.5px; color: var(--color-text-secondary); }
+.libNew {
+  width: 28px; height: 28px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--color-field-bg); color: var(--color-text-secondary);
+  transition: var(--transition-ui), transform 0.15s ease;
+  text-decoration: none;
+}
+.libNew:hover { color: var(--color-text); transform: scale(1.06); }
+.libList {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.libRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: var(--radius-card);
+  transition: var(--transition-ui);
+  text-decoration: none;
+  min-width: 0;
+}
+.libRow:hover { background: var(--color-field-bg); }
+.libRowActive { background: var(--color-surface-hover); }
+.libRowActive .libName { font-weight: 700; color: var(--color-text); }
+.libCover {
+  flex: 0 0 36px; width: 36px; height: 36px;
+  border-radius: 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 800;
+}
+.libName {
+  flex: 1; min-width: 0;
+  font-size: 13.5px; color: var(--color-text-secondary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.libEmpty { padding: 14px 8px; font-size: 12.5px; color: var(--color-text-tertiary); list-style: none; }
+
+/* 새로워진 점 — 구 상단 배너의 v2 이주지(사이드바 하단 카드, docs/32) */
+.noteCard {
+  margin-top: 8px;
+  display: flex; align-items: flex-start; gap: 6px;
+  background: var(--color-primary-weak);
+  border-radius: var(--radius-card);
+  padding: 9px 10px;
+}
+.noteLink { flex: 1; font-size: 12px; line-height: 1.5; color: var(--color-text); text-decoration: none; }
+.noteLink:hover { text-decoration: underline; }
+.noteClose { border: none; background: none; cursor: pointer; color: var(--color-text-tertiary); font-size: 11px; padding: 1px 3px; }
+.noteClose:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; border-radius: 4px; }
+
+.libFoot {
+  border-top: 1px solid var(--color-border);
+  margin-top: 10px;
+  padding: 10px 8px 0;
+  display: flex; flex-direction: column; gap: 5px;
+  font-size: 11px; color: var(--color-text-tertiary);
+}
+.libFootRow { display: flex; gap: 10px; flex-wrap: wrap; }
+.libFootRow a { color: var(--color-text-tertiary); text-decoration: none; }
+.libFootRow a:hover { color: var(--color-text-secondary); text-decoration: underline; }
+
+/* ── 메인 패널 ── */
+.mainPanel {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg);
+  border-radius: var(--radius-panel);
   overflow: hidden;
+}
+.topbar {
+  flex: 0 0 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 18px;
+}
+.searchWrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 380px;
+  max-width: 46vw;
+  background: var(--color-field-bg);
+  border-radius: var(--radius-pill);
+  padding: 11px 18px;
+  color: var(--color-text-tertiary);
+}
+.searchWrap:focus-within { box-shadow: inset 0 0 0 1px var(--color-text-tertiary); }
+.search {
+  flex: 1; min-width: 0;
+  border: none; background: none; outline: none;
+  font: inherit; font-size: 13.5px; color: var(--color-text);
+}
+.search::placeholder { color: var(--color-text-tertiary); }
+.topRight { display: flex; align-items: center; gap: 10px; }
+.flag {
+  font-size: 11.5px; font-weight: 700; color: var(--color-text-secondary);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  padding: 5px 12px;
+  white-space: nowrap;
+  cursor: default;
+}
+
+/* 🔔 유지보수 알림 배지(docs/51, 관리자 전용) */
+.maintBell { position: relative; display: inline-flex; align-items: center; font-size: 16px; text-decoration: none; padding: 2px 4px; }
+.maintBadge {
+  position: absolute; top: -4px; right: -6px;
+  min-width: 15px; height: 15px; line-height: 15px; text-align: center;
+  background: var(--color-danger, #d6455c); color: #fff;
+  border-radius: 999px; font-size: 10px; font-weight: 800; padding: 0 3px;
+}
+
+.crumbBar { padding: 6px 24px 0; font-size: 12.5px; color: var(--color-text-tertiary); }
+.crumbBar a { color: var(--color-text-secondary); }
+
+/* 콘텐츠 — 일반 페이지는 메인 패널 내부 스크롤, fill 페이지는 자식이 스크롤 소유 */
+.main {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-4) 0 var(--space-8);
 }
 .mainFill {
   flex: 1;
   min-height: 0;
   display: flex;
+  overflow: hidden;
+}
+.inner {
+  width: 100%;
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 0 var(--space-5);
 }
 .innerFill {
   width: 100%;
@@ -24,175 +227,43 @@
   display: flex;
   flex-direction: column;
 }
-.inner {
-  width: 100%;
-  max-width: var(--maxw);
-  margin: 0 auto;
-  padding: 0 var(--space-5);
-}
-.header {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  height: var(--header-h);
-  display: flex;
-  align-items: center;
-  background: var(--color-header-bg);
-  backdrop-filter: saturate(180%) blur(20px); /* 호롱 유리 재질 */
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  border-bottom: 1px solid var(--color-border);
-}
-.header .inner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.brand {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-weight: 800;
-  font-size: 17px;
-  letter-spacing: -0.01em;
-}
-.brandText { color: var(--color-text); font-size: 17.5px; font-weight: 800; letter-spacing: -0.02em; }
-.brandSub { color: var(--color-text-tertiary); font-size: 11.5px; font-weight: 600; margin-left: 2px; }
-.nav {
-  display: flex;
-  gap: var(--space-4);
-  margin-left: var(--space-5);
-  margin-right: auto;
-  font-size: 14px;
-  font-weight: 600;
-  /* 탭 6개(플래그 전부 on)여도 좁은 화면에서 페이지 가로 스크롤이 생기지 않게 —
-     nav 자체가 접히고(min-width:0) 내부만 스크롤(모바일 미디어쿼리에서 overflow-x) */
-  min-width: 0;
-}
-.nav a {
-  color: var(--color-text-secondary); padding: 7px 14px; flex: 0 0 auto; white-space: nowrap;
-  border-radius: 999px; transition: var(--transition-ui);
-}
-.nav a:hover { background: rgba(28, 30, 28, 0.05); color: var(--color-text); }
-[data-theme="dark"] .nav a:hover { background: rgba(255, 255, 255, 0.06); }
-/* 호롱: 활성 = 흰 알약 + 소프트 그림자(밑줄 제거) */
-.navActive {
-  color: var(--color-text) !important; font-weight: 700;
-  background: var(--color-surface) !important;
-  box-shadow: 0 1px 3px rgba(20, 24, 20, 0.08);
-}
-.headerRight {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-.flag {
-  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
-  width: 34px; height: 34px; font-size: 15px; border-radius: 999px;
-  color: var(--color-text-secondary); cursor: default; transition: var(--transition-ui);
-}
-.flag:hover { background: var(--color-surface-hover); }
-.crumbBar {
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-surface);
-  font-size: 13px;
-  color: var(--color-text-secondary);
-}
-.crumbBar .inner { padding-top: var(--space-3); padding-bottom: var(--space-3); }
-.main { flex: 1; padding: var(--space-6) 0 var(--space-8); }
-.footer {
-  border-top: 1px solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-text-tertiary);
-  font-size: 12.5px;
-}
-.footer .inner {
-  padding-top: 16px;
-  padding-bottom: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  flex-wrap: wrap; /* 좁은 화면(리뷰 확정: 375px 가로 스크롤)에서 줄바꿈 — 페이지 폭을 밀지 않는다 */
-}
-.footerRight { display: flex; align-items: center; gap: var(--space-3); flex: 0 1 auto; flex-wrap: wrap; }
-.asOf { color: var(--color-text-tertiary); white-space: nowrap; font-weight: 600; cursor: help; }
-.adminLink { color: var(--color-text-tertiary); font-weight: 600; white-space: nowrap; transition: var(--transition-ui); }
-.adminLink:hover { color: var(--color-primary); }
 
-/* 업데이트 배너(docs/32) 베이스 — 하단 .banner 블록이 링크·닫기 레이아웃 추가 */
-.banner {
-  background: var(--color-primary-weak);
-  color: var(--color-primary-strong);
-  border-bottom: 1px solid var(--color-border);
-  text-align: center;
-  font-size: 13px;
-  font-weight: 600;
-  padding: var(--space-2) var(--space-5);
-}
-/* 호롱 다크 — 앰버 틴트가 탁한 카키로 보이던 것 교정: 옅은 틴트 + 밝은 앰버 텍스트 */
-[data-theme="dark"] .banner {
-  background: rgba(249, 168, 37, 0.08);
-  color: #f5c98a;
-}
-
-@media (max-width: 880px) {
-  /* 모바일: fill 고정 해제 → 일반 스크롤로 폴백(둘러보기/그래프) */
-  .root[data-fill] { height: auto; min-height: 100vh; overflow: visible; }
-  .mainFill { display: block; flex: 1; }
-  .innerFill { display: block; min-height: 0; }
-}
-@media (max-width: 640px) {
-  .inner { padding: 0 var(--space-4); }
-  .innerFill { padding: var(--space-3) var(--space-4); }
-  .brandText { display: none; }
-  /* 모바일 GNB = 핵심 3탭(질문하기·규정 둘러보기·추가 기능) — 채팅·조문 중심(docs/48).
-     그래프·결재선·업무 한 장·캘린더는 '추가 기능' 허브 바로가기로 도달(도달성 유지) */
-  .navSecondary { display: none; }
-  /* GNB 6탭(리뷰 확정: ≤390px 오버플로) — 페이지 대신 nav 내부만 가로 스크롤 */
-  .nav {
-    gap: var(--space-3);
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-  .nav::-webkit-scrollbar { display: none; }
-
-  /* ── 모바일 셸(docs/54 v2, flag mobile_shell · Layout이 data-mshell 부여) ──
-     내비는 하단 탭바가 전담 → 상단은 로고+🔔+테마만(난잡함 제거). 푸터 숨김(링크는 ☰더보기로).
-     --m-tab-h: 하단바 실높이 — 본문·채팅(ChatApp)·fill 화면이 이만큼 비켜난다. */
-  .root[data-mshell] { --m-tab-h: calc(58px + env(safe-area-inset-bottom, 0px)); }
-  .root[data-mshell] .nav { display: none; }
-  .root[data-mshell] .footer { display: none; }
-  .root[data-mshell] .main { padding-bottom: var(--m-tab-h); }
-  .root[data-mshell] .mainFill { padding-bottom: var(--m-tab-h); }
-}
-
-/* 업데이트 배너(docs/32) — 기존 .banner 재사용 + 링크/닫기. 시맨틱 토큰만 */
-.banner { display: flex; align-items: center; justify-content: center; gap: var(--space-3); }
-.bannerLink { color: inherit; cursor: pointer; }
-.bannerLink u { text-underline-offset: 2px; }
-.bannerClose {
-  background: none; border: none; color: inherit; opacity: 0.75;
-  font-size: 13px; cursor: pointer; padding: 2px 6px;
-  transition: opacity 0.15s ease;
-}
-.bannerClose:hover { opacity: 1; }
-.bannerClose:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; border-radius: 4px; }
-
-/* 🔔 유지보수 알림 배지(docs/51, 관리자 전용) */
-.maintBell { position: relative; display: inline-flex; align-items: center; font-size: 16px; text-decoration: none; padding: 2px 4px; }
-.maintBadge {
-  position: absolute; top: -4px; right: -6px;
-  min-width: 15px; height: 15px; line-height: 15px; text-align: center;
-  background: var(--color-danger, #d6455c); color: #fff;
-  border-radius: 999px; font-size: 10px; font-weight: 800; padding: 0 3px;
-}
-
-/* 호롱 셸 — 헤더 아바타(34px 잎 그라데이션 원, 이니셜) */
+/* 아바타(AccountMenu 공용) — 잎 그라데이션은 식별용 컬러 타일로 잔존 허용(PR5에서 단색 검토) */
 .avatar {
   flex: 0 0 auto; width: 34px; height: 34px; border-radius: 999px;
   display: inline-flex; align-items: center; justify-content: center;
   background: var(--hr-grad-leaf); color: #fff; font-size: 14px; font-weight: 800;
   letter-spacing: 0; user-select: none;
 }
-@media (max-width: 640px) { .avatar { display: none; } }
+
+/* ── 모바일(<768px): 사이드바 숨김 → 하단 탭바, 패널 지오메트리 해제 ── */
+@media (max-width: 767px) {
+  .root {
+    height: auto;
+    min-height: 100dvh;
+    padding: 0;
+    gap: 0;
+    overflow: visible;
+    flex-direction: column;
+  }
+  .root[data-fill] { height: 100dvh; overflow: hidden; }
+  .sidebar { display: none; }
+  .mainPanel { border-radius: 0; }
+  .topbar { flex: 0 0 56px; padding: 0 12px; }
+  .searchWrap { max-width: none; flex: 1; padding: 9px 14px; }
+  .inner { padding: 0 var(--space-4); }
+  .innerFill { padding: var(--space-3) var(--space-4); }
+  .avatar { display: none; }
+  .root[data-mshell] { --m-tab-h: calc(58px + env(safe-area-inset-bottom, 0px)); }
+  .root[data-mshell] .main { padding-bottom: var(--m-tab-h); }
+  .root[data-mshell] .mainFill { padding-bottom: var(--m-tab-h); }
+}
+
+/* 태블릿(768~1023px): 사이드바 폭 축소 */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .sidebar { flex-basis: 232px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .libNew:hover { transform: none; }
+}

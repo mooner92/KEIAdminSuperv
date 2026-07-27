@@ -1,3 +1,4 @@
+import Router from "next/router";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import Link from "next/link";
 import Markdown from "./common/Markdown";
@@ -251,10 +252,29 @@ export default function ChatApp({
     } catch { /* ignore */ }
     api.listChats().then((list) => {
       setChats(list);
+      // v2 셸 계약: 사이드바 라이브러리가 /?chat=<id>·/?new=1 로 진입시킨다(PR2).
+      const sp = new URLSearchParams(window.location.search);
+      const want = Number(sp.get("chat"));
+      if (sp.get("new") === "1") { newChat(); return; }
+      if (want && list.some((c) => c.id === want)) { selectChat(want); return; }
       if (list.length) selectChat(list[0].id);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 사이드바 라이브러리 클릭(쿼리 변화) → 대화 전환/신규(v2 셸 계약)
+  useEffect(() => {
+    const onNav = () => {
+      const sp = new URLSearchParams(window.location.search);
+      if (sp.get("new") === "1") { newChat(); return; }
+      const want = Number(sp.get("chat"));
+      if (want && want !== activeId) selectChat(want);
+    };
+    window.addEventListener("popstate", onNav);
+    Router.events.on("routeChangeComplete", onNav);
+    return () => { window.removeEventListener("popstate", onNav); Router.events.off("routeChangeComplete", onNav); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId, chats]);
 
   useEffect(() => {
     // 스트리밍 중엔 토큰마다 갱신되므로 즉시 스크롤(애니메이션 X)으로 따라간다
@@ -273,9 +293,12 @@ export default function ChatApp({
     setActiveMsgId(lastAi?.id ?? null);
   };
 
+  const notifyChats = () => { try { window.dispatchEvent(new Event("kei-chats-changed")); } catch { /* SSR */ } };
+
   const newChat = async () => {
     const c = await api.createChat();
     setChats((prev) => [c, ...prev]);
+    notifyChats();
     setActiveId(c.id);
     setMessages([]);
     setActiveMsgId(null);
@@ -286,6 +309,7 @@ export default function ChatApp({
     if (!confirm("이 대화를 삭제할까요?")) return;
     await api.deleteChat(id);
     setChats((prev) => prev.filter((c) => c.id !== id));
+    notifyChats();
     if (activeId === id) {
       const next = chats.find((c) => c.id !== id);
       if (next) selectChat(next.id);
@@ -556,9 +580,10 @@ export default function ChatApp({
 
   return (
     <div className={styles.app}>
-      {/* ── 좌측: 대화 목록(모바일에선 드로어) ── */}
+      {/* ── 좌측: 대화 목록 — v2 셸(사이드바 라이브러리)이 전담, 데스크톱에선 숨김.
+          모바일(<768px)은 사이드바가 없으므로 기존 드로어 유지(PR3에서 하단 시트로 교체 예정). ── */}
       {sideOpen ? <div className={styles.sideBackdrop} onClick={() => setSideOpen(false)} aria-hidden /> : null}
-      <aside className={`${styles.sidebar} ${sideOpen ? styles.sidebarOpen : ""}`}>
+      <aside className={`${styles.sidebar} ${styles.sidebarV2Hidden} ${sideOpen ? styles.sidebarOpen : ""}`}>
         <button className={styles.newBtn} onClick={() => { newChat(); setSideOpen(false); }}>
           ＋ 새 대화
         </button>

@@ -1,12 +1,13 @@
 .app {
   display: grid;
-  grid-template-columns: 232px 1fr 336px;
-  grid-template-rows: minmax(0, 1fr); /* 행을 컨테이너 높이로 고정(콘텐츠로 늘어나지 않게) */
+  /* v2 셸(PR2): 대화목록은 Layout 사이드바 라이브러리가 전담 → 2칼럼(스레드+근거).
+     높이도 뷰포트 공식 대신 부모(메인 패널 innerFill)를 채운다 — 셸이 스크롤을 소유. */
+  grid-template-columns: minmax(0, 1fr) 336px;
+  grid-template-rows: minmax(0, 1fr);
   gap: var(--space-4);
-  /* --banner-h: 업데이트 배너 실측 높이(Layout이 설정, 없으면 0) — 배너로 인한 페이지 스크롤 방지 */
-  height: calc(100vh - var(--header-h) - var(--banner-h, 0px) - 150px);
-  min-height: 520px;
-  overflow: hidden; /* 안전장치: 내용이 footer 위로 흘러나오지 않도록 */
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* ── 좌측 사이드바: 대화 목록 ── */
@@ -599,3 +600,9 @@
 }
 .situGrid .exChip:hover { transform: translateY(-3px); box-shadow: var(--shadow-pop); }
 .situGrid .situMoreBtn { background: var(--color-surface-hover); box-shadow: none; font-weight: 500; }
+
+/* v2 셸 과도기(PR2): 데스크톱 대화목록은 Layout 사이드바 라이브러리가 전담 — 중복 컬럼 숨김.
+   모바일은 셸 사이드바가 없어 기존 드로어 동작 유지. */
+@media (min-width: 768px) {
+  .sidebarV2Hidden { display: none; }
+}

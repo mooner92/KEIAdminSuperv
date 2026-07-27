@@ -18,7 +18,7 @@ const offTxt = await p0.locator("body").innerText();
 const offOk = /준비 중/.test(offTxt) && !/호롱불처럼/.test(offTxt);
 console.log(`  flag off → ${offOk ? "✅ 준비 중 폴백" : "❌ 폴백 실패"}`);
 if (!offOk) fail++;
-const footOff = await p0.locator('footer a:has-text("브랜드")').count();
+const footOff = await p0.locator('a[href="/brand/"]').count(); // v2: 푸터→사이드바 하단
 console.log(`  flag off → 푸터 링크 ${footOff === 0 ? "✅ 숨김" : "❌ 노출"}`);
 if (footOff) fail++;
 
@@ -42,7 +42,7 @@ const leak = ["globals.css", "--color-", "web/", "docs/", "tsx"].filter((k) => t
 console.log(`  사용자 언어: ${leak.length === 0 ? "✅ 내부 용어 0" : "❌ " + leak.join(", ")}`);
 if (leak.length) fail++;
 // 푸터 진입
-const foot = p.locator('footer a:has-text("브랜드")');
+const foot = p.locator('a[href="/brand/"]');
 if (await foot.count()) {
   await foot.first().click();
   await p.waitForTimeout(900);
