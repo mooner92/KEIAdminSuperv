@@ -116,11 +116,14 @@
   word-break: keep-all;
 }
 .aiBubble {
-  /* v2(Spotify 콘텐츠-퍼스트): 답변은 카드 없음 — 그라운드 위 플레인 텍스트 */
-  background: none;
+  /* v2 보정(사용자 피드백 2026-07-28): 플레인 답변 + 스텝 스트립 조합이 "여러 개의 답변"처럼
+     읽혔다 → 답변 전체를 **하나의 은은한 컨테이너**로 묶는다(좌측 앰버 헤어라인 + 아주 옅은 틴트).
+     내부 섹션(스텝)은 배경을 빼서 naive하게 — 바깥이 묶고 안쪽은 흐르게. */
+  background: color-mix(in srgb, var(--color-field-bg) 45%, transparent);
   border: none;
-  border-radius: 0;
-  padding: 0;
+  border-left: 3px solid var(--color-primary-weak);
+  border-radius: 6px 14px 14px 6px;
+  padding: 14px 18px;
   max-width: 100%;
   font-size: 15px;
   line-height: 1.8;
@@ -521,14 +524,10 @@
    요소 선택자로 꾸민다: 첫 문단=핵심답 콜아웃, 번호목록=절차 스테퍼. 구조 안 맞으면 자연 폴백 ── */
 /* 핵심답 콜아웃 — 답변 첫 블록이 문단일 때만(목록으로 시작하면 스테퍼가 처리). 은은한 좌측 강조 */
 .answerAnatomy > div > p:first-child {
+  /* v2 보정: 별도 박스 → 컨테이너(.aiBubble)가 묶으므로 굵기만(이중 카드 제거) */
   margin-top: 0;
-  padding: 12px 15px;
-  border-left: 3px solid var(--color-primary);
-  border-radius: 4px 14px 14px 4px; /* 호롱 01 */
-  background: #f7f8f5;
-  font-weight: 600;
+  font-weight: 700;
 }
-[data-theme="dark"] .answerAnatomy > div > p:first-child { background: var(--color-surface-hover); }
 /* 절차 스테퍼 — 번호목록을 원형 번호 배지 + 카드로. 중첩목록은 건드리지 않음(> li 직속만) */
 .answerAnatomy > div ol {
   list-style: none;
@@ -542,11 +541,11 @@
 .answerAnatomy > div ol > li {
   counter-increment: step;
   position: relative;
-  padding: 11px 14px 11px 44px;
-  background: #f7f8f5;
-  border-radius: 14px;
+  padding: 10px 4px 10px 40px;
+  background: none; /* v2 보정: 스트립 카드 제거 — 스텝이 답변 안에서 흐르게 */
+  border-radius: 0;
 }
-[data-theme="dark"] .answerAnatomy > div ol > li { background: var(--color-surface-hover); }
+.answerAnatomy > div ol > li + li { border-top: 1px solid var(--color-border); }
 .answerAnatomy > div ol > li::before {
   content: counter(step);
   position: absolute;
@@ -555,8 +554,8 @@
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: var(--hr-grad-flame); /* 호롱 01 — 22px 그라데이션 번호 원 */
-  color: #fff;
+  background: var(--color-primary-weak); /* v2 — 단색 앰버 틴트 원(P7: 그라데이션 로고 전용) */
+  color: var(--color-primary-strong);
   font-size: 12px;
   font-weight: 800;
   display: flex;
