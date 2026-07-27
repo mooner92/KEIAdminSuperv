@@ -717,10 +717,12 @@ export default function ChatApp({
                            Markdown에 전달(문구 불변). 콜아웃·스테퍼는 CSS 데코레이션. */
                         anatomyOn ? (
                           <div className={styles.answerAnatomy}>
-                            <Markdown source={m.content} />
+                            <Markdown source={m.content}
+                              onNavigate={(slug, anchor) => { setOpenSlug(slug); setOpenAnchor(anchor); }} />
                           </div>
                         ) : (
-                          <Markdown source={m.content} />
+                          <Markdown source={m.content}
+                            onNavigate={(slug, anchor) => { setOpenSlug(slug); setOpenAnchor(anchor); }} />
                         )
                       ) : (
                         /* docs/34 ③: 2단계 대기 표시 — 지금 무슨 일이 일어나는지 보여준다 */
