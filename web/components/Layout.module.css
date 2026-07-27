@@ -17,24 +17,37 @@
 
 /* ── 사이드바(288px, 세로 2패널) ── */
 .sidebar {
-  flex: 0 0 288px;
+  flex: 0 0 240px; /* v2 피드백: 288 → 240 — 메인 집중 */
+  width: 240px;
+  min-width: 0; /* ⚠ flex 기본 min-width:auto가 내용물 min-content(360px)로 basis를 밀었다 — 실측 */
   display: flex;
   flex-direction: column;
   gap: 8px;
   min-height: 0;
 }
+.panelNav, .panelLib { min-width: 0; }
 .panelNav {
   background: var(--color-bg);
   border-radius: var(--radius-panel);
   padding: 16px 12px 10px;
 }
+.brandRow { display: flex; align-items: center; justify-content: space-between; padding: 2px 4px 12px 8px; }
 .brand {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 2px 8px 14px;
   text-decoration: none;
+  min-width: 0;
 }
+.collapseBtn {
+  flex: 0 0 26px; width: 26px; height: 26px;
+  border: none; border-radius: 50%; cursor: pointer;
+  background: var(--color-field-bg); color: var(--color-text-tertiary);
+  font-size: 13px; line-height: 1;
+  transition: var(--transition-ui);
+}
+.collapseBtn:hover { color: var(--color-text); background: var(--color-surface-hover); }
+.collapseBtn:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
 .brandText { color: var(--color-text); font-size: 19px; font-weight: 900; letter-spacing: -0.5px; }
 .brandSub { color: var(--color-text-tertiary); font-size: 11px; font-weight: 600; margin-left: 1px; }
 
@@ -113,6 +126,15 @@
   font-size: 13.5px; color: var(--color-text-secondary);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+.libDel {
+  flex: 0 0 auto;
+  border: none; background: none; cursor: pointer;
+  color: var(--color-text-tertiary); font-size: 11px;
+  padding: 4px 6px; border-radius: 50%;
+  opacity: 0; transition: var(--transition-ui);
+}
+.libRow:hover .libDel, .libDel:focus-visible { opacity: 1; }
+.libDel:hover { color: var(--color-danger); background: var(--color-field-bg); }
 .libEmpty { padding: 14px 8px; font-size: 12.5px; color: var(--color-text-tertiary); list-style: none; }
 
 /* 새로워진 점 — 구 상단 배너의 v2 이주지(사이드바 하단 카드, docs/32) */
@@ -236,6 +258,17 @@
   letter-spacing: 0; user-select: none;
 }
 
+/* ── 접힘(data-collapsed): 아이콘 레일 64px — 라벨·라이브러리 숨김, 아이콘 title 툴팁 ── */
+.root[data-collapsed] .sidebar { flex-basis: 64px; width: 64px; }
+.root[data-collapsed] .brandText,
+.root[data-collapsed] .brandSub,
+.root[data-collapsed] .navItem span,
+.root[data-collapsed] .panelLib { display: none; }
+.root[data-collapsed] .brandRow { flex-direction: column; gap: 8px; padding: 2px 0 10px; }
+.root[data-collapsed] .panelNav { flex: 1; padding: 14px 10px 10px; }
+.root[data-collapsed] .navItem { justify-content: center; padding: 0; }
+.root[data-collapsed] .subNav .navItem { height: 38px; }
+
 /* ── 모바일(<768px): 사이드바 숨김 → 하단 탭바, 패널 지오메트리 해제 ── */
 @media (max-width: 767px) {
   .root {
@@ -261,7 +294,7 @@
 
 /* 태블릿(768~1023px): 사이드바 폭 축소 */
 @media (min-width: 768px) and (max-width: 1023px) {
-  .sidebar { flex-basis: 232px; }
+  .sidebar { flex-basis: 232px; width: 232px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

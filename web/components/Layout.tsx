@@ -110,6 +110,18 @@ export default function Layout({
     return () => { stop = true; clearInterval(t); };
   }, [isAdmin, feedbackOn]);
 
+  // ── 사이드바 접기(v2 피드백: "너무 커서 메인에 집중이 안 된다") — 아이콘 레일로 축소 ──
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => {
+    try { setCollapsed(localStorage.getItem("kei-sidebar") === "collapsed"); } catch { /* 기본 펼침 */ }
+  }, []);
+  const toggleSidebar = () => {
+    setCollapsed((c) => {
+      try { localStorage.setItem("kei-sidebar", c ? "open" : "collapsed"); } catch { /* 세션 한정 */ }
+      return !c;
+    });
+  };
+
   // ── 대화 라이브러리(사이드바 패널 B) ──
   const [chats, setChats] = useState<ChatMeta[]>([]);
   const activeChat = pathname === "/" ? Number(router.query.chat) || null : null;
@@ -123,6 +135,17 @@ export default function Layout({
     window.addEventListener("kei-chats-changed", h);
     return () => { alive = false; window.removeEventListener("kei-chats-changed", h); };
   }, [isAuthed]);
+
+  const removeChat = async (id: number, e: MouseEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    if (!confirm("이 대화를 삭제할까요?")) return;
+    try {
+      await api.deleteChat(id);
+      setChats((prev) => prev.filter((c) => c.id !== id));
+      window.dispatchEvent(new Event("kei-chats-changed"));
+      if (activeChat === id) router.push("/?new=1"); // 보고 있던 대화면 새 대화로
+    } catch { /* 실패 시 목록 유지 */ }
+  };
 
   // ── 상단바 전역 검색 → 문서 찾기로 라우팅 ──
   const [q, setQ] = useState("");
@@ -145,25 +168,32 @@ export default function Layout({
   }
 
   return (
-    <div className={styles.root} data-fill={fill ? "" : undefined} data-mshell={mshell ? "" : undefined}>
+    <div className={styles.root} data-fill={fill ? "" : undefined} data-mshell={mshell ? "" : undefined} data-collapsed={collapsed ? "" : undefined}>
       {/* ── 사이드바 ── */}
       <aside className={styles.sidebar}>
         {/* 패널 A — 내비 */}
         <div className={styles.panelNav}>
-          <Link href="/" className={styles.brand}>
-            <HorongMark size={26} />
-            <span className={styles.brandText}>호롱</span>
-            <span className={styles.brandSub}>KEI 행정 가이드</span>
-          </Link>
+          <div className={styles.brandRow}>
+            <Link href="/" className={styles.brand}>
+              <HorongMark size={26} />
+              <span className={styles.brandText}>호롱</span>
+              <span className={styles.brandSub}>KEI 행정 가이드</span>
+            </Link>
+            <button type="button" className={styles.collapseBtn} onClick={toggleSidebar}
+              title={collapsed ? "사이드바 펼치기" : "사이드바 접기"}
+              aria-label={collapsed ? "사이드바 펼치기" : "사이드바 접기"} aria-expanded={!collapsed}>
+              {collapsed ? "»" : "«"}
+            </button>
+          </div>
           <nav className={styles.nav} aria-label="주 메뉴">
-            <Link href="/" className={nav("/")} aria-current={pathname === "/" ? "page" : undefined}>
+            <Link href="/" className={nav("/")} aria-current={pathname === "/" ? "page" : undefined} title="질문하기">
               <IconChat /><span>질문하기</span>
             </Link>
-            <Link href="/browse/" className={nav("/browse")} aria-current={pathname.startsWith("/browse") ? "page" : undefined}>
+            <Link href="/browse/" className={nav("/browse")} aria-current={pathname.startsWith("/browse") ? "page" : undefined} title="문서 찾기">
               <IconSearch /><span>문서 찾기</span>
             </Link>
             {eventsOn ? (
-              <Link href="/now/" className={nav("/now")} aria-current={pathname.startsWith("/now") ? "page" : undefined}>
+              <Link href="/now/" className={nav("/now")} aria-current={pathname.startsWith("/now") ? "page" : undefined} title="업무 도구">
                 <IconGrid /><span>업무 도구</span>
               </Link>
             ) : null}
@@ -201,6 +231,8 @@ export default function Layout({
                     {(c.title || "새").slice(0, 1)}
                   </span>
                   <span className={styles.libName}>{c.title || "새 대화"}</span>
+                  <button type="button" className={styles.libDel} onClick={(e) => removeChat(c.id, e)}
+                    title="대화 삭제" aria-label={`대화 삭제: ${c.title || "새 대화"}`}>✕</button>
                 </Link>
               </li>
             ))}
