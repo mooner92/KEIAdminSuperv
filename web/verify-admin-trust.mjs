@@ -1,5 +1,7 @@
 // 관리자 🛡 신뢰 탭 회귀(2026-07-28 사용자 제보 3건) — 근거 칩 드로어 전환·잘림·히트포인트.
 // ⚠ 관리자 계정 없이 돌 수 있게 /auth/me·/flags·/trust를 스텁한다(컴포넌트 계약만 검증).
+import { chromium } from "playwright";
+const OUT = "/tmp/claude-21963/-KEIAdminSuperv/186b414b-da9d-4008-bd73-cef71d5504f3/scratchpad";
 const b = await chromium.launch();
 const ctx = await b.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
 await ctx.request.post("http://localhost:3101/api/app/auth/login", { data: { username: "b6test", password: "test1234" } });
