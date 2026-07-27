@@ -200,8 +200,10 @@
   box-shadow: var(--shadow-card);
 }
 .composer:focus-within {
-  border-color: transparent;
-  box-shadow: 0 0 0 3px rgba(249, 168, 37, 0.35); /* 호롱 앰버 포커스 링 */
+  /* v2: 포커스 링은 **inset** — 외곽 box-shadow는 칼럼(overflow:hidden) 콘텐츠 상자에서
+     평평하게 잘린다(실측: 입력창 링이 가장자리에서 절단). 상단바 검색과 동일 문법. */
+  border-color: var(--color-primary);
+  box-shadow: inset 0 0 0 1px var(--color-primary);
 }
 .input {
   flex: 1;
