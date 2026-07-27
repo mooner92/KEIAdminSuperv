@@ -1,3 +1,4 @@
+import Router from "next/router";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import Link from "next/link";
 import Markdown from "./common/Markdown";
@@ -160,6 +161,8 @@ export default function ChatApp({
   const actionsOn = useFlag("answer_actions"); // v1 ⑫(S6): 복사·인용 칩·수치 대조 // v1 ⑧·⑨(S3·S4): 배지 3단 위계·미검수 집계·거부 리프레임
   const [approvalOpen, setApprovalOpen] = useState(false); // 결재선 드로어(우측 슬라이드인)
   const [srcOverlay, setSrcOverlay] = useState(false); // v1 B6: ≤1080px 근거 바텀시트(넓은 화면에선 무시)
+  // v2(Spotify 리디자인): 근거 패널은 **온디맨드** — 답변의 '근거 N개' 알약이 열고 닫는다.
+  const [evidenceOpen, setEvidenceOpen] = useState(false);
   // 바텀시트 스와이프-다운 닫기 — 1:1 추적 + **릴리스 속도로 판정**(apple-design §6: 릴리스
   // '지점'이 아니라 제스처가 '가는 방향'으로). 빠른 플릭은 짧아도 닫히고, 천천히 내려놓으면 유지.
   const [sheetDrag, setSheetDrag] = useState(0);
@@ -251,10 +254,29 @@ export default function ChatApp({
     } catch { /* ignore */ }
     api.listChats().then((list) => {
       setChats(list);
+      // v2 셸 계약: 사이드바 라이브러리가 /?chat=<id>·/?new=1 로 진입시킨다(PR2).
+      const sp = new URLSearchParams(window.location.search);
+      const want = Number(sp.get("chat"));
+      if (sp.get("new") === "1") { newChat(); return; }
+      if (want && list.some((c) => c.id === want)) { selectChat(want); return; }
       if (list.length) selectChat(list[0].id);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 사이드바 라이브러리 클릭(쿼리 변화) → 대화 전환/신규(v2 셸 계약)
+  useEffect(() => {
+    const onNav = () => {
+      const sp = new URLSearchParams(window.location.search);
+      if (sp.get("new") === "1") { newChat(); return; }
+      const want = Number(sp.get("chat"));
+      if (want && want !== activeId) selectChat(want);
+    };
+    window.addEventListener("popstate", onNav);
+    Router.events.on("routeChangeComplete", onNav);
+    return () => { window.removeEventListener("popstate", onNav); Router.events.off("routeChangeComplete", onNav); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId, chats]);
 
   useEffect(() => {
     // 스트리밍 중엔 토큰마다 갱신되므로 즉시 스크롤(애니메이션 X)으로 따라간다
@@ -273,9 +295,12 @@ export default function ChatApp({
     setActiveMsgId(lastAi?.id ?? null);
   };
 
+  const notifyChats = () => { try { window.dispatchEvent(new Event("kei-chats-changed")); } catch { /* SSR */ } };
+
   const newChat = async () => {
     const c = await api.createChat();
     setChats((prev) => [c, ...prev]);
+    notifyChats();
     setActiveId(c.id);
     setMessages([]);
     setActiveMsgId(null);
@@ -286,6 +311,7 @@ export default function ChatApp({
     if (!confirm("이 대화를 삭제할까요?")) return;
     await api.deleteChat(id);
     setChats((prev) => prev.filter((c) => c.id !== id));
+    notifyChats();
     if (activeId === id) {
       const next = chats.find((c) => c.id !== id);
       if (next) selectChat(next.id);
@@ -555,10 +581,11 @@ export default function ChatApp({
   const [sideOpen, setSideOpen] = useState(false);
 
   return (
-    <div className={styles.app}>
-      {/* ── 좌측: 대화 목록(모바일에선 드로어) ── */}
+    <div className={`${styles.app} ${evidenceOpen ? styles.appEvidence : ""}`}>
+      {/* ── 좌측: 대화 목록 — v2 셸(사이드바 라이브러리)이 전담, 데스크톱에선 숨김.
+          모바일(<768px)은 사이드바가 없으므로 기존 드로어 유지(PR3에서 하단 시트로 교체 예정). ── */}
       {sideOpen ? <div className={styles.sideBackdrop} onClick={() => setSideOpen(false)} aria-hidden /> : null}
-      <aside className={`${styles.sidebar} ${sideOpen ? styles.sidebarOpen : ""}`}>
+      <aside className={`${styles.sidebar} ${styles.sidebarV2Hidden} ${sideOpen ? styles.sidebarOpen : ""}`}>
         <button className={styles.newBtn} onClick={() => { newChat(); setSideOpen(false); }}>
           ＋ 새 대화
         </button>
@@ -683,17 +710,19 @@ export default function ChatApp({
                         m.sources.length ? styles.aiClickable : ""
                       }`}
                       onClick={() => m.sources.length && setActiveMsgId(m.id)}
-                      title={m.sources.length ? "이 답변의 근거 조문 보기" : ""}
+                      title={m.sources.length ? "이 답변의 근거 조문" : ""}
                     >
                       {m.content ? (
                         /* 답변 해부 레이아웃(docs/38 §B) — 래퍼 클래스만 추가, 텍스트는 그대로
                            Markdown에 전달(문구 불변). 콜아웃·스테퍼는 CSS 데코레이션. */
                         anatomyOn ? (
                           <div className={styles.answerAnatomy}>
-                            <Markdown source={m.content} />
+                            <Markdown source={m.content}
+                              onNavigate={(slug, anchor) => { setOpenSlug(slug); setOpenAnchor(anchor); }} />
                           </div>
                         ) : (
-                          <Markdown source={m.content} />
+                          <Markdown source={m.content}
+                            onNavigate={(slug, anchor) => { setOpenSlug(slug); setOpenAnchor(anchor); }} />
                         )
                       ) : (
                         /* docs/34 ③: 2단계 대기 표시 — 지금 무슨 일이 일어나는지 보여준다 */
@@ -710,9 +739,18 @@ export default function ChatApp({
                         </span>
                       )}
                       {m.sources.length ? (
-                        <div className={styles.aiSrcHint}>
-                          📚 근거 {m.sources.length}개 {m.id === activeMsgId ? "· 표시 중" : "· 클릭해서 보기"}
-                        </div>
+                        <button type="button"
+                          className={`${styles.evidenceBtn} ${evidenceOpen && m.id === activeMsgId ? styles.evidenceBtnOn : ""}`}
+                          aria-expanded={evidenceOpen && m.id === activeMsgId}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const same = activeMsgId === m.id;
+                            setActiveMsgId(m.id);
+                            setEvidenceOpen(same ? !evidenceOpen : true);
+                            setSrcOverlay(true); // 좁은 화면 바텀시트(넓은 화면에선 무효)
+                          }}>
+                          근거 {m.sources.length}개 · 조문 보기
+                        </button>
                       ) : null}
                     </div>
                     {/* 금액·한도 답변이면 원문 확인 유도(생성 숫자는 검증 대상). 클릭 시 근거 패널(좁은 화면=오버레이) */}
@@ -722,6 +760,7 @@ export default function ChatApp({
                         onClick={() => {
                           if (!m.sources.length) return;
                           setActiveMsgId(m.id);
+                          setEvidenceOpen(true);
                           setSrcOverlay(true); // ≤1080px 오버레이(넓은 화면에선 클래스 무효과)
                         }}
                       >
@@ -889,7 +928,7 @@ export default function ChatApp({
         <div className={styles.srcHead}>
           <span className={styles.srcTitle}>{cardV2 && activeIsRefusal ? "참고 검색 결과" : "근거 조문"}</span>
           {activeSources.length > 0 ? <span className={styles.srcCount}>{activeSources.length}</span> : null}
-          <button className={styles.srcClose} onClick={() => setSrcOverlay(false)} aria-label="근거 닫기">✕</button>
+          <button className={styles.srcClose} onClick={() => { setSrcOverlay(false); setEvidenceOpen(false); }} aria-label="근거 닫기">✕</button>
         </div>
         {cardV2 && activeSources.length > 0 ? (
           <div className={styles.srcAggregate}>

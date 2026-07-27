@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:'Pretendard Variable',Pretendard,-apple-system,'Apple SD Gothic Neo',sans-serif;background:#0e0d0b}
+#hr{--bg0:#0e0d0b;--p1:#171613;--p2:#211f1b;--p3:#2b2823;--hair:rgba(255,255,255,.07);--tx:#f5f3ef;--tx2:#b8b1a6;--tx3:#7d766c;--acTx:#191100;--lk:#ffc45e;--shHeavy:rgba(0,0,0,.5) 0px 8px 24px;--shMed:rgba(0,0,0,.3) 0px 8px 8px}
+#hr[data-light="1"]{--bg0:#efece4;--p1:#fdfcf9;--p2:#f3f0e9;--p3:#e9e4d9;--hair:rgba(30,26,18,.09);--tx:#1d1b17;--tx2:#6b665d;--tx3:#a29b8e;--acTx:#191100;--lk:#b45a08;--shHeavy:rgba(60,50,30,.18) 0px 8px 24px;--shMed:rgba(60,50,30,.10) 0px 8px 8px}
+a{color:var(--lk);text-decoration:none}a:hover{text-decoration:underline}
+#hr ::-webkit-scrollbar{width:12px;height:12px}
+#hr ::-webkit-scrollbar-thumb{background:rgba(128,120,108,.3);border-radius:99px;background-clip:padding-box;border:4px solid transparent}
+#hr ::-webkit-scrollbar-track{background:transparent}
+@keyframes hrUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes hrPulse{0%,100%{opacity:.25}50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){#hr *{animation:none!important}}
+</style>
+</helmet>
+<div id="hr" data-light="{{lightAttr}}" style="height:100vh;display:flex;flex-direction:column;background:var(--bg0);color:var(--tx);font-size:14px;line-height:1.55;word-break:keep-all;overflow:hidden;--ac:{{ac}};--acSoft:{{acSoft}}">
+<svg width="0" height="0" style="position:absolute"><defs><linearGradient id="hgrad" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#2f74b8"></stop><stop offset="0.2" stop-color="#2c9c62"></stop><stop offset="0.33" stop-color="#5db54a"></stop><stop offset="0.48" stop-color="#ffd54f"></stop><stop offset="1" stop-color="#e8420b"></stop></linearGradient></defs></svg>
+
+<sc-if value="{{isLanding}}" hint-placeholder-val="{{false}}">
+<div data-screen-label="랜딩" style="flex:1;display:flex;flex-direction:column;align-items:center;position:relative;animation:hrUp .4s cubic-bezier(.2,.7,.2,1);overflow-y:auto;padding:48px 24px 0">
+  <div style="position:absolute;top:-180px;left:50%;transform:translateX(-50%);width:720px;height:480px;border-radius:50%;background:radial-gradient(closest-side,var(--acSoft),transparent);pointer-events:none"></div>
+  <svg viewBox="0 0 64 64" width="88" style="margin-top:auto;flex-shrink:0;filter:drop-shadow(0 12px 32px rgba(255,176,58,.35))"><path d="M32.5 4.5 C 31 12 24.5 17.5 20 23.5 C 15.5 29.5 13.5 35 14.5 41 C 16 51 23.5 57.5 32 57.5 C 40.5 57.5 48 51 49.5 41 C 50.5 35 48.5 29.5 44 23.5 C 39.5 17.5 34 12 32.5 4.5 Z" fill="url(#hgrad)"></path><path d="M32 52 C 31.6 44 31.8 36 32.6 24 M32 46 C 29 43.5 26.5 41 24.8 38 M32.2 40 C 35 37.5 37.2 35 38.8 31.8 M32.3 33 C 29.8 30.8 28 28.6 26.8 26" fill="none" stroke="#fff" stroke-width="1.2" stroke-linecap="round" opacity="0.3"></path></svg>
+  <div style="font-size:64px;font-weight:900;letter-spacing:-2px;margin-top:20px">호롱</div>
+  <div style="font-size:17px;color:var(--tx2);margin-top:6px">KEI 행정 가이드 — 규정을 근거로 답합니다</div>
+  <div style="display:flex;gap:12px;margin-top:36px;align-items:center">
+    <button onClick="{{goChat0}}" style-hover="transform:scale(1.04)" style="background:var(--ac);color:var(--acTx);border:none;border-radius:500px;padding:15px 36px;font-size:15px;font-weight:800;letter-spacing:.3px;cursor:pointer;font-family:inherit;transition:transform .15s">사내 계정으로 시작</button>
+    <button onClick="{{goTools}}" style-hover="border-color:var(--tx);color:var(--tx)" style="background:transparent;color:var(--tx2);border:1px solid var(--tx3);border-radius:500px;padding:14px 30px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">둘러보기</button>
+  </div>
+  <div style="display:flex;gap:8px;margin-top:26px">
+    <span style="border:1px solid var(--hair);border-radius:999px;padding:6px 14px;font-size:12px;color:var(--tx3)">사내 전용 · Cloudflare Zero Trust</span>
+    <span style="border:1px solid var(--hair);border-radius:999px;padding:6px 14px;font-size:12px;color:var(--tx3)">문서 기준일 2026.06.19</span>
+  </div>
+  <div style="display:flex;gap:56px;margin-top:72px">
+    <div style="text-align:center"><div style="font-size:22px;font-weight:800">근거와 함께</div><div style="font-size:13px;color:var(--tx3);margin-top:4px">모든 답변에 출처 조문 저장</div></div>
+    <div style="text-align:center"><div style="font-size:22px;font-weight:800">415 문서 · 357 서식</div><div style="font-size:13px;color:var(--tx3);margin-top:4px">한 곳에서 검색하고 바로 열기</div></div>
+    <div style="text-align:center"><div style="font-size:22px;font-weight:800">즉시 판정</div><div style="font-size:13px;color:var(--tx3);margin-top:4px">결재선·기한을 규정 근거로</div></div>
+  </div>
+  <div style="margin-top:auto;padding:56px 0 24px;font-size:12px;color:var(--tx3)">호롱 · KEI 내부 전용 · 인터넷 공개 금지</div>
+</div>
+</sc-if>
+
+<sc-if value="{{isShell}}" hint-placeholder-val="{{true}}">
+<div style="flex:1;display:flex;gap:8px;padding:8px;min-height:0">
+
+  <div style="width:288px;display:flex;flex-direction:column;gap:8px;flex-shrink:0">
+    <div style="background:var(--p1);border-radius:12px;padding:16px 12px 10px">
+      <div onClick="{{goLanding}}" style="display:flex;align-items:center;gap:10px;padding:4px 12px 14px;cursor:pointer">
+        <svg viewBox="0 0 64 64" width="26"><path d="M32.5 4.5 C 31 12 24.5 17.5 20 23.5 C 15.5 29.5 13.5 35 14.5 41 C 16 51 23.5 57.5 32 57.5 C 40.5 57.5 48 51 49.5 41 C 50.5 35 48.5 29.5 44 23.5 C 39.5 17.5 34 12 32.5 4.5 Z" fill="url(#hgrad)"></path></svg>
+        <span style="font-size:19px;font-weight:900;letter-spacing:-.5px">호롱</span>
+        <span style="font-size:11px;color:var(--tx3);margin-top:3px">KEI 행정 가이드</span>
+      </div>
+      <sc-for list="{{navMain}}" as="n" hint-placeholder-count="3">
+        <div onClick="{{n.go}}" style-hover="color:var(--tx)" style="display:flex;align-items:center;gap:14px;height:42px;padding:0 12px;border-radius:8px;cursor:pointer;font-size:15px;font-weight:{{n.w}};color:{{n.c}};background:{{n.bg}}">
+          <svg viewBox="0 0 24 24" width="21" height="21"><path d="{{n.d}}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg>{{n.l}}
+        </div>
+      </sc-for>
+      <div style="height:1px;background:var(--hair);margin:10px 12px"></div>
+      <sc-for list="{{navSub}}" as="n" hint-placeholder-count="4">
+        <div onClick="{{n.go}}" style-hover="color:var(--tx)" style="display:flex;align-items:center;gap:14px;height:34px;padding:0 12px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:{{n.w}};color:{{n.c}};background:{{n.bg}}">
+          <svg viewBox="0 0 24 24" width="17" height="17"><path d="{{n.d}}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg>{{n.l}}
+        </div>
+      </sc-for>
+    </div>
+    <div style="background:var(--p1);border-radius:12px;flex:1;display:flex;flex-direction:column;min-height:0">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 8px">
+        <span style="font-size:12px;font-weight:800;color:var(--tx2);letter-spacing:1.5px">대화</span>
+        <button onClick="{{goChat0}}" title="새 대화" style-hover="background:var(--p3);color:var(--tx)" style="width:28px;height:28px;border-radius:50%;border:none;background:var(--p2);color:var(--tx2);cursor:pointer;display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></button>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:4px 8px">
+        <sc-for list="{{convos}}" as="cv" hint-placeholder-count="6">
+          <div onClick="{{cv.go}}" style-hover="background:var(--p2)" style="display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:8px;cursor:pointer;background:{{cv.bg}}">
+            <div style="width:36px;height:36px;border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;background:{{cv.tint}};color:{{cv.tc}}">{{cv.ini}}</div>
+            <div style="min-width:0;flex:1">
+              <div style="font-size:13.5px;font-weight:{{cv.w}};color:{{cv.c}};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{cv.t}}</div>
+              <div style="font-size:11px;color:var(--tx3)">{{cv.d}}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="border-top:1px solid var(--hair);padding:10px 16px;display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:11px;color:var(--tx3)">문서 기준일 2026.06.19</span>
+        <span style="font-size:11px;color:var(--tx3)">fb_test</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex:1;background:var(--p1);border-radius:12px;display:flex;flex-direction:column;min-width:0;overflow:hidden">
+    <div style="display:flex;align-items:center;gap:12px;height:64px;padding:0 20px;flex-shrink:0">
+      <div style="position:relative;width:380px;max-width:40vw">
+        <svg viewBox="0 0 24 24" width="17" height="17" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--tx3)"><path d="M20 20l-4.2-4.2M4 10.5a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg>
+        <input placeholder="규정·서식·업무 검색" style="width:100%;background:var(--p2);border:none;border-radius:500px;padding:11px 18px 11px 40px;font-size:13.5px;color:var(--tx);font-family:inherit;outline:none;box-shadow:rgba(124,124,124,0) 0 0 0 1px inset" style-focus="box-shadow:0 0 0 1px var(--tx3) inset"></input>
+      </div>
+      <div style="flex:1"></div>
+      <span style="border:1px solid var(--hair);border-radius:999px;padding:6px 13px;font-size:11.5px;font-weight:700;color:var(--tx3);letter-spacing:.5px">사내 전용</span>
+      <button onClick="{{toggleTheme}}" title="{{themeLabel}}" style-hover="background:var(--p3);transform:scale(1.06)" style="width:34px;height:34px;border-radius:50%;border:none;background:var(--p2);color:var(--tx2);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .15s"><svg viewBox="0 0 24 24" width="16" height="16"><path d="{{themeIcon}}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+      <div style="width:34px;height:34px;border-radius:50%;background:var(--p3);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:var(--tx2)">재</div>
+    </div>
+
+    <sc-if value="{{isChat0}}" hint-placeholder-val="{{true}}">
+    <div data-screen-label="질문하기 — 빈 화면" style="flex:1;display:flex;flex-direction:column;min-height:0;animation:hrUp .35s cubic-bezier(.2,.7,.2,1)">
+      <div style="flex:1;overflow-y:auto;display:flex;align-items:center;justify-content:center">
+        <div style="max-width:640px;padding:32px;text-align:center">
+          <svg viewBox="0 0 64 64" width="54"><path d="M32.5 4.5 C 31 12 24.5 17.5 20 23.5 C 15.5 29.5 13.5 35 14.5 41 C 16 51 23.5 57.5 32 57.5 C 40.5 57.5 48 51 49.5 41 C 50.5 35 48.5 29.5 44 23.5 C 39.5 17.5 34 12 32.5 4.5 Z" fill="url(#hgrad)"></path></svg>
+          <div style="font-size:34px;font-weight:900;letter-spacing:-1px;margin-top:16px">무엇이 궁금하세요?</div>
+          <div style="font-size:15px;color:var(--tx2);margin-top:8px">사내 규정을 근거로 답해 드려요. 답변마다 <b style="color:var(--tx)">출처 조문</b>이 함께 저장됩니다.</div>
+          <div style="font-size:11.5px;font-weight:800;letter-spacing:1.5px;color:var(--tx3);margin-top:36px">상황으로 시작해 보세요</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:14px">
+            <sc-for list="{{chips}}" as="ch" hint-placeholder-count="6">
+              <button onClick="{{goChat}}" style-hover="background:var(--p3);transform:translateY(-1px)" style="background:var(--p2);color:var(--tx);border:none;border-radius:999px;padding:11px 18px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s">{{ch}}</button>
+            </sc-for>
+            <button style-hover="color:var(--tx)" style="background:transparent;color:var(--tx3);border:1px dashed var(--hair);border-radius:999px;padding:11px 18px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit">더 보기 +7</button>
+          </div>
+          <div style="font-size:11.5px;font-weight:800;letter-spacing:1.5px;color:var(--tx3);margin-top:32px">요즘 많이 찾는 키워드</div>
+          <div style="display:flex;gap:8px;justify-content:center;margin-top:12px">
+            <button onClick="{{goChat}}" style-hover="border-color:var(--ac)" style="background:transparent;color:var(--lk);border:1px solid var(--hair);border-radius:999px;padding:7px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">국내출장</button>
+            <button onClick="{{goChat}}" style-hover="border-color:var(--ac)" style="background:transparent;color:var(--lk);border:1px solid var(--hair);border-radius:999px;padding:7px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">연장근로</button>
+          </div>
+        </div>
+      </div>
+      <div style="padding:14px 24px 18px;flex-shrink:0">
+        <div style="max-width:760px;margin:0 auto;position:relative">
+          <input placeholder="행정 업무에 대해 물어보세요 (Shift+Enter 줄바꿈)" style="width:100%;background:var(--p2);border:none;border-radius:500px;padding:16px 60px 16px 24px;font-size:14.5px;color:var(--tx);font-family:inherit;outline:none" style-focus="box-shadow:0 0 0 1px var(--tx3) inset"></input>
+          <button onClick="{{goChat}}" style-hover="transform:translateY(-50%) scale(1.08)" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:50%;border:none;background:var(--ac);color:var(--acTx);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .15s"><svg viewBox="0 0 24 24" width="17" height="17"><path d="M12 19V5M6 11l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+        </div>
+        <div style="text-align:center;font-size:11.5px;color:var(--tx3);margin-top:10px">답변은 규정 원문을 근거로 자동 생성됩니다 · 금액·기한 등 중요한 사항은 원문과 담당 부서 확인</div>
+      </div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{isChat}}" hint-placeholder-val="{{false}}">
+    <div data-screen-label="질문하기 — 대화 중" style="flex:1;display:flex;flex-direction:column;min-height:0;animation:hrUp .35s cubic-bezier(.2,.7,.2,1)">
+      <div style="flex:1;overflow-y:auto;padding:28px 24px 12px">
+        <div style="max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:26px">
+          <div style="display:flex;justify-content:flex-end"><div style="background:var(--ac);color:var(--acTx);border-radius:999px;padding:11px 20px;font-size:14.5px;font-weight:700;max-width:70%">국내출장 어떻게 신청해?</div></div>
+          <div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+              <svg viewBox="0 0 64 64" width="18"><path d="M32.5 4.5 C 31 12 24.5 17.5 20 23.5 C 15.5 29.5 13.5 35 14.5 41 C 16 51 23.5 57.5 32 57.5 C 40.5 57.5 48 51 49.5 41 C 50.5 35 48.5 29.5 44 23.5 C 39.5 17.5 34 12 32.5 4.5 Z" fill="url(#hgrad)"></path></svg>
+              <span style="font-size:13px;font-weight:800;color:var(--tx2)">호롱</span>
+            </div>
+            <div style="font-size:15px;line-height:1.8;color:var(--tx)">
+              국내출장은 <b>복무관리 시스템</b>에서 신청합니다. 절차는 세 단계예요.
+              <div style="display:flex;flex-direction:column;gap:14px;margin-top:16px">
+                <div style="display:flex;gap:12px"><div style="width:24px;height:24px;border-radius:50%;background:var(--acSoft);color:var(--lk);font-size:12.5px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px">1</div><div><b>복무관리 시스템 접속</b> — ERP → 복무관리 → 국내출장신청 메뉴로 들어갑니다.</div></div>
+                <div style="display:flex;gap:12px"><div style="width:24px;height:24px;border-radius:50%;background:var(--acSoft);color:var(--lk);font-size:12.5px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px">2</div><div><b>신청서 작성</b> — 출장 목적·기간·행선지를 입력합니다. 입력 완료 후 <b>[저장]</b>을 누른 뒤 <b>[결재상신]</b> 버튼을 클릭하여 전자결재 화면으로 넘어갑니다.</div></div>
+                <div style="display:flex;gap:12px"><div style="width:24px;height:24px;border-radius:50%;background:var(--acSoft);color:var(--lk);font-size:12.5px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px">3</div><div><b>전자결재</b> — 결재선과 편철을 확인한 후 최종적으로 결재를 올립니다.</div></div>
+              </div>
+              <div style="font-size:12.5px;color:var(--tx3);margin-top:16px">출처: ERP 상세가이드 국내출장신청상세 · ERP 시스템 복무관리 국내출장신청 — 최종 판단은 원문과 담당 부서 확인 바랍니다.</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:14px">
+              <button onClick="{{toggleEvidence}}" style-hover="transform:scale(1.03)" style="background:{{evBg}};color:{{evC}};border:1px solid var(--lk);border-radius:999px;padding:7px 16px;font-size:12.5px;font-weight:800;letter-spacing:.3px;cursor:pointer;font-family:inherit;transition:all .15s">근거 10개 · 조문 보기</button>
+              <button style-hover="color:var(--tx);border-color:var(--tx3)" style="background:transparent;color:var(--tx3);border:1px solid var(--hair);border-radius:999px;padding:7px 14px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">복사</button>
+              <button style-hover="color:var(--tx);border-color:var(--tx3)" style="background:transparent;color:var(--tx3);border:1px solid var(--hair);border-radius:999px;padding:7px 14px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">도움됨</button>
+              <button style-hover="color:var(--tx);border-color:var(--tx3)" style="background:transparent;color:var(--tx3);border:1px solid var(--hair);border-radius:999px;padding:7px 14px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">아쉬움</button>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:flex-end"><div style="background:var(--ac);color:var(--acTx);border-radius:999px;padding:11px 20px;font-size:14.5px;font-weight:700;max-width:70%">연차휴가 알려줘</div></div>
+          <div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+              <svg viewBox="0 0 64 64" width="18"><path d="M32.5 4.5 C 31 12 24.5 17.5 20 23.5 C 15.5 29.5 13.5 35 14.5 41 C 16 51 23.5 57.5 32 57.5 C 40.5 57.5 48 51 49.5 41 C 50.5 35 48.5 29.5 44 23.5 C 39.5 17.5 34 12 32.5 4.5 Z" fill="url(#hgrad)"></path></svg>
+              <span style="font-size:13px;font-weight:800;color:var(--tx2)">호롱</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;color:var(--tx3);font-size:14px">규정 검색 중
+              <span style="display:flex;gap:4px"><span style="width:5px;height:5px;border-radius:50%;background:var(--lk);animation:hrPulse 1.2s ease-in-out infinite"></span><span style="width:5px;height:5px;border-radius:50%;background:var(--lk);animation:hrPulse 1.2s ease-in-out infinite;animation-delay:.2s"></span><span style="width:5px;height:5px;border-radius:50%;background:var(--lk);animation:hrPulse 1.2s ease-in-out infinite;animation-delay:.4s"></span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="padding:14px 24px 18px;flex-shrink:0">
+        <div style="max-width:760px;margin:0 auto;position:relative">
+          <input placeholder="행정 업무에 대해 물어보세요 (Shift+Enter 줄바꿈)" style="width:100%;background:var(--p2);border:none;border-radius:500px;padding:16px 60px 16px 24px;font-size:14.5px;color:var(--tx);font-family:inherit;outline:none" style-focus="box-shadow:0 0 0 1px var(--tx3) inset"></input>
+          <button style="position:absolute;right:8px;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:50%;border:none;background:var(--ac);color:var(--acTx);cursor:pointer;display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="15" height="15"><rect x="7" y="7" width="10" height="10" rx="1.5" fill="currentColor"></rect></svg></button>
+        </div>
+        <div style="text-align:center;font-size:11.5px;color:var(--tx3);margin-top:10px">답변은 규정 원문을 근거로 자동 생성됩니다 · 금액·기한 등 중요한 사항은 원문과 담당 부서 확인</div>
+      </div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{isBrowse}}" hint-placeholder-val="{{false}}">
+    <div data-screen-label="문서 찾기 — 목록" style="flex:1;overflow-y:auto;padding:12px 28px 28px;animation:hrUp .35s cubic-bezier(.2,.7,.2,1)">
+      <div style="display:flex;align-items:baseline;gap:18px">
+        <div style="font-size:30px;font-weight:900;letter-spacing:-1px">문서 찾기</div>
+        <div style="font-size:13.5px;color:var(--tx3)">규정 별지·연구관리양식·법령 별표를 한곳에서 검색하고 바로 열기</div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:18px">
+        <sc-for list="{{browseTabs}}" as="tb" hint-placeholder-count="3">
+          <button onClick="{{tb.go}}" style-hover="transform:scale(1.03)" style="border:none;border-radius:999px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:{{tb.bg}};color:{{tb.c}};transition:transform .12s">{{tb.l}}</button>
+        </sc-for>
+      </div>
+      <div style="position:relative;margin-top:16px;max-width:680px">
+        <svg viewBox="0 0 24 24" width="17" height="17" style="position:absolute;left:16px;top:50%;transform:translateY(-50%);color:var(--tx3)"><path d="M20 20l-4.2-4.2M4 10.5a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg>
+        <input placeholder="{{searchPh}}" style="width:100%;background:var(--p2);border:none;border-radius:500px;padding:13px 20px 13px 44px;font-size:14px;color:var(--tx);font-family:inherit;outline:none" style-focus="box-shadow:0 0 0 1px var(--tx3) inset"></input>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+        <sc-for list="{{facets}}" as="fc" hint-placeholder-count="8">
+          <button style-hover="background:var(--p3)" style="border:none;border-radius:999px;padding:7px 14px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;background:{{fc.bg}};color:{{fc.c}}">{{fc.l}} <span style="opacity:.55;font-weight:700">{{fc.n}}</span></button>
+        </sc-for>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:22px">
+        <span style="font-size:13px;color:var(--tx3)"><b style="color:var(--tx2)">{{countLabel}}</b> · 1–30 표시</span>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="display:flex;background:var(--p2);border-radius:999px;padding:3px">
+            <span style="padding:5px 12px;font-size:12px;font-weight:700;color:var(--tx3);border-radius:999px">10</span>
+            <span style="padding:5px 12px;font-size:12px;font-weight:800;color:var(--acTx);background:var(--ac);border-radius:999px">30</span>
+            <span style="padding:5px 12px;font-size:12px;font-weight:700;color:var(--tx3);border-radius:999px">50</span>
+          </div>
+          <span style="font-size:12.5px;color:var(--tx3)">1 / 12</span>
+          <button style-hover="background:var(--p3);color:var(--tx)" style="width:30px;height:30px;border-radius:50%;border:none;background:var(--p2);color:var(--tx3);cursor:pointer;font-size:15px">‹</button>
+          <button style-hover="background:var(--p3);color:var(--tx)" style="width:30px;height:30px;border-radius:50%;border:none;background:var(--p2);color:var(--tx3);cursor:pointer;font-size:15px">›</button>
+        </div>
+      </div>
+      <sc-if value="{{isFormsTab}}" hint-placeholder-val="{{true}}">
+        <div style="display:grid;grid-template-columns:36px minmax(180px,1fr) minmax(110px,190px) minmax(72px,100px) 168px;gap:12px;padding:10px 14px 8px;border-bottom:1px solid var(--hair);font-size:11px;font-weight:800;letter-spacing:1.2px;color:var(--tx3)"><span>#</span><span>서식명</span><span>규정</span><span>번호</span><span style="text-align:right">원문 서식</span></div>
+        <sc-for list="{{formRows}}" as="r" hint-placeholder-count="10">
+          <div style-hover="background:var(--p2)" style="display:grid;grid-template-columns:36px minmax(180px,1fr) minmax(110px,190px) minmax(72px,100px) 168px;gap:12px;align-items:center;min-height:52px;padding:6px 14px;border-radius:8px">
+            <span style="font-size:13.5px;color:var(--tx3)">{{r.i}}</span>
+            <span style="font-size:14.5px;font-weight:600;display:flex;align-items:center;gap:8px;min-width:0"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{r.t}}</span><span style="font-size:10.5px;font-weight:700;color:var(--tx3);border:1px solid var(--hair);border-radius:4px;padding:1px 5px;flex-shrink:0">{{r.p}}</span></span>
+            <span style="font-size:13px;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{r.g}}</span>
+            <span style="font-size:13px;color:var(--tx2)">{{r.no}}</span>
+            <span style="display:flex;gap:6px;justify-content:flex-end">
+              <button style-hover="color:var(--tx);border-color:var(--tx3)" style="background:transparent;color:var(--tx2);border:1px solid var(--hair);border-radius:999px;padding:5px 11px;font-size:11px;font-weight:800;letter-spacing:1px;cursor:pointer;font-family:inherit">PDF</button>
+              <button style-hover="color:var(--tx);border-color:var(--tx3)" style="background:transparent;color:var(--tx2);border:1px solid var(--hair);border-radius:999px;padding:5px 11px;font-size:11px;font-weight:800;letter-spacing:1px;cursor:pointer;font-family:inherit">HWP</button>
+              <button style-hover="transform:scale(1.05)" style="background:var(--p3);color:var(--tx);border:none;border-radius:999px;padding:5px 12px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;transition:transform .12s">원문</button>
+            </span>
+          </div>
+        </sc-for>
+      </sc-if>
+      <sc-if value="{{isDocsTab}}" hint-placeholder-val="{{false}}">
+        <div style="display:grid;grid-template-columns:36px 1fr 120px 100px 90px;gap:12px;padding:10px 14px 8px;border-bottom:1px solid var(--hair);font-size:11px;font-weight:800;letter-spacing:1.2px;color:var(--tx3)"><span>#</span><span>문서</span><span>분류</span><span>최근 개정</span><span style="text-align:right">열기</span></div>
+        <sc-for list="{{docRows}}" as="r" hint-placeholder-count="10">
+          <div style-hover="background:var(--p2)" style="display:grid;grid-template-columns:36px 1fr 120px 100px 90px;gap:12px;align-items:center;min-height:52px;padding:6px 14px;border-radius:8px">
+            <span style="font-size:13.5px;color:var(--tx3)">{{r.i}}</span>
+            <span style="min-width:0"><span style="font-size:14.5px;font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{r.t}}</span><span style="font-size:12px;color:var(--tx3)">{{r.s}}</span></span>
+            <span style="font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:6px;color:{{r.sc}}"><span style="width:7px;height:7px;border-radius:50%;background:{{r.sc}}"></span>{{r.cat}}</span>
+            <span style="font-size:13px;color:var(--tx2)">{{r.rev}}</span>
+            <span style="display:flex;justify-content:flex-end"><button style-hover="transform:scale(1.05)" style="background:var(--p3);color:var(--tx);border:none;border-radius:999px;padding:5px 14px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;transition:transform .12s">열기</button></span>
+          </div>
+        </sc-for>
+      </sc-if>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{isGraph}}" hint-placeholder-val="{{false}}">
+    <div data-screen-label="문서 찾기 — 그래프" style="flex:1;overflow-y:auto;padding:12px 28px 28px;animation:hrUp .35s cubic-bezier(.2,.7,.2,1)">
+      <div style="display:flex;align-items:baseline;gap:18px">
+        <div style="font-size:30px;font-weight:900;letter-spacing:-1px">문서 찾기</div>
+        <div style="font-size:13.5px;color:var(--tx3)">규정 간 상호참조를 노드·링크로 — 노드를 클릭하면 문서가 열려요 · <b style="color:var(--tx2)">415</b> 문서 · <b style="color:var(--tx2)">690</b> 연결</div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:18px">
+        <sc-for list="{{browseTabs}}" as="tb" hint-placeholder-count="3">
+          <button onClick="{{tb.go}}" style-hover="transform:scale(1.03)" style="border:none;border-radius:999px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:{{tb.bg}};color:{{tb.c}};transition:transform .12s">{{tb.l}}</button>
+        </sc-for>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;margin-top:16px">
+        <div style="position:relative;width:300px">
+          <svg viewBox="0 0 24 24" width="15" height="15" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--tx3)"><path d="M20 20l-4.2-4.2M4 10.5a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg>
+          <input placeholder="노드 검색 (예: 복무규정)" style="width:100%;background:var(--p2);border:none;border-radius:500px;padding:10px 16px 10px 38px;font-size:13px;color:var(--tx);font-family:inherit;outline:none" style-focus="box-shadow:0 0 0 1px var(--tx3) inset"></input>
+        </div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap">
+          <sc-for list="{{legend}}" as="lg" hint-placeholder-count="6">
+            <span style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--tx2)"><span style="width:9px;height:9px;border-radius:50%;background:{{lg.c}}"></span>{{lg.l}}</span>
+          </sc-for>
+        </div>
+      </div>
+      <div style="background:var(--p2);border-radius:12px;margin-top:16px;overflow:hidden;box-shadow:var(--shMed)">
+        <svg viewBox="0 0 1000 540" style="width:100%;height:auto;display:block">
+          <sc-for list="{{edges}}" as="e" hint-placeholder-count="0"><line x1="{{e.x1}}" y1="{{e.y1}}" x2="{{e.x2}}" y2="{{e.y2}}" stroke="{{e.c}}" stroke-width="1" opacity="0.35"></line></sc-for>
+          <sc-for list="{{nodes}}" as="nd" hint-placeholder-count="0"><circle cx="{{nd.x}}" cy="{{nd.y}}" r="{{nd.r}}" fill="{{nd.c}}" opacity="0.92"></circle></sc-for>
+        </svg>
+      </div>
+      <div style="font-size:12px;color:var(--tx3);margin-top:12px">노드를 클릭하면 옆 드로어에서 문서가 열리고, 그 상태로 그래프를 계속 조작할 수 있어요</div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{isTools}}" hint-placeholder-val="{{false}}">
+    <div data-screen-label="업무 도구 허브" style="flex:1;overflow-y:auto;padding:12px 28px 28px;animation:hrUp .35s cubic-bezier(.2,.7,.2,1)">
+      <div style="font-size:30px;font-weight:900;letter-spacing:-1px">{{greeting}}</div>
+      <div style="font-size:13.5px;color:var(--tx3);margin-top:4px">행정 업무 도구와 요즘 흐름을 한곳에 모았어요</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:24px">
+        <sc-for list="{{tools}}" as="tl" hint-placeholder-count="4">
+          <div onClick="{{tl.go}}" style-hover="background:var(--p3);transform:translateY(-2px);box-shadow:var(--shMed)" style="display:flex;align-items:center;gap:16px;background:var(--p2);border-radius:10px;padding:16px 18px;cursor:pointer;transition:all .18s">
+            <div style="width:52px;height:52px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;background:{{tl.tint}};color:{{tl.tc}}">{{tl.ini}}</div>
+            <div style="min-width:0"><div style="font-size:16px;font-weight:800">{{tl.t}}</div><div style="font-size:13px;color:var(--tx2);margin-top:2px">{{tl.d}}</div></div>
+            <div style="margin-left:auto;color:var(--tx3);font-size:18px">›</div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="font-size:12px;font-weight:800;letter-spacing:1.5px;color:var(--tx3);margin-top:36px">바로 가기</div>
+      <div style="display:flex;gap:12px;margin-top:14px;flex-wrap:wrap">
+        <sc-for list="{{shortcuts}}" as="sh" hint-placeholder-count="5">
+          <div style-hover="background:var(--p3);transform:translateY(-2px)" style="width:150px;background:var(--p2);border-radius:10px;padding:14px;cursor:pointer;transition:all .18s">
+            <div style="width:100%;aspect-ratio:1;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:900;background:{{sh.tint}};color:{{sh.tc}};box-shadow:var(--shMed)">{{sh.ini}}</div>
+            <div style="font-size:14px;font-weight:700;margin-top:12px">{{sh.t}}</div>
+            <div style="font-size:11.5px;color:var(--tx3);margin-top:2px;line-height:1.45">{{sh.d}}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{isCalendar}}" hint-placeholder-val="{{false}}">
+    <div data-screen-label="업무 캘린더" style="flex:1;overflow-y:auto;padding:12px 28px 28px;animation:hrUp .35s cubic-bezier(.2,.7,.2,1)">
+      <div style="display:flex;align-items:baseline;gap:18px">
+        <div style="font-size:30px;font-weight:900;letter-spacing:-1px">업무 캘린더</div>
+        <div style="font-size:13.5px;color:var(--tx3)">이번 달 챙길 일부터 연간 반복 일정까지 — 제목을 누르면 관련 문서로</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;background:var(--p2);border-radius:10px;padding:12px 18px;margin-top:20px">
+        <span style="background:var(--acSoft);color:var(--lk);border-radius:999px;padding:4px 12px;font-size:12px;font-weight:800;flex-shrink:0">매월 챙길 일 5건</span>
+        <span style="font-size:13px;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">인력현황(정원/현원) 제출 · 출연금 교부신청·집행률 보고 · 법인카드 모니터링 결과 제출 · 각종 수요조사 대응 · 개별 의원실 질의 대응</span>
+        <button style-hover="color:var(--tx)" style="margin-left:auto;background:none;border:none;color:var(--tx3);font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0">펼치기 ▾</button>
+      </div>
+      <div style="background:var(--acSoft);border:1px solid var(--lk);border-radius:12px;padding:18px 22px;margin-top:14px">
+        <div style="display:flex;align-items:center;gap:10px"><span style="font-size:22px;font-weight:900">7월</span><span style="background:var(--ac);color:var(--acTx);border-radius:999px;padding:3px 10px;font-size:11px;font-weight:800">이번 달</span></div>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:10px"><span style="width:8px;height:8px;border-radius:50%;background:var(--lk)"></span><b style="font-size:15px">인력증원 심의결과·상반기 점검</b><span style="font-size:12.5px;color:var(--tx3)">7월</span></div>
+        <div style="font-size:13px;color:var(--tx2);margin-top:4px;padding-left:18px">익년도 인력증원 심의결과, 상반기 이행실태 점검, 2분기 실적</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:14px">
+        <sc-for list="{{months}}" as="m" hint-placeholder-count="12">
+          <div style-hover="background:var(--p3);transform:translateY(-2px)" style="background:var(--p2);border-radius:10px;padding:14px 16px;min-height:118px;cursor:pointer;transition:all .18s;box-shadow:{{m.ring}}">
+            <div style="display:flex;align-items:baseline;gap:4px"><span style="font-size:20px;font-weight:900">{{m.n}}</span><span style="font-size:11px;color:var(--tx3)">월</span></div>
+            <div style="display:flex;flex-direction:column;gap:5px;margin-top:9px">
+              <sc-for list="{{m.items}}" as="it" hint-placeholder-count="2">
+                <div style="display:flex;gap:7px;font-size:12.5px;color:var(--tx2);line-height:1.45"><span style="color:var(--tx3)">·</span><span>{{it}}</span></div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="font-size:11.5px;color:var(--tx3);margin-top:18px">제목을 누르면 관련 문서로 이동해요 · * 자료 확정 전 · 대외업무 항목은 3개년 관측 통계이며 규정상 의무·기한이 아니에요. 정확한 마감·양식은 담당 부서와 원문 확인.</div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{isApproval}}" hint-placeholder-val="{{false}}">
+    <div data-screen-label="결재선 판정기" style="flex:1;overflow-y:auto;padding:12px 28px 28px;animation:hrUp .35s cubic-bezier(.2,.7,.2,1)">
+      <div style="display:flex;align-items:baseline;gap:18px">
+        <div style="font-size:30px;font-weight:900;letter-spacing:-1px">결재선 판정기</div>
+        <div style="font-size:13.5px;color:var(--tx3)">업무를 검색하면 전결권자를 위임전결규정 별표 그대로 — 실제 결재선은 부서에서 확인</div>
+      </div>
+      <div style="position:relative;margin-top:18px;max-width:680px">
+        <svg viewBox="0 0 24 24" width="17" height="17" style="position:absolute;left:16px;top:50%;transform:translateY(-50%);color:var(--tx3)"><path d="M20 20l-4.2-4.2M4 10.5a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg>
+        <input placeholder="업무 검색 — 예: 출장, 휴가, 계약 (아래 칩으로 바로 조회)" style="width:100%;background:var(--p2);border:none;border-radius:500px;padding:13px 20px 13px 44px;font-size:14px;color:var(--tx);font-family:inherit;outline:none" style-focus="box-shadow:0 0 0 1px var(--tx3) inset"></input>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+        <sc-for list="{{apChips}}" as="ac2" hint-placeholder-count="10">
+          <button style-hover="background:var(--p3)" style="background:var(--p2);color:var(--tx2);border:none;border-radius:999px;padding:7px 14px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit">{{ac2.l}} <span style="opacity:.55;font-weight:700">{{ac2.n}}</span></button>
+        </sc-for>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:20px">
+        <span style="font-size:13px;color:var(--tx3)"><b style="color:var(--tx2)">315건</b> · 1–30 표시 · 필터: 비정규직(연구직)</span>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:12.5px;color:var(--tx3)">1 / 11</span>
+          <button style-hover="background:var(--p3);color:var(--tx)" style="width:30px;height:30px;border-radius:50%;border:none;background:var(--p2);color:var(--tx3);cursor:pointer;font-size:15px">‹</button>
+          <button style-hover="background:var(--p3);color:var(--tx)" style="width:30px;height:30px;border-radius:50%;border:none;background:var(--p2);color:var(--tx3);cursor:pointer;font-size:15px">›</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:36px minmax(200px,1fr) minmax(170px,250px) 76px;gap:12px;padding:10px 14px 8px;border-bottom:1px solid var(--hair);font-size:11px;font-weight:800;letter-spacing:1.2px;color:var(--tx3)"><span>#</span><span>업무</span><span style="text-align:right">전결</span><span style="text-align:right">원문</span></div>
+      <sc-for list="{{apRows}}" as="r" hint-placeholder-count="10">
+        <div style-hover="background:var(--p2)" style="display:grid;grid-template-columns:36px minmax(200px,1fr) minmax(170px,250px) 76px;gap:12px;align-items:center;min-height:52px;padding:6px 14px;border-radius:8px">
+          <span style="font-size:13.5px;color:var(--tx3)">{{r.i}}</span>
+          <span style="display:flex;align-items:center;gap:9px;min-width:0"><span style="font-size:11px;font-weight:700;color:var(--tx3);flex-shrink:0">{{r.g}}</span><span style="font-size:14.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{r.t}}</span><sc-if value="{{r.tag}}" hint-placeholder-val="{{false}}"><span style="font-size:10.5px;font-weight:700;color:var(--lk);border:1px solid var(--lk);border-radius:999px;padding:1px 8px;flex-shrink:0;opacity:.85">{{r.tag}}</span></sc-if></span>
+          <span style="display:flex;gap:6px;justify-content:flex-end;align-items:center">
+            <span style="font-size:11px;color:var(--tx3)">전결</span>
+            <span style="font-size:12px;font-weight:800;border-radius:999px;padding:5px 13px;background:{{r.bbg}};color:{{r.bc}}">{{r.b}}</span>
+            <sc-if value="{{r.x}}" hint-placeholder-val="{{false}}"><span style="font-size:11.5px;font-weight:700;color:var(--tx2);border:1px solid var(--hair);border-radius:999px;padding:4px 11px">{{r.x}}</span></sc-if>
+          </span>
+          <span style="display:flex;justify-content:flex-end"><button style-hover="color:var(--tx);border-color:var(--tx3)" style="background:transparent;color:var(--tx2);border:1px solid var(--hair);border-radius:999px;padding:5px 12px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit">원문</button></span>
+        </div>
+      </sc-for>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{isAdmin}}" hint-placeholder-val="{{false}}">
+    <div data-screen-label="관리자" style="flex:1;overflow-y:auto;padding:12px 28px 28px;animation:hrUp .35s cubic-bezier(.2,.7,.2,1)">
+      <div style="display:flex;align-items:baseline;gap:18px">
+        <div style="font-size:30px;font-weight:900;letter-spacing:-1px">관리자</div>
+        <div style="font-size:13.5px;color:var(--tx3)">품질 현황과 기능 플래그 — 변경은 즉시 전 사용자에게 반영</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:22px">
+        <sc-for list="{{stats}}" as="st" hint-placeholder-count="4">
+          <div style="background:var(--p2);border-radius:10px;padding:18px 20px">
+            <div style="font-size:12px;color:var(--tx3);font-weight:700">{{st.l}}</div>
+            <div style="font-size:30px;font-weight:900;letter-spacing:-1px;margin-top:6px;color:{{st.c}}">{{st.v}}</div>
+            <div style="font-size:12px;color:var(--tx3);margin-top:2px">{{st.d}}</div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:12px;margin-top:14px">
+        <div style="background:var(--p2);border-radius:10px;padding:8px 8px 12px">
+          <div style="font-size:14px;font-weight:800;padding:12px 14px 6px">기능 플래그</div>
+          <sc-for list="{{flagRows}}" as="fg" hint-placeholder-count="6">
+            <div style-hover="background:var(--p3)" style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px">
+              <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700">{{fg.n}}</div><div style="font-size:12px;color:var(--tx3);margin-top:1px">{{fg.d}}</div></div>
+              <span style="font-size:11px;font-weight:800;letter-spacing:.5px;color:{{fg.stC}}">{{fg.st}}</span>
+              <div onClick="{{fg.toggle}}" style="width:44px;height:24px;border-radius:999px;background:{{fg.kbg}};cursor:pointer;position:relative;transition:background .15s;flex-shrink:0">
+                <div style="position:absolute;top:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transition:left .15s;left:{{fg.kx}}"></div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="background:var(--p2);border-radius:10px;padding:8px 8px 12px">
+          <div style="font-size:14px;font-weight:800;padding:12px 14px 6px">품질 게시판 · 최근 자가평가</div>
+          <sc-for list="{{quality}}" as="q" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 14px">
+              <span style="font-size:13px;color:var(--tx3);width:38px">{{q.d}}</span>
+              <div style="flex:1;height:6px;border-radius:999px;background:var(--p3);overflow:hidden"><div style="height:100%;border-radius:999px;background:var(--ac);width:{{q.w}}"></div></div>
+              <span style="font-size:13.5px;font-weight:800;width:44px;text-align:right">{{q.r}}</span>
+              <span style="font-size:12px;color:var(--tx3);width:52px;text-align:right">{{q.wr}}</span>
+            </div>
+          </sc-for>
+          <div style="font-size:12px;color:var(--tx3);padding:8px 14px 4px;border-top:1px solid var(--hair);margin-top:6px">미검수 문서 14건 — 검수 대기열에서 확인 · <a href="#">품질 게시판 열기</a></div>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{isMobile}}" hint-placeholder-val="{{false}}">
+    <div data-screen-label="모바일" style="flex:1;overflow-y:auto;padding:12px 28px 28px;animation:hrUp .35s cubic-bezier(.2,.7,.2,1)">
+      <div style="display:flex;align-items:baseline;gap:18px">
+        <div style="font-size:30px;font-weight:900;letter-spacing:-1px">모바일</div>
+        <div style="font-size:13.5px;color:var(--tx3)">사이드바는 하단 탭바 3탭으로 — 질문 / 규정 / 도구</div>
+      </div>
+      <div style="display:flex;gap:36px;justify-content:center;margin-top:26px;flex-wrap:wrap">
+        <div style="width:302px;height:624px;border-radius:38px;background:var(--bg0);border:1px solid var(--hair);box-shadow:var(--shHeavy);padding:12px;display:flex;flex-direction:column;overflow:hidden">
+          <div style="display:flex;align-items:center;gap:8px;padding:10px 10px 12px">
+            <svg viewBox="0 0 64 64" width="20"><path d="M32.5 4.5 C 31 12 24.5 17.5 20 23.5 C 15.5 29.5 13.5 35 14.5 41 C 16 51 23.5 57.5 32 57.5 C 40.5 57.5 48 51 49.5 41 C 50.5 35 48.5 29.5 44 23.5 C 39.5 17.5 34 12 32.5 4.5 Z" fill="url(#hgrad)"></path></svg>
+            <span style="font-size:15px;font-weight:900">호롱</span>
+            <div style="margin-left:auto;width:26px;height:26px;border-radius:50%;background:var(--p2);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:var(--tx2)">재</div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:center;text-align:center;padding:0 8px">
+            <div style="font-size:21px;font-weight:900;letter-spacing:-.5px">무엇이 궁금하세요?</div>
+            <div style="font-size:12px;color:var(--tx2);margin-top:6px">답변마다 출처 조문이 함께 저장됩니다</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:18px">
+              <sc-for list="{{chipsM}}" as="ch" hint-placeholder-count="4">
+                <span style="background:var(--p2);border-radius:999px;padding:8px 13px;font-size:11.5px;font-weight:600">{{ch}}</span>
+              </sc-for>
+            </div>
+          </div>
+          <div style="position:relative;padding:0 4px">
+            <div style="background:var(--p2);border-radius:500px;padding:13px 46px 13px 18px;font-size:12px;color:var(--tx3)">행정 업무에 대해 물어보세요</div>
+            <div style="position:absolute;right:10px;top:50%;transform:translateY(-50%);width:30px;height:30px;border-radius:50%;background:var(--ac);display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="13" height="13"><path d="M12 19V5M6 11l6-6 6 6" fill="none" stroke="#191100" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>
+          </div>
+          <div style="display:flex;background:var(--p1);border-radius:18px;margin-top:12px;padding:8px 6px">
+            <div style="flex:1;text-align:center;color:var(--lk)"><svg viewBox="0 0 24 24" width="19" height="19"><path d="M4 5.5h16v11H9.5L4 21z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"></path></svg><div style="font-size:10px;font-weight:800;margin-top:2px">질문</div></div>
+            <div style="flex:1;text-align:center;color:var(--tx3)"><svg viewBox="0 0 24 24" width="19" height="19"><path d="M20 20l-4.2-4.2M4 10.5a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"></path></svg><div style="font-size:10px;font-weight:700;margin-top:2px">규정</div></div>
+            <div style="flex:1;text-align:center;color:var(--tx3)"><svg viewBox="0 0 24 24" width="19" height="19"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"></path></svg><div style="font-size:10px;font-weight:700;margin-top:2px">도구</div></div>
+          </div>
+        </div>
+        <div style="width:302px;height:624px;border-radius:38px;background:var(--bg0);border:1px solid var(--hair);box-shadow:var(--shHeavy);padding:12px;display:flex;flex-direction:column;overflow:hidden">
+          <div style="font-size:19px;font-weight:900;padding:10px 10px 4px">문서 찾기</div>
+          <div style="background:var(--p2);border-radius:500px;padding:11px 16px;font-size:12px;color:var(--tx3);margin:8px 4px 0">서식 이름·규정명·번호로 검색</div>
+          <div style="display:flex;gap:6px;padding:12px 4px 4px;overflow:hidden">
+            <span style="background:var(--tx);color:var(--bg0);border-radius:999px;padding:6px 12px;font-size:11px;font-weight:800;flex-shrink:0">전체</span>
+            <span style="background:var(--p2);border-radius:999px;padding:6px 12px;font-size:11px;font-weight:600;flex-shrink:0">보안관리규정</span>
+            <span style="background:var(--p2);border-radius:999px;padding:6px 12px;font-size:11px;font-weight:600;flex-shrink:0">연구관리양식</span>
+          </div>
+          <div style="flex:1;overflow:hidden;padding:6px 0">
+            <sc-for list="{{mRows}}" as="r" hint-placeholder-count="5">
+              <div style="display:flex;align-items:center;gap:10px;padding:10px 8px;border-radius:8px">
+                <span style="font-size:11px;color:var(--tx3);width:14px">{{r.i}}</span>
+                <div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{r.t}}</div><div style="font-size:10.5px;color:var(--tx3)">{{r.g}} · {{r.no}}</div></div>
+                <span style="border:1px solid var(--hair);border-radius:999px;padding:3px 9px;font-size:9.5px;font-weight:800;color:var(--tx2)">PDF</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display:flex;background:var(--p1);border-radius:18px;padding:8px 6px">
+            <div style="flex:1;text-align:center;color:var(--tx3)"><svg viewBox="0 0 24 24" width="19" height="19"><path d="M4 5.5h16v11H9.5L4 21z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"></path></svg><div style="font-size:10px;font-weight:700;margin-top:2px">질문</div></div>
+            <div style="flex:1;text-align:center;color:var(--lk)"><svg viewBox="0 0 24 24" width="19" height="19"><path d="M20 20l-4.2-4.2M4 10.5a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"></path></svg><div style="font-size:10px;font-weight:800;margin-top:2px">규정</div></div>
+            <div style="flex:1;text-align:center;color:var(--tx3)"><svg viewBox="0 0 24 24" width="19" height="19"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"></path></svg><div style="font-size:10px;font-weight:700;margin-top:2px">도구</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{isEvidence}}" hint-placeholder-val="{{false}}">
+  <div data-screen-label="근거 패널" style="width:340px;flex-shrink:0;background:var(--p1);border-radius:12px;display:flex;flex-direction:column;min-height:0;box-shadow:var(--shHeavy);animation:hrUp .3s cubic-bezier(.2,.7,.2,1)">
+    <div style="display:flex;align-items:center;padding:16px 16px 10px">
+      <div><div style="font-size:15px;font-weight:900">근거 조문</div><div style="font-size:11.5px;color:var(--tx3);margin-top:2px">국내출장 어떻게 신청해? · 상위 5개</div></div>
+      <button onClick="{{toggleEvidence}}" style-hover="background:var(--p3);color:var(--tx)" style="margin-left:auto;width:28px;height:28px;border-radius:50%;border:none;background:var(--p2);color:var(--tx3);cursor:pointer;display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="13" height="13"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></button>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:4px 12px 12px;display:flex;flex-direction:column;gap:8px">
+      <sc-for list="{{evidence}}" as="ev" hint-placeholder-count="5">
+        <div style-hover="background:var(--p3)" style="border-radius:10px;padding:12px 14px;cursor:pointer;background:{{ev.bg}};box-shadow:{{ev.ring}}">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:11px;font-weight:900;color:{{ev.nc}}">{{ev.n}}</span>
+            <span style="font-size:13.5px;font-weight:800">{{ev.t}}</span>
+            <span style="margin-left:auto;font-size:11px;font-weight:800;color:var(--tx3)">{{ev.p}}%</span>
+          </div>
+          <div style="font-size:12px;color:var(--tx2);margin-top:2px">{{ev.s}}</div>
+          <div style="font-size:12px;color:var(--tx3);margin-top:6px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ev.b}}</div>
+          <div style="height:3px;border-radius:999px;background:var(--p3);margin-top:10px;overflow:hidden"><div style="height:100%;border-radius:999px;background:var(--ac);width:{{ev.w}}"></div></div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="border-top:1px solid var(--hair);padding:12px 16px">
+      <span onClick="{{goGraph}}" style-hover="text-decoration:underline" style="font-size:12.5px;font-weight:700;color:var(--lk);cursor:pointer">규정 관계 그래프에서 보기 →</span>
+    </div>
+  </div>
+  </sc-if>
+
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#ffc94d&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;#ffb03a&quot;,&quot;#ff8a1e&quot;,&quot;#f2701d&quot;,&quot;#ffc94d&quot;],&quot;section&quot;:&quot;브랜드&quot;},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;section&quot;:&quot;브랜드&quot;}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { screen: 'chat0', theme: null, evidence: false, tab: 'forms', convo: 0, flags: [true, true, true, true, false, false] };
+    let seed = 7;
+    const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+    const cl = [
+      { x: 200, y: 170, c: '#6ea8dd', n: 17 }, { x: 430, y: 300, c: '#6ea8dd', n: 11 },
+      { x: 700, y: 170, c: '#a292dd', n: 13 }, { x: 540, y: 430, c: '#e9b45a', n: 14 },
+      { x: 260, y: 430, c: '#58b98f', n: 10 }, { x: 850, y: 390, c: '#d98bab', n: 8 },
+      { x: 640, y: 300, c: '#9aa4ad', n: 7 }
+    ];
+    const nodes = [], edges = [];
+    cl.forEach((c, ci) => {
+      const start = nodes.length;
+      for (let i = 0; i < c.n; i++) {
+        const x = Math.max(30, Math.min(970, c.x + (rnd() - rnd()) * 170));
+        const y = Math.max(30, Math.min(510, c.y + (rnd() - rnd()) * 150));
+        nodes.push({ x: Math.round(x), y: Math.round(y), r: (i % 8 === 0 ? 9 : 3 + rnd() * 4).toFixed(1), c: c.c });
+      }
+      for (let i = 0; i < c.n; i++) {
+        const a = nodes[start + Math.floor(rnd() * c.n)], b = nodes[start + Math.floor(rnd() * c.n)];
+        if (a !== b) edges.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y, c: c.c });
+      }
+      if (ci > 0) { const a = nodes[start], b = nodes[Math.floor(rnd() * start)]; edges.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y, c: '#9aa4ad' }); }
+    });
+    this.graph = { nodes, edges };
+  }
+  go(s) { this.setState({ screen: s, evidence: false }); }
+  renderVals() {
+    const S = this.state, P = this.props;
+    const theme = S.theme ?? (P.theme === 'light' ? 'light' : 'dark');
+    const light = theme === 'light';
+    const ac = P.accent ?? '#ffb03a';
+    const screen = S.screen;
+    const go = (s) => () => this.go(s);
+    const nav = (key, l, d, match) => {
+      const active = match.includes(screen);
+      return { l, d, go: go(key), w: active ? 800 : 500, c: active ? 'var(--tx)' : 'var(--tx2)', bg: active ? 'var(--p3)' : 'transparent' };
+    };
+    const hues = ['#6ea8dd', '#58b98f', '#e9b45a', '#a292dd', '#d98bab', '#9aa4ad'];
+    const tint = (h) => h + '2e';
+    const convoData = [
+      ['국내출장 어떻게 신청해?', '오후 7:42'], ['경조사비 신청은 어떻게 하나요', '오후 7:41'],
+      ['법인카드 한도 초과 처리', '7/23'], ['연차휴가는 어떻게 신청하나요', '7/16'],
+      ['초과근무 수당 기준', '7/16'], ['출장비 정산 기한이 언제까지', '7/16'],
+      ['물품 구매 절차 문의', '7/15'], ['겸직 허가 신청 방법', '7/12']
+    ];
+    const convos = convoData.map(([t, d], i) => {
+      const active = screen === 'chat' && S.convo === i;
+      return {
+        t, d, ini: t[0], tint: tint(hues[i % 6]), tc: hues[i % 6],
+        bg: active ? 'var(--p3)' : 'transparent', w: active ? 700 : 500, c: active ? 'var(--tx)' : 'var(--tx2)',
+        go: () => this.setState({ screen: 'chat', convo: i, evidence: false })
+      };
+    });
+    const tabBtn = (l, key, isG) => {
+      const active = isG ? screen === 'graph' : (screen === 'browse' && S.tab === key);
+      return { l, bg: active ? 'var(--tx)' : 'var(--p2)', c: active ? 'var(--bg0)' : 'var(--tx2)', go: isG ? go('graph') : () => this.setState({ screen: 'browse', tab: key, evidence: false }) };
+    };
+    const forms = [
+      ['OO 년도 개인정보보호 시행계획', '1p', '별지 제1호'], ['개인정보파일 (등록/변경등록) 신청서', '2p', '별지 제2호'],
+      ['개인정보파일 파기 요청서', '1p', '별지 제3호'], ['홈페이지 개인정보 노출관련 조치결과', '1p', '별지 제4호'],
+      ['개인정보 유출신고서', '1p', '별지 제5호'], ['개인영상정보 열람 청구서', '1p', '별지 제6호'],
+      ['개인영상정보 관리대장', '1p', '별지 제7호'], ['개인정보 열람·정정·삭제·처리정지 요구서', '2p', '별지 제8호'],
+      ['개인정보파일 파기 관리대장', '1p', '별지 제9호'], ['위임장', '1p', '별지 제10호']
+    ].map(([t, p, no], i) => ({ i: i + 1, t, p, no, g: '개인정보보호지침' }));
+    const cat = { 규정집: '#6ea8dd', 가이드: '#58b98f', 용어집: '#e9b45a', '사내 시스템': '#a292dd', 대외업무: '#d98bab', 상위법령: '#9aa4ad' };
+    const docs = [
+      ['보안관리규정', '42조 · 별지 17종', '규정집', '2026.03'], ['정보보안 기본지침', '38조 · 별지 17종', '규정집', '2026.01'],
+      ['연구사업관리규정', '51조 · 별지 13종', '규정집', '2025.11'], ['복무규정', '47조 · 별지 8종', '규정집', '2026.05'],
+      ['여비규정', '29조 · 별표 4종', '규정집', '2026.02'], ['연구윤리 운영지침', '33조', '규정집', '2025.09'],
+      ['연구행정 가이드 — 출장 편', '12장', '가이드', '2026.06'], ['용어집 — 전결·위임전결', '용어 58건', '용어집', '2026.04'],
+      ['ERP 복무관리 매뉴얼', '18장', '사내 시스템', '2026.06'], ['국가연구개발혁신법 시행령', '65조 · 별표 22종', '상위법령', '2025.12']
+    ].map(([t, s, catN, rev], i) => ({ i: i + 1, t, s, cat: catN, sc: cat[catN], rev }));
+    const facetsF = [['전체', 357], ['보안관리규정', 17], ['정보보안 기본지침', 17], ['연구관리양식·자문회의', 16], ['보고서 편집', 15], ['연구윤리', 13], ['출판·인쇄', 13], ['연구사업관리규정', 13], ['임직원행동강령', 13], ['내부감사규정', 11], ['개인정보보호지침', 10]];
+    const facetsD = [['전체', 415], ['규정집', 210], ['가이드', 64], ['용어집', 58], ['사내 시스템', 46], ['대외업무', 21], ['상위법령', 16]];
+    const isForms = S.tab === 'forms';
+    const facets = (isForms ? facetsF : facetsD).map(([l, n], i) => ({ l, n, bg: i === 0 ? 'var(--tx)' : 'var(--p2)', c: i === 0 ? 'var(--bg0)' : 'var(--tx2)' }));
+    const toolTiles = [
+      ['결재선 판정기', '이 업무 전결권자가 누구인지 규정 근거로 판정', '결', 'approval'],
+      ['업무 한 장', '출장·연차·법인카드 등 13개 업무의 처음부터 끝까지', '한', null],
+      ['업무 캘린더', '이번 달 챙길 일 1건 · 매월·연간 반복 업무를 한눈에', '캘', 'calendar'],
+      ['기한 사전', '규정 기한 210건 검색 · 마감일 계산과 캘린더 저장', '기', null]
+    ].map(([t, d, ini, dest], i) => ({ t, d, ini, tint: tint(hues[i % 6]), tc: hues[i % 6], go: dest ? go(dest) : undefined }));
+    const shortcuts = [
+      ['품질 게시판', '오늘의 정답률과 약점 지도', '품'], ['새로워진 점', '최근 바뀐 기능 모아보기', '새'],
+      ['의견 보내기', '오류·개선 의견 제보와 처리 상태', '의'], ['도움말', '사용법·FAQ — 처음이라면', '도'], ['소개', '무엇을 근거로 답하는지', '소']
+    ].map(([t, d, ini], i) => ({ t, d, ini, tint: tint(hues[(i + 2) % 6]), tc: hues[(i + 2) % 6] }));
+    const monthData = [
+      [1, ['연차수당·연말정산 착수 *', '결산검토기초자료 취합', '신년 수요조사·전년도 실적 정리']], [2, ['신규채용·결산 준비']],
+      [3, ['전년도 회계연도 결산', '통합공시 정기 정비']], [4, ['결산 지속·수정공시·1분기 자료']],
+      [5, ['국정감사 사전 준비 착수', '출연금 운영·집행내역 정리']], [6, ['국정감사 공통요구자료 총괄표', '결산 국회심사 준비·인력증원']],
+      [7, ['인력증원 심의결과·상반기 점검']], [8, ['국정감사 총괄표·결산 국회심사']],
+      [9, ['국정감사 본격 대응 (연중 최다)']], [10, ['국정감사 후속·예산안 국회심의 착수']],
+      [11, ['예산안 심의 대응·통합공시 점검']], [12, ['연차휴가 사용 점검 *', '연말 의견수렴·예산 확정']]
+    ];
+    const months = monthData.map(([n, items]) => ({ n, items, ring: n === 7 ? '0 0 0 1px var(--lk) inset' : 'none' }));
+    const apChips = [['출장', 3], ['휴가', 1], ['채용', 5], ['교육', 13], ['결산', 5], ['예산', 33], ['계약', 10], ['구매', 1], ['법인카드', 5], ['출판', 6], ['겸직', 1], ['보수', 10], ['평가', 29]].map(([l, n]) => ({ l, n }));
+    const bStyle = { ac: ['var(--acSoft)', 'var(--lk)'], hi: ['var(--tx)', 'var(--bg0)'], mid: ['var(--p3)', 'var(--tx2)'] };
+    const apRows = [
+      ['가.출장 › 1) 국내 출장', '비정규직(연구직)', '과제책임자', 'ac', null], ['가.출장 › 2) 시내출장', '비정규직(연구직)', '과제책임자', 'ac', null],
+      ['가.출장 › 3) 해외출장', null, '원장', 'hi', '원장 결재'], ['나.연차휴가·청원휴가·근무시간 변경(유연근무제) 등', '비정규직(연구직)', '과제책임자', 'ac', null],
+      ['라.파견·연구연수·교육연수', null, '원장', 'hi', '원장 결재'], ['바.비정규직 활용', null, '부서장/센터장', 'mid', null],
+      ['사.일용직 활용', null, '부서장/센터장', 'mid', null], ['아.업무한계 조정 › 부서간', null, '부원장', 'mid', '협의 연경'],
+      ['아.업무한계 조정 › 부서내', null, '부서장/센터장', 'mid', null], ['아.업무한계 조정 › 실·팀내', null, '실·팀장', 'mid', null]
+    ].map(([t, tag, b, k, x], i) => ({ i: i + 1, g: '1.복무', t, tag, b, x, bbg: bStyle[k][0], bc: bStyle[k][1] }));
+    const onCount = S.flags.filter(Boolean).length;
+    const flagMeta = [
+      ['챗봇 SSE 스트리밍', '답변을 토큰 단위로 실시간 표시'], ['법령 별표 원문 링크', '서식 찾기에 법제처 원문 연결'],
+      ['품질 추이 날짜별 표', '품질 게시판 추이를 표로 표시'], ['채팅 대기 애니메이션', '검색 중 사고 구슬 표시'],
+      ['기한 사전 계산기 v2', '마감일 역산·캘린더 저장'], ['근거 패널 자동 열림', '첫 답변에서 근거를 자동 표시']
+    ];
+    const flagRows = flagMeta.map(([n, d], i) => {
+      const on = S.flags[i];
+      return {
+        n, d, st: on ? 'ON' : 'OFF', stC: on ? 'var(--lk)' : 'var(--tx3)', kbg: on ? 'var(--ac)' : 'var(--p3)', kx: on ? '23px' : '3px',
+        toggle: () => { const f = [...this.state.flags]; f[i] = !f[i]; this.setState({ flags: f }); }
+      };
+    });
+    const evidence = [
+      [1, '여비규정 제12조', '국내출장의 신청', 92, '출장을 가고자 하는 직원은 출장 전 복무관리 시스템을 통해 신청하여야 한다. 긴급한 경우…'],
+      [2, 'ERP 상세가이드', '국내출장신청 상세', 88, '복무관리 › 국내출장신청 메뉴에서 출장 목적·기간·행선지를 입력하고 저장한다…'],
+      [3, '복무규정 제31조', '출장 명령', 74, '직원의 출장은 소속 부서장의 명령으로 한다. 출장 중 복무는…'],
+      [4, '여비규정 별표 1', '국내여비 지급 기준', 63, '운임·일비·숙박비·식비의 구분에 따라 지급하며, 정액 기준은…'],
+      [5, 'ERP 시스템', '복무관리 — 국내출장신청', 58, '결재상신 후 전자결재 화면에서 결재선과 편철을 확인한다…']
+    ].map(([n, t, s, p, b]) => ({ n, t, s, p, b, w: p + '%', bg: n === 1 ? 'var(--acSoft)' : 'var(--p2)', ring: n === 1 ? '0 0 0 1px var(--lk) inset' : 'none', nc: n === 1 ? 'var(--lk)' : 'var(--tx3)' }));
+    const hour = new Date().getHours();
+    const greeting = hour < 12 ? '좋은 아침이에요, 재현님' : hour < 18 ? '좋은 오후예요, 재현님' : '좋은 저녁이에요, 재현님';
+    return {
+      ac, acSoft: ac + '24', lightAttr: light ? '1' : undefined,
+      themeIcon: light ? 'M20 13A8 8 0 1 1 11 4a6.5 6.5 0 0 0 9 9z' : 'M12 4V2M12 22v-2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z',
+      themeLabel: light ? '다크로 전환' : '라이트로 전환',
+      toggleTheme: () => this.setState({ theme: light ? 'dark' : 'light' }),
+      isLanding: screen === 'landing', isShell: screen !== 'landing',
+      isChat0: screen === 'chat0', isChat: screen === 'chat', isBrowse: screen === 'browse', isGraph: screen === 'graph',
+      isTools: screen === 'tools', isCalendar: screen === 'calendar', isApproval: screen === 'approval', isAdmin: screen === 'admin', isMobile: screen === 'mobile',
+      isEvidence: screen === 'chat' && S.evidence,
+      toggleEvidence: () => this.setState({ evidence: !S.evidence }),
+      evBg: S.evidence ? 'var(--ac)' : 'transparent', evC: S.evidence ? 'var(--acTx)' : 'var(--lk)',
+      goChat0: go('chat0'), goChat: go('chat'), goTools: go('tools'), goLanding: go('landing'), goGraph: go('graph'),
+      navMain: [
+        { ...nav('chat0', '질문하기', 'M4 5.5h16v11H9.5L4 21z', ['chat0', 'chat']) },
+        { ...nav('browse', '문서 찾기', 'M20 20l-4.2-4.2M4 10.5a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0z', ['browse', 'graph']) },
+        { ...nav('tools', '업무 도구', 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z', ['tools']) }
+      ],
+      navSub: [
+        { ...nav('calendar', '업무 캘린더', 'M4 6.5h16V20H4zM4 10.5h16M8.5 3.5v5M15.5 3.5v5', ['calendar']) },
+        { ...nav('approval', '결재선 판정기', 'M4 12.5l5 5L20 6.5', ['approval']) },
+        { ...nav('admin', '관리자', 'M12 3l8 3v5.5c0 4.8-3.4 8-8 9.5-4.6-1.5-8-4.7-8-9.5V6z', ['admin']) },
+        { ...nav('mobile', '모바일 미리보기', 'M8 3.5h8a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1v-15a1 1 0 0 1 1-1zM11 17.5h2', ['mobile']) }
+      ],
+      convos,
+      chips: ['첫 출장을 가요', '연차를 쓰고 싶어요', '법인카드를 처음 써요', '초과근무를 했어요', '물품을 사야 해요', '경조사가 생겼어요'],
+      chipsM: ['첫 출장을 가요', '연차를 쓰고 싶어요', '법인카드를 처음 써요', '초과근무를 했어요'],
+      browseTabs: [tabBtn('문서', 'docs', false), tabBtn('서식', 'forms', false), tabBtn('그래프', null, true)],
+      searchPh: isForms ? '서식 이름·규정명·번호로 검색 — 예: 출장, 연구사업이행각서, 별지 3' : '문서 이름·조문으로 검색 — 예: 복무규정, 제31조',
+      countLabel: isForms ? '357건' : '415건',
+      isFormsTab: isForms, isDocsTab: !isForms,
+      formRows: forms, docRows: docs, facets,
+      legend: [['규정집', '#6ea8dd'], ['연구행정 가이드', '#58b98f'], ['용어집', '#e9b45a'], ['사내 시스템', '#a292dd'], ['대외업무', '#d98bab'], ['상위 법령', '#9aa4ad']].map(([l, c]) => ({ l, c })),
+      nodes: this.graph.nodes, edges: this.graph.edges,
+      greeting, tools: toolTiles, shortcuts, months,
+      apChips, apRows,
+      stats: [
+        { l: '오늘 질문', v: '128', d: '어제 대비 +12', c: 'var(--tx)' }, { l: '자가평가 정답률', v: '92%', d: '최근 7일 평균', c: 'var(--lk)' },
+        { l: '미검수 문서', v: '14', d: '검수 대기열', c: 'var(--tx)' }, { l: '활성 플래그', v: onCount + '/6', d: '기능 플래그', c: 'var(--tx)' }
+      ],
+      flagRows,
+      quality: [{ d: '7/26', r: '92%', w: '92%', wr: '오답 3' }, { d: '7/25', r: '89%', w: '89%', wr: '오답 5' }, { d: '7/24', r: '94%', w: '94%', wr: '오답 2' }],
+      evidence,
+      mRows: forms.slice(0, 5).map(r => ({ i: r.i, t: r.t, g: '개인정보보호지침', no: r.no }))
+    };
+  }
+}
+</script>
+</body>
+</html>

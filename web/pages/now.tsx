@@ -71,29 +71,29 @@ export default function NowPage({ seasonal, revised, notes, terms, formsCount, d
   // 바로가기 카드 = 데이터(플래그로 게이팅). 모바일 GNB에서 뺀 화면도 허브에서 항상 도달(docs/48).
   // 호롱 04: 도구 4종은 대형 2×2 — 결재선·업무 한 장·캘린더·기한 사전.
   const tools: Shortcut[] = [
-    ...(approvalOn ? [{ icon: "✅", title: "결재선", href: "/approval/",
+    ...(approvalOn ? [{ icon: "✅", title: "결재선", accent: "가이드", href: "/approval/",
       desc: "이 업무 전결권자가 누구인지 규정 근거로 판정" }] : []),
-    ...(journeyOn ? [{ icon: "🗺️", title: "업무 한 장", href: "/journey/",
+    ...(journeyOn ? [{ icon: "🗺️", title: "업무 한 장", accent: "규정집", href: "/journey/",
       desc: "출장·연차·법인카드 등 13개 업무의 처음부터 끝까지" }] : []),
-    { icon: "📅", title: "업무 캘린더", href: "/calendar/",
+    { icon: "📅", title: "업무 캘린더", accent: "용어집", href: "/calendar/",
       desc: `${monthItems.length > 0 ? `이번 달 챙길 일 ${monthItems.length}건 · ` : ""}매월·연간 반복 업무를 한눈에` },
-    ...(deadlinesOn ? [{ icon: "⏱️", title: "기한 사전", href: "/deadlines/",
+    ...(deadlinesOn ? [{ icon: "⏱️", title: "기한 사전", accent: "시스템", href: "/deadlines/",
       desc: `규정 기한 ${deadlinesCount}건을 사건·의무로 찾고 마감일 계산·캘린더 저장` }] : []),
-    ...(impactOn ? [{ icon: "🧭", title: "개정 영향 분석", href: "/impact/",
+    ...(impactOn ? [{ icon: "🧭", title: "개정 영향 분석", accent: "대외업무", href: "/impact/",
       desc: "조문을 고치면 어디를 확인해야 하는지 — 인용·가이드·서식·기한 지도" }] : []),
   ];
   const shortcuts: Shortcut[] = [
-    ...(qualityOn ? [{ icon: "📊", title: "품질 게시판", href: "/quality/",
+    ...(qualityOn ? [{ icon: "📊", title: "품질 게시판", accent: "가이드", href: "/quality/",
       desc: "매일 자가평가한 오늘의 정답률과 약점 지도 — 챗봇이 얼마나 정확한지" }] : []),
-    ...(changelogOn ? [{ icon: "✨", title: "새로워진 점", href: "/changelog/",
+    ...(changelogOn ? [{ icon: "✨", title: "새로워진 점", accent: "용어집", href: "/changelog/",
       desc: notes[0] ? `최근: ${notes[0].제목}` : "서비스 업데이트 내역" }] : []),
-    ...(feedbackOn ? [{ icon: "📮", title: "의견 보내기", href: "/feedback/",
+    ...(feedbackOn ? [{ icon: "📮", title: "의견 보내기", accent: "대외업무", href: "/feedback/",
       desc: "원문 오류·빠진 개정본·개선 의견을 제보하고 처리 상태 확인" }] : []),
     // 모바일 셸(docs/54 v2)에선 푸터가 숨어 아래 진입점은 이 허브가 유일 — 데스크톱 허브에도 무해
-    { icon: "❓", title: "도움말", href: "/help/", desc: "사용법·FAQ — 처음이라면 여기부터" },
-    ...(landingOn ? [{ icon: "🏛️", title: "소개", href: "/about/",
+    { icon: "❓", title: "도움말", accent: "규정집", href: "/help/", desc: "사용법·FAQ — 처음이라면 여기부터" },
+    ...(landingOn ? [{ icon: "🏛️", title: "소개", accent: "상위법령", href: "/about/",
       desc: "이 서비스가 무엇인지, 어떤 문서를 근거로 답하는지" }] : []),
-    ...(user?.is_admin ? [{ icon: "🛠️", title: "관리자", href: "/admin/",
+    ...(user?.is_admin ? [{ icon: "🛠️", title: "관리자", accent: "시스템", href: "/admin/",
       desc: "대시보드·의견함(AI 자동 수정)·통계·기능 플래그" }] : []),
   ];
 
@@ -109,7 +109,10 @@ export default function NowPage({ seasonal, revised, notes, terms, formsCount, d
   return (
     <Layout>
       <Head><title>{`업무 도구 · ${SITE_NAME}`}</title><meta name="robots" content="noindex, nofollow" /></Head>
-      <PageHero title="업무 도구" lead="행정 업무 도구와 요즘 흐름을 한곳에 모았어요." />
+      <PageHero
+        title={`${new Date().getHours() < 12 ? "좋은 아침이에요" : new Date().getHours() < 18 ? "좋은 오후예요" : "좋은 저녁이에요"}${user?.username ? `, ${user.username.split("@")[0]}님` : ""}`}
+        lead="행정 업무 도구와 요즘 흐름을 한곳에 모았어요."
+      />
 
       {/* ── 호롱 04: 도구 4종 대형 2×2 ── */}
       <h2 className={n.sectionLabel}>도구</h2>

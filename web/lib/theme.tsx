@@ -20,8 +20,10 @@ function resolve(p: ThemePref): Resolved {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [pref, setPrefState] = useState<ThemePref>("system");
-  const [resolved, setResolved] = useState<Resolved>("light");
+  // v2(Spotify 리디자인): **다크가 기본** — 저장된 선호가 없으면 dark.
+  // 3단 체계(light/dark/system)는 유지: system을 고른 사용자는 계속 OS를 따른다.
+  const [pref, setPrefState] = useState<ThemePref>("dark");
+  const [resolved, setResolved] = useState<Resolved>("dark");
 
   // 마운트 시 저장된 선호 읽기(_document 인라인 스크립트가 이미 data-theme는 적용해 둠)
   useEffect(() => {

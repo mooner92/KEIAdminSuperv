@@ -34,55 +34,60 @@
   --orange500: #ffb114; /* krds warning-30 */
   --yellow500: #ffc95c; /* krds warning-20 */
 
-  /* ── 호롱(Horong) 시맨틱 토큰 — 디자인 리뉴얼(design_handoff_horong, feat/design-revolution) ──
-     브랜드 그라데이션은 브랜드 모먼트 전용(로고·히어로 워드·주 CTA·활성 1곳). */
-  --hr-grad-flame: linear-gradient(135deg, #f2701d, #f9a825);
-  --hr-grad-leaf: linear-gradient(135deg, #3d7dc2, #2e9c66);
+/* ── 호롱 v2 시맨틱 토큰 — Spotify 리디자인(design/horong-v2, feat/spotify-v2) ──
+     단색 앰버 1색 + 웜 그레이지 3단 심도. ⚠ 그라데이션은 HorongMark 로고 전용(P7 강화). */
+  --hr-grad-flame: linear-gradient(135deg, #f2701d, #ffd54f);
+  --hr-grad-leaf: linear-gradient(135deg, #2f74b8, #2c9c62);
 
-  --color-primary: #e06a12;           /* 엠버 — 단색 액션 */
-  --color-primary-strong: #c9530b;    /* 링크·강조 텍스트 */
-  --color-primary-weak: #fdf0e4;
-  --color-on-primary: #ffffff;
+  --color-primary: #e8a20c;            /* 단색 앰버 액션(라이트는 살짝 어둡게) */
+  --color-primary-strong: #b45a08;     /* 링크·강조 텍스트(AA) */
+  --color-primary-weak: rgba(232, 162, 12, 0.14);
+  --color-on-primary: #191100;         /* 앰버 위 텍스트 = 거의 검정(양 테마 공통) */
 
-  --color-bg: #ffffff;
-  --color-bg-subtle: #fafaf7;         /* 페이지 그라운드(웜 화이트) */
-  --color-field-bg: #f4f5f2;
-  --color-surface: #ffffff;
-  --color-surface-hover: #f7f8f5;
-  --color-border: rgba(28, 30, 28, 0.08);        /* 헤어라인 — 진한 테두리 금지 */
-  --color-border-strong: rgba(28, 30, 28, 0.16);
+  --color-bg: #fdfcf9;                 /* 패널·표면 */
+  --color-bg-subtle: #efece4;          /* 페이지 그라운드(패널 뒤) */
+  --color-field-bg: #f3f0e9;           /* 입력·2단계 카드·칩 */
+  --color-surface: #fdfcf9;
+  --color-surface-hover: #e9e4d9;
+  --color-border: rgba(30, 26, 18, 0.09);       /* 헤어라인(P6) — 진한 테두리 금지 */
+  --color-border-strong: rgba(30, 26, 18, 0.16);
 
-  --color-text: #1d1f1d;
-  --color-text-secondary: #6f7573;
-  --color-text-tertiary: #a3a8a4;
-  --color-text-disabled: #c9cec9;
+  --color-text: #1d1b17;
+  --color-text-secondary: #6b665d;
+  --color-text-tertiary: #a29b8e;
+  --color-text-disabled: #c6c0b4;
 
-  --color-success: #35906a;   /* 잎 */
-  --color-warning: #e9a13b;   /* 앰버 */
+  --color-success: #35906a;
+  --color-warning: #e9a13b;
   --color-danger: #d65745;
 
-  /* 섹션 악센트 — 저채도 재조율(호롱) */
+  /* 섹션 악센트 6종 — "콘텐츠의 색"(그래프 노드·분류 칩·커버 타일 전용, UI 장식 금지) */
   --accent-규정집: #4f8dc4;
   --accent-가이드: #35906a;
-  --accent-용어집: #e9a13b;
+  --accent-용어집: #c98a1e;
   --accent-시스템: #8d7ac9;
   --accent-대외업무: #cf6d96;
   --accent-상위법령: #7f8a94;
 
-  /* 상태 배지 / 위험 표면 / 헤더 (다크에선 토큰만 교체) */
+  /* 상태 배지 / 위험 표면 / 헤더 — 파생 토큰(웜 그레이지에 맞춰 재조율) */
   --badge-warn-bg: rgba(233, 161, 59, 0.13);
   --badge-warn-border: rgba(233, 161, 59, 0.35);
   --badge-ok-bg: rgba(53, 144, 106, 0.12);
   --badge-ok-border: rgba(53, 144, 106, 0.3);
   --color-danger-bg: rgba(214, 87, 69, 0.1);
   --color-danger-border: rgba(214, 87, 69, 0.3);
-  --color-header-bg: rgba(250, 250, 247, 0.75); /* 유리 헤더(Phase 2) — blur와 짝 */
-  --color-code-bg: #f4f5f2;
+  --color-header-bg: rgba(253, 252, 249, 0.75); /* PR2 전까지 쓰는 과도기 유리 헤더 */
+  --color-code-bg: #f3f0e9;
 
-  /* ── 형태 토큰 ── */
-  --radius-sm: 10px;
-  --radius-md: 14px;
-  --radius-lg: 20px;          /* 카드 20–24 · 칩/버튼 999 알약(호롱) */
+  /* ── 형태 토큰 — v2 알약 지오메트리 ──
+     구 별칭(radius-sm/md/lg)은 소비처가 많아 유지하되 v2 스케일로 재매핑 */
+  --radius-panel: 12px;                /* 플로팅 패널 */
+  --radius-card: 10px;
+  --radius-tile: 8px;                  /* 커버·아이콘 타일 */
+  --radius-pill: 999px;                /* 버튼·입력·칩 = 알약 */
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -90,35 +95,30 @@
   --space-5: 24px;
   --space-6: 32px;
   --space-8: 48px;
-  --shadow-card: 0 1px 2px rgba(20, 24, 20, 0.04), 0 10px 28px rgba(20, 24, 20, 0.05);
-  --shadow-pop: 0 20px 48px rgba(20, 24, 20, 0.1);
-  /* 인터랙션 전환 — 전 컴포넌트가 동일 타이밍을 쓰도록 단일 토큰(hover/press 통일) */
+  --shadow-card: rgba(60, 50, 30, 0.10) 0px 8px 8px;
+  --shadow-pop: rgba(60, 50, 30, 0.18) 0px 8px 24px;
   --transition-ui: color 0.2s cubic-bezier(0.2, 0.7, 0.2, 1), border-color 0.2s cubic-bezier(0.2, 0.7, 0.2, 1), background-color 0.2s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.2s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.2s cubic-bezier(0.2, 0.7, 0.2, 1);
-  --shadow-drawer: -16px 0 48px rgba(20, 24, 20, 0.12); /* 문서 드로어(좌향) — 다크에서 강화 */
+  --shadow-drawer: rgba(60, 50, 30, 0.18) -16px 0px 48px;
 
-  /* Pretendard GOV(KRDS 공식 서체, SIL OFL) self-host가 1순위 — 미로드 시 시스템 폰트 폴백 */
   --font-sans: "Pretendard GOV Variable", "Pretendard", "Pretendard Variable", -apple-system,
     BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
   --maxw: 1120px;
-  --header-h: 62px; /* 호롱 셸 */
+  --header-h: 62px; /* PR2에서 상단바 64px로 교체 예정 */
 
-  /* 랜딩 히어로(호롱 02) — 웜 그라운드 위 잉크 텍스트, 워드만 그라데이션.
-     신뢰 배너는 잉크 패널(--hero-ink)로 반전 모먼트. */
-  --hero-bg: linear-gradient(150deg, #fafaf7 0%, #f7f5ef 60%, #f4efe6 100%);
-  --hero-fg: #1d1f1d;
-  --hero-fg-dim: rgba(29, 31, 29, 0.45);
-  --hero-ink: #1d1f1d;
-  --hr-grad-word: linear-gradient(100deg, #f2701d, #f7b32b); /* 2색 원칙(사용자 확정) — 주황→노랑 */
+  /* 랜딩 히어로 — 소개/랜딩은 구조 유지(사용자 확정), 색만 웜 그레이지로 정렬 */
+  --hero-bg: linear-gradient(150deg, #fdfcf9 0%, #f5f1e8 60%, #efece4 100%);
+  --hero-fg: #1d1b17;
+  --hero-fg-dim: rgba(29, 27, 23, 0.45);
+  --hero-ink: #1d1b17;
+  --hr-grad-word: linear-gradient(100deg, #e8a20c, #f7b32b); /* 히어로 워드 전용(랜딩 유지 결정) */
 
-  /* 랜딩 '컬러 모먼트'(docs/36 P2.5, Apple 스타일) — 섹션별 은은한 컬러 필드.
-     콘텐츠 종류 액센트(규정집 파랑·가이드 초록·용어집 주황·시스템 보라)와 의미를 연결한다.
-     라이트: 아주 옅은 틴트 필드. 각 섹션은 강한 액센트(숫자·아이브로)로 포인트만. */
+  /* 랜딩 컬러 모먼트 — 유지(소개 구조 보존), 틴트만 웜 조정 */
   --sec-blue-bg: rgba(79, 141, 196, 0.09);
   --sec-blue-fg: #3a76ab;
   --sec-green-bg: rgba(53, 144, 106, 0.09);
   --sec-green-fg: #2a7355;
-  --sec-orange-bg: rgba(233, 161, 59, 0.11);
-  --sec-orange-fg: #b47416;
+  --sec-orange-bg: rgba(201, 138, 30, 0.11);
+  --sec-orange-fg: #a4701a;
   --sec-purple-bg: rgba(141, 122, 201, 0.1);
   --sec-purple-fg: #6f5bb0;
 }
@@ -154,47 +154,45 @@ html { transition: background-color 0.2s ease; }
 /* ── 다크 테마: KEI 시맨틱 토큰만 교체(원자 팔레트·컴포넌트 코드는 불변 — 원칙 3) ──
    라이트/다크는 [data-theme]로 분기. "system"은 JS가 prefers-color-scheme로 해석해 data-theme를 설정한다. */
 [data-theme="dark"] {
-  /* 다크 원자색: KRDS는 다크 토큰 미제공(공식 킷 실측) — 수동 튜닝 유지,
-     주 색조만 KRDS 파랑 계열로 정렬(primary-40/30) */
-  --color-primary: #f2701d;
-  --color-primary-strong: #f5a24a;
-  --color-primary-weak: rgba(249, 168, 37, 0.13);
-  --color-on-primary: #ffffff;
+  /* 호롱 v2 다크(기본 테마) — 근흑 웜 차콜 3단 심도(#0e0d0b < #171613 < #211f1b).
+     ⚠ 다크에서 옅은 그림자는 안 보인다 — 무겁게. */
+  --color-primary: #ffc94d;
+  --color-primary-strong: #ffc94d;     /* 다크에선 링크도 같은 앰버 */
+  --color-primary-weak: rgba(255, 201, 77, 0.14);
+  --color-on-primary: #191100;
 
-  /* 레이어 대비를 분명히: 페이지(가장 어두움) < 카드/패널(확실히 밝게) < hover, 경계선은 보이게 */
-  --color-bg: #151614;        /* 웜 잉크(호롱) */
-  --color-bg-subtle: #191b18;
-  --color-field-bg: rgba(255, 255, 255, 0.06);
-  --color-surface: #1e201d;
-  --color-surface-hover: #242622;
+  --color-bg: #171613;                 /* 패널·표면 */
+  --color-bg-subtle: #0e0d0b;          /* 페이지 그라운드 */
+  --color-field-bg: #211f1b;
+  --color-surface: #171613;
+  --color-surface-hover: #2b2823;
   --color-border: rgba(255, 255, 255, 0.07);
   --color-border-strong: rgba(255, 255, 255, 0.14);
 
-  --color-text: #f2f3f0;
-  --color-text-secondary: #a6aca7;
-  --color-text-tertiary: #6f7571;
-  --color-text-disabled: #4b514c;
+  --color-text: #f5f3ef;
+  --color-text-secondary: #b8b1a6;
+  --color-text-tertiary: #7d766c;
+  --color-text-disabled: #55504a;
 
   --color-success: #5fbf93;
   --color-warning: #dcb26a;
   --color-danger: #ff7a68;
 
-  --accent-규정집: #7fb2dd;
-  --accent-가이드: #5fbf93;
-  --accent-용어집: #dcb26a;
-  --accent-시스템: #a794dd;
-  --accent-대외업무: #e08cb0;
-  --accent-상위법령: #9aa5ae;
+  --accent-규정집: #6ea8dd;
+  --accent-가이드: #58b98f;
+  --accent-용어집: #e9b45a;
+  --accent-시스템: #a292dd;
+  --accent-대외업무: #d98bab;
+  --accent-상위법령: #9aa4ad;
 
-  /* 랜딩 컬러 모먼트(다크) — 페이지보다 살짝 밝은 틴트 필드 + 밝은 액센트 글자 */
-  --sec-blue-bg: rgba(127, 178, 221, 0.1);
-  --sec-blue-fg: #7fb2dd;
-  --sec-green-bg: rgba(95, 191, 147, 0.1);
-  --sec-green-fg: #5fbf93;
-  --sec-orange-bg: rgba(220, 178, 106, 0.12);
-  --sec-orange-fg: #dcb26a;
-  --sec-purple-bg: rgba(167, 148, 221, 0.1);
-  --sec-purple-fg: #a794dd;
+  --sec-blue-bg: rgba(110, 168, 221, 0.1);
+  --sec-blue-fg: #6ea8dd;
+  --sec-green-bg: rgba(88, 185, 143, 0.1);
+  --sec-green-fg: #58b98f;
+  --sec-orange-bg: rgba(233, 180, 90, 0.12);
+  --sec-orange-fg: #e9b45a;
+  --sec-purple-bg: rgba(162, 146, 221, 0.1);
+  --sec-purple-fg: #a292dd;
 
   --badge-warn-bg: rgba(220, 178, 106, 0.12);
   --badge-warn-border: rgba(220, 178, 106, 0.3);
@@ -202,12 +200,17 @@ html { transition: background-color 0.2s ease; }
   --badge-ok-border: rgba(95, 191, 147, 0.3);
   --color-danger-bg: rgba(255, 122, 104, 0.1);
   --color-danger-border: rgba(255, 122, 104, 0.3);
-  --color-header-bg: rgba(21, 22, 20, 0.72); /* 유리 헤더(다크) */
-  --color-code-bg: #242622;
+  --color-header-bg: rgba(14, 13, 11, 0.72); /* PR2 전 과도기 */
+  --color-code-bg: #211f1b;
 
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 28px rgba(0, 0, 0, 0.35);
-  --shadow-pop: 0 24px 56px rgba(0, 0, 0, 0.5);
-  --shadow-drawer: -16px 0 48px rgba(0, 0, 0, 0.5);
+  --hero-bg: linear-gradient(150deg, #171613 0%, #14120f 60%, #0e0d0b 100%);
+  --hero-fg: #f5f3ef;
+  --hero-fg-dim: rgba(245, 243, 239, 0.45);
+  --hero-ink: #211f1b;
+
+  --shadow-card: rgba(0, 0, 0, 0.3) 0px 8px 8px;
+  --shadow-pop: rgba(0, 0, 0, 0.5) 0px 8px 24px;
+  --shadow-drawer: rgba(0, 0, 0, 0.5) -16px 0px 48px;
 }
 
 /* ── 인터랙션 필(2026-07-22, apple-design·emil 스킬 적용) ─────────────────────

@@ -12,7 +12,7 @@ export type { JourneyChip }; // 하위 호환 re-export(외부 참조 대비)
 
 export default function Home({ docs, counts, journeys }: { docs: DocMeta[]; counts: LandingCounts; journeys: JourneyChip[] }) {
   return (
-    <Layout>
+    <Layout fill>
       <Head>
         <title>{SITE_NAME} — 질문하기</title>
         <meta name="description" content="KEI 행정 문서 기반 행정 LLM (내부 전용)" />
