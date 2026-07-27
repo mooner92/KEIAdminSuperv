@@ -19,13 +19,22 @@
   gap: var(--space-3); max-width: 1040px;
 }
 .shortcut {
-  display: flex; flex-direction: column; gap: 4px;
-  border: 1px solid var(--color-border); border-radius: 12px;
-  background: var(--color-surface); padding: var(--space-4);
-  color: var(--color-text); transition: border-color 0.15s ease;
+  display: flex; flex-direction: column; gap: 6px;
+  border: none; border-radius: var(--radius-card);
+  background: var(--color-field-bg); padding: var(--space-4);
+  color: var(--color-text); transition: var(--transition-ui), transform 0.15s ease;
 }
-.shortcut:hover { border-color: var(--color-primary); }
+.shortcut:hover { background: var(--color-surface-hover); transform: translateY(-2px); box-shadow: var(--shadow-card); }
 .shortcutIcon { font-size: 22px; }
+/* v2 글자 커버 타일(분류색) — 이모지 폐기, Spotify 앨범아트 역할 */
+.tile {
+  flex: 0 0 auto; width: 40px; height: 40px; border-radius: var(--radius-tile);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 17px; font-weight: 900;
+}
+.tileLg { width: 52px; height: 52px; font-size: 20px; }
+.lgBody { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.chev { flex: 0 0 auto; font-size: 22px; color: var(--color-text-tertiary); }
 .shortcutTitle { font-size: 15.5px; font-weight: 800; }
 .shortcutDesc { font-size: 12.5px; line-height: 1.5; color: var(--color-text-secondary); }
 .card {
@@ -110,13 +119,10 @@
 /* 호롱 04 — 도구 대형 카드(2×2) + 그라데이션 아이콘 칩 */
 .toolGrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 26px; }
 @media (max-width: 700px) { .toolGrid { grid-template-columns: 1fr; } }
-.shortcutLg { border-radius: 22px !important; padding: 22px 22px 20px !important; }
-.shortcutLg:hover { transform: translateY(-4px); box-shadow: var(--shadow-pop); }
-.shortcutIconLg {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 46px; height: 46px; font-size: 21px; border-radius: 14px;
-  background: linear-gradient(135deg, rgba(242, 112, 29, 0.14), rgba(249, 168, 37, 0.1));
-}
+/* v2 와이드 타일(HANDOFF §5): 좌 52px 글자 타일 + 본문 + › 셰브론 */
+.shortcutLg { flex-direction: row !important; align-items: center; gap: 14px; border-radius: var(--radius-card) !important; padding: 16px 18px !important; }
+.shortcutLg:hover { transform: translateY(-2px); box-shadow: var(--shadow-card); }
+.shortcutIconLg { display: none; } /* 구 그라데이션 칩 폐기(P7) */
 
 /* 호롱 04 — 오늘의 용어 = 잎 그라데이션 틴트 패널 */
 .card[aria-label="오늘의 용어"] {

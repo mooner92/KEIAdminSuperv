@@ -26,18 +26,19 @@ const ForceGraph2D = dynamic(
 const SECTION_COLOR_LIGHT: Record<string, string> = {
   규정집: "#4f8dc4",
   가이드: "#35906a",
-  용어집: "#e9a13b",
+  용어집: "#c98a1e", // v2 라이트 — 웜 그레이지 위 대비 확보
   시스템: "#8d7ac9",
   대외업무: "#cf6d96",
   상위법령: "#7f8a94",
 };
 const SECTION_COLOR_DARK: Record<string, string> = {
-  규정집: "#7fb2dd",
-  가이드: "#5fbf93",
-  용어집: "#dcb26a",
-  시스템: "#a794dd",
-  대외업무: "#e08cb0",
-  상위법령: "#9aa5ae",
+  // v2(Spotify) — 근흑 그라운드 위에서 발광하는 밝힘 6종(globals --accent-* 다크와 동기)
+  규정집: "#6ea8dd",
+  가이드: "#58b98f",
+  용어집: "#e9b45a",
+  시스템: "#a292dd",
+  대외업무: "#d98bab",
+  상위법령: "#9aa4ad",
 };
 
 export default function GraphCanvas({
