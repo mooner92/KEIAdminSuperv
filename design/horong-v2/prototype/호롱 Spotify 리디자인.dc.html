@@ -40,7 +40,7 @@ a{color:var(--lk);text-decoration:none}a:hover{text-decoration:underline}
   </div>
   <div style="display:flex;gap:8px;margin-top:26px">
     <span style="border:1px solid var(--hair);border-radius:999px;padding:6px 14px;font-size:12px;color:var(--tx3)">사내 전용 · Cloudflare Zero Trust</span>
-    <span style="border:1px solid var(--hair);border-radius:999px;padding:6px 14px;font-size:12px;color:var(--tx3)">규정집 기준일 2026.06.19</span>
+    <span style="border:1px solid var(--hair);border-radius:999px;padding:6px 14px;font-size:12px;color:var(--tx3)">문서 기준일 2026.06.19</span>
   </div>
   <div style="display:flex;gap:56px;margin-top:72px">
     <div style="text-align:center"><div style="font-size:22px;font-weight:800">근거와 함께</div><div style="font-size:13px;color:var(--tx3);margin-top:4px">모든 답변에 출처 조문 저장</div></div>
@@ -90,7 +90,7 @@ a{color:var(--lk);text-decoration:none}a:hover{text-decoration:underline}
         </sc-for>
       </div>
       <div style="border-top:1px solid var(--hair);padding:10px 16px;display:flex;align-items:center;justify-content:space-between">
-        <span style="font-size:11px;color:var(--tx3)">규정집 기준일 2026.06.19</span>
+        <span style="font-size:11px;color:var(--tx3)">문서 기준일 2026.06.19</span>
         <span style="font-size:11px;color:var(--tx3)">fb_test</span>
       </div>
     </div>
@@ -188,9 +188,9 @@ a{color:var(--lk);text-decoration:none}a:hover{text-decoration:underline}
     </sc-if>
 
     <sc-if value="{{isBrowse}}" hint-placeholder-val="{{false}}">
-    <div data-screen-label="규정 찾기 — 목록" style="flex:1;overflow-y:auto;padding:12px 28px 28px;animation:hrUp .35s cubic-bezier(.2,.7,.2,1)">
+    <div data-screen-label="문서 찾기 — 목록" style="flex:1;overflow-y:auto;padding:12px 28px 28px;animation:hrUp .35s cubic-bezier(.2,.7,.2,1)">
       <div style="display:flex;align-items:baseline;gap:18px">
-        <div style="font-size:30px;font-weight:900;letter-spacing:-1px">규정 찾기</div>
+        <div style="font-size:30px;font-weight:900;letter-spacing:-1px">문서 찾기</div>
         <div style="font-size:13.5px;color:var(--tx3)">규정 별지·연구관리양식·법령 별표를 한곳에서 검색하고 바로 열기</div>
       </div>
       <div style="display:flex;gap:8px;margin-top:18px">
@@ -252,9 +252,9 @@ a{color:var(--lk);text-decoration:none}a:hover{text-decoration:underline}
     </sc-if>
 
     <sc-if value="{{isGraph}}" hint-placeholder-val="{{false}}">
-    <div data-screen-label="규정 찾기 — 그래프" style="flex:1;overflow-y:auto;padding:12px 28px 28px;animation:hrUp .35s cubic-bezier(.2,.7,.2,1)">
+    <div data-screen-label="문서 찾기 — 그래프" style="flex:1;overflow-y:auto;padding:12px 28px 28px;animation:hrUp .35s cubic-bezier(.2,.7,.2,1)">
       <div style="display:flex;align-items:baseline;gap:18px">
-        <div style="font-size:30px;font-weight:900;letter-spacing:-1px">규정 찾기</div>
+        <div style="font-size:30px;font-weight:900;letter-spacing:-1px">문서 찾기</div>
         <div style="font-size:13.5px;color:var(--tx3)">규정 간 상호참조를 노드·링크로 — 노드를 클릭하면 문서가 열려요 · <b style="color:var(--tx2)">415</b> 문서 · <b style="color:var(--tx2)">690</b> 연결</div>
       </div>
       <div style="display:flex;gap:8px;margin-top:18px">
@@ -457,7 +457,7 @@ a{color:var(--lk);text-decoration:none}a:hover{text-decoration:underline}
           </div>
         </div>
         <div style="width:302px;height:624px;border-radius:38px;background:var(--bg0);border:1px solid var(--hair);box-shadow:var(--shHeavy);padding:12px;display:flex;flex-direction:column;overflow:hidden">
-          <div style="font-size:19px;font-weight:900;padding:10px 10px 4px">규정 찾기</div>
+          <div style="font-size:19px;font-weight:900;padding:10px 10px 4px">문서 찾기</div>
           <div style="background:var(--p2);border-radius:500px;padding:11px 16px;font-size:12px;color:var(--tx3);margin:8px 4px 0">서식 이름·규정명·번호로 검색</div>
           <div style="display:flex;gap:6px;padding:12px 4px 4px;overflow:hidden">
             <span style="background:var(--tx);color:var(--bg0);border-radius:999px;padding:6px 12px;font-size:11px;font-weight:800;flex-shrink:0">전체</span>
@@ -658,7 +658,7 @@ class Component extends DCLogic {
       goChat0: go('chat0'), goChat: go('chat'), goTools: go('tools'), goLanding: go('landing'), goGraph: go('graph'),
       navMain: [
         { ...nav('chat0', '질문하기', 'M4 5.5h16v11H9.5L4 21z', ['chat0', 'chat']) },
-        { ...nav('browse', '규정 찾기', 'M20 20l-4.2-4.2M4 10.5a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0z', ['browse', 'graph']) },
+        { ...nav('browse', '문서 찾기', 'M20 20l-4.2-4.2M4 10.5a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0z', ['browse', 'graph']) },
         { ...nav('tools', '업무 도구', 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z', ['tools']) }
       ],
       navSub: [
