@@ -91,11 +91,14 @@
   border-radius: 0;
   box-shadow: none;
 }
+.list > li + li { margin-top: 4px; } /* 칸별 구분 — 간격이 헤어라인 역할 */
 .row {
   width: 100%;
   font: inherit;
   text-align: left;
-  background: transparent;
+  /* v2 보정(사용자 피드백): 호버 전에도 칸별 구분 — 행마다 field-bg 소프트 카드.
+     라이트 #f3f0e9 vs 패널 #fdfcf9 / 다크 #211f1b vs #171613 — 양 테마 모두 톤 차로 구분(P6). */
+  background: var(--color-field-bg);
   border: none;
   cursor: pointer;
   display: grid;
@@ -111,7 +114,7 @@
 }
 .rowStatic { cursor: default; }
 .rowNoLead { grid-template-columns: 1fr auto; }
-.row:hover { background: var(--color-field-bg); } /* v2: 보더 없는 호버 */
+.row:hover { background: var(--color-surface-hover); }
 .row:active { background: var(--color-primary-weak); }
 .lead {
   font-variant-numeric: tabular-nums;

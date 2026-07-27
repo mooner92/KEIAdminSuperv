@@ -216,7 +216,8 @@ export default function ApprovalExplorer({ rules, amountRules = {} }: {
               chips={
                 <>
                   {r.구분 ? <RowTag>{r.구분}</RowTag> : null}
-                  {r.대상 ? <RowChip>{r.대상}</RowChip> : null}
+                  {r.대상 ? <RowChip>{r.대상}</RowChip>
+                    : f.role.size > 0 ? <span title="이 업무는 직급 구분 없이 금액·조건으로 전결권자가 정해져요 — 직급 필터의 영향을 받지 않습니다"><RowTag>직급 무관</RowTag></span> : null}
                 </>
               }
               body={(() => {
