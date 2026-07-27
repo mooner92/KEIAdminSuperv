@@ -1,14 +1,35 @@
 import Link from "next/link";
 import n from "../../styles/Now.module.css";
+export type Shortcut = { icon: string; title: string; desc: string; href: string; accent?: string };
 
-// 추가 기능 허브의 바로가기 카드(2026-07-20) — now.tsx가 7개를 인라인 반복하던 것을
-// 데이터(icon·title·desc·href) 기반 단일 컴포넌트로. 플래그 게이팅은 부모가 목록에서 담당.
-export type Shortcut = { icon: string; title: string; desc: string; href: string };
-
-export default function ShortcutCard({ icon, title, desc, href, large }: Shortcut & { large?: boolean }) {
+/* v2(Spotify, HANDOFF §5): 이모지 아이콘 폐기 → **글자 커버 타일**(분류색 알파 배경 + 첫 글자).
+ * accent = 분류색 6종 키(globals --accent-*) — 콘텐츠의 색 역할. icon prop은 하위호환용(미사용). */
+export default function ShortcutCard({ title, desc, href, large, accent = "규정집" }:
+  Shortcut & { large?: boolean }) {
+  const tile = (
+    <span
+      className={`${n.tile} ${large ? n.tileLg : ""}`}
+      style={{ background: `color-mix(in srgb, var(--accent-${accent}) 18%, transparent)`, color: `var(--accent-${accent})` }}
+      aria-hidden
+    >
+      {title.replace(/\s/g, "").slice(0, 1)}
+    </span>
+  );
+  if (large) {
+    return (
+      <Link className={`${n.shortcut} ${n.shortcutLg}`} href={href}>
+        {tile}
+        <span className={n.lgBody}>
+          <b className={n.shortcutTitle}>{title}</b>
+          <span className={n.shortcutDesc}>{desc}</span>
+        </span>
+        <span className={n.chev} aria-hidden>›</span>
+      </Link>
+    );
+  }
   return (
-    <Link className={`${n.shortcut} ${large ? n.shortcutLg : ""}`} href={href}>
-      <span className={`${n.shortcutIcon} ${large ? n.shortcutIconLg : ""}`}>{icon}</span>
+    <Link className={n.shortcut} href={href}>
+      {tile}
       <b className={n.shortcutTitle}>{title}</b>
       <span className={n.shortcutDesc}>{desc}</span>
     </Link>

@@ -83,6 +83,9 @@ export default function Markdown({
   const md = source
     .replace(/^\s*#[ \t]+[^\n]*\r?\n/, "")
     .replace(/<!--[\s\S]*?-->/g, "")
+    // Obsidian 콜아웃 마커(> [!quote] 제목) — react-markdown이 몰라 raw 노출(01z 규정정의 노트 실측).
+    // 마커는 떼고 제목은 굵게 살린다: "> [!quote] 규정 원문 — …" → "> **규정 원문 — …**"
+    .replace(/^([ \t]*>[ \t]*)\[!\w+\][ \t]*([^\n]*)/gm, (_m, pre, t) => pre + (t.trim() ? `**${t.trim()}**` : ""))
     .replace(/\n[ \t]*(제\s*\d+\s*조)/g, "\n\n$1")
     // 별지 라벨도 별도 단락으로 분리 — 앞 문단에 흡수되면 id가 안 붙어 서식 앵커가 죽는다
     // (표 셀 라벨 '| [별지…' 은 표가 깨지므로 제외 — 파이프 시작 줄은 건드리지 않음)

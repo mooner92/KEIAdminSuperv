@@ -106,7 +106,8 @@ export default function ApprovalFinder({
             <div className={styles.work}>
               {r.구분 ? <span className={styles.cat}>{r.구분}</span> : null}
               <span className={styles.workName}>{r.업무}</span>
-              {r.대상 ? <span className={styles.target}>{r.대상}</span> : null}
+              {r.대상 ? <span className={styles.target}>{r.대상}</span>
+                : role ? <span className={styles.cat} title="직급 구분 없이 금액·조건으로 정해지는 업무 — 직급 선택의 영향을 받지 않아요">직급 무관</span> : null}
             </div>
             <div className={styles.result}>
               전결 <b className={styles.owner}>{r.전결권자}</b>

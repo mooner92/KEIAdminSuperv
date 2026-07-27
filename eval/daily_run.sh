@@ -28,7 +28,9 @@ $PY daily_publish.py --date "$DATE"
 # 재빌드 불필요. ⛔ quality 데이터만 복사(코드·볼트 무관).
 PROD_Q="${PROD_QUALITY_DIR:-/KEIAdminSuperv/web/public/quality}"
 if [ -d "$(dirname "$PROD_Q")" ]; then
-  rsync -a --delete web/public/quality/ "$PROD_Q"/ && echo "[$(date)] prod 게시판 동기화 → $PROD_Q"
+  # ⚠ 스크립트는 eval/에서 실행된다(cd "$(dirname "$0")") — 소스는 반드시 상위 경로.
+  #    실측 2026-07-27: 상대경로 'web/...'가 eval/web/...을 가리켜 **prod 동기화가 매일 조용히 실패**했다.
+  rsync -a --delete ../web/public/quality/ "$PROD_Q"/ && echo "[$(date)] prod 게시판 동기화 → $PROD_Q"
 fi
 # 데드맨 해제 겸 신선도 확인(정상 종료 시 갱신 시각이 갱신되므로 여기선 통과만 확인)
 $PY eval_notice.py --deadman || true

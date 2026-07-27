@@ -85,24 +85,29 @@
   list-style: none;
   margin: 0;
   padding: 0;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
+  /* v2(Spotify 트랙리스트): 목록 카드 상자 제거 — 행이 그라운드 위에 직접 놓인다(P3 v2: 고밀도) */
+  background: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
 }
+.list > li + li { margin-top: 4px; } /* 칸별 구분 — 간격이 헤어라인 역할 */
 .row {
   width: 100%;
   font: inherit;
   text-align: left;
-  background: transparent;
+  /* v2 보정(사용자 피드백): 호버 전에도 칸별 구분 — 행마다 field-bg 소프트 카드.
+     라이트 #f3f0e9 vs 패널 #fdfcf9 / 다크 #211f1b vs #171613 — 양 테마 모두 톤 차로 구분(P6). */
+  background: var(--color-field-bg);
   border: none;
   cursor: pointer;
   display: grid;
-  grid-template-columns: var(--browse-lead, 64px) 1fr auto;
+  grid-template-columns: var(--browse-lead, 44px) 1fr auto;
   align-items: center;
-  gap: var(--space-4);
-  padding: 14px var(--space-4);
-  border-radius: 14px;
+  gap: var(--space-3);
+  min-height: 52px;           /* v2 트랙리스트 밀도 */
+  padding: 6px 14px;
+  border-radius: var(--radius-tile);
   transition: var(--transition-ui);
   color: inherit;
   text-decoration: none;
@@ -113,15 +118,15 @@
 .row:active { background: var(--color-primary-weak); }
 .lead {
   font-variant-numeric: tabular-nums;
-  font-weight: 700;
-  font-size: 14px;
+  font-weight: 500;
+  font-size: 13.5px;
   color: var(--color-text-tertiary);
   letter-spacing: -0.01em;
 }
 .main { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .title {
   font-weight: 600;
-  font-size: 15.5px;
+  font-size: 14.5px; /* v2 밀도 */
   color: var(--color-text);
   letter-spacing: -0.01em;
   white-space: nowrap;

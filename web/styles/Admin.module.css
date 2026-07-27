@@ -49,12 +49,13 @@
 
 /* 토글 스위치 */
 .toggle {
+  /* v2(HANDOFF §8): 44×24 알약 토글 — OFF 트랙 surface-hover·보더 없음 */
   flex: 0 0 auto;
-  width: 50px;
-  height: 28px;
+  width: 44px;
+  height: 24px;
   border-radius: 999px;
-  border: 1px solid var(--color-border-strong);
-  background: var(--color-bg-subtle);
+  border: none;
+  background: var(--color-surface-hover);
   position: relative;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
@@ -64,16 +65,15 @@
 .on { background: var(--color-primary); border-color: var(--color-primary); }
 .knob {
   position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-  transition: transform 0.15s;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #ffffff;
+  transition: left 0.15s ease;
 }
-.on .knob { transform: translateX(22px); }
+.on .knob { left: 23px; }
 
 .h2 { font-size: 16px; font-weight: 800; color: var(--color-text); margin: 0 0 var(--space-3); }
 .audit { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--color-text-secondary); }

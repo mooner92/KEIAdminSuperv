@@ -185,9 +185,22 @@ console.log(`search-index: ${n}개 본문 → ${idxPath} (${kb}KB, 내용검색 
 // ── 용어 인라인 툴팁(docs/45, flag term_tooltips) — 용어집 전체를 단일 소형 JSON으로.
 // 본문/답변 렌더러가 런타임 1회 fetch해 용어에 점선 밑줄+정의 팝오버를 단다(무LLM).
 function termDef(body: string): string {
-  // crosslink 블록 제거 → 헤딩/콜아웃/리스트 줄 제외 → 첫 실질 문단
+  // crosslink 블록 제거 → 헤딩/콜아웃/리스트 줄 제외 → 첫 실질 문단.
+  // ⚠ 2026-07-28: 01z 규정정의 노트는 **정의가 > [!quote] 콜아웃 안**이고 첫 문단은 면책 줄이라
+  //   팝오버에 "이 노트는 자동 추출…"만 떴다(사용자 제보). 콜아웃 본문을 정의 1순위로 삼고,
+  //   면책·안내 줄은 제외한다.
   const stripped = body.replace(/<!--\s*terms-crosslink\s*-->[\s\S]*?<!--\s*terms-crosslink\s*-->/g, "");
   const lines = stripped.split("\n").map((l) => l.trim());
+  // 1순위: 인용 콜아웃 본문(> [!quote] 제목줄 제외 · 순수 > 줄들)
+  const quote: string[] = [];
+  for (const l of lines) {
+    if (l.startsWith(">")) {
+      const q = l.replace(/^>\s?/, "").trim();
+      if (!q || /^\[!/.test(q)) { if (quote.length) break; continue; }
+      quote.push(q);
+    } else if (quote.length) break;
+  }
+  const NOISE = /이 노트는 .*자동 추출|최종 판단은|검수 전 초안/;
   const para: string[] = [];
   for (const l of lines) {
     if (!l || l.startsWith("#") || l.startsWith(">") || l.startsWith("-") || l.startsWith("|")) {
@@ -195,8 +208,10 @@ function termDef(body: string): string {
       continue;
     }
     if (/^\*관련\s*:/.test(l)) break;
+    if (NOISE.test(l)) continue; // 면책·안내 줄은 정의가 아니다
     para.push(l);
   }
+  if (!para.length && quote.length) para.push(...quote);
   return para
     .join(" ")
     .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")

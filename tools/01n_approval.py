@@ -25,7 +25,7 @@ _MAIN_HDR = re.compile(r"^\|\s*구\s*분\s*\|\s*직무내용\s*\|\s*전결권자
 _MARK = re.compile(r"[○●◯]")
 _TOP = re.compile(r"^[가-힣]\.")       # 가.출장
 _SUB = re.compile(r"^\d+\)")           # 1) 국내 출장
-_LEAF = re.compile(r"^-\s*")           # - 부서장/센터장
+_LEAF = re.compile(r"^[-･·•]\s*")      # - 부서장/센터장 · ･ 200만원 이하(2단 하위)
 # leaf 행 중 '신청자 직급'인 것(정확 일치). 그 외 leaf(금액구간·문서종류·범위 등)는 조건 → 업무 경로에 편입.
 _ROLE = re.compile(r"^(부원장|부서장/센터장|부서장|센터장|실[･·\s]?팀장|실장|팀장|일반직원|"
                    r"비정규직(\(연구직\))?|정규직|과제책임자|일용직)$")
@@ -47,11 +47,37 @@ def _find_reg_file(vault: str):
     return None
 
 
+_TR = re.compile(r"<tr[^>]*>", re.I)
+_CELL = re.compile(r"<t[dh][^>]*>(.*?)</t[dh]>", re.I | re.S)
+
+
+def _html_to_pipes(text: str) -> str:
+    """HTML 표(<tr><td>) → 파이프 표 변환 전처리.
+
+    ⚠ 2026-07-28 실측: kordoc 전량 재변환(07-23) 때 별표가 파이프에서 HTML 표로 바뀌어
+    01n이 **조용히 0건**을 내고 있었다(approval.json은 옛 산출물이 그대로 쓰이던 상태).
+    기존 파이프 파서를 검증된 그대로 재사용하기 위해 줄 단위로 변환만 한다.
+    헤더 tr(구 분·직무내용·전결권자) 뒤에는 파서 계약(i+1=구분선)대로 가짜 구분선을 끼운다."""
+    out = []
+    for ln in text.splitlines():
+        if _TR.search(ln):
+            cells = [re.sub(r"<br\s*/?>", " ", c, flags=re.I) for c in _CELL.findall(ln)]
+            cells = [re.sub(r"<[^>]+>", "", c).strip() for c in cells]
+            if cells and "직무내용" in "".join(cells[:2]) and any("전결권자" in c for c in cells):
+                out.append("| 구 분 | 직무내용 | 전결권자 | 원장 |")
+                out.append("|---|---|---|---|")
+            else:
+                out.append("| " + " | ".join(cells) + " |")
+        else:
+            out.append(ln)
+    return "\n".join(out)
+
+
 def parse(vault: str):
     md = _find_reg_file(vault)
     if not md:
         return {"meta": {"error": f"{_REG} 파일 없음"}, "rules": []}
-    lines = md.read_text(encoding="utf-8").splitlines()
+    lines = _html_to_pipes(md.read_text(encoding="utf-8")).splitlines()
 
     rules = []
     i = 0
@@ -66,7 +92,7 @@ def parse(vault: str):
         levels = [_clean_level(c) for c in sub] + ["원장"]   # 데이터 col2..6 매핑
         # '(연/경)' 협의가 라벨에 붙은 열 표시
         consult_col = {k for k, c in enumerate(sub) if "연/경" in c}
-        구분 = 업무top = 업무sub = ""
+        구분 = 업무top = 업무sub = 업무mid = ""
         j = i + 3
         while j < len(lines):
             ln = lines[j]
@@ -82,9 +108,14 @@ def parse(vault: str):
                 구분 = cs[0]
             dut = cs[1]
             if _TOP.match(dut):
-                업무top, 업무sub = dut, ""
+                업무top, 업무sub, 업무mid = dut, "", ""
             elif _SUB.match(dut):
-                업무sub = dut
+                업무sub, 업무mid = dut, ""
+            elif _LEAF.match(dut) and not _MARK.search(ln):
+                # ○ 없는 '-' 행 = **중간 그룹**(실측: '3) 물품구입 및 매각' 아래 '- 구입'/'- 매각').
+                # 이 계층을 버리면 구입·매각의 금액구간 8행이 같은 경로가 되어 화면에서
+                # "완전 중복 8건 + 직급 바꿔도 무반응"으로 보였다(2026-07-28 사용자 제보).
+                업무mid = re.sub(_LEAF, "", dut).strip()
             # ○ 위치 → 전결권자
             marks = [k for k in range(2, min(len(cs), 7)) if _MARK.search(cs[k])]
             if marks:
@@ -103,7 +134,7 @@ def parse(vault: str):
                 # leaf가 직급이면 대상, 아니면 조건(금액구간 등) → 업무 경로 끝에 붙여 검색·표시 가능하게
                 대상 = leaf_txt if (is_leaf and _ROLE.match(leaf_txt)) else ""
                 cond = leaf_txt if (is_leaf and not 대상) else ""
-                업무 = " > ".join(x for x in [업무top, 업무sub, cond] if x) or (dut if not is_leaf else "")
+                업무 = " > ".join(x for x in [업무top, 업무sub, 업무mid, cond] if x) or (dut if not is_leaf else "")
                 rules.append({
                     "구분": 구분, "업무": 업무 or dut, "대상": 대상,
                     "전결권자": 권자, "협의": 협의, "원장": 권자 == "원장",

@@ -198,7 +198,8 @@ def main() -> int:
     reg_n = REG_N
 
     # ── 회귀 선별: 오답 open 전건 → 부족분은 기존 문항 무작위 재검 ──
-    regression = [b for b in bank if b.get("상태") == "open"][:reg_n]
+    # retire/stale은 open 목록에도 들어오면 안 된다(이중 방어 — 채점이 상태를 덮어쓰는 사고 대비)
+    regression = [b for b in bank if b.get("상태") == "open" and not b.get("동기화")][:reg_n]
     pool = [b for b in bank if b.get("상태") not in ("open", "retire", "stale")]  # retire=폐기 · stale=개정 대기
     random.shuffle(pool)
     regression += pool[: max(0, reg_n - len(regression))]

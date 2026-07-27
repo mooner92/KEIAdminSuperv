@@ -8,6 +8,7 @@ import DocDrawer from "./DocDrawer";
 import type { ApprovalRule } from "./ApprovalFinder";
 import styles from "./Explorer.module.css";
 import PagedList from "./common/PagedList";
+import BrowseShell from "./common/BrowseShell";
 import { FilterGroup, FilterCheck } from "./common/BrowseFilter";
 import ResultRow, { ResultList, RowChip, RowTag, RowAction } from "./common/ResultRow";
 import rowStyles from "./ApprovalFinder.module.css";
@@ -44,7 +45,6 @@ export default function ApprovalExplorer({ rules, amountRules = {} }: {
   };
   const [q, setQ] = useState("");
   const [f, setF] = useState<Filters>({ cat: new Set(), role: new Set(), owner: new Set() });
-  const [filterOpen, setFilterOpen] = useState(false); // 모바일(≤880px): 좌측 필터(직급·구분·전결권자) 기본 접힘 → 토글로 연다(docs/48)
   const listRef = useRef<HTMLUListElement>(null);
 
   // 직급 선택 기억(복원은 현재 데이터에 있는 값만)
@@ -144,37 +144,25 @@ export default function ApprovalExplorer({ rules, amountRules = {} }: {
       checked={f[group].has(value)} onChange={() => toggle(group, value)} />
   );
 
-  return (
-    <div className={styles.wrap}>
-      {/* 모바일 전용 필터 토글 — 데스크톱에선 숨김(사이드바 상시). 직급 선택이 여기 있다 */}
-      <button
-        className={styles.filterToggle}
-        onClick={() => setFilterOpen(!filterOpen)}
-        aria-expanded={filterOpen}
-      >
-        {filterOpen ? "필터 접기 ▴" : `직급·필터 열기 ▾${activeCount > 0 ? ` · ${activeCount}개 적용 중` : ""}`}
-      </button>
-      <aside className={`${styles.side} ${filterOpen ? styles.sideOpenM : ""}`}>
-        <div className={styles.sideHead}>
-          <span className={styles.sideTitle}>필터</span>
-          {activeCount > 0 ? (
-            <button className={styles.reset} onClick={reset}>초기화 {activeCount}</button>
-          ) : null}
-        </div>
-
-        <FilterGroup title="신청자 직급">
+  // ⚠ 2026-07-28: Explorer.module.css의 셸 클래스(.wrap/.side/.filterToggle)를 빌려 쓰다
+  // Explorer의 BrowseShell 이관(07-27) 때 그 클래스들이 삭제되며 레이아웃이 통째로 무너졌다.
+  // 같은 수술로 교정 — 공용 BrowseShell 이관(P9: 화면별 셸 사본 금지의 재확인).
+  const filters = (
+    <>
+      <FilterGroup title="신청자 직급">
           {roles.map((r) => <Check key={r} group="role" value={r} label={r} />)}
         </FilterGroup>
         <FilterGroup title="구분" scroll>
           {cats.map((c) => <Check key={c} group="cat" value={c} label={c} />)}
         </FilterGroup>
-        <FilterGroup title="전결권자">
-          {owners.map((o) => <Check key={o} group="owner" value={o} label={o} />)}
-        </FilterGroup>
-      </aside>
+      <FilterGroup title="전결권자">
+        {owners.map((o) => <Check key={o} group="owner" value={o} label={o} />)}
+      </FilterGroup>
+    </>
+  );
 
-      <section className={styles.content}>
-        <div className={styles.searchWrap}>
+  const head = (
+    <div className={styles.searchWrap}>
           <div className={styles.searchRow}>
             <SearchInput
               value={q}
@@ -200,7 +188,17 @@ export default function ApprovalExplorer({ rules, amountRules = {} }: {
               </button>
             ))}
           </div>
-        </div>
+    </div>
+  );
+
+  return (
+    <>
+      <BrowseShell
+        side={filters}
+        head={head}
+        sideTitle="필터"
+        reset={activeCount > 0 ? { count: activeCount, onClick: reset } : null}
+      >
         <PagedList
           items={filtered}
           unit="건"
@@ -218,7 +216,8 @@ export default function ApprovalExplorer({ rules, amountRules = {} }: {
               chips={
                 <>
                   {r.구분 ? <RowTag>{r.구분}</RowTag> : null}
-                  {r.대상 ? <RowChip>{r.대상}</RowChip> : null}
+                  {r.대상 ? <RowChip>{r.대상}</RowChip>
+                    : f.role.size > 0 ? <span title="이 업무는 직급 구분 없이 금액·조건으로 전결권자가 정해져요 — 직급 필터의 영향을 받지 않습니다"><RowTag>직급 무관</RowTag></span> : null}
                 </>
               }
               body={(() => {
@@ -245,7 +244,7 @@ export default function ApprovalExplorer({ rules, amountRules = {} }: {
         </ResultList>
           )}
         </PagedList>
-      </section>
+      </BrowseShell>
 
       {/* v1 ⑭(S7-#33): 별표 원문 드로어 — 페이지 이동 없이 근거 확인 */}
       <DocDrawer
@@ -254,6 +253,6 @@ export default function ApprovalExplorer({ rules, amountRules = {} }: {
         highlightText={origText || ""}
         onClose={() => setOrigText(null)}
       />
-    </div>
+    </>
   );
 }
