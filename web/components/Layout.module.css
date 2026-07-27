@@ -12,8 +12,9 @@
 }
 
 /* ── 비로그인(랜딩/로그인) — 사이드바 없는 풀블리드, 랜딩이 화면을 스스로 구성 ── */
-.anonRoot { min-height: 100vh; background: var(--color-bg-subtle); }
+.anonRoot { min-height: 100vh; background: var(--color-bg-subtle); display: flex; flex-direction: column; }
 .anonTheme { position: fixed; top: 14px; right: 16px; z-index: 40; }
+.anonMain { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 40px 0; }
 
 /* ── 사이드바(288px, 세로 2패널) ── */
 .sidebar {

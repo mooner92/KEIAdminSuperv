@@ -157,12 +157,15 @@ export default function Layout({
 
   const mshell = mobileShellOn && isAuthed;
 
-  // 비로그인 — 사이드바 없는 풀블리드(랜딩/로그인이 화면을 스스로 구성)
+  // 비로그인 — 사이드바 없음. ⚠ 랜딩/로그인 그리드는 구 셸의 .inner(max-width) 래퍼에
+  // 의존한다 — v2 초기에 래퍼를 빼먹어 히어로가 뷰포트 전폭으로 흩어졌다(실측). bleed면 풀블리드.
   if (!isAuthed) {
     return (
       <div className={styles.anonRoot}>
         <div className={styles.anonTheme}><ThemeToggle /></div>
-        {children}
+        <main className={styles.anonMain}>
+          {bleed ? children : <div className={styles.inner}>{children}</div>}
+        </main>
       </div>
     );
   }
