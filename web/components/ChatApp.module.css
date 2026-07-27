@@ -2,7 +2,7 @@
   display: grid;
   /* v2 셸(PR2): 대화목록은 Layout 사이드바 라이브러리가 전담 → 2칼럼(스레드+근거).
      높이도 뷰포트 공식 대신 부모(메인 패널 innerFill)를 채운다 — 셸이 스크롤을 소유. */
-  grid-template-columns: minmax(0, 1fr) 336px;
+  grid-template-columns: minmax(0, 1fr); /* v2: 근거 패널은 온디맨드 */
   grid-template-rows: minmax(0, 1fr);
   gap: var(--space-4);
   flex: 1;
@@ -102,34 +102,45 @@
 .aiRow { display: flex; flex-direction: column; gap: 4px; }
 .aiTag { font-size: 11.5px; font-weight: 800; color: var(--color-primary); letter-spacing: 0.02em; }
 .userBubble {
-  /* 호롱 1a 보정(사용자 피드백): 진한 그라데이션 채움이 웜 팔레트에서 겉돎 →
-     서피스 톤 + 잎 그라데이션 stroke(1.5px). gradient border는 이중 배경 기법
-     (padding-box/border-box) — border-radius와 공존. */
-  background: linear-gradient(var(--color-surface), var(--color-surface)) padding-box,
-              var(--hr-grad-leaf) border-box;
-  border: 1.5px solid transparent;
-  color: var(--color-text);
-  box-shadow: var(--shadow-card);
-  padding: 11px 16px;
-  border-radius: 22px 22px 6px 22px;
-  max-width: 78%;
+  /* v2(Spotify): 사용자 말풍선 = 앰버 알약 — 그라데이션 stroke 폐기(P7: 로고 전용) */
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  border: none;
+  padding: 11px 20px;
+  border-radius: 999px;
+  max-width: 70%;
   font-size: 14.5px;
+  font-weight: 700;
   line-height: 1.55;
   white-space: pre-wrap;
   word-break: keep-all;
 }
 .aiBubble {
-  background: var(--color-bg-subtle);
-  border: 1px solid var(--color-border);
-  border-radius: 4px 16px 16px 16px;
-  padding: 4px 16px 8px;
-  max-width: 94%;
-  font-size: 14.5px;
+  /* v2(Spotify 콘텐츠-퍼스트): 답변은 카드 없음 — 그라운드 위 플레인 텍스트 */
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  max-width: 100%;
+  font-size: 15px;
+  line-height: 1.8;
 }
-.aiClickable { cursor: pointer; }
-.aiClickable:hover { border-color: var(--color-border-strong); }
-.aiActive { border-color: var(--color-primary); box-shadow: 0 0 0 2px var(--color-primary-weak); }
-.aiSrcHint { font-size: 12px; color: var(--color-text-tertiary); padding: 2px 0 6px; font-weight: 600; }
+.aiClickable { cursor: default; }
+.aiActive { border: none; box-shadow: none; }
+/* 근거 토글 알약 — 앰버 아웃라인, 열림 = 채움(HANDOFF §2 액션 행) */
+.evidenceBtn {
+  margin-top: 10px;
+  font: inherit; font-size: 12.5px; font-weight: 800;
+  color: var(--color-primary-strong);
+  background: none;
+  border: 1px solid var(--color-primary-strong);
+  border-radius: 999px;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: var(--transition-ui);
+}
+.evidenceBtn:hover { background: var(--color-primary-weak); }
+.evidenceBtnOn { background: var(--color-primary); border-color: var(--color-primary); color: var(--color-on-primary); }
 .typing { color: var(--color-text-tertiary); font-size: 14px; }
 
 /* ── 금액·한도 답변: 원문 확인 유도 ── */
@@ -228,11 +239,17 @@
 .disclaim { margin: 10px 4px 0; font-size: 12px; color: var(--color-text-tertiary); line-height: 1.5; }
 
 /* ── 우측: 근거 조문 ── */
+.appEvidence { grid-template-columns: minmax(0, 1fr) 340px; }
+@media (min-width: 1081px) {
+  .app:not(.appEvidence) .sources { display: none; } /* 온디맨드 — 닫힘 시 미렌더 폭 회수 */
+}
+@keyframes hrUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 .sources {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 22px; /* 호롱 1a 패널 */
-  box-shadow: var(--shadow-card);
+  background: var(--color-field-bg);
+  border: none;
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-pop);
+  animation: hrUp 0.3s cubic-bezier(0.2, 0.7, 0.2, 1);
   padding: var(--space-4);
   display: flex;
   flex-direction: column;
