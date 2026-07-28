@@ -147,14 +147,6 @@ export default function Layout({
     } catch { /* 실패 시 목록 유지 */ }
   };
 
-  // ── 상단바 전역 검색 → 문서 찾기로 라우팅 ──
-  const [q, setQ] = useState("");
-  const submitSearch = (e: { preventDefault: () => void }) => {
-    e.preventDefault();
-    const t = q.trim();
-    if (t) router.push(`/browse/?q=${encodeURIComponent(t)}`);
-  };
-
   const mshell = mobileShellOn && isAuthed;
 
   // 비로그인 — 사이드바 없음. ⚠ 랜딩/로그인 그리드는 구 셸의 .inner(max-width) 래퍼에
@@ -262,16 +254,8 @@ export default function Layout({
       {/* ── 메인 패널 ── */}
       <div className={styles.mainPanel}>
         <div className={styles.topbar}>
-          <form className={styles.searchWrap} onSubmit={submitSearch} role="search">
-            <IconSearch size={16} />
-            <input
-              className={styles.search}
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="문서 · 서식 검색"
-              aria-label="문서 검색"
-            />
-          </form>
+          {/* 전역 검색 폐지(2026-07-28 사용자 피드백): 채팅 입력창과 혼동되고,
+              문서 찾기 화면에 자체 검색이 있어 중복이었다. 상단바는 상태 표시만 남긴다. */}
           <div className={styles.topRight}>
             {isAdmin && feedbackOn && maintUnread > 0 ? (
               <Link href="/admin/#reports" className={styles.maintBell}

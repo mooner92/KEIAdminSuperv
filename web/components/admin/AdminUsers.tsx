@@ -15,6 +15,7 @@ export default function AdminUsers() {
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState<number | null>(null);
   const [kw, setKw] = useState("");
+  const [seg, setSeg] = useState<"real" | "test" | "all">("real"); // 기본 = 실사용자(운영 지표)
 
   const load = () =>
     api.listUsers()
@@ -37,6 +38,16 @@ export default function AdminUsers() {
     }
   };
 
+  // ── 실사용자 / 테스트 계정 분리(사용자 지시 2026-07-28) ──
+  // 개발·검증 과정에서 만든 계정이 실사용 지표를 가린다(실측: 23명 중 실계정 5명).
+  // ⛔ 계정을 지우거나 데이터를 바꾸지 않는다 — **표시 분류**만(휴리스틱이라 오분류 여지 있음).
+  //   테스트로 보는 것: ⓐ 사내 도메인이 아닌 아이디(로컬 이름·숫자만) ⓑ 이름에 테스트 토큰 포함.
+  const isTestAccount = (name: string) => {
+    const u = (name || "").toLowerCase();
+    if (!u.includes("@kei.re.kr")) return true;                 // 사내 이메일이 아니면 검증용
+    return /test|probe|check|badge|dummy|sample|auto|temp/.test(u);
+  };
+
   const fmt = (t: number | null) => {
     if (!t) return "—";
     const d = new Date(t * 1000);
@@ -48,26 +59,41 @@ export default function AdminUsers() {
 
   const pending = rows.filter((u) => !u.verified).length;
   // 검색(아이디) + 최신 가입순 — 표시·페이지는 PagedList(컨트롤 상단) 공통 골격
+  const nReal = rows.filter((u) => !isTestAccount(u.username)).length;
+  const nTest = rows.length - nReal;
   const filtered = rows
+    .filter((u) => (seg === "all" ? true : seg === "real" ? !isTestAccount(u.username) : isTestAccount(u.username)))
     .filter((u) => !kw || u.username.toLowerCase().includes(kw.toLowerCase()))
     .sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
 
   return (
     <Section icon="👥" title="사용자" badge={pending || undefined}
-      desc={<>총 {rows.length}명{pending > 0 ? ` · ⏳ 승인 대기 ${pending}명` : ""} · 🔒 목록·활동 메타만 표시됩니다 — 사용자의 채팅 내용은 관리자도 볼 수 없습니다.</>}>
+      desc={<>실사용자 {nReal}명 · 테스트 {nTest}명{pending > 0 ? ` · ⏳ 승인 대기 ${pending}명` : ""} · 🔒 목록·활동 메타만 표시됩니다 — 사용자의 채팅 내용은 관리자도 볼 수 없습니다.</>}>
       {err ? <div className={styles.err}>{err}</div> : null}
-      <PagedList items={filtered} sizes={[10, 30, 50]} unit="명" note="최신 가입순" resetKey={kw}
+      <PagedList items={filtered} sizes={[10, 30, 50]} unit="명" note="최신 가입순" resetKey={`${seg}|${kw}`}
         empty="일치하는 사용자가 없어요."
-        filterSlot={<span style={{ maxWidth: 240, flex: 1 }}>
-          <SearchInput value={kw} onChange={(e) => setKw(e.target.value)} onClear={() => setKw("")}
-            placeholder="아이디 검색" ariaLabel="사용자 아이디 검색" />
-        </span>}>
+        filterSlot={<>
+          <span className={styles.segRow} role="group" aria-label="계정 구분">
+            {([["real", `실사용자 ${nReal}`], ["test", `테스트 ${nTest}`], ["all", `전체 ${rows.length}`]] as const).map(([k, label]) => (
+              <button key={k} type="button" aria-pressed={seg === k}
+                className={seg === k ? `${styles.segBtn} ${styles.segOn}` : styles.segBtn}
+                title={k === "test" ? "사내 이메일이 아니거나 이름에 test·probe 등이 든 계정 — 개발·검증용" : undefined}
+                onClick={() => setSeg(k)}>{label}</button>
+            ))}
+          </span>
+          <span style={{ maxWidth: 240, flex: 1 }}>
+            <SearchInput value={kw} onChange={(e) => setKw(e.target.value)} onClear={() => setKw("")}
+              placeholder="아이디 검색" ariaLabel="사용자 아이디 검색" />
+          </span>
+        </>}>
         {(paged) => (
       <DataTable
         rows={paged}
         rowKey={(u) => String(u.id)}
         cols={[
-          { key: "id", head: "아이디(이메일)", wrap: true, render: (u) => (<>{u.username}{u.is_admin ? <span className={styles.badgeAdmin}> 관리자</span> : null}</>) },
+          { key: "id", head: "아이디(이메일)", wrap: true, render: (u) => (<>{u.username}
+            {u.is_admin ? <span className={styles.badgeAdmin}> 관리자</span> : null}
+            {isTestAccount(u.username) ? <span className={styles.badgeTest} title="개발·검증용으로 분류된 계정">테스트</span> : null}</>) },
           { key: "created", head: "가입일", render: (u) => fmt(u.created_at) },
           { key: "active", head: "마지막 활동", render: (u) => fmt(u.last_active) },
           { key: "chats", head: "채팅 수", num: true, render: (u) => u.chats },
