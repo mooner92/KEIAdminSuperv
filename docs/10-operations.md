@@ -7,11 +7,11 @@
 
 ## 10.1 운영 대상 한눈에
 
-운영은 결국 한 앱 안의 두 화면([뇌] 그래프/둘러보기/문서 + [LLM] RAG 채팅)을 살아 있게 유지하는 일이다. 두 화면은 한 개의 Next.js 14 + Toss Design System 앱(`web/`)에 통합돼 있다.
+운영은 결국 한 앱 안의 두 화면([뇌] 그래프/둘러보기/문서 + [LLM] RAG 채팅)을 살아 있게 유지하는 일이다. 두 화면은 한 개의 Next.js 14 앱(`web/`, KRDS 참고 자체 토큰 — TDS는 라이선스 이슈로 제거, docs/37)에 통합돼 있다.
 
 | 구성요소 | 역할 | 진실원천인가 | 재생성 방법 |
 | --- | --- | --- | --- |
-| `KEI-행정가이드/` (볼트) | 마크다운 코퍼스 | ✅ **그렇다** | git에서 복원 (백업 대상) |
+| `KEI-행정가이드/` (볼트) | 마크다운 코퍼스 | ✅ **그렇다(최상위)** | ⛔**git에 없다**(공개 레포라 gitignore) — `~/kei-backups/*/vault-*.tar.gz` 에서만 복원(§10.5) |
 | `tools/app.db` (SQLite) | 계정·채팅이력·피드백·플래그 | ✅ **그렇다(운영 상태)** | 재생성 불가 — 별도 백업(§10.5) |
 | Chroma 인덱스 (`tools/chroma/`) | 벡터 검색 DB, 컬렉션 `kei_regs` | ❌ 파생물 | `02_chunk_and_embed.py` 재실행 |
 | 정적 사이트 `web/out/` | [뇌]+[LLM] 통합 앱(빌드 산출물) | ❌ 파생물 | `npm run build`(nvm Node 22) |
@@ -23,6 +23,8 @@
 
 > [!note]
 > 파생물(`chroma/`·`out/`)은 백업하지 않아도 된다 — **재생성 절차가 자동화·문서화돼 있으면** 충분하다(그게 이 문서다). 단 `app.db`는 사용자가 만든 운영 상태(채팅·피드백)라 파생물이 아니다(§10.5).
+>
+> ⚠ **재생성 사슬의 뿌리는 볼트다.** chroma·out은 볼트에서 다시 만들 수 있지만 **볼트는 어디서도 재생성할 수 없다** — HWP 변환 + 사람 검수 + 가이드 집필이 들어간 결과물이고, 공개 레포라 git에도 없다. 볼트를 잃으면 프로젝트를 잃는다(§10.5).
 
 > [!note]
 > 서빙 실측 스택은 **격리 Ollama v0.31.1**(PM2 `kei-ollama-v031`, OpenAI 호환 `127.0.0.1:11436/v1`, ctx 8K, 모델 `Qwen3.5-9B Q4_K_M` GGUF·unsloth)다. vLLM이 아니다. 공유 Ollama(`:11434`, v0.24.0, 동료 운용)는 qwen3_5 아키텍처를 지원하지 않아 미사용이니 건드리지 않는다. Open WebUI는 같은 RAG API를 쓰는 선택적 폴백이며 기본 채택 화면이 아니다(채팅은 `web/` 앱에 통합).
@@ -242,36 +244,70 @@ python tools/02_chunk_and_embed.py --vault KEI-행정가이드 --db tools/chroma
 
 백업 정책은 §10.1의 "진실원천 vs 파생물" 구분에서 그대로 나온다. **진실원천(볼트·`app.db`)만 백업하고, 파생물(`chroma/`·`out/`)은 백업하지 않는다.**
 
-> ✅ **자동화 구현됨(v1 스펙 B1, `docs/19`)**: `deploy/backup-appdb.sh` — python3 sqlite 온라인 백업(WAL 일관 스냅샷)으로
-> prod·dev의 `app.db`+`.app_secret`을 `~/kei-backups/YYYY-MM-DD/`(⛔ repo 밖)에 저장, `PRAGMA integrity_check` 검증,
-> 14일 로테이션. crontab 매일 03:10 등록. 복구: 백업 파일을 `tools/app.db`로 교체 후 PM2 재기동.
+> ✅ **자동화 구현됨**: `deploy/backup-appdb.sh` — crontab 매일 03:10, `~/kei-backups/YYYY-MM-DD/`(⛔ repo 밖), 14일 로테이션.
 >
-> **계정 운영 CLI(v1 스펙 B5)**: `APP_DB=tools/app.db python tools/user_admin.py list | reset-pw <user> [--password ...] | delete <user> --yes`
+> | 산출물 | 주기 | 내용 |
+> |---|---|---|
+> | `vault-{prod,dev}.tar.gz` | 매일 | **볼트 전체**(md 710개, ~1.9MB) |
+> | `app-{prod,dev}.db` | 매일 | 온라인 백업 API(WAL 일관) + `PRAGMA integrity_check` |
+> | `app_secret-{prod,dev}` | 매일 | JWT 서명키 |
+> | `test_credentials-{prod,dev}` | 매일 | 검증 계정 비밀번호(docs/63 §5) |
+> | `source-*.tar.gz` | **월 1회** | 원본 HWP·연구자료(~86MB — 거의 안 바뀌어 월 단위) |
+>
+> **계정 운영 CLI**: `APP_DB=tools/app.db python tools/user_admin.py list | reset-pw <user> [--password ...] | delete <user> --yes`
 > — 비밀번호 분실 시 관리자가 서버에서 재설정(미지정 시 임시 비밀번호 자동 생성·1회 전달). 해시는 웹 로그인과 동일(bcrypt).
 
-| 대상 | 백업 방식 | 근거 |
-| --- | --- | --- |
-| **볼트 `KEI-행정가이드/`** | **git = 진실원천**(사내 리모트/미러) | 모든 노트·개정이력·템플릿이 여기 있음. 공개 레포엔 안 올림(gitignore) |
-| **`tools/app.db` (SQLite)** | **파일 스냅샷 백업 필수** | 계정·채팅이력·피드백·플래그(User/ChatSession/Message/Flag/FlagAudit/Feedback). 재생성 불가 |
-| `tools/.app_secret` (JWT 서명키) | git 밖에서 안전 보관 | 분실 시 전체 세션 무효화. 0600, gitignore |
-| Chroma `tools/chroma/` | **백업 불요(재임베딩 시만 임시 백업)** | 볼트+02로 언제든 재생성. gitignore됨 |
-| 정적 사이트 `web/out/` | 백업 불요 | `npm run build`로 재생성. gitignore됨 |
-| `.feedback_signals.json` | 백업 불요 | `feedback_export.py`로 app.db에서 재생성. gitignore됨 |
+### ⛔ 백업 산출물은 전부 0600/0700 (2026-07-29 신설)
 
-```mermaid
-flowchart LR
-    subgraph 백업대상["백업 대상 (진실원천)"]
-        VAULT["KEI-행정가이드/<br/>= git"]
-        DB["tools/app.db<br/>+ .app_secret"]
-    end
-    subgraph 재생성가능["재생성 가능 (백업 불요)"]
-        CHROMA["tools/chroma/"]
-        OUT["web/out/"]
-    end
-    VAULT -->|02_chunk_and_embed.py| CHROMA
-    VAULT -->|npm run build| OUT
-    DB -->|feedback_export.py| SIG[".feedback_signals.json"]
+원본을 잠가도 **사본이 새면 의미가 없다.** 이 프로젝트에서 같은 실수가 세 번 났다:
+
+1. `question_bank.jsonl`은 gitignore하면서 `.bak`은 통과 (보안 스캔 F4)
+2. `tools/app.db`는 gitignore하면서 `app.db.pre-prod-*` 백업은 통과
+3. **`tools/app.db`를 0600으로 잠갔는데 매일 크론이 0644 사본을 생성** — 14일치 30개 발견·교정
+
+그래서 백업 스크립트는 ⓐ `umask 077` ⓑ 파일 생성 직후 `chmod 600` ⓒ **실행 끝에 전체를 재검사해
+느슨한 파일이 있으면 교정하는 백스톱**까지 삼중으로 건다. 백업 디렉터리 자체도 `0700`이다.
+
+새 백업 산출물을 추가할 때는 **반드시 `chmod 600`을 함께 넣는다.**
+
+### 볼트 백업이 가장 중요하다
+
+| 자산 | 잃으면 | 복구 경로 |
+|---|---|---|
+| **볼트 `KEI-행정가이드/`** | **프로젝트를 잃는다** | `vault-prod.tar.gz` **뿐** — git에 없다(공개 레포) |
+| `tools/app.db` | 계정·채팅·피드백 소실 | `app-prod.db` |
+| `tools/.app_secret` | 전 사용자 강제 로그아웃 | `app_secret-prod` |
+| 원본 HWP | 재변환 불가 | `source-*.tar.gz`(월 1회) |
+| `chroma/`·`out/` | — | 볼트에서 재생성(02 / npm run build) |
+
+⚠ **dev 워크트리의 볼트 사본은 백업이 아니다** — 같은 디스크에 있어 고장 범위가 같다.
+
+### 복구 절차
+
+```bash
+B=~/kei-backups/2026-07-29        # 복구 시점 선택
+
+# ① 볼트 (최우선)
+tar xzf $B/vault-prod.tar.gz -C /KEIAdminSuperv/
+find /KEIAdminSuperv/KEI-행정가이드 -name '*.md' | wc -l    # 710개 기대
+
+# ② 운영 상태 — PM2 중지 후 교체
+pm2 stop kei-rag-api
+cp $B/app-prod.db /KEIAdminSuperv/tools/app.db
+cp $B/app_secret-prod /KEIAdminSuperv/tools/.app_secret
+chmod 600 /KEIAdminSuperv/tools/app.db /KEIAdminSuperv/tools/.app_secret
+pm2 start kei-rag-api
+
+# ③ 파생물 재생성
+python tools/02_chunk_and_embed.py --vault KEI-행정가이드 --db tools/chroma
+cd web && NEXT_PUBLIC_BUILD_ID=$(git rev-parse --short HEAD) VAULT_DIR=/KEIAdminSuperv/KEI-행정가이드 npm run build
 ```
+
+> [!warning]
+> 복원 검증까지 해야 백업이다. 2026-07-29 실측: 볼트 md 710개 → 복원 710개 일치,
+> **한글 파일명 보존**, 무작위 파일 내용 일치, `app-prod.db` integrity ok.
+> ⚠ 한글 파일명을 쓰므로 다른 머신에서 복원할 땐 `git config core.quotepath false` 확인
+> (보안 스캔 F11이 이 설정 부재로 생긴 결함이었다 — docs/63 §3).
 
 ### app.db 백업 (운영 상태)
 
@@ -287,8 +323,10 @@ sqlite3 tools/app.db ".backup 'tools/app.db.bak.$(date +%F)'"
 > [!warning]
 > `tools/chroma/`·`web/out/`·`tools/app.db`·`tools/.app_secret`·`.feedback_signals.json`·`research_rule_files/`·`*.hwp`·`*.pdf`는 모두 `.gitignore`에 들어 있다. 이들을 백업한다고 공개 git에 강제로 추가하지 않는다 — 데이터·시크릿 유출이고, 진실원천(볼트·app.db)은 사내 경로로만 보관한다.
 
-> [!todo] 확인 필요: 사내 백업 위치·주기
-> 볼트 사내 미러 호스트, `app.db`/`.app_secret` 스냅샷의 저장 위치와 보존 주기(예: 일 1회 N일 보관)는 [07 보안·거버넌스](07-security-governance.md)·[06 배포](06-deployment.md)에서 확정한다. 한글 파일명을 쓰므로 클론·복원 환경에서 `git config core.quotepath false` 적용을 반드시 확인한다.
+> [!note] 백업 위치·주기 — **확정됨(2026-07-29)**
+> `~/kei-backups/YYYY-MM-DD/`, 매일 03:10 크론, 14일 보존(원본 자료만 월 1회).
+> ⚠ 같은 호스트·같은 디스크에만 있다 — **디스크 고장에는 무력하다.**
+> 사외/별도 디스크 복제는 여전히 미해결이며, 볼트가 재생성 불가 자산이므로 우선 과제다.
 
 ---
 
