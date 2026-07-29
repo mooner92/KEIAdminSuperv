@@ -176,6 +176,17 @@ fs.writeFileSync(clogPath, JSON.stringify({
 }), "utf-8");
 console.log(`changelog: ${clog.length}건 → ${clogPath}`);
 
+// 문서 목록(제목→슬러그·검수상태) — 채팅 근거 링크·검수 배지에만 쓰인다.
+// ⛔ 예전에는 이 목록이 랜딩 페이지 props(getStaticProps)에 실려 **비로그인에게 588건이
+//    그대로 나갔다**(2차 스캔 F3, docs/65 §5). `/`는 게이트의 공개 허용목록이라
+//    /browse/가 지키는 목록이 정문으로 새어나간 셈이다.
+//    이 파일은 허용목록에 없어 로그인 뒤에만 받을 수 있고, 본문 없이 3개 필드뿐이라 가볍다.
+const docsIdxPath = path.resolve(process.cwd(), "out", "docs-index.json");
+fs.writeFileSync(docsIdxPath, JSON.stringify(
+  docs.map((d) => ({ slug: d.slug, title: d.title, reviewed: d.reviewed || "" }))
+), "utf-8");
+console.log(`docs-index: ${docs.length}개 제목·슬러그 → ${docsIdxPath} (로그인 필요)`);
+
 const idxPath = path.resolve(process.cwd(), "out", "search-index.json");
 fs.writeFileSync(idxPath, JSON.stringify(searchIndex), "utf-8");
 const kb = Math.round(fs.statSync(idxPath).size / 1024);
