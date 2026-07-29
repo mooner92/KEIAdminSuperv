@@ -745,6 +745,18 @@ def is_admin(u: User) -> bool:
     return _is_admin_name(u.username)
 
 
+def _has_verified_admin(s: Session) -> bool:
+    """APP_ADMINS에 적힌 계정 중 **이미 인증된 것**이 하나라도 있는지.
+    가입 시점 관리자 부트스트랩을 '관리자 부재' 상황으로만 한정하는 데 쓴다(보안 스캔 F17)."""
+    names = {x.strip().lower() for x in os.environ.get("APP_ADMINS", "").split(",") if x.strip()}
+    if not names:
+        return False
+    for u in s.exec(select(User).where(User.verified == True)):  # noqa: E712 (SQLModel 표현식)
+        if (u.username or "").strip().lower() in names:
+            return True
+    return False
+
+
 def current_admin(user: User = Depends(current_user)) -> User:
     if not is_admin(user):
         raise HTTPException(403, "관리자 권한이 필요합니다.")
@@ -815,13 +827,22 @@ def register(body: AuthIn, request: Request, response: Response):
         exists = s.exec(select(User).where(User.username == email)).first()
         if exists and exists.verified:
             raise HTTPException(409, "이미 가입된 이메일입니다. 로그인해 주세요.")
-        if exists:  # 미인증 재가입: 비밀번호 갱신
-            exists.password_hash = hash_pw(body.password)
-            s.add(exists)
-        else:
-            s.add(User(username=email, password_hash=hash_pw(body.password), verified=False))
-        # 지정 관리자 부트스트랩 — 승인/코드 게이트 우회, 즉시 활성+로그인(데드락 방지)
-        if _is_admin_name(email):
+        if exists:
+            # ⛔ 기존 미인증 계정의 비밀번호를 덮어쓰지 않는다(보안 스캔 F18).
+            #    예전에는 아무나 남의 '승인 대기' 계정에 재가입해 비밀번호를 갈아끼울 수 있었고,
+            #    관리자가 그 계정을 승인하는 순간 계정을 통째로 넘겨받았다.
+            #    정상 경로는 이미 갖춰져 있다:
+            #      - 코드 만료  → /auth/resend (비밀번호 확인으로 본인만 재발송)
+            #      - 비밀번호를 잊음 → 관리자가 /admin 사용자 탭에서 거절(reject) 후 재가입
+            raise HTTPException(409, "이미 가입 신청된 이메일입니다. 인증 코드를 확인하거나 관리자에게 문의해 주세요.")
+        s.add(User(username=email, password_hash=hash_pw(body.password), verified=False))
+        # 지정 관리자 부트스트랩 — 승인/코드 게이트 우회, 즉시 활성+로그인(데드락 방지).
+        # ⚠ '아직 관리자가 하나도 없을 때'로 한정한다(보안 스캔 F17). 예전에는 APP_ADMINS에
+        #    적힌 이메일이면 언제든 무조건 즉시 관리자가 됐다 — 운영자가 새 관리자를 명단에
+        #    추가하고 그 사람이 가입하기 전 사이에, 남이 그 주소를 선점하면 관리자 권한을
+        #    가져갈 수 있었다(메일함 소유 증명 없음). 데드락 해소라는 본래 목적은
+        #    '관리자 부재' 조건만으로 충분하다.
+        if _is_admin_name(email) and not _has_verified_admin(s):
             s.commit()
             u = s.exec(select(User).where(User.username == email)).first()
             u.verified = True
@@ -889,7 +910,10 @@ def resend_code(body: AuthIn):
 def login(body: AuthIn, request: Request, response: Response):
     # v1 ⑮(#51): 사용자+IP 기준 실패 8회/5분 초과 시 429(무차별 대입 방어)
     # docs/44: 프록시 뒤에서 IP가 전부 127.0.0.1로 붕괴하던 것 → 신뢰 XFF(_client_ip)로 교정
-    rl_key = f"{body.username.strip()}|{_client_ip(request)}"
+    # ⚠ 반드시 조회와 **같은 정규화**(lower)로 키를 만든다. 원본 대소문자로 키를 잡으면
+    #   A@kei.re.kr / a@KEI.re.kr … 이 서로 다른 버킷이 되는데 조회는 lower로 같은 계정을 찾아,
+    #   대소문자만 바꿔가며 한 계정에 사실상 무제한 시도가 가능했다(보안 스캔 F9).
+    rl_key = f"{body.username.strip().lower()}|{_client_ip(request)}"
     if not _rl_check(rl_key):
         _seclog.warning(f"login-blocked user={_log_id(body.username)} ip={_client_ip(request)} (rate-limit)")
         raise HTTPException(429, "로그인 시도가 너무 많습니다. 5분 후 다시 시도해 주세요.")
