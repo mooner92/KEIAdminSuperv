@@ -24,6 +24,10 @@ WEB_FORMS = HERE.parent / "web" / "public" / "forms-pdf" / "erp"
 # 서식 → 업무 섹션(서식 찾기 필터용). 파일명 키워드 우선순위 순.
 SECTIONS = [
     ("법인카드", r"법인카드"),
+    ("자문회의", r"자문회의|자문위원|자문의견|점검표|재점검"),
+    ("연구윤리", r"연구윤리|윤리동의서|준수확인서|준수서약서|저자|체크리스트"),
+    ("연구계약", r"계약서|집필|과제자문계약|수의계약|근무사실"),
+    ("사업계획·보고", r"관리추진계획|상세사업계획|성과물계획|최종보고서|추진계획"),
     ("지급·정산", r"개인지급정보|면접비|영수증|receipt|경비집행|사유서|선지급|소액현금|전도자금"),
     ("세무", r"조세조약|비거주자|비과세|면제신청"),
     ("계좌·통장", r"통장"),
@@ -94,12 +98,20 @@ def main():
     for f in files:
         if any(e["원본파일"] == f.name for e in entries):
             shutil.copy2(f, WEB_FORMS / f.name)
-    # ⛔ 기존 별지 항목은 건드리지 않는다 — 별도 키로만 추가
+    # ⛔ 기존 별지 항목은 건드리지 않는다 — 별도 키로만 추가.
+    #   ⚠ 여러 번 나눠 실행하므로(회계 → 연구) **누적 병합**한다.
+    #     대입(=)으로 두면 두 번째 실행이 첫 번째 결과를 통째로 지운다.
+    prev_items = (man.get("_erp_forms") or {}).get("항목", [])
+    merged = {e["원본파일"]: e for e in prev_items}          # 같은 파일은 갱신
+    for e in entries:
+        merged[e["원본파일"]] = {**e, "경로": f"forms-pdf/erp/{e['원본파일']}"}
     man["_erp_forms"] = {
         "설명": "ERP 회계·연구 서식(규정 별지 아님). 독립 양식이라 별도 그룹.",
         "생성": "tools/01y_erp_forms.py",
-        "항목": [{**e, "경로": f"forms-pdf/erp/{e['원본파일']}"} for e in entries],
+        "항목": sorted(merged.values(), key=lambda x: (x["섹션"], x["서식명"])),
     }
+    print(f"        기존 ERP 서식 {len(prev_items)}개 + 신규 {len(entries)}개 "
+          f"→ 병합 {len(merged)}개")
     MANIFEST.write_text(json.dumps(man, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"\n[APPLY] manifest 갱신 — 기존 별지 {before}개 불변 + ERP 서식 {len(entries)}개")
     print(f"        파일 → {WEB_FORMS}")
