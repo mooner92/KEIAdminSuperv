@@ -66,7 +66,14 @@ module.exports = {
         APP_REG_RL_MAX: "100", // docs/44: 가입 RL(기본 10/시간) — dev는 E2E 스위트가 소진하지 않게 완화. 공개 배포 시 제거(기본 10)
         // 오토픽스 Phase A(docs/52 §9): 의견함 🤖 버튼 → 무인 Claude Code(구독 인증) → 격리 브랜치.
         // ⛔ 라이브 무접촉(worktree+관문+사람 머지). 월 예산 가드 AUTOFIX_BUDGET_USD(기본 20 USD).
-        AUTOFIX_ENABLED: "1",
+        //
+        // ⛔ 2026-07-29 OFF — 관문이 격리되지 않았다(보안 스캔 F7, docs/63 §3).
+        //    gate_python이 돌리는 테스트가 worktree의 tools/*.py를 import하는데,
+        //    그 파일들을 고치는 게 오토픽스의 목적 자체다. 즉 **에이전트가 쓴 코드가
+        //    관문에서 그대로 실행된다.** 관문이 실행하는 파일(test_*.py·package.json)의
+        //    변경은 차단했지만 구조는 남아 있다.
+        //    다시 켜기 전 조건: 관문을 컨테이너에서 실행(docs/52 Phase B/C).
+        AUTOFIX_ENABLED: "0",
         // 사용량 데이터 보관 2년(기본 180일) — "의미있는 데이터라 잘 보관"(docs/35 §0, 📈 통계 탭)
         TRACK_RETENTION_DAYS: "730",
         PYTHONUNBUFFERED: "1",
