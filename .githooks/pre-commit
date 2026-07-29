@@ -4,9 +4,13 @@ set -euo pipefail
 # 공개 레포에 내부 전용 콘텐츠(KEI 규정 볼트·HWP)가 커밋되는 것을 차단한다.
 # 활성화: clone 후 한 번  →  git config core.hooksPath .githooks
 # ───────────────────────────────────────────────────────────
-BLOCK_REGEX='^(KEI-행정가이드/|rule_files/)|\.(hwp|hwpx)$'
+BLOCK_REGEX='^(KEI-행정가이드/|rule_files/|research_rule_files/)|\.(hwp|hwpx)$'
 
-staged=$(git diff --cached --name-only --diff-filter=AM || true)
+# ⚠ -z 필수. git은 기본(core.quotepath=true)으로 비ASCII 경로를 따옴표+8진 이스케이프로 낸다:
+#   KEI-행정가이드/x.md → "KEI-\355\226\211…/x.md"  → 위 정규식이 영영 매치되지 않는다(fail-open).
+#   이 레포는 로컬에 core.quotepath=false를 걸어 우연히 동작했을 뿐, 새로 clone한 머신에서는
+#   한글 볼트 경로가 그대로 통과했다. -z는 따옴표 없이 원본 경로를 NUL 구분으로 낸다.
+staged=$(git diff --cached --name-only -z --diff-filter=AM | tr '\0' '\n' || true)
 violations=$(printf '%s\n' "$staged" | grep -E "$BLOCK_REGEX" || true)
 if [ -n "$violations" ]; then
   echo "❌ 커밋 차단: 내부 전용 콘텐츠가 스테이징됨 (공개 레포 금지):"

@@ -13,7 +13,12 @@ jobs:
 
       - name: Block internal-only content (볼트·HWP 차단)
         run: |
-          if git ls-files | grep -E '^(KEI-행정가이드/|rule_files/)|\.(hwp|hwpx)$'; then
+          # ⚠ -z 필수. git은 기본(core.quotepath=true)으로 비ASCII 경로를 따옴표+8진 이스케이프로
+          #   출력한다: KEI-행정가이드/x.md → "KEI-\355\226\211…/x.md"
+          #   그래서 `^KEI-행정가이드/` 정규식이 **절대 매치되지 않아** 볼트를 실제로 커밋해도
+          #   가드가 통과했다(fail-open). 로컬은 core.quotepath=false 설정 덕에 우연히 동작했을 뿐,
+          #   CI 체크아웃에는 그 설정이 없다. -z는 따옴표 없이 NUL 구분으로 원본 경로를 낸다.
+          if git ls-files -z | tr '\0' '\n' | grep -E '^(KEI-행정가이드/|rule_files/|research_rule_files/)|\.(hwp|hwpx)$'; then
             echo "::error::내부 전용 콘텐츠(KEI 규정 볼트·HWP)가 레포에 존재합니다. .gitignore + filter-repo 확인."
             exit 1
           fi

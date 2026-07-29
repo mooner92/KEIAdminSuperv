@@ -175,6 +175,11 @@ pms_forms_raw/
 tools/ecosystem.local.js
 # 일일 자가평가(docs/58) 데이터 — 답변 전문 포함(git-external)
 eval/question_bank.jsonl
+# A/B 하베스트 산출물 — RAG 답변 전문(규정 원문·금액·담당자 메일)이 그대로 들어간다.
+# 원본 인덱스만 막고 산출물이 새던 구멍(보안 스캔 F8).
+eval/ab/
+eval/question_bank.jsonl.bak
+eval/*.bak
 eval/daily/
 eval/faq_candidates/
 tools/.daily_eval_signals.json
