@@ -1,12 +1,21 @@
 // docs/48 — 모바일(390px) 채팅·조문 중심 개편 실렌더 검증.
 // GNB 3탭 · 채팅 첫 화면(드로어) · 둘러보기 필터 접힘(조문 우선) · 허브 도달성.
 import { chromium } from "playwright";
+
+// ⛔ 라이브 계정 비밀번호를 코드에 두지 않는다(보안 스캔 F1/F3/F12).
+//    실행: APP_TEST_USER=... APP_TEST_PASS=... node <이 파일>
+const TEST_USER = process.env.APP_TEST_USER || "admintest";
+const TEST_PW = process.env.APP_TEST_PASS;
+if (!TEST_PW) {
+  console.error("❌ APP_TEST_PASS 미설정 — 검증 계정 비밀번호는 환경변수로만 받습니다.");
+  process.exit(2);
+}
 const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
 const b = await chromium.launch();
 let pass = 0, fail = 0;
 const check = (n, ok, d = "") => { console.log((ok ? "✅" : "❌") + " " + n + (d ? " — " + d : "")); ok ? pass++ : fail++; };
 const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
-await ctx.request.post(BASE + "/api/app/auth/login", { data: { username: "admintest", password: "admtest123" } });
+await ctx.request.post(BASE + "/api/app/auth/login", { data: { username: TEST_USER, password: TEST_PW } });
 
 // ① GNB: 핵심 3탭만(질문하기·규정 둘러보기·추가 기능) — 그래프·결재선·여정·캘린더는 숨김
 const p = await ctx.newPage();

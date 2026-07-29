@@ -1,6 +1,15 @@
 // docs/20·24·34 수용기준 갭 3종 실렌더 검증 — 레이더 문서 링크·재색인 필요(스테일)·웹 반영 고지.
 import { chromium } from "playwright";
 import fs from "node:fs";
+
+// ⛔ 라이브 계정 비밀번호를 코드에 두지 않는다(보안 스캔 F1/F3/F12).
+//    실행: APP_TEST_USER=... APP_TEST_PASS=... node <이 파일>
+const TEST_USER = process.env.APP_TEST_USER || "admintest";
+const TEST_PW = process.env.APP_TEST_PASS;
+if (!TEST_PW) {
+  console.error("❌ APP_TEST_PASS 미설정 — 검증 계정 비밀번호는 환경변수로만 받습니다.");
+  process.exit(2);
+}
 const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
 const STALE = "/home/mhchoi/kei-dev-0703/tools/index/reindex_stale.json";
 const b = await chromium.launch();
@@ -8,7 +17,7 @@ let pass = 0, fail = 0;
 const check = (n, ok, d = "") => { console.log((ok ? "✅" : "❌") + " " + n + (d ? " — " + d : "")); ok ? pass++ : fail++; };
 
 const ctx = await b.newContext({ viewport: { width: 1440, height: 1000 } });
-await ctx.request.post(BASE + "/api/app/auth/login", { data: { username: "admintest", password: "admtest123" } });
+await ctx.request.post(BASE + "/api/app/auth/login", { data: { username: TEST_USER, password: TEST_PW } });
 const p = await ctx.newPage();
 
 // ① docs/34: 신뢰 레이더 규정명 → /d/ 링크 (백필 포함)

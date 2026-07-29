@@ -5,7 +5,7 @@ const fails = [];
 const ok = (c, m) => { console.log((c ? "✅ " : "❌ ") + m); if (!c) fails.push(m); };
 const b = await chromium.launch();
 const ctx = await b.newContext();
-let r = await ctx.request.post(`${BASE}/api/app/auth/login`, { data: { username: "admintest", password: "admtest123" } });
+let r = await ctx.request.post(`${BASE}/api/app/auth/login`, { data: { username: TEST_USER, password: TEST_PW } });
 ok(r.ok(), `0) 관리자 로그인 (${r.status()})`);
 const p = await ctx.newPage({ viewport: { width: 1440, height: 1200 } });
 await p.goto(`${BASE}/admin/#corpus`, { waitUntil: "load" }); // docs/21 탭 셸
@@ -30,6 +30,15 @@ ok((await p.locator('[class*="corpusRow"]').filter({ hasText: /^복무규정/ })
 ok(body.includes("재색인 필요"), "5) ⟳ 재색인 필요 배지");
 // exclude.json 실반영 확인(파일)
 const fs = await import("fs");
+
+// ⛔ 라이브 계정 비밀번호를 코드에 두지 않는다(보안 스캔 F1/F3/F12).
+//    실행: APP_TEST_USER=... APP_TEST_PASS=... node <이 파일>
+const TEST_USER = process.env.APP_TEST_USER || "admintest";
+const TEST_PW = process.env.APP_TEST_PASS;
+if (!TEST_PW) {
+  console.error("❌ APP_TEST_PASS 미설정 — 검증 계정 비밀번호는 환경변수로만 받습니다.");
+  process.exit(2);
+}
 const ex = JSON.parse(fs.readFileSync("../tools/index/exclude.json", "utf-8"));
 ok(ex.excluded.includes("3400_복무규정"), `6) exclude.json 기록 (${JSON.stringify(ex.excluded)})`);
 // 복귀(원복) — 제외 문서함 탭에서

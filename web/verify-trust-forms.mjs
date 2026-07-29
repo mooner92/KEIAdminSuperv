@@ -1,12 +1,21 @@
 // docs/34 수용 기준 실렌더 검증 — ② 신뢰 탭 · ① 서식 찾기 · ③ 기간 필터·Stop 버튼.
 import { chromium } from "playwright";
+
+// ⛔ 라이브 계정 비밀번호를 코드에 두지 않는다(보안 스캔 F1/F3/F12).
+//    실행: APP_TEST_USER=... APP_TEST_PASS=... node <이 파일>
+const TEST_USER = process.env.APP_TEST_USER || "admintest";
+const TEST_PW = process.env.APP_TEST_PASS;
+if (!TEST_PW) {
+  console.error("❌ APP_TEST_PASS 미설정 — 검증 계정 비밀번호는 환경변수로만 받습니다.");
+  process.exit(2);
+}
 const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
 const b = await chromium.launch();
 let pass = 0, fail = 0;
 const check = (n, ok, d = "") => { console.log((ok ? "✅" : "❌") + " " + n + (d ? " — " + d : "")); ok ? pass++ : fail++; };
 
 const ctx = await b.newContext({ viewport: { width: 1500, height: 900 } });
-await ctx.request.post(BASE + "/api/app/auth/login", { data: { username: "admintest", password: "admtest123" } });
+await ctx.request.post(BASE + "/api/app/auth/login", { data: { username: TEST_USER, password: TEST_PW } });
 
 // ── ② 신뢰 탭 ──
 const p = await ctx.newPage();
@@ -133,7 +142,7 @@ await ctxOff.route("**/api/app/flags**", async (route) => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(j) });
   } catch { await route.abort().catch(() => {}); } // 브라우저 종료 레이스 무해화
 });
-await ctxOff.request.post(BASE + "/api/app/auth/login", { data: { username: "admintest", password: "admtest123" } });
+await ctxOff.request.post(BASE + "/api/app/auth/login", { data: { username: TEST_USER, password: TEST_PW } });
 // 리뷰 확정: flag off 시 /admin 🛡 탭 미노출 — 탭 렌더까지 폴링(route 반영 대기)
 const poffAdmin = await ctxOff.newPage();
 await poffAdmin.goto(BASE + "/admin/", { waitUntil: "load" });

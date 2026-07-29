@@ -1,5 +1,14 @@
 // docs/36 §10 — 관리자 승인제 실렌더: 가입 신청 → 승인 대기 UI → 관리자 승인 → 로그인.
 import { chromium } from "playwright";
+
+// ⛔ 라이브 계정 비밀번호를 코드에 두지 않는다(보안 스캔 F1/F3/F12).
+//    실행: APP_TEST_USER=... APP_TEST_PASS=... node <이 파일>
+const TEST_USER = process.env.APP_TEST_USER || "admintest";
+const TEST_PW = process.env.APP_TEST_PASS;
+if (!TEST_PW) {
+  console.error("❌ APP_TEST_PASS 미설정 — 검증 계정 비밀번호는 환경변수로만 받습니다.");
+  process.exit(2);
+}
 const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
 const b = await chromium.launch();
 let pass = 0, fail = 0;
@@ -34,7 +43,7 @@ await ctx.close();
 
 // ③ 관리자 승인 → 로그인 성공
 const adm = await b.newContext({ viewport: { width: 1440, height: 1000 } });
-await adm.request.post(BASE + "/api/app/auth/login", { data: { username: "admintest", password: "admtest123" } });
+await adm.request.post(BASE + "/api/app/auth/login", { data: { username: TEST_USER, password: TEST_PW } });
 const pa = await adm.newPage();
 await pa.goto(BASE + "/admin/#users", { waitUntil: "load" });
 await pa.waitForTimeout(2000);

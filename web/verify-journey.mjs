@@ -1,6 +1,15 @@
 // verify-journey.mjs — 업무 한 장(docs/25) 실렌더 검증: 스윔레인·엣지·상세 패널·DocDrawer·스텝퍼·다크
 import { chromium } from "playwright";
 
+// ⛔ 라이브 계정 비밀번호를 코드에 두지 않는다(보안 스캔 F1/F3/F12).
+//    실행: APP_TEST_USER=... APP_TEST_PASS=... node <이 파일>
+const TEST_USER = process.env.APP_TEST_USER || "admintest";
+const TEST_PW = process.env.APP_TEST_PASS;
+if (!TEST_PW) {
+  console.error("❌ APP_TEST_PASS 미설정 — 검증 계정 비밀번호는 환경변수로만 받습니다.");
+  process.exit(2);
+}
+
 const BASE = process.env.BASE || "http://127.0.0.1:3101";
 const fails = [];
 const ok = (c, m) => { console.log((c ? "✅ " : "❌ ") + m); if (!c) fails.push(m); };
@@ -9,7 +18,7 @@ const b = await chromium.launch();
 // docs/44 서버 로그인 게이트 — 컨텍스트마다 로그인 후 진입
 const authCtx = async (opts) => {
   const c = await b.newContext(opts);
-  await c.request.post(`${BASE}/api/app/auth/login`, { data: { username: "admintest", password: "admtest123" } });
+  await c.request.post(`${BASE}/api/app/auth/login`, { data: { username: TEST_USER, password: TEST_PW } });
   return c;
 };
 

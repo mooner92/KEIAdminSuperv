@@ -29,6 +29,12 @@ from fastapi import FastAPI  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlmodel import Session, select  # noqa: E402
 
+# ⛔ 라이브 계정 비밀번호를 코드에 두지 않는다(보안 스캔 F1/F3/F12).
+TEST_USER = os.environ.get("APP_TEST_USER", "admintest")
+TEST_PW = os.environ.get("APP_TEST_PASS")
+if not TEST_PW:
+    raise SystemExit("❌ APP_TEST_PASS 미설정 — 검증 계정 비밀번호는 환경변수로만 받습니다.")
+
 app = FastAPI()
 app.include_router(app_api.router)
 app_api.init_db()
@@ -86,10 +92,10 @@ ok("기가입 이메일 재가입 거부", r.status_code == 409)
 
 # ⓔ 레거시 계정(verified 백필 가정 — 직접 생성으로 재현)
 with Session(app_api.engine) as s:
-    s.add(app_api.User(username="admintest", password_hash=app_api.hash_pw("admtest123"), verified=True))
+    s.add(app_api.User(username=TEST_USER, password_hash=app_api.hash_pw(TEST_PW), verified=True))
     s.add(app_api.User(username="admin@kei.re.kr", password_hash=app_api.hash_pw("adminpw"), verified=True))
     s.commit()
-r = c.post("/app/auth/login", json={"username": "admintest", "password": "admtest123"})
+r = c.post("/app/auth/login", json={"username": TEST_USER, "password": TEST_PW})
 ok("레거시 계정 로그인 유지", r.status_code == 200)
 
 # ⓕ /app/users — 일반 사용자 403, 관리자는 메타만

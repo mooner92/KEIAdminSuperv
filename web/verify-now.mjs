@@ -1,12 +1,21 @@
 // docs/35 수용 기준 실렌더 검증 — 지금 KEI에서(/now)·시즌 캘린더·사용량 수집.
 import { chromium } from "playwright";
+
+// ⛔ 라이브 계정 비밀번호를 코드에 두지 않는다(보안 스캔 F1/F3/F12).
+//    실행: APP_TEST_USER=... APP_TEST_PASS=... node <이 파일>
+const TEST_USER = process.env.APP_TEST_USER || "admintest";
+const TEST_PW = process.env.APP_TEST_PASS;
+if (!TEST_PW) {
+  console.error("❌ APP_TEST_PASS 미설정 — 검증 계정 비밀번호는 환경변수로만 받습니다.");
+  process.exit(2);
+}
 const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
 const b = await chromium.launch();
 let pass = 0, fail = 0;
 const check = (n, ok, d = "") => { console.log((ok ? "✅" : "❌") + " " + n + (d ? " — " + d : "")); ok ? pass++ : fail++; };
 
 const ctx = await b.newContext({ viewport: { width: 1400, height: 950 } });
-await ctx.request.post(BASE + "/api/app/auth/login", { data: { username: "admintest", password: "admtest123" } });
+await ctx.request.post(BASE + "/api/app/auth/login", { data: { username: TEST_USER, password: TEST_PW } });
 const p = await ctx.newPage();
 const trackCalls = [];
 p.on("request", (r) => { if (r.url().includes("/api/app/track")) trackCalls.push(JSON.parse(r.postData() || "{}").name); });
@@ -67,7 +76,7 @@ await p.screenshot({ path: "verify-usage-admin.png" });
 // ⑦ flag off 게이트(새 컨텍스트+응답 고정): GNB 미노출 + /now 준비 중 + track 0건
 //    ⚠ GET /app/flags 응답은 평면 dict({events_tab: true, ...}) — j.flags 아님(리뷰 확정 결함 수정)
 const ctxOff = await b.newContext();
-await ctxOff.request.post(BASE + "/api/app/auth/login", { data: { username: "admintest", password: "admtest123" } }); // docs/44 게이트
+await ctxOff.request.post(BASE + "/api/app/auth/login", { data: { username: TEST_USER, password: TEST_PW } }); // docs/44 게이트
 await ctxOff.route("**/api/app/flags**", async (route) => {
   try {
     const r = await route.fetch();

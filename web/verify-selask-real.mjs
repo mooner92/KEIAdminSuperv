@@ -1,13 +1,22 @@
 // docs/26 select_ask — '이거 물어보기' 실마우스 경로 회귀 검증(무반응 버그 수정 확인).
 // 프로그램 클릭이 아닌 실제 mousedown→mouseup→click 시퀀스로 판정한다(레이스 재현 경로).
 import { chromium } from "playwright";
+
+// ⛔ 라이브 계정 비밀번호를 코드에 두지 않는다(보안 스캔 F1/F3/F12).
+//    실행: APP_TEST_USER=... APP_TEST_PASS=... node <이 파일>
+const TEST_USER = process.env.APP_TEST_USER || "admintest";
+const TEST_PW = process.env.APP_TEST_PASS;
+if (!TEST_PW) {
+  console.error("❌ APP_TEST_PASS 미설정 — 검증 계정 비밀번호는 환경변수로만 받습니다.");
+  process.exit(2);
+}
 const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
 const b = await chromium.launch();
 let pass = 0, fail = 0;
 const check = (n, ok, d = "") => { console.log((ok ? "✅" : "❌") + " " + n + (d ? " — " + d : "")); ok ? pass++ : fail++; };
 
 const ctx = await b.newContext({ viewport: { width: 1500, height: 900 } });
-await ctx.request.post(BASE + "/api/app/auth/login", { data: { username: "admintest", password: "admtest123" } });
+await ctx.request.post(BASE + "/api/app/auth/login", { data: { username: TEST_USER, password: TEST_PW } });
 const p = await ctx.newPage();
 
 async function openDocAndSelect() {

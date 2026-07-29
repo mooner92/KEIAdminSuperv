@@ -2,6 +2,15 @@
 // ⚠ dev(3101) 전용 — prod(3100)는 검증으로도 건드리지 않는다. 관리자는 dev 테스트 계정 admintest.
 import { chromium } from "playwright";
 
+// ⛔ 라이브 계정 비밀번호를 코드에 두지 않는다(보안 스캔 F1/F3/F12).
+//    실행: APP_TEST_USER=... APP_TEST_PASS=... node <이 파일>
+const TEST_USER = process.env.APP_TEST_USER || "admintest";
+const TEST_PW = process.env.APP_TEST_PASS;
+if (!TEST_PW) {
+  console.error("❌ APP_TEST_PASS 미설정 — 검증 계정 비밀번호는 환경변수로만 받습니다.");
+  process.exit(2);
+}
+
 const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
 const fails = [];
 const ok = (c, m) => {
@@ -11,7 +20,7 @@ const ok = (c, m) => {
 
 const b = await chromium.launch();
 const ctx = await b.newContext();
-const r = await ctx.request.post(`${BASE}/api/app/auth/login`, { data: { username: "admintest", password: "admtest123" } });
+const r = await ctx.request.post(`${BASE}/api/app/auth/login`, { data: { username: TEST_USER, password: TEST_PW } });
 ok(r.ok(), `0) 관리자 로그인 (${r.status()})`);
 
 const p = await ctx.newPage();

@@ -2,6 +2,15 @@
 // 비로그인: 랜딩 셸(/,/about)만 · 콘텐츠(문서/JSON/RAG)는 전부 차단 → 랜딩으로.
 // 로그인: 전부 통과. 랜딩 소개 카드는 서비스로 이동하지 않아야 한다(외부 공개 대비).
 import { chromium } from "playwright";
+
+// ⛔ 라이브 계정 비밀번호를 코드에 두지 않는다(보안 스캔 F1/F3/F12).
+//    실행: APP_TEST_USER=... APP_TEST_PASS=... node <이 파일>
+const TEST_USER = process.env.APP_TEST_USER || "admintest";
+const TEST_PW = process.env.APP_TEST_PASS;
+if (!TEST_PW) {
+  console.error("❌ APP_TEST_PASS 미설정 — 검증 계정 비밀번호는 환경변수로만 받습니다.");
+  process.exit(2);
+}
 const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
 const b = await chromium.launch();
 let pass = 0, fail = 0;
@@ -47,7 +56,7 @@ check("③ 소개 카드 텍스트는 유지(프레젠테이션)", (await ap.inn
 
 // ── ④ 로그인 후: 전부 통과 ──
 const authed = await b.newContext();
-await authed.request.post(BASE + "/api/app/auth/login", { data: { username: "admintest", password: "admtest123" } });
+await authed.request.post(BASE + "/api/app/auth/login", { data: { username: TEST_USER, password: TEST_PW } });
 const acode = async (p) => (await authed.request.fetch(BASE + p, { maxRedirects: 0 })).status();
 for (const p of ["/browse/", "/journey/", "/calendar/", "/search-index.json"]) {
   check(`④ 로그인: ${p} 200`, (await acode(p)) === 200);

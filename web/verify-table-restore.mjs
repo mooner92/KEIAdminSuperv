@@ -2,9 +2,18 @@
 // ⛔ 실제 [반영]은 클릭하지 않는다 — 반영은 사람의 승인 행위(E2E는 확인 대화상자 전까지).
 import { chromium } from "playwright";
 
+// ⛔ 라이브 계정 비밀번호를 코드에 두지 않는다(보안 스캔 F1/F3/F12).
+//    실행: APP_TEST_USER=... APP_TEST_PASS=... node <이 파일>
+const TEST_USER = process.env.APP_TEST_USER || "admintest";
+const TEST_PW = process.env.APP_TEST_PASS;
+if (!TEST_PW) {
+  console.error("❌ APP_TEST_PASS 미설정 — 검증 계정 비밀번호는 환경변수로만 받습니다.");
+  process.exit(2);
+}
+
 const BASE = process.env.BASE || "http://127.0.0.1:3101";
-const USER = process.env.APP_TEST_USER || "admintest";
-const PW = process.env.APP_TEST_PASS || "admtest123";
+const USER = TEST_USER;
+const PW = TEST_PW;
 const fails = [];
 const ok = (c, m) => { console.log((c ? "✅ " : "❌ ") + m); if (!c) fails.push(m); };
 

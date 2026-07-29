@@ -1,11 +1,20 @@
 // FAQ 브리지(docs/58 §6) E2E: 탭 노출 → 후보 열람 → 편입(볼트 파일 생성+재색인 필요 표시) → 상태 갱신.
 import { chromium } from "playwright";
 import fs from "node:fs";
+
+// ⛔ 라이브 계정 비밀번호를 코드에 두지 않는다(보안 스캔 F1/F3/F12).
+//    실행: APP_TEST_USER=... APP_TEST_PASS=... node <이 파일>
+const TEST_USER = process.env.APP_TEST_USER || "admintest";
+const TEST_PW = process.env.APP_TEST_PASS;
+if (!TEST_PW) {
+  console.error("❌ APP_TEST_PASS 미설정 — 검증 계정 비밀번호는 환경변수로만 받습니다.");
+  process.exit(2);
+}
 const BASE="http://localhost:3101";
 const fails=[]; const ok=(c,m)=>{ console.log((c?"✅ ":"❌ ")+m); if(!c) fails.push(m); };
 const b=await chromium.launch();
 const ctx=await b.newContext({viewport:{width:1400,height:900}});
-let r=await ctx.request.post(`${BASE}/api/app/auth/login`,{data:{username:"admintest",password:"admtest123"}});
+let r=await ctx.request.post(`${BASE}/api/app/auth/login`,{data:{username:TEST_USER,password:TEST_PW}});
 ok(r.ok(),`0) 관리자 로그인 (${r.status()})`);
 const p=await ctx.newPage();
 await p.goto(`${BASE}/admin#faq`,{waitUntil:"load"}); await p.waitForTimeout(1500);

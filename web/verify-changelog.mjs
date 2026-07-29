@@ -1,5 +1,14 @@
 // docs/32 §5 수용 기준 실렌더 검증 — 새로워진 점(배너·페이지·닫기 지속·재노출·flag off).
 import { chromium } from "playwright";
+
+// ⛔ 라이브 계정 비밀번호를 코드에 두지 않는다(보안 스캔 F1/F3/F12).
+//    실행: APP_TEST_USER=... APP_TEST_PASS=... node <이 파일>
+const TEST_USER = process.env.APP_TEST_USER || "admintest";
+const TEST_PW = process.env.APP_TEST_PASS;
+if (!TEST_PW) {
+  console.error("❌ APP_TEST_PASS 미설정 — 검증 계정 비밀번호는 환경변수로만 받습니다.");
+  process.exit(2);
+}
 const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
 const b = await chromium.launch();
 let pass = 0, fail = 0;
@@ -7,7 +16,7 @@ const check = (n, ok, d = "") => { console.log((ok ? "✅" : "❌") + " " + n + 
 
 const ctx = await b.newContext({ viewport: { width: 1280, height: 900 } });
 // docs/44 게이트: changelog.json도 로그인 필요 — 로그인 먼저
-await ctx.request.post(BASE + "/api/app/auth/login", { data: { username: "admintest", password: "admtest123" } });
+await ctx.request.post(BASE + "/api/app/auth/login", { data: { username: TEST_USER, password: TEST_PW } });
 // 기대값은 빌드 산출물(changelog.json)에서 유도 — 노트가 늘어도 스크립트가 낡지 않게(드리프트 방지)
 const clog = await (await ctx.request.get(BASE + "/changelog.json")).json();
 const latest = clog.latest; // { id, 요약 }
@@ -67,7 +76,7 @@ check("추가 기능 허브에 새로워진 점 바로가기", (await p.locator(
 
 // ⓓ flag off — 새 컨텍스트 + flags 응답 고정(localStorage 캐시 회피 — help_hub 검증 교훈 재사용)
 const ctxOff = await b.newContext();
-await ctxOff.request.post(BASE + "/api/app/auth/login", { data: { username: "admintest", password: "admtest123" } }); // docs/44 게이트
+await ctxOff.request.post(BASE + "/api/app/auth/login", { data: { username: TEST_USER, password: TEST_PW } }); // docs/44 게이트
 await ctxOff.route("**/api/app/flags**", async (route) => {
   const r = await route.fetch();
   const j = await r.json();

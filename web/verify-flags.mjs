@@ -2,6 +2,15 @@
 // 2026-07-14 재작성: demo_banner 제거(docs/32)로 스테일 → changelog 플래그·dev(3101) 기준.
 // 실행 전 상태를 기억해 끝나면 원상복구한다(dev DB 부수효과 없음).
 import { chromium } from "playwright";
+
+// ⛔ 라이브 계정 비밀번호를 코드에 두지 않는다(보안 스캔 F1/F3/F12).
+//    실행: APP_TEST_USER=... APP_TEST_PASS=... node <이 파일>
+const TEST_USER = process.env.APP_TEST_USER || "admintest";
+const TEST_PW = process.env.APP_TEST_PASS;
+if (!TEST_PW) {
+  console.error("❌ APP_TEST_PASS 미설정 — 검증 계정 비밀번호는 환경변수로만 받습니다.");
+  process.exit(2);
+}
 const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
 const FLAG = "changelog";
 const b = await chromium.launch();
@@ -10,7 +19,7 @@ const ok = (c, m) => { console.log((c ? "✅" : "❌") + " " + m); if (!c) fails
 
 // 0) API로 초기 상태 확인(끝나고 복구용)
 const ctx = await b.newContext();
-await ctx.request.post(`${BASE}/api/app/auth/login`, { data: { username: "admintest", password: "admtest123" } });
+await ctx.request.post(`${BASE}/api/app/auth/login`, { data: { username: TEST_USER, password: TEST_PW } });
 const before = await (await ctx.request.get(`${BASE}/api/app/flags`)).json();
 const initial = !!(before.flags ? before.flags[FLAG] : before[FLAG]);
 console.log(`초기 ${FLAG}=${initial}`);
