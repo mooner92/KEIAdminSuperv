@@ -1,10 +1,19 @@
 // 관리자 사용자 탭 — 실사용자/테스트 분리 회귀(2026-07-28 사용자 지시).
 // 관리자 계정 없이 돌도록 /auth/me·/flags·/users를 스텁하고 분류 규칙만 검증한다.
 import { chromium } from "playwright";
+
+// ⛔ 테스트 계정 비밀번호를 코드에 두지 않는다(보안 스캔 후속 — dev 계정 14개가
+//    레포에 박힌 비밀번호로 열리던 것을 2026-07-29에 회전).
+//    실행: set -a; . tools/.test_credentials; set +a; node <이 파일>
+const TEST_PW = process.env.APP_TEST_PASS;
+if (!TEST_PW) {
+  console.error("❌ APP_TEST_PASS 미설정 — tools/.test_credentials 를 로드하세요.");
+  process.exit(2);
+}
 const OUT = "/tmp/claude-21963/-KEIAdminSuperv/186b414b-da9d-4008-bd73-cef71d5504f3/scratchpad";
 const b = await chromium.launch();
 const ctx = await b.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
-await ctx.request.post("http://localhost:3101/api/app/auth/login", { data: { username: "b6test", password: "test1234" } });
+await ctx.request.post("http://localhost:3101/api/app/auth/login", { data: { username: "b6test", password: TEST_PW } });
 await ctx.route("**/app/auth/me", (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify({ id: 1, username: "b6test", is_admin: true }) }));
 await ctx.route("**/app/flags**", (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify({ user_directory: true }) }));
 const users = [

@@ -1,10 +1,19 @@
 // HTML 표 렌더(docs/61 K1ⓑ) 검증: kordoc 병합 셀 표가 실표로, raw 텍스트 노출 없음, XSS 무해화.
 import { chromium } from "playwright";
+
+// ⛔ 테스트 계정 비밀번호를 코드에 두지 않는다(보안 스캔 후속 — dev 계정 14개가
+//    레포에 박힌 비밀번호로 열리던 것을 2026-07-29에 회전).
+//    실행: set -a; . tools/.test_credentials; set +a; node <이 파일>
+const TEST_PW = process.env.APP_TEST_PASS;
+if (!TEST_PW) {
+  console.error("❌ APP_TEST_PASS 미설정 — tools/.test_credentials 를 로드하세요.");
+  process.exit(2);
+}
 const BASE="http://localhost:3101";
 const fails=[]; const ok=(c,m)=>{ console.log((c?"✅ ":"❌ ")+m); if(!c) fails.push(m); };
 const b=await chromium.launch();
 const ctx=await b.newContext({viewport:{width:1440,height:900}});
-await ctx.request.post(`${BASE}/api/app/auth/login`,{data:{username:"fb_test",password:"test1234"}});
+await ctx.request.post(`${BASE}/api/app/auth/login`,{data:{username:"fb_test",password:TEST_PW}});
 const p=await ctx.newPage();
 // 1) 연구윤리 규정 별표 — 실표 렌더
 await p.goto(`${BASE}/d/${encodeURIComponent("경제·인문사회연구회 연구윤리 규정")}/`,{waitUntil:"domcontentloaded"});

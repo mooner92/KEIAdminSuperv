@@ -2,10 +2,19 @@
 // 목록이 실제로 스크롤되는지. 실측 결함: 문서 탭은 자체 셸이라 목록 스크롤 컨테이너가 없었다
 // (필터만 스크롤 · 아래 항목 도달 불가). 클래스명으로 '같은 컴포넌트'까지 검사한다.
 import { chromium } from "playwright";
+
+// ⛔ 테스트 계정 비밀번호를 코드에 두지 않는다(보안 스캔 후속 — dev 계정 14개가
+//    레포에 박힌 비밀번호로 열리던 것을 2026-07-29에 회전).
+//    실행: set -a; . tools/.test_credentials; set +a; node <이 파일>
+const TEST_PW = process.env.APP_TEST_PASS;
+if (!TEST_PW) {
+  console.error("❌ APP_TEST_PASS 미설정 — tools/.test_credentials 를 로드하세요.");
+  process.exit(2);
+}
 const BASE = process.env.BASE || "http://localhost:3101";
 const b = await chromium.launch();
 const ctx = await b.newContext({ viewport: { width: 1280, height: 900 } });
-await ctx.request.post(`${BASE}/api/app/auth/login`, { data: { username: "b6test", password: "test1234" } });
+await ctx.request.post(`${BASE}/api/app/auth/login`, { data: { username: "b6test", password: TEST_PW } });
 const p = await ctx.newPage();
 let fail = 0;
 

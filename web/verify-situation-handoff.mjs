@@ -1,12 +1,21 @@
 // docs/38 §A: 상황 시작 칩 + 부서 문의 핸드오프 카드 검증 (dev 3101, 플래그 route 강제 on).
 import { chromium } from "playwright";
+
+// ⛔ 테스트 계정 비밀번호를 코드에 두지 않는다(보안 스캔 후속 — dev 계정 14개가
+//    레포에 박힌 비밀번호로 열리던 것을 2026-07-29에 회전).
+//    실행: set -a; . tools/.test_credentials; set +a; node <이 파일>
+const TEST_PW = process.env.APP_TEST_PASS;
+if (!TEST_PW) {
+  console.error("❌ APP_TEST_PASS 미설정 — tools/.test_credentials 를 로드하세요.");
+  process.exit(2);
+}
 const BASE = "http://localhost:3101";
 const S = "/tmp/claude-21963/-KEIAdminSuperv/186b414b-da9d-4008-bd73-cef71d5504f3/scratchpad";
 const fails = [];
 const ok = (c, m) => { console.log((c ? "✅ " : "❌ ") + m); if (!c) fails.push(m); };
 const b = await chromium.launch();
 const ctx = await b.newContext({ viewport: { width: 1360, height: 950 }, permissions: ["clipboard-read", "clipboard-write"] });
-const r = await ctx.request.post(`${BASE}/api/app/auth/login`, { data: { username: "b6test", password: "test1234" } });
+const r = await ctx.request.post(`${BASE}/api/app/auth/login`, { data: { username: "b6test", password: TEST_PW } });
 ok(r.ok(), `0) 로그인 (${r.status()})`);
 // 새 플래그 2개 강제 on(+trending은 off로 두고 상황칩과의 단독 배치 확인)
 await ctx.route("**/app/flags", async (route) => {
@@ -72,7 +81,7 @@ if (await btn.count()) {
 
 // ⑦ 다크 + 모바일 뷰
 const m = await b.newContext({ viewport: { width: 390, height: 844 }, colorScheme: "dark", isMobile: true, hasTouch: true });
-await m.request.post(`${BASE}/api/app/auth/login`, { data: { username: "b6test", password: "test1234" } });
+await m.request.post(`${BASE}/api/app/auth/login`, { data: { username: "b6test", password: TEST_PW } });
 // 빈 새 채팅을 API로 미리 생성 → 페이지 로드시 최신(빈) 채팅 자동 선택 = 빈 화면(칩 노출)
 await m.request.post(`${BASE}/api/app/chats`, { data: {} });
 await m.route("**/app/flags", async (route) => {

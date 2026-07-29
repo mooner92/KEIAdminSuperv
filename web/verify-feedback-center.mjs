@@ -23,7 +23,7 @@ const setFlag = (enabled) =>
 await setFlag(true);
 
 const usr = await b.newContext({ viewport: { width: 1280, height: 950 } });
-await usr.request.post(BASE + "/api/app/auth/login", { data: { username: "fb_test", password: "test1234" } });
+await usr.request.post(BASE + "/api/app/auth/login", { data: { username: "fb_test", password: TEST_PW } });
 
 // ① 폼 렌더 + 제출 + 내 제보 반영
 const p = await usr.newPage();

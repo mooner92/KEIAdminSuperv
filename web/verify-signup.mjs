@@ -46,7 +46,7 @@ await p.waitForTimeout(300);
 check("① 가입 폼: 이메일 라벨", await p.getByText("KEI 이메일 (아이디)").isVisible());
 check("① 도메인 안내 문구", await p.getByText("KEI 임직원 이메일(@kei.re.kr)로만").isVisible());
 await p.fill('input[autocomplete="username"]', "hacker@gmail.com");
-await p.fill('input[type="password"]', "pw123456");
+await p.fill('input[type="password"]', TEST_PW);
 await p.getByRole("button", { name: "인증 코드 받기" }).click();
 await p.waitForTimeout(800);
 check("① 외부 도메인 거부 오류", (await p.innerText("body")).includes("KEI 이메일"));

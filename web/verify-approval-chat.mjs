@@ -2,9 +2,18 @@
 // 결재 관련 질문 → 근거 패널에 "결재선을 알아볼까요?" 카드(업무 키워드 감지) → 클릭 시
 // 오른쪽 드로어로 판정기 오픈 + 키워드(휴가) 프리셋 → 결과 표시.
 import { chromium } from "playwright";
+
+// ⛔ 테스트 계정 비밀번호를 코드에 두지 않는다(보안 스캔 후속 — dev 계정 14개가
+//    레포에 박힌 비밀번호로 열리던 것을 2026-07-29에 회전).
+//    실행: set -a; . tools/.test_credentials; set +a; node <이 파일>
+const TEST_PW = process.env.APP_TEST_PASS;
+if (!TEST_PW) {
+  console.error("❌ APP_TEST_PASS 미설정 — tools/.test_credentials 를 로드하세요.");
+  process.exit(2);
+}
 const BASE = "http://localhost:3101";
 const USER = "approvalchat";
-const PW = "test1234";
+const PW = TEST_PW;
 const fails = [];
 const ok = (c, m) => { console.log((c ? "✅ " : "❌ ") + m); if (!c) fails.push(m); };
 

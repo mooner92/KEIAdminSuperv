@@ -1,12 +1,21 @@
 // 핸드오프 카드 컴팩트화 검증 — 한 줄 텍스트 + 알약 버튼, 복사 동작 유지 (dev 3101).
 import { chromium } from "playwright";
+
+// ⛔ 테스트 계정 비밀번호를 코드에 두지 않는다(보안 스캔 후속 — dev 계정 14개가
+//    레포에 박힌 비밀번호로 열리던 것을 2026-07-29에 회전).
+//    실행: set -a; . tools/.test_credentials; set +a; node <이 파일>
+const TEST_PW = process.env.APP_TEST_PASS;
+if (!TEST_PW) {
+  console.error("❌ APP_TEST_PASS 미설정 — tools/.test_credentials 를 로드하세요.");
+  process.exit(2);
+}
 const BASE = "http://localhost:3101";
 const S = "/tmp/claude-21963/-KEIAdminSuperv/186b414b-da9d-4008-bd73-cef71d5504f3/scratchpad";
 const fails = [];
 const ok = (c, m) => { console.log((c ? "✅ " : "❌ ") + m); if (!c) fails.push(m); };
 const b = await chromium.launch();
 const ctx = await b.newContext({ viewport: { width: 1360, height: 950 }, permissions: ["clipboard-read", "clipboard-write"] });
-await ctx.request.post(`${BASE}/api/app/auth/login`, { data: { username: "b6test", password: "test1234" } });
+await ctx.request.post(`${BASE}/api/app/auth/login`, { data: { username: "b6test", password: TEST_PW } });
 await ctx.route("**/app/flags", async (route) => {
   const res = await route.fetch(); const f = await res.json();
   route.fulfill({ contentType: "application/json", body: JSON.stringify({ ...f, handoff_card: true }) });
