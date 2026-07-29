@@ -23,7 +23,7 @@ import bcrypt
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import event
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 
@@ -568,9 +568,16 @@ def _secure_db_perms():
     #   실측: /KEIAdminSuperv/tools 가 drwx---rwx 였다.
     #   여기서는 고치지 않고 **알린다** — 서비스 계정이 배포 트리 권한을 임의로 바꾸면
     #   운영자의 의도(그룹 공유 등)를 덮어쓸 수 있다. 판단은 사람이 한다.
+    import stat as _stat
     for d in {os.path.dirname(os.path.abspath(DB_PATH)), os.path.dirname(SECRET_PATH)}:
         try:
-            if d and os.path.isdir(d) and (os.stat(d).st_mode & 0o002):
+            if not (d and os.path.isdir(d)):
+                continue
+            mode = os.stat(d).st_mode
+            # ⚠ sticky bit(/tmp 의 drwxrwxrwt)면 위험하지 않다 — 소유자만 자기 파일을
+            #   지우거나 이름을 바꿀 수 있어 교체 공격이 성립하지 않는다.
+            #   이걸 안 걸러내면 테스트마다 경고가 떠서 아무도 안 보게 된다(늑대소년).
+            if (mode & 0o002) and not (mode & _stat.S_ISVTX):
                 print(f"⛔ {d} 가 타인 쓰기 가능(other-writable)입니다 — "
                       f".app_secret·app.db의 0600이 무력화됩니다. `chmod o-w {d}` 를 실행하세요.")
         except OSError:
@@ -811,13 +818,24 @@ def current_admin(user: User = Depends(current_user)) -> User:
 
 
 # ───────────────────────── 스키마 ─────────────────────────
+# ⛔ 입력 길이 상한 — 2차 스캔 F2·F6·F8이 전부 여기서 비롯됐다(docs/65 §5).
+#   상한이 없으니 같은 원인이 세 가지 증상으로 터졌다:
+#     F2 로그인 아이디가 레이트리밋 dict의 키가 되는데 영원히 안 지워짐 → 메모리 고갈(무인증)
+#     F6 질문이 수치 게이트 정규식에 그대로 들어가 O(n²) 백트래킹 → GIL 점유로 프로세스 정지
+#     F8 메시지가 매 턴 히스토리로 재적재·재전송되고 리랭커가 20회 토크나이즈 → CPU/메모리
+#   세 곳을 각각 방어하는 것보다 **경계에서 한 번** 막는 게 낫다.
+MAX_USERNAME = 254   # RFC 5321 이메일 상한
+MAX_PASSWORD = 1024  # bcrypt는 72바이트만 쓰지만 여유를 둔다(정상 사용자는 여기 안 닿는다)
+MAX_CONTENT = 4000   # 사람이 실제로 입력하는 질문 길이. 초과 시 422로 거부된다
+
+
 class AuthIn(BaseModel):
-    username: str
-    password: str
+    username: str = Field(max_length=MAX_USERNAME)
+    password: str = Field(max_length=MAX_PASSWORD)
 
 
 class MsgIn(BaseModel):
-    content: str
+    content: str = Field(max_length=MAX_CONTENT)
 
 
 class RenameIn(BaseModel):
