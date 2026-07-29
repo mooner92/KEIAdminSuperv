@@ -47,7 +47,12 @@ cp -r web/out .legacy-v1/out            # 동결 프론트(정적 빌드)
 cp web/server.js .legacy-v1/            # 정적 서버
 cp tools/rag_core.py tools/app_api.py tools/04_rag_api.py .legacy-v1/   # 동결 백엔드
 cp -r tools/chroma .legacy-v1/chroma    # 동결 벡터DB
-cp tools/app.db tools/.app_secret .legacy-v1/   # 동결 채팅DB·세션키
+# ⛔ 자격증명 저장소 사본 — 반드시 권한을 함께 잡는다(2차 스캔 F4, docs/65 §5).
+#    plain cp는 원본의 당시 모드(0644)를 그대로 가져와, 같은 호스트의 다른 계정이
+#    bcrypt 해시와 전 사용자 채팅을 통째로 읽을 수 있었다(2026-06-20부터 방치).
+#    app_api의 _secure_db_perms는 DB_PATH 기준이라 이 사본은 대상 밖이다.
+(umask 077 && cp tools/app.db tools/.app_secret .legacy-v1/)   # 동결 채팅DB·세션키
+chmod 600 .legacy-v1/app.db .legacy-v1/.app_secret             # 사본 권한 확정(멱등)
 pm2 start deploy/ecosystem.legacy-v1.config.js && pm2 save
 ```
 

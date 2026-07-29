@@ -554,11 +554,16 @@ def _secure_db_perms():
     같은 디렉터리의 .app_secret은 이미 0600인데 정작 더 민감한 DB가 느슨했다.
     -wal/-shm 도 같은 내용을 담으므로 함께 조인다. 멱등 — 매 기동 시 교정.
     """
-    for suffix in ("", "-wal", "-shm"):
-        p = DB_PATH + suffix
+    # ⛔ 사본까지 잡는다 — 원본만 잠그고 사본이 새는 패턴이 이 프로젝트에서 네 번 났다
+    #   (question_bank.bak · app.db.pre-prod-* · 백업 크론의 0644 · .legacy-v1/app.db).
+    #   glob으로 app.db* 를 전부 훑어 승격 백업·동결 사본도 함께 조인다(2차 스캔 F4, docs/65 §5).
+    import glob as _glob
+    targets = {DB_PATH + s for s in ("", "-wal", "-shm")} | set(_glob.glob(DB_PATH + "*"))
+    for p in sorted(targets):
         try:
-            if os.path.exists(p) and (os.stat(p).st_mode & 0o077):
+            if os.path.isfile(p) and (os.stat(p).st_mode & 0o077):
                 os.chmod(p, 0o600)
+                print(f"🔒 {os.path.basename(p)} 권한을 0600으로 교정했습니다.")
         except OSError as e:
             print(f"⚠ {p} 권한을 0600으로 조정하지 못했습니다: {e}")
 
