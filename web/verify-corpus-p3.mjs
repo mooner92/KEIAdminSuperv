@@ -1,12 +1,21 @@
 // v1.1 P3 업로드 UI 검증 — 파일 업로드→미리보기→승인 편입→거절 (dev 3101, admintest).
 import { chromium } from "playwright";
 import fs from "node:fs";
+
+// ⛔ 라이브 계정 비밀번호를 코드에 두지 않는다(보안 스캔 F1/F3/F12).
+//    실행: APP_TEST_USER=... APP_TEST_PASS=... node <이 파일>
+const TEST_USER = process.env.APP_TEST_USER || "admintest";
+const TEST_PW = process.env.APP_TEST_PASS;
+if (!TEST_PW) {
+  console.error("❌ APP_TEST_PASS 미설정 — 검증 계정 비밀번호는 환경변수로만 받습니다.");
+  process.exit(2);
+}
 const BASE = "http://localhost:3101";
 const fails = [];
 const ok = (c, m) => { console.log((c ? "✅ " : "❌ ") + m); if (!c) fails.push(m); };
 const b = await chromium.launch();
 const ctx = await b.newContext();
-let r = await ctx.request.post(`${BASE}/api/app/auth/login`, { data: { username: "admintest", password: "admtest123" } });
+let r = await ctx.request.post(`${BASE}/api/app/auth/login`, { data: { username: TEST_USER, password: TEST_PW } });
 ok(r.ok(), `0) 관리자 로그인 (${r.status()})`);
 const p = await ctx.newPage({ viewport: { width: 1440, height: 1300 } });
 p.on("dialog", (d) => d.accept("P3 UI 업로드 검증문서")); // prompt 제목 입력

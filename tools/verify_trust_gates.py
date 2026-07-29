@@ -19,9 +19,15 @@ import re
 import sys
 import urllib.request
 
+# ⛔ 라이브 계정 비밀번호를 코드에 두지 않는다(보안 스캔 F1/F3/F12).
+TEST_USER = os.environ.get("APP_TEST_USER", "admintest")
+TEST_PW = os.environ.get("APP_TEST_PASS")
+if not TEST_PW:
+    raise SystemExit("❌ APP_TEST_PASS 미설정 — 검증 계정 비밀번호는 환경변수로만 받습니다.")
+
 BASE = os.environ.get("APP_TEST_BASE", "http://127.0.0.1:9001/app")
-USER = os.environ.get("APP_TEST_USER", "admintest")
-PASS = os.environ.get("APP_TEST_PASS", "admtest123")
+USER = os.environ.get("APP_TEST_USER", TEST_USER)
+PASS = TEST_PW
 cj = http.cookiejar.CookieJar()
 op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
 

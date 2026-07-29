@@ -231,6 +231,21 @@ const server = http.createServer((req, res) => {
     return send(res, 400, "Bad Request", { "Content-Type": "text/plain" });
   }
 
+  // 제어문자(NUL·CR·LF…) 거부. 디코드 후 경로에 남으면:
+  //   NUL → fs.stat이 던져 PM2 프로세스가 죽고(무인증 DoS),
+  //   CR/LF → 아래 Location 헤더에 실려 응답 분리가 된다.
+  if (/[\u0000-\u001f\u007f]/.test(pathname)) {
+    return send(res, 400, "Bad Request", { "Content-Type": "text/plain" });
+  }
+
+  // ⚠ 순서가 곧 보안이다: **정규화 → 인가 → 서빙**.
+  // 인가(isPublicPath)를 원본 경로로 하고 서빙만 정규화 경로에서 하면,
+  //   /_next/static/../../규정원문/급여규정.html
+  // 같은 요청이 공개 허용목록(/_next/static/)에 걸려 게이트를 통과한 뒤
+  // 정규화되어 비공개 문서를 익명에게 내준다. 그래서 여기서 먼저 정규화한다.
+  pathname = path.normalize(pathname).replace(/^(\.\.([/\\]|$))+/, "");
+  if (!pathname.startsWith("/")) pathname = "/" + pathname;
+
   // robots.txt — 파일 없이 서버가 직접(공개 경로). 외부 공개돼도 색인 금지(내부 서비스).
   if (pathname === "/robots.txt") {
     return send(res, 200, "User-agent: *\nDisallow: /\n", { "Content-Type": "text/plain; charset=utf-8" });
@@ -260,8 +275,8 @@ const server = http.createServer((req, res) => {
     return send(res, 302, null, { Location: "/" });
   }
 
-  // 경로 정규화 + 디렉터리 탈출(..) 차단
-  const safe = path.normalize(pathname).replace(/^(\.\.([/\\]|$))+/, "");
+  // 디렉터리 탈출(..) 차단 — 정규화는 위(인가 전)에서 이미 끝났다.
+  const safe = pathname;
   let target = path.join(ROOT, safe);
   if (target !== ROOT && !target.startsWith(ROOT + path.sep)) {
     return send(res, 403, "Forbidden", { "Content-Type": "text/plain" });
@@ -271,7 +286,9 @@ const server = http.createServer((req, res) => {
 
   // 확장자 없는 경로는 디렉터리(라우트)로 취급 → trailingSlash 정규화
   if (!hasExt && !pathname.endsWith("/")) {
-    return send(res, 308, null, { Location: pathname + "/" });
+    // 헤더 값은 반드시 재인코딩 — 디코드된 한글 슬러그(코드포인트 >0xff)를 그대로 실으면
+    // writeHead가 ERR_INVALID_CHAR로 던져 프로세스가 죽는다.
+    return send(res, 308, null, { Location: encodeURI(pathname) + "/" });
   }
 
   // 별지 원문 PDF(docs/50 §6) — 재색인 훅(01p)이 갱신하는 web/public/forms-pdf를 직접 서빙.

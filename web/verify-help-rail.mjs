@@ -1,5 +1,14 @@
 // docs/36 P4 — 도움말 페이지 ScrollRail 재사용 검증(데스크톱 레일·모바일 가로칩·점프·다크).
 import { chromium } from "playwright";
+
+// ⛔ 라이브 계정 비밀번호를 코드에 두지 않는다(보안 스캔 F1/F3/F12).
+//    실행: APP_TEST_USER=... APP_TEST_PASS=... node <이 파일>
+const TEST_USER = process.env.APP_TEST_USER || "admintest";
+const TEST_PW = process.env.APP_TEST_PASS;
+if (!TEST_PW) {
+  console.error("❌ APP_TEST_PASS 미설정 — 검증 계정 비밀번호는 환경변수로만 받습니다.");
+  process.exit(2);
+}
 const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
 const b = await chromium.launch();
 let pass = 0, fail = 0;
@@ -8,7 +17,7 @@ const RAIL = 'nav[aria-label="페이지 섹션 이동"]';
 
 // ① 데스크톱: 레일 노출 + 가로 칩 숨김
 const ctx = await b.newContext({ viewport: { width: 1400, height: 950 } });
-await ctx.request.post(BASE + "/api/app/auth/login", { data: { username: "admintest", password: "admtest123" } });
+await ctx.request.post(BASE + "/api/app/auth/login", { data: { username: TEST_USER, password: TEST_PW } });
 const p = await ctx.newPage();
 await p.goto(BASE + "/help/", { waitUntil: "load" });
 await p.waitForTimeout(1500);

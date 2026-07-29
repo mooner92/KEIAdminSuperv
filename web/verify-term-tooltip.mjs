@@ -1,13 +1,22 @@
 // docs/45 — 용어 인라인 툴팁 실렌더 검증.
 // 밑줄→팝오버→용어집 링크 / 자기 노트 제외 / flag off 평문 / 드로어 / 다크 대비.
 import { chromium } from "playwright";
+
+// ⛔ 라이브 계정 비밀번호를 코드에 두지 않는다(보안 스캔 F1/F3/F12).
+//    실행: APP_TEST_USER=... APP_TEST_PASS=... node <이 파일>
+const TEST_USER = process.env.APP_TEST_USER || "admintest";
+const TEST_PW = process.env.APP_TEST_PASS;
+if (!TEST_PW) {
+  console.error("❌ APP_TEST_PASS 미설정 — 검증 계정 비밀번호는 환경변수로만 받습니다.");
+  process.exit(2);
+}
 const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
 const b = await chromium.launch();
 let pass = 0, fail = 0;
 const check = (n, ok, d = "") => { console.log((ok ? "✅" : "❌") + " " + n + (d ? " — " + d : "")); ok ? pass++ : fail++; };
 
 const ctx = await b.newContext({ viewport: { width: 1280, height: 900 } });
-await ctx.request.post(BASE + "/api/app/auth/login", { data: { username: "admintest", password: "admtest123" } }); // docs/44 게이트
+await ctx.request.post(BASE + "/api/app/auth/login", { data: { username: TEST_USER, password: TEST_PW } }); // docs/44 게이트
 
 // 0) 데이터: terms-tooltip.json + 매칭 가능한 실문서 동적 탐색(스크립트 낡음 방지)
 const terms = await (await ctx.request.get(BASE + "/terms-tooltip.json")).json();
@@ -60,7 +69,7 @@ check("4) 자기 노트에서 자기 용어 밑줄 없음", selfHits === 0, `${s
 
 // 5) flag off → 평문(밑줄 0) — flags 응답 고정으로 재현
 const ctxOff = await b.newContext();
-await ctxOff.request.post(BASE + "/api/app/auth/login", { data: { username: "admintest", password: "admtest123" } });
+await ctxOff.request.post(BASE + "/api/app/auth/login", { data: { username: TEST_USER, password: TEST_PW } });
 await ctxOff.route("**/api/app/flags**", async (route) => {
   const r = await route.fetch();
   const j = await r.json();

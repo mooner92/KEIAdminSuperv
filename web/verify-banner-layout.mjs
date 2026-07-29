@@ -2,13 +2,22 @@
 // 판정: 채팅(100vh 공식)·fill 페이지에서 배너가 '페이지 스크롤을 추가로 만들지 않는다'.
 // 좁은 화면(≤1080px)은 원래 적층 스크롤 설계라 '배너 유무 델타=0'으로 판정한다.
 import { chromium } from "playwright";
+
+// ⛔ 라이브 계정 비밀번호를 코드에 두지 않는다(보안 스캔 F1/F3/F12).
+//    실행: APP_TEST_USER=... APP_TEST_PASS=... node <이 파일>
+const TEST_USER = process.env.APP_TEST_USER || "admintest";
+const TEST_PW = process.env.APP_TEST_PASS;
+if (!TEST_PW) {
+  console.error("❌ APP_TEST_PASS 미설정 — 검증 계정 비밀번호는 환경변수로만 받습니다.");
+  process.exit(2);
+}
 const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
 const b = await chromium.launch();
 let pass = 0, fail = 0;
 const check = (n, ok, d = "") => { console.log((ok ? "✅" : "❌") + " " + n + (d ? " — " + d : "")); ok ? pass++ : fail++; };
 
 const ctx = await b.newContext({ viewport: { width: 1500, height: 860 } });
-await ctx.request.post(BASE + "/api/app/auth/login", { data: { username: "admintest", password: "admtest123" } });
+await ctx.request.post(BASE + "/api/app/auth/login", { data: { username: TEST_USER, password: TEST_PW } });
 const p = await ctx.newPage();
 const measure = () => p.evaluate(() => ({
   banner: !!document.querySelector('button[aria-label="업데이트 알림 닫기"]'),
@@ -32,7 +41,7 @@ check("② 닫은 후 무스크롤 유지(--banner-h=0)", !m.banner && m.over <=
 
 // ③ 좁은 화면: 적층 스크롤은 설계 — 배너가 '추가' 스크롤을 만들지 않는지(델타=배너높이 이하)
 const nb = await b.newContext({ viewport: { width: 900, height: 800 } });
-await nb.request.post(BASE + "/api/app/auth/login", { data: { username: "admintest", password: "admtest123" } });
+await nb.request.post(BASE + "/api/app/auth/login", { data: { username: TEST_USER, password: TEST_PW } });
 const q = await nb.newPage();
 await q.addInitScript(() => localStorage.setItem("kei-clog-dismissed", "__none__"));
 await q.goto(BASE + "/", { waitUntil: "load" });

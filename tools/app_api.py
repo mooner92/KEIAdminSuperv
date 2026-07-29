@@ -547,8 +547,25 @@ def flag_expiry_status(expires: str, today: str) -> str:
     return "soon" if (date(y2, m2, d2) - date(y1, m1, d1)).days <= 14 else "ok"
 
 
+def _secure_db_perms():
+    """app.db를 소유자 전용(0600)으로 — bcrypt 비밀번호 해시와 전 사용자 채팅이 들어 있다.
+
+    sqlite는 기본 umask대로 파일을 만들어 0644(누구나 읽기)가 됐다(보안 스캔 F14).
+    같은 디렉터리의 .app_secret은 이미 0600인데 정작 더 민감한 DB가 느슨했다.
+    -wal/-shm 도 같은 내용을 담으므로 함께 조인다. 멱등 — 매 기동 시 교정.
+    """
+    for suffix in ("", "-wal", "-shm"):
+        p = DB_PATH + suffix
+        try:
+            if os.path.exists(p) and (os.stat(p).st_mode & 0o077):
+                os.chmod(p, 0o600)
+        except OSError as e:
+            print(f"⚠ {p} 권한을 0600으로 조정하지 못했습니다: {e}")
+
+
 def init_db():
     SQLModel.metadata.create_all(engine)
+    _secure_db_perms()
     _migrate_user_verified()
     ensure_flags()
     if not {x.strip() for x in os.environ.get("APP_ADMINS", "").split(",") if x.strip()}:
@@ -608,6 +625,15 @@ def _client_ip(request: Request) -> str:
     return xff or (request.client.host if request.client else "?")
 
 
+def _is_loopback(ip: str) -> bool:
+    """루프백 주소인지 — dev 전용 코드 반환을 같은 호스트로 한정하는 데 쓴다(보안 스캔 F22)."""
+    import ipaddress
+    try:
+        return ipaddress.ip_address(ip.strip()).is_loopback
+    except ValueError:
+        return False
+
+
 def _rl_check(key: str, max_n: int = _RL_MAX, window: float = _RL_WINDOW) -> bool:
     now = time.time()
     fails = [t for t in _LOGIN_FAILS.get(key, []) if now - t < window]
@@ -661,7 +687,7 @@ def _send_verify_email(email: str, code: str) -> None:
         smtp.sendmail(sender, [email], msg.as_string())
 
 
-def _issue_code(s: Session, email: str) -> dict:
+def _issue_code(s: Session, email: str, request: Request | None = None) -> dict:
     """코드 생성·발송(이메일당 최신 1건, 쿨다운 60초). 반환: 응답 dict(발송 결과 포함)."""
     email = email.strip().lower()
     now = time.time()
@@ -675,9 +701,16 @@ def _issue_code(s: Session, email: str) -> dict:
                      expires_at=now + CODE_TTL, last_sent_at=now))
     s.commit()
     out = {"pending": True, "email": email}
-    echo = os.environ.get("APP_DEV_ECHO_CODE", "") == "1"  # ⛔ dev/E2E 전용 — 운영에 설정 금지
-    if echo:
+    # ⛔ dev/E2E 전용 — 인증 코드를 HTTP 응답에 그대로 돌려준다.
+    # dev(3101)는 LAN에 열려 있어서, 이 플래그만 믿으면 같은 망의 누구나 남의 이메일로
+    # 가입 요청 → 응답에서 코드 확인 → 계정 탈취가 가능했다(보안 스캔 F22).
+    # 그래서 **루프백에서 온 요청에만** 코드를 동봉한다(E2E는 같은 호스트에서 돈다).
+    echo = os.environ.get("APP_DEV_ECHO_CODE", "") == "1"
+    local = request is None or _is_loopback(_client_ip(request))
+    if echo and local:
         out["dev_code"] = code
+    elif echo:
+        _seclog.warning(f"dev-echo-suppressed ip={_client_ip(request)} (원격 요청에는 코드를 주지 않음)")
     # SMTP가 설정돼 있으면 echo 여부와 무관하게 실제 발송 시도(dev에서도 실메일 검증 가능).
     # 발송 실패 시: echo 모드면 코드로 계속(개발 편의), 아니면 fail-closed(가입을 열어두지 않음).
     if os.environ.get("SMTP_HOST", ""):
@@ -743,6 +776,18 @@ def _is_admin_name(name: str) -> bool:
 def is_admin(u: User) -> bool:
     """관리자 판별: APP_ADMINS(쉼표 구분 아이디)에 포함되면 관리자."""
     return _is_admin_name(u.username)
+
+
+def _has_verified_admin(s: Session) -> bool:
+    """APP_ADMINS에 적힌 계정 중 **이미 인증된 것**이 하나라도 있는지.
+    가입 시점 관리자 부트스트랩을 '관리자 부재' 상황으로만 한정하는 데 쓴다(보안 스캔 F17)."""
+    names = {x.strip().lower() for x in os.environ.get("APP_ADMINS", "").split(",") if x.strip()}
+    if not names:
+        return False
+    for u in s.exec(select(User).where(User.verified == True)):  # noqa: E712 (SQLModel 표현식)
+        if (u.username or "").strip().lower() in names:
+            return True
+    return False
 
 
 def current_admin(user: User = Depends(current_user)) -> User:
@@ -815,13 +860,22 @@ def register(body: AuthIn, request: Request, response: Response):
         exists = s.exec(select(User).where(User.username == email)).first()
         if exists and exists.verified:
             raise HTTPException(409, "이미 가입된 이메일입니다. 로그인해 주세요.")
-        if exists:  # 미인증 재가입: 비밀번호 갱신
-            exists.password_hash = hash_pw(body.password)
-            s.add(exists)
-        else:
-            s.add(User(username=email, password_hash=hash_pw(body.password), verified=False))
-        # 지정 관리자 부트스트랩 — 승인/코드 게이트 우회, 즉시 활성+로그인(데드락 방지)
-        if _is_admin_name(email):
+        if exists:
+            # ⛔ 기존 미인증 계정의 비밀번호를 덮어쓰지 않는다(보안 스캔 F18).
+            #    예전에는 아무나 남의 '승인 대기' 계정에 재가입해 비밀번호를 갈아끼울 수 있었고,
+            #    관리자가 그 계정을 승인하는 순간 계정을 통째로 넘겨받았다.
+            #    정상 경로는 이미 갖춰져 있다:
+            #      - 코드 만료  → /auth/resend (비밀번호 확인으로 본인만 재발송)
+            #      - 비밀번호를 잊음 → 관리자가 /admin 사용자 탭에서 거절(reject) 후 재가입
+            raise HTTPException(409, "이미 가입 신청된 이메일입니다. 인증 코드를 확인하거나 관리자에게 문의해 주세요.")
+        s.add(User(username=email, password_hash=hash_pw(body.password), verified=False))
+        # 지정 관리자 부트스트랩 — 승인/코드 게이트 우회, 즉시 활성+로그인(데드락 방지).
+        # ⚠ '아직 관리자가 하나도 없을 때'로 한정한다(보안 스캔 F17). 예전에는 APP_ADMINS에
+        #    적힌 이메일이면 언제든 무조건 즉시 관리자가 됐다 — 운영자가 새 관리자를 명단에
+        #    추가하고 그 사람이 가입하기 전 사이에, 남이 그 주소를 선점하면 관리자 권한을
+        #    가져갈 수 있었다(메일함 소유 증명 없음). 데드락 해소라는 본래 목적은
+        #    '관리자 부재' 조건만으로 충분하다.
+        if _is_admin_name(email) and not _has_verified_admin(s):
             s.commit()
             u = s.exec(select(User).where(User.username == email)).first()
             u.verified = True
@@ -844,7 +898,7 @@ def register(body: AuthIn, request: Request, response: Response):
             # 승인제: 코드 미발송. 관리자가 /admin 사용자 탭에서 승인하면 활성.
             s.commit()
             return {"pending_approval": True, "email": email}
-        return _issue_code(s, email)
+        return _issue_code(s, email, request)
 
 
 @router.post("/auth/verify")
@@ -875,21 +929,24 @@ def verify_email(body: VerifyIn, response: Response):
 
 
 @router.post("/auth/resend")
-def resend_code(body: AuthIn):
+def resend_code(body: AuthIn, request: Request):
     """인증 코드 재발송(쿨다운 60초). 비밀번호 확인으로 본인 요청만 허용."""
     email = body.username.strip().lower()
     with Session(engine) as s:
         u = s.exec(select(User).where(User.username == email)).first()
         if not u or u.verified or not check_pw(body.password, u.password_hash):
             raise HTTPException(400, "재발송 대상이 아닙니다.")
-        return _issue_code(s, email)
+        return _issue_code(s, email, request)
 
 
 @router.post("/auth/login")
 def login(body: AuthIn, request: Request, response: Response):
     # v1 ⑮(#51): 사용자+IP 기준 실패 8회/5분 초과 시 429(무차별 대입 방어)
     # docs/44: 프록시 뒤에서 IP가 전부 127.0.0.1로 붕괴하던 것 → 신뢰 XFF(_client_ip)로 교정
-    rl_key = f"{body.username.strip()}|{_client_ip(request)}"
+    # ⚠ 반드시 조회와 **같은 정규화**(lower)로 키를 만든다. 원본 대소문자로 키를 잡으면
+    #   A@kei.re.kr / a@KEI.re.kr … 이 서로 다른 버킷이 되는데 조회는 lower로 같은 계정을 찾아,
+    #   대소문자만 바꿔가며 한 계정에 사실상 무제한 시도가 가능했다(보안 스캔 F9).
+    rl_key = f"{body.username.strip().lower()}|{_client_ip(request)}"
     if not _rl_check(rl_key):
         _seclog.warning(f"login-blocked user={_log_id(body.username)} ip={_client_ip(request)} (rate-limit)")
         raise HTTPException(429, "로그인 시도가 너무 많습니다. 5분 후 다시 시도해 주세요.")

@@ -2,12 +2,21 @@
 // ⚠ 판정은 '페이지 레벨 scrollWidth-clientWidth'로만(오프스크린 드로어·ellipsis·내부 스크롤 컨테이너
 //    forms표/admin탭바는 페이지를 스크롤시키지 않으므로 오탐 제외). dev 3101, mobile_shell=on 전제.
 import { chromium } from "playwright";
+
+// ⛔ 라이브 계정 비밀번호를 코드에 두지 않는다(보안 스캔 F1/F3/F12).
+//    실행: APP_TEST_USER=... APP_TEST_PASS=... node <이 파일>
+const TEST_USER = process.env.APP_TEST_USER || "admintest";
+const TEST_PW = process.env.APP_TEST_PASS;
+if (!TEST_PW) {
+  console.error("❌ APP_TEST_PASS 미설정 — 검증 계정 비밀번호는 환경변수로만 받습니다.");
+  process.exit(2);
+}
 const BASE = "http://localhost:3101";
 const fails = [];
 const ok = (c, m) => { console.log((c ? "✅ " : "❌ ") + m); if (!c) fails.push(m); };
 const b = await chromium.launch();
 const ctx = await b.newContext();
-await ctx.request.post(`${BASE}/api/app/auth/login`, { data: { username: "admintest", password: "admtest123" } });
+await ctx.request.post(`${BASE}/api/app/auth/login`, { data: { username: TEST_USER, password: TEST_PW } });
 const p = await ctx.newPage();
 await p.setViewportSize({ width: 390, height: 844 });
 

@@ -3,13 +3,22 @@
 // 실행: cd web && node verify-signup.mjs
 import { chromium } from "playwright";
 
+// ⛔ 라이브 계정 비밀번호를 코드에 두지 않는다(보안 스캔 F1/F3/F12).
+//    실행: APP_TEST_USER=... APP_TEST_PASS=... node <이 파일>
+const TEST_USER = process.env.APP_TEST_USER || "admintest";
+const TEST_PW = process.env.APP_TEST_PASS;
+if (!TEST_PW) {
+  console.error("❌ APP_TEST_PASS 미설정 — 검증 계정 비밀번호는 환경변수로만 받습니다.");
+  process.exit(2);
+}
+
 const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
 const EMAIL = `e2e.signup.${Date.now() % 100000}@kei.re.kr`;
 const b = await chromium.launch();
 // 이 테스트는 이메일 코드 흐름 전용 — 승인제 플래그(docs/36 §10)가 dev에 켜져 있으면 register가
 // 코드 대신 승인 대기를 반환한다. 백엔드 플래그를 off로 토글하고 끝나면 원상 복원(finally).
 const admin = await b.newContext();
-await admin.request.post(BASE + "/api/app/auth/login", { data: { username: "admintest", password: "admtest123" } });
+await admin.request.post(BASE + "/api/app/auth/login", { data: { username: TEST_USER, password: TEST_PW } });
 let approvalWas = false;
 try {
   const f = await (await admin.request.get(BASE + "/api/app/flags")).json();
@@ -70,7 +79,7 @@ await p.screenshot({ path: "verify-signup-in.png" });
 // ④ 관리자 사용자 탭 — admintest로 새 계정이 보이는지 + 메타만
 const actx = await b.newContext();
 await actx.request.post(BASE + "/api/app/auth/login", {
-  data: { username: "admintest", password: "admtest123" },
+  data: { username: TEST_USER, password: TEST_PW },
 });
 const ap = await actx.newPage();
 await ap.goto(BASE + "/admin/#users", { waitUntil: "load" });

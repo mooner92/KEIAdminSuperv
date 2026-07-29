@@ -1,5 +1,14 @@
 // docs/36 — 로그인/로그아웃 시 GNB(상단 메뉴)가 새로고침 없이 즉시 갱신되는지 실렌더 검증.
 import { chromium } from "playwright";
+
+// ⛔ 라이브 계정 비밀번호를 코드에 두지 않는다(보안 스캔 F1/F3/F12).
+//    실행: APP_TEST_USER=... APP_TEST_PASS=... node <이 파일>
+const TEST_USER = process.env.APP_TEST_USER || "admintest";
+const TEST_PW = process.env.APP_TEST_PASS;
+if (!TEST_PW) {
+  console.error("❌ APP_TEST_PASS 미설정 — 검증 계정 비밀번호는 환경변수로만 받습니다.");
+  process.exit(2);
+}
 const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
 const b = await chromium.launch();
 let pass = 0, fail = 0;
@@ -16,8 +25,8 @@ await p.goto(BASE + "/", { waitUntil: "load" });
 await p.waitForTimeout(1500);
 check("① 비로그인: GNB 숨김", !(await navVisible(p)));
 // 폼으로 로그인(새로고침 없이)
-await p.locator('input[autocomplete="username"]').fill("admintest");
-await p.locator('input[type="password"]').fill("admtest123");
+await p.locator('input[autocomplete="username"]').fill(TEST_USER);
+await p.locator('input[type="password"]').fill(TEST_PW);
 await p.locator('button[type="submit"]', { hasText: "로그인" }).click();
 // 새로고침 없이 메뉴가 뜨는지 — waitForFunction 폴링(네비게이션 아님)
 const appeared = await p.waitForFunction(() => {
