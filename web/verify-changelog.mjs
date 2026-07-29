@@ -24,29 +24,35 @@ const clog = await (await ctx.request.get(BASE + "/changelog.json")).json();
 const latest = clog.latest; // { id, 요약 }
 const total = clog.n;      // 전체 노트 수(빌드타임 집계)
 
-// ⓑ 배너: 최신 노트 노출 → 닫기 → 재방문 미노출 → '새 노트'(id 변경) 재노출
+// ⓑ 업데이트 알림: 최신 노트 노출 → 닫기 → 재방문 미노출 → '새 노트'(id 변경) 재노출
+//
+// ⚠ v2(호롱 리뉴얼)에서 **상단 배너 → 사이드바 하단 카드**로 이동했다(Layout.tsx `noteCard`).
+//   마크업이 바뀌어 옛 문자열("새로워진 점:"·"자세히 →")은 어디에도 없다.
+//   ⛔ 그 문자열의 **부재**를 검사하면 기능이 죽어도 통과한다(공허한 통과) —
+//      실제로 2026-07-29까지 그 상태였다. 그래서 판정은 **요약문 실물**로 한다.
+const shown = async (pg) => (await pg.innerText("body")).includes(latest.요약);
+
 const p = await ctx.newPage();
 await p.goto(BASE + "/browse/", { waitUntil: "load" });
 await p.waitForTimeout(1500);
-let body = await p.innerText("body");
-check("ⓑ 배너 노출(최신 요약)", body.includes("새로워진 점:") && body.includes(latest.요약.slice(0, 12)), latest.요약);
+check("ⓑ 알림 카드 노출(최신 요약)", await shown(p), latest.요약);
 await p.screenshot({ path: "verify-changelog-banner.png" });
 await p.click('button[aria-label="업데이트 알림 닫기"]');
 await p.waitForTimeout(400);
-check("ⓑ 닫기 즉시 사라짐", !(await p.innerText("body")).includes("새로워진 점:"));
+check("ⓑ 닫기 즉시 사라짐", !(await shown(p)));
 await p.reload({ waitUntil: "load" });
 await p.waitForTimeout(1500);
-check("ⓑ 재방문 시 미노출(닫기 지속)", !(await p.innerText("body")).includes("새로워진 점:"));
+check("ⓑ 재방문 시 미노출(닫기 지속)", !(await shown(p)));
 // '새 노트' 시뮬레이션: 저장된 id를 다른 값으로 바꿔 재방문 → 다시 노출되어야 함
 await p.evaluate(() => localStorage.setItem("kei-clog-dismissed", "다른-노트-id"));
 await p.reload({ waitUntil: "load" });
 await p.waitForTimeout(1500);
-check("ⓑ 새 노트면 재노출", (await p.innerText("body")).includes("새로워진 점:"));
+check("ⓑ 새 노트면 재노출", await shown(p));
 
-// ⓑ 배너 클릭 → /changelog 해당 카드 앵커(최신 노트 id — URL 인코딩 무관 비교)
-await p.click("text=자세히 →");
+// ⓑ 카드 클릭 → /changelog 해당 노트 앵커(최상위 링크가 요약문 자체)
+await p.click(`text=${latest.요약}`);
 await p.waitForTimeout(1000);
-check("ⓑ 배너 클릭 → /changelog/#노트",
+check("ⓑ 카드 클릭 → /changelog/#노트",
   decodeURIComponent(p.url()).includes(`/changelog/#${latest.id}`), decodeURIComponent(p.url()));
 
 // ⓒ 페이지: 목록 전건·필터·다크 (기대 수는 changelog.json의 n에서 유도)
