@@ -30,7 +30,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from sqlmodel import Session, select  # noqa: E402
 
 # ⛔ 라이브 계정 비밀번호를 코드에 두지 않는다(보안 스캔 F1/F3/F12).
-TEST_USER = os.environ.get("APP_TEST_USER", "admintest")
+TEST_USER = os.environ.get("APP_TEST_USER", "b6test")
 TEST_PW = os.environ.get("APP_TEST_PASS")
 if not TEST_PW:
     raise SystemExit("❌ APP_TEST_PASS 미설정 — 검증 계정 비밀번호는 환경변수로만 받습니다.")
