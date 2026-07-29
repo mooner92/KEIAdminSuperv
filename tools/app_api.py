@@ -547,8 +547,25 @@ def flag_expiry_status(expires: str, today: str) -> str:
     return "soon" if (date(y2, m2, d2) - date(y1, m1, d1)).days <= 14 else "ok"
 
 
+def _secure_db_perms():
+    """app.db를 소유자 전용(0600)으로 — bcrypt 비밀번호 해시와 전 사용자 채팅이 들어 있다.
+
+    sqlite는 기본 umask대로 파일을 만들어 0644(누구나 읽기)가 됐다(보안 스캔 F14).
+    같은 디렉터리의 .app_secret은 이미 0600인데 정작 더 민감한 DB가 느슨했다.
+    -wal/-shm 도 같은 내용을 담으므로 함께 조인다. 멱등 — 매 기동 시 교정.
+    """
+    for suffix in ("", "-wal", "-shm"):
+        p = DB_PATH + suffix
+        try:
+            if os.path.exists(p) and (os.stat(p).st_mode & 0o077):
+                os.chmod(p, 0o600)
+        except OSError as e:
+            print(f"⚠ {p} 권한을 0600으로 조정하지 못했습니다: {e}")
+
+
 def init_db():
     SQLModel.metadata.create_all(engine)
+    _secure_db_perms()
     _migrate_user_verified()
     ensure_flags()
     if not {x.strip() for x in os.environ.get("APP_ADMINS", "").split(",") if x.strip()}:
@@ -608,6 +625,15 @@ def _client_ip(request: Request) -> str:
     return xff or (request.client.host if request.client else "?")
 
 
+def _is_loopback(ip: str) -> bool:
+    """루프백 주소인지 — dev 전용 코드 반환을 같은 호스트로 한정하는 데 쓴다(보안 스캔 F22)."""
+    import ipaddress
+    try:
+        return ipaddress.ip_address(ip.strip()).is_loopback
+    except ValueError:
+        return False
+
+
 def _rl_check(key: str, max_n: int = _RL_MAX, window: float = _RL_WINDOW) -> bool:
     now = time.time()
     fails = [t for t in _LOGIN_FAILS.get(key, []) if now - t < window]
@@ -661,7 +687,7 @@ def _send_verify_email(email: str, code: str) -> None:
         smtp.sendmail(sender, [email], msg.as_string())
 
 
-def _issue_code(s: Session, email: str) -> dict:
+def _issue_code(s: Session, email: str, request: Request | None = None) -> dict:
     """코드 생성·발송(이메일당 최신 1건, 쿨다운 60초). 반환: 응답 dict(발송 결과 포함)."""
     email = email.strip().lower()
     now = time.time()
@@ -675,9 +701,16 @@ def _issue_code(s: Session, email: str) -> dict:
                      expires_at=now + CODE_TTL, last_sent_at=now))
     s.commit()
     out = {"pending": True, "email": email}
-    echo = os.environ.get("APP_DEV_ECHO_CODE", "") == "1"  # ⛔ dev/E2E 전용 — 운영에 설정 금지
-    if echo:
+    # ⛔ dev/E2E 전용 — 인증 코드를 HTTP 응답에 그대로 돌려준다.
+    # dev(3101)는 LAN에 열려 있어서, 이 플래그만 믿으면 같은 망의 누구나 남의 이메일로
+    # 가입 요청 → 응답에서 코드 확인 → 계정 탈취가 가능했다(보안 스캔 F22).
+    # 그래서 **루프백에서 온 요청에만** 코드를 동봉한다(E2E는 같은 호스트에서 돈다).
+    echo = os.environ.get("APP_DEV_ECHO_CODE", "") == "1"
+    local = request is None or _is_loopback(_client_ip(request))
+    if echo and local:
         out["dev_code"] = code
+    elif echo:
+        _seclog.warning(f"dev-echo-suppressed ip={_client_ip(request)} (원격 요청에는 코드를 주지 않음)")
     # SMTP가 설정돼 있으면 echo 여부와 무관하게 실제 발송 시도(dev에서도 실메일 검증 가능).
     # 발송 실패 시: echo 모드면 코드로 계속(개발 편의), 아니면 fail-closed(가입을 열어두지 않음).
     if os.environ.get("SMTP_HOST", ""):
@@ -865,7 +898,7 @@ def register(body: AuthIn, request: Request, response: Response):
             # 승인제: 코드 미발송. 관리자가 /admin 사용자 탭에서 승인하면 활성.
             s.commit()
             return {"pending_approval": True, "email": email}
-        return _issue_code(s, email)
+        return _issue_code(s, email, request)
 
 
 @router.post("/auth/verify")
@@ -896,14 +929,14 @@ def verify_email(body: VerifyIn, response: Response):
 
 
 @router.post("/auth/resend")
-def resend_code(body: AuthIn):
+def resend_code(body: AuthIn, request: Request):
     """인증 코드 재발송(쿨다운 60초). 비밀번호 확인으로 본인 요청만 허용."""
     email = body.username.strip().lower()
     with Session(engine) as s:
         u = s.exec(select(User).where(User.username == email)).first()
         if not u or u.verified or not check_pw(body.password, u.password_hash):
             raise HTTPException(400, "재발송 대상이 아닙니다.")
-        return _issue_code(s, email)
+        return _issue_code(s, email, request)
 
 
 @router.post("/auth/login")
