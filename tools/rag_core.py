@@ -402,6 +402,15 @@ NUM_GATE = os.environ.get("RAG_NUM_GATE", "1") == "1"
 #   과잉 경고는 사용자가 원문을 확인하게 만들 뿐이고, 놓친 경고는 틀린 값을 통과시킨다.
 #   즉 이 절단은 fail-safe 방향이다(⛔절대 규칙 1과 같은 편).
 Q_SCAN_MAX = int(os.environ.get("RAG_NUM_GATE_QMAX", "1200"))
+# 병적인 숫자 나열만 접는다 — 길이를 더 자르면 정상 근거의 수치를 놓쳐 **오탐이 늘어난다**.
+# 규정의 실제 값은 15자리를 넘지 않으므로(999조), 20자리 이상 연속 숫자는 값이 아니라 공격이다.
+# 선형 치환 한 번으로 이차 폭발의 재료 자체를 없앤다(길이 제한보다 정확도 손실이 없다).
+_DIGIT_RUN_RE = re.compile(r"\d{20,}")
+
+
+def _defuse_digit_runs(t: str) -> str:
+    """20자리 이상 연속 숫자를 잘라 수치 게이트의 O(n²) 재료를 제거(2차 스캔 F6, docs/65 §5)."""
+    return _DIGIT_RUN_RE.sub(lambda m: m.group(0)[:20], t or "")
 
 # P0-2 적용범위 앵커링(docs/22 §3): 인용 규정의 제1~2조(목적·적용범위)를 자동 동반 — 자격·수급 오추론 방지.
 SCOPE_ANCHOR = os.environ.get("RAG_SCOPE_ANCHOR", "1") == "1"
@@ -814,13 +823,17 @@ def numeric_guard_note(question: str, answer: str, context: str) -> str:
         #   위치마다 백트래킹한다(O(n²)). 20만 자리 숫자 하나면 GIL을 잡고 프로세스가 선다.
         #   app_api의 MsgIn 상한이 1차 방어지만, /v1/* 진입점·내부 호출은 그 모델을 안 거친다.
         #   게이트가 필요한 건 '사람이 입력했을 법한 수치'뿐이라 잘라도 판정이 달라지지 않는다.
-        allowed = _num_values(vctx) | _num_values(question[:Q_SCAN_MAX])
+        allowed = (_num_values(_defuse_digit_runs(vctx))
+                   | _num_values(_defuse_digit_runs(question[:Q_SCAN_MAX])))
         bare_vals = _bare_table_values(vctx)  # 표 셀의 단위 생략 값(종류 불명 → 값 폴백)
         all_vals = {v for k, v in allowed if k != "날짜"} | bare_vals
         calc_ok = _calc_line_results(answer, all_vals)
         allowed_dates = {v for k, v in allowed if k == "날짜"}
         bad = []
-        for kind, v in sorted(_num_values(answer), key=str):
+        # ⚠ answer도 공격자가 늘릴 수 있다 — '숫자 1만 개 출력해'로 LLM을 유도하면
+        #   그 답변이 그대로 이차 스캔에 들어간다. _num_values는 자릿수를 묶은 뒤에도
+        #   여전히 O(n²)다(실측: 20만자 1712초). 모든 입력을 상한 안에서만 훑는다.
+        for kind, v in sorted(_num_values(_defuse_digit_runs(answer)), key=str):
             if kind == "날짜":
                 ok = v in allowed_dates
             else:
