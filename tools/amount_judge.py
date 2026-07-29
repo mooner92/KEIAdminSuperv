@@ -26,24 +26,69 @@ def _covers(g, x: int) -> bool:
     return True
 
 
-def find_tasks(text: str) -> list:
-    """질의 텍스트에서 업무키 후보 — 업무경로의 **한글 명사 덩어리**(2자+)를 부분 토큰까지 풀어
-    매칭(공백·조사 개입 무시: '가지급금집행' ↔ '가지급금 …집행'), 매칭 점수 내림차순."""
-    norm = lambda s: re.sub(r"[\s>().･·\-0-9]+", "", s)  # noqa: E731
-    tnorm = norm(text)
+def _norm(s: str) -> str:
+    return re.sub(r"[\s>().･·\-0-9]+", "", s)
+
+
+def _subtokens(s: str) -> set:
+    """한글 명사 덩어리(2자+) + 2~4자 서브토큰('가지급금집행'→'가지급금'+'집행')."""
+    words = re.findall(r"[가-힣]{2,}", s)
+    subs = set(words)
+    for w in words:
+        for size in (4, 3, 2):
+            subs |= {w[i:i + size] for i in range(0, max(1, len(w) - size + 1))}
+    return subs
+
+
+def _sibling_leaves() -> dict:
+    """같은 부모 경로를 공유하는 leaf 집합 — '구입'/'매각'처럼 **서로 배타적인 축**을 찾는다."""
+    if "sib" not in _cache:
+        parents = {}
+        for ent in _rules().values():
+            parts = ent["업무경로"].rsplit(">", 1)
+            if len(parts) == 2:
+                parents.setdefault(_norm(parts[0]), set()).add(_norm(parts[1]))
+        _cache["sib"] = parents
+    return _cache["sib"]
+
+
+def find_tasks_scored(text: str) -> list:
+    """(점수, 업무키) 내림차순. 점수는 rag_core가 **모호성 판정**에 쓴다(동점이면 단정 금지)."""
+    tnorm = _norm(text)
+    parents = _sibling_leaves()
     scored = []
     for key, ent in _rules().items():
-        words = re.findall(r"[가-힣]{2,}", ent["업무경로"])
-        # 복합어는 2~4자 서브토큰으로도 분해('가지급금집행'→'가지급금'+'집행')
-        subs = set(words)
-        for w in words:
-            for size in (4, 3, 2):
-                subs |= {w[i:i + size] for i in range(0, max(1, len(w) - size + 1))}
-        score = sum(len(t) for t in subs if len(t) >= 2 and t in tnorm)
-        if score >= 4:  # 최소 유의미 매칭(2자 토큰 2개 또는 4자 1개)
+        path = ent["업무경로"]
+        parts = path.rsplit(">", 1)
+        leaf_raw = parts[1] if len(parts) == 2 else ""
+        leaf = _norm(leaf_raw)
+        parent = _norm(parts[0]) if len(parts) == 2 else _norm(path)
+
+        # ⛔ 형제 배제 — 별표에는 한 상위업무 밑에 반대 leaf가 붙는다
+        #   (`물품구입 및 매각(도서포함) > 구입` / `> 매각`).
+        #   경로의 대부분이 겹쳐 점수가 사실상 동점이 되므로, 이 배제가 없으면
+        #   **구입을 물었는데 매각 판정**이 1위로 나간다(실측 결함 — rag_core는 tasks[0]을
+        #   그대로 단정 판정으로 내보낸다. 회계 오답은 환각보다 위험하다).
+        if leaf:
+            others = parents.get(parent, set()) - {leaf}
+            if any(o and o in tnorm for o in others) and leaf not in tnorm:
+                continue
+
+        base = sum(len(t) for t in _subtokens(path) if len(t) >= 2 and t in tnorm)
+        # leaf는 구분자다 — 가중치를 줘야 형제 사이에서 올바른 쪽이 1위가 된다.
+        leaf_hit = sum(len(t) for t in _subtokens(leaf_raw) if len(t) >= 2 and t in tnorm)
+        score = base + 3 * leaf_hit
+        # leaf가 정확히 걸리면 짧은 표현('매각'만)도 받는다 — 예전 절대 임계값(4)은
+        # 2자 질의가 아무리 정확해도 통과 못 해 '중고 장비 …매각'이 0건이었다.
+        if score >= 4 or leaf_hit >= 2:
             scored.append((score, key))
     scored.sort(reverse=True)
-    return [k for _, k in scored]
+    return scored
+
+
+def find_tasks(text: str) -> list:
+    """질의 텍스트에서 업무키 후보 — 매칭 점수 내림차순."""
+    return [k for _, k in find_tasks_scored(text)]
 
 
 def judge(task_key: str, amount_won: int) -> dict:
