@@ -1531,7 +1531,13 @@ def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None
         try:
             import amount_judge as _aj
             amt = _aj.parse_amount(query)
-            tasks = _aj.find_tasks(query) if amt is not None else []
+            scored = _aj.find_tasks_scored(query) if amt is not None else []
+            # ⛔ 모호하면 단정하지 않는다 — 1·2위가 동점이면 어느 업무인지 특정 못 한 것이다
+            #   (예: '구입 매각 500만원'처럼 반대 leaf를 둘 다 언급). 아래 판정 블록은
+            #   '전결권자는 X'라고 확신을 갖고 나가므로, 찍어서 맞히면 안 되는 자리다.
+            #   특정 실패 시엔 라우팅을 접고 일반 회수에 맡긴다(근거 없음 > 그럴듯한 오답).
+            ambiguous = len(scored) > 1 and scored[0][0] == scored[1][0]
+            tasks = [k for _, k in scored] if not ambiguous else []
             if amt is not None and tasks:
                 r = _aj.judge(tasks[0], amt)
                 if r.get("상태") == "판정":
