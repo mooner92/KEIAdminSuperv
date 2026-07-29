@@ -562,6 +562,20 @@ def _secure_db_perms():
         except OSError as e:
             print(f"⚠ {p} 권한을 0600으로 조정하지 못했습니다: {e}")
 
+    # ⛔ 파일 모드만으로는 부족하다 — **교체는 디렉터리 권한이 정한다**(2차 스캔 F7, docs/65 §4).
+    #   생성·이름변경·삭제는 상위 디렉터리 소관이라, tools/가 other-writable이면
+    #   0600인 .app_secret도 밀어내고 자기 키를 놓을 수 있다(→ 재기동 시 쿠키 위조).
+    #   실측: /KEIAdminSuperv/tools 가 drwx---rwx 였다.
+    #   여기서는 고치지 않고 **알린다** — 서비스 계정이 배포 트리 권한을 임의로 바꾸면
+    #   운영자의 의도(그룹 공유 등)를 덮어쓸 수 있다. 판단은 사람이 한다.
+    for d in {os.path.dirname(os.path.abspath(DB_PATH)), os.path.dirname(SECRET_PATH)}:
+        try:
+            if d and os.path.isdir(d) and (os.stat(d).st_mode & 0o002):
+                print(f"⛔ {d} 가 타인 쓰기 가능(other-writable)입니다 — "
+                      f".app_secret·app.db의 0600이 무력화됩니다. `chmod o-w {d}` 를 실행하세요.")
+        except OSError:
+            pass
+
 
 def init_db():
     SQLModel.metadata.create_all(engine)
