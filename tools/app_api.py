@@ -955,8 +955,13 @@ def login(body: AuthIn, request: Request, response: Response):
         if not u:  # 레거시 계정(정책 이전, 대소문자 그대로)도 조회
             u = s.exec(select(User).where(User.username == body.username.strip())).first()
         ok = bool(u) and check_pw(body.password, u.password_hash)
-        # 지정 관리자는 승인/인증 게이트 우회(부트스트랩 — 승인해줄 첫 관리자를 만든다). 대기 상태여도 로그인 허용.
-        if ok and not u.verified and not _is_admin_name(u.username):
+        # ⛔ 예외 없이 verified를 요구한다 — APP_ADMINS 이름이라고 면제하지 않는다(2차 스캔 F1, docs/65 §2).
+        #   예전에는 `and not _is_admin_name(u.username)`이 붙어 있어, 명단에 있는 미가입 주소를
+        #   남이 선점(가입=미인증 행 생성)한 뒤 **로그인만 하면** 관리자 쿠키가 나왔다.
+        #   1차에서 register의 부트스트랩은 막았지만 이 문이 열려 있어 공격이 그대로 성립했다.
+        #   데드락 방지는 register의 `not _has_verified_admin(s)` 하나로 충분하다 —
+        #   첫 관리자는 거기서 만들어지고(즉시 verified=True), 그 뒤로는 정상 인증 경로만 남는다.
+        if ok and not u.verified:
             if effective_flags().get("signup_approval"):
                 raise HTTPException(403, "관리자 승인 대기 중입니다. 승인되면 로그인할 수 있어요.")
             raise HTTPException(403, "이메일 인증이 필요합니다. 가입 화면에서 인증을 완료해 주세요.")

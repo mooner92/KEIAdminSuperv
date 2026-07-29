@@ -47,8 +47,13 @@ module.exports = {
         RAG_RERANK_POOL: "20",
         // 기능 플래그 관리자(쉼표 구분 아이디). 여기 등록된 계정만 /admin에서 토글 가능.
         // ⚠ fail-closed: 미설정이면 아무도 관리자 아님. 실계정(이메일)은 git에 안 남기게
-        // 아래 로컬 오버라이드(ecosystem.local.js, gitignore)로 지정하세요.
-        APP_ADMINS: "21963",
+        // 아래 로컬 오버라이드(ecosystem.local.js, gitignore)로 지정한다.
+        //
+        // ⛔ 커밋본은 **비워 둔다**(2026-07-29, 운영자 지시로 자리표시자 "21963" 제거).
+        //    자리표시자를 남기면 ⓐ 로컬 오버라이드가 없는 환경에서 '누가 관리자인가'가 모호해지고
+        //    ⓑ 실계정 이메일로 바꾸고 싶은 유혹을 만든다 — 공개 레포에 개인 주소가 남는다.
+        //    운영 관리자(mhchoi@kei.re.kr)는 ecosystem.local.js(gitignore)에만 둔다.
+        APP_ADMINS: "",
         PYTHONUNBUFFERED: "1", // print/로그 즉시 flush(PM2 로그 가시성)
         // 로컬 오버라이드(선택): tools/ecosystem.local.js 가 있으면 env를 덮어씀.
         // 예) module.exports = { APP_ADMINS: "operator@kei.re.kr" };
