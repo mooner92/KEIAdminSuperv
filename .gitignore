@@ -43,6 +43,8 @@ tools/app.db-*
 tools/.app_secret
 # 검증 스크립트용 테스트 계정 비밀번호(로컬 전용 — 보안 스캔 후속)
 tools/.test_credentials
+# Claude Code 스킬 락파일(로컬 도구 산출물 — 프로젝트 코드 아님)
+skills-lock.json
 
 # ── 레거시 v1.0.0 동결 사본 (런타임 산출물: out/docdata 규정 원문·chroma·app.db·세션키 → 커밋 금지) ──
 # 동결/실행 방법은 deploy/ecosystem.legacy-v1.config.js · deploy/README.md 참조(설정 파일만 추적).
