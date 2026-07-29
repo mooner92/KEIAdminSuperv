@@ -23,7 +23,7 @@ import bcrypt
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import event
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 
@@ -554,13 +554,39 @@ def _secure_db_perms():
     같은 디렉터리의 .app_secret은 이미 0600인데 정작 더 민감한 DB가 느슨했다.
     -wal/-shm 도 같은 내용을 담으므로 함께 조인다. 멱등 — 매 기동 시 교정.
     """
-    for suffix in ("", "-wal", "-shm"):
-        p = DB_PATH + suffix
+    # ⛔ 사본까지 잡는다 — 원본만 잠그고 사본이 새는 패턴이 이 프로젝트에서 네 번 났다
+    #   (question_bank.bak · app.db.pre-prod-* · 백업 크론의 0644 · .legacy-v1/app.db).
+    #   glob으로 app.db* 를 전부 훑어 승격 백업·동결 사본도 함께 조인다(2차 스캔 F4, docs/65 §5).
+    import glob as _glob
+    targets = {DB_PATH + s for s in ("", "-wal", "-shm")} | set(_glob.glob(DB_PATH + "*"))
+    for p in sorted(targets):
         try:
-            if os.path.exists(p) and (os.stat(p).st_mode & 0o077):
+            if os.path.isfile(p) and (os.stat(p).st_mode & 0o077):
                 os.chmod(p, 0o600)
+                print(f"🔒 {os.path.basename(p)} 권한을 0600으로 교정했습니다.")
         except OSError as e:
             print(f"⚠ {p} 권한을 0600으로 조정하지 못했습니다: {e}")
+
+    # ⛔ 파일 모드만으로는 부족하다 — **교체는 디렉터리 권한이 정한다**(2차 스캔 F7, docs/65 §4).
+    #   생성·이름변경·삭제는 상위 디렉터리 소관이라, tools/가 other-writable이면
+    #   0600인 .app_secret도 밀어내고 자기 키를 놓을 수 있다(→ 재기동 시 쿠키 위조).
+    #   실측: /KEIAdminSuperv/tools 가 drwx---rwx 였다.
+    #   여기서는 고치지 않고 **알린다** — 서비스 계정이 배포 트리 권한을 임의로 바꾸면
+    #   운영자의 의도(그룹 공유 등)를 덮어쓸 수 있다. 판단은 사람이 한다.
+    import stat as _stat
+    for d in {os.path.dirname(os.path.abspath(DB_PATH)), os.path.dirname(SECRET_PATH)}:
+        try:
+            if not (d and os.path.isdir(d)):
+                continue
+            mode = os.stat(d).st_mode
+            # ⚠ sticky bit(/tmp 의 drwxrwxrwt)면 위험하지 않다 — 소유자만 자기 파일을
+            #   지우거나 이름을 바꿀 수 있어 교체 공격이 성립하지 않는다.
+            #   이걸 안 걸러내면 테스트마다 경고가 떠서 아무도 안 보게 된다(늑대소년).
+            if (mode & 0o002) and not (mode & _stat.S_ISVTX):
+                print(f"⛔ {d} 가 타인 쓰기 가능(other-writable)입니다 — "
+                      f".app_secret·app.db의 0600이 무력화됩니다. `chmod o-w {d}` 를 실행하세요.")
+        except OSError:
+            pass
 
 
 def init_db():
@@ -797,13 +823,24 @@ def current_admin(user: User = Depends(current_user)) -> User:
 
 
 # ───────────────────────── 스키마 ─────────────────────────
+# ⛔ 입력 길이 상한 — 2차 스캔 F2·F6·F8이 전부 여기서 비롯됐다(docs/65 §5).
+#   상한이 없으니 같은 원인이 세 가지 증상으로 터졌다:
+#     F2 로그인 아이디가 레이트리밋 dict의 키가 되는데 영원히 안 지워짐 → 메모리 고갈(무인증)
+#     F6 질문이 수치 게이트 정규식에 그대로 들어가 O(n²) 백트래킹 → GIL 점유로 프로세스 정지
+#     F8 메시지가 매 턴 히스토리로 재적재·재전송되고 리랭커가 20회 토크나이즈 → CPU/메모리
+#   세 곳을 각각 방어하는 것보다 **경계에서 한 번** 막는 게 낫다.
+MAX_USERNAME = 254   # RFC 5321 이메일 상한
+MAX_PASSWORD = 1024  # bcrypt는 72바이트만 쓰지만 여유를 둔다(정상 사용자는 여기 안 닿는다)
+MAX_CONTENT = 4000   # 사람이 실제로 입력하는 질문 길이. 초과 시 422로 거부된다
+
+
 class AuthIn(BaseModel):
-    username: str
-    password: str
+    username: str = Field(max_length=MAX_USERNAME)
+    password: str = Field(max_length=MAX_PASSWORD)
 
 
 class MsgIn(BaseModel):
-    content: str
+    content: str = Field(max_length=MAX_CONTENT)
 
 
 class RenameIn(BaseModel):
@@ -955,8 +992,13 @@ def login(body: AuthIn, request: Request, response: Response):
         if not u:  # 레거시 계정(정책 이전, 대소문자 그대로)도 조회
             u = s.exec(select(User).where(User.username == body.username.strip())).first()
         ok = bool(u) and check_pw(body.password, u.password_hash)
-        # 지정 관리자는 승인/인증 게이트 우회(부트스트랩 — 승인해줄 첫 관리자를 만든다). 대기 상태여도 로그인 허용.
-        if ok and not u.verified and not _is_admin_name(u.username):
+        # ⛔ 예외 없이 verified를 요구한다 — APP_ADMINS 이름이라고 면제하지 않는다(2차 스캔 F1, docs/65 §2).
+        #   예전에는 `and not _is_admin_name(u.username)`이 붙어 있어, 명단에 있는 미가입 주소를
+        #   남이 선점(가입=미인증 행 생성)한 뒤 **로그인만 하면** 관리자 쿠키가 나왔다.
+        #   1차에서 register의 부트스트랩은 막았지만 이 문이 열려 있어 공격이 그대로 성립했다.
+        #   데드락 방지는 register의 `not _has_verified_admin(s)` 하나로 충분하다 —
+        #   첫 관리자는 거기서 만들어지고(즉시 verified=True), 그 뒤로는 정상 인증 경로만 남는다.
+        if ok and not u.verified:
             if effective_flags().get("signup_approval"):
                 raise HTTPException(403, "관리자 승인 대기 중입니다. 승인되면 로그인할 수 있어요.")
             raise HTTPException(403, "이메일 인증이 필요합니다. 가입 화면에서 인증을 완료해 주세요.")

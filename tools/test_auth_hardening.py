@@ -99,6 +99,15 @@ def t_f17_관리자_존재시_선점_불가():
         u = s.exec(select(app_api.User).where(app_api.User.username == second)).first()
         assert not u.verified, "🚨 메일함 소유 증명 없이 계정이 활성화됨"
 
+    # ⛔ 여기까지만 검사하면 안 된다 — 2차 스캔 F1(docs/65 §2)이 정확히 이 지점을 통과했다.
+    #   register를 막아도 login이 APP_ADMINS 이름에 verified 검사를 면제하면,
+    #   '가입 → 로그인' 두 단계로 관리자 쿠키가 그대로 발급된다.
+    #   테스트가 '막았다고 주장하는 것'과 '실제로 시도하는 것'이 다르면 그건 거짓 안심이다.
+    r3 = c.post("/app/auth/login", json={"username": second, "password": "landgrab-pw-123"})
+    assert r3.status_code == 403, (
+        f"🚨 미인증 선점 계정으로 로그인 성공: {r3.status_code} {r3.text}")
+    assert "kei_session" not in r3.cookies, "🚨 미인증 계정에 세션 쿠키 발급됨"
+
 
 def t_f17_관리자_부재시_부트스트랩_보존():
     """데드락 방지라는 본래 목적을 깨지 않았는지 — 이게 깨지면 아무도 승인 못 한다."""
