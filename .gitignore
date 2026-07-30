@@ -188,3 +188,7 @@ eval/daily/
 eval/faq_candidates/
 tools/.daily_eval_signals.json
 web/public/quality/
+
+# codebase-memory-mcp — 코드 인덱스 산출물(팀 공유 아티팩트 포함). ⛔ 커밋 금지:
+# 우리 코드 그래프가 담긴 파일이라 공개 레포에 두지 않는다. 제외 규칙은 .cbmignore.
+.codebase-memory/
