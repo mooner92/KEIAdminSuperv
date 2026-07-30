@@ -723,6 +723,19 @@ def system_attribution_note(answer: str, sources) -> str:
 # ── 후속 질문 제안 (docs/26 §1) — ⛔ 무LLM·결정적: 확정 인덱스에서 템플릿으로만 ──────────
 FOLLOWUP_MAX = 3
 
+# ── 여정 트리거 일반 토큰 — ⛔ 단독으로는 여정을 지목하지 못한다 ─────────────────────────
+# 실측 결함(2026-07-30): "인사 자료 조회는 어디서 확인하지?" 질문에 무관한
+#   '🗺 자료(도서) 구입 신청 전체 여정 보기' 칩이 떴다. 원인은 여정 제목을 2자 이상 토큰으로
+#   쪼개 **아무 하나만 걸려도** 확정한 것 — '자료' 한 토큰이 걸렸다.
+#   '신청'은 더 넓게 샌다: 3개 여정(도서구입·원외겸직·유연근무)에 공통이라
+#   '신청'을 포함한 거의 모든 행정 질문이 그중 하나로 오발한다.
+# 판정: 고유 토큰 1개 일치 = 확정 / 일반 토큰은 **같은 여정에서 2개 이상** 모일 때만 확정.
+#   최고점 동점이면 제안하지 않는다 — amount_judge의 모호성 기권과 같은 원칙(억측 금지).
+JOURNEY_GENERIC_TOK = {
+    "자료", "도서", "구입", "구매", "신청", "사용", "정산", "신고", "휴가",
+    "관리", "업무", "처리", "조회", "등록", "제출", "발급", "작성", "보고",
+}
+
 
 def _ensure_journey_triggers() -> list:
     """여정 제목 키워드 → (id, title). 볼트 _journeys 1회 스캔·캐시(reload로 갱신)."""
@@ -743,6 +756,18 @@ def _ensure_journey_triggers() -> list:
                         out.append({"id": j["id"], "title": j["title"], "kws": kws})
                 except Exception as e:  # noqa: BLE001
                     print(f"⚠ 여정 트리거 로드 실패(무시): {e}")
+                # 토큰을 고유(uniq)/일반(gen)으로 분류 — 오발 차단용(JOURNEY_GENERIC_TOK 주석 참조).
+                #   ⓐ 2개 이상 여정 제목에 걸친 토큰은 애초에 여정을 식별할 수 없다(자동 산출 —
+                #      여정이 추가돼도 스스로 갱신된다) ⓑ 명시 일반 토큰 집합.
+                # ⚠ `kws`는 지우지 않는다 — app_api의 트렌드 어휘 폴백이 이 키를 읽는다.
+                freq = {}
+                for r in out:
+                    for k in set(r["kws"]):
+                        freq[k] = freq.get(k, 0) + 1
+                for r in out:
+                    gen = {k for k in r["kws"] if k in JOURNEY_GENERIC_TOK or freq.get(k, 0) > 1}
+                    r["uniq"] = [k for k in r["kws"] if k not in gen]
+                    r["gen"] = sorted(gen)
                 _state["journey_trig"] = out
     return _state["journey_trig"]
 
@@ -755,14 +780,21 @@ def suggest_followups(question: str, srcs: list) -> list:
         blob = q + " " + " ".join(f"{s.get('규정명', '')} {s.get('조', '')}" for s in (srcs or []))
         out, seen = [], set()
 
-        # ① 여정 점프 — 질문·근거가 여정 키워드와 일치. 여러 여정이 걸리면 '가장 긴 키워드' 일치 우선
-        #    (예: '연차휴가'는 경조사의 '휴가' 토큰보다 연차휴가 여정의 '연차휴가'가 이겨야 함 — 실측 버그)
-        best, best_len = None, 0
+        # ① 여정 점프 — 질문·근거가 여정 키워드와 일치.
+        #    점수 = (고유 토큰 일치 수, 일치 토큰 길이 합). 길이 합이 커야 이기므로 '연차휴가'는
+        #    경조사의 '휴가'보다 연차휴가 여정이 이긴다(기존 '가장 긴 키워드 우선' 동작 유지).
+        #    ⛔ 일반 토큰만 1개 걸린 여정은 후보에서 제외 — '자료'·'신청' 오발의 원인(위 주석).
+        cands = []
         for t in _ensure_journey_triggers():
-            for k in t["kws"]:
-                if k in blob and len(k) > best_len:
-                    best, best_len = t, len(k)
-        if best:
+            hu = [k for k in t.get("uniq", []) if k in blob]
+            hg = [k for k in t.get("gen", []) if k in blob]
+            if not hu and len(hg) < 2:
+                continue
+            cands.append((len(hu), sum(len(k) for k in hu + hg), t))
+        cands.sort(key=lambda c: (c[0], c[1]), reverse=True)
+        # ⛔ 최고점이 동점이면 어느 여정인지 확정할 수 없다 → 제안하지 않는다(억측 금지)
+        if cands and (len(cands) == 1 or cands[0][:2] != cands[1][:2]):
+            best = cands[0][2]
             out.append({"type": "journey", "journey": best["id"], "label": f"🗺 {best['title']} 전체 여정 보기"})
 
         # ② 후속 단계 — 근거에 ACTION_FLOWS의 from 화면이 있으면 다음 화면 질문(문서 확정 쌍만)
