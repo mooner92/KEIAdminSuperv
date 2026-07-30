@@ -7,7 +7,7 @@
   ② **런북 없는 알림은 없다.** 레지스트리의 모든 runbook 파일이 실제로 존재해야 한다.
      '받고 나서 뭘 할지 없는 알림'이 들어오는 경로를 구조적으로 차단한다(docs/66 §2).
 
-⛔ 네트워크 미사용 — SLACK_WEBHOOK_URL을 강제로 비워 notify()가 전송 전에 반환하게 한다.
+⛔ 네트워크 미사용 — SLACK_BOT_TOKEN을 강제로 비워 notify()가 전송 전에 반환하게 한다.
 
 실행: cd tools && .venv/bin/python test_alerts.py
 """
@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 
 # ⛔ 실발송 방지 — 테스트가 실제 채널을 울리면 안 된다(import 전에 비운다).
-os.environ["SLACK_WEBHOOK_URL"] = ""
+os.environ["SLACK_BOT_TOKEN"] = ""
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import alerts  # noqa: E402
@@ -121,15 +121,21 @@ def test_inhibition():
     """LLM이 죽었으면 500은 결과다 — service_down 중이면 unhandled_error를 안 보낸다."""
     r = alerts.notify("unhandled_error", "KeyError — /v1/chat", suppressed=("service_down",))
     assert not r["sent"] and "inhibited_by" in r["why"], r
-    # 상위 알림이 없으면 정상 경로로 간다(웹훅 미설정이라 sent=False, 사유가 달라야 함)
+    # 상위 알림이 없으면 정상 경로로 간다(토큰 미설정이라 sent=False, 사유가 달라야 함)
     r2 = alerts.notify("unhandled_error", "KeyError — /v1/chat")
     assert "inhibited" not in r2["why"], r2
 
 
-def test_no_send_without_webhook():
-    """URL 미설정이면 발송을 건너뛴다(fail-safe: 기본은 안 보냄)."""
+def test_no_send_without_token():
+    """토큰 미설정이면 발송을 건너뛴다(fail-safe: 기본은 안 보냄)."""
     r = alerts.notify("service_down", "벡터DB 이상: NotFoundError")
-    assert not r["sent"] and "미설정" in r["why"], r
+    assert not r["sent"] and "SLACK_BOT_TOKEN 미설정" in r["why"], r
+
+
+def test_api_base_avoids_blocked_host():
+    """⛔ 맨 slack.com은 사내 방화벽이 SNI로 끊는다(2026-07-30 실측) — 기본 base가 그리 가면 안 된다."""
+    assert "//slack.com" not in alerts.API_BASE, f"차단 호스트: {alerts.API_BASE}"
+    assert alerts.API_BASE.startswith("https://"), alerts.API_BASE
 
 
 def test_min_sev_gate():

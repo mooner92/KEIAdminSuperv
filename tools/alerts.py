@@ -10,8 +10,9 @@
    사용자 질문·답변, 규정 조문, 제보 본문, 계정명은 절대 나가지 않는다(docs/66 §6).
    호출부의 선의에 기대지 않고 _scrub()이 전송 직전 결정적으로 축소한다.
 
-⚠ Bot 토큰이 아니라 Incoming Webhook인 이유: 사내 방화벽이 TLS SNI로 slack.com을 차단한다
-  (hooks.slack.com만 열림, 2026-07-30 실측 — docs/66 §5.1). chat.postMessage는 동작하지 않는다.
+⚠ 사내 방화벽이 TLS SNI로 **맨 `slack.com` 호스트만** 끊는다. `www.slack.com`·`api.slack.com`은
+  열려 있고 전자는 공식 slack_sdk의 기본 base URL이라 Web API(chat.postMessage)가 그대로 된다.
+  → SLACK_API_BASE 기본값이 www.slack.com인 이유(2026-07-30 실측, docs/66 §5.1).
 """
 from __future__ import annotations
 
@@ -69,9 +70,18 @@ REPO_URL = os.environ.get("PUBLIC_REPO_URL", "https://github.com/mooner92/KEIAdm
 RUNBOOK_BASE = f"{REPO_URL}/blob/main/docs/runbooks/"
 
 
-def _webhook() -> str:
-    """⛔ 시크릿. 미설정이면 빈 문자열 → Slack 발송을 건너뛴다(fail-safe: 기본은 안 보냄)."""
-    return os.environ.get("SLACK_WEBHOOK_URL", "").strip()
+# ⛔ 맨 slack.com은 사내 방화벽이 SNI로 끊는다. www.slack.com이 공식 slack_sdk 기본 base URL이며
+#    열려 있다(api.slack.com도 가능). 방화벽 정책이 바뀌어도 이 기본값은 계속 유효하다.
+API_BASE = os.environ.get("SLACK_API_BASE", "https://www.slack.com/api").rstrip("/")
+
+
+def _token() -> str:
+    """⛔ 시크릿(xoxb-…). 미설정이면 발송을 건너뛴다(fail-safe: 기본은 안 보냄)."""
+    return os.environ.get("SLACK_BOT_TOKEN", "").strip()
+
+
+def _channel() -> str:
+    return os.environ.get("SLACK_CHANNEL", "#horong").strip()
 
 
 def _min_sev() -> int:
@@ -145,19 +155,29 @@ def render(key: str, summary: str) -> str:
 
 
 def _send(text: str, timeout: float = 5.0) -> bool:
-    """Incoming Webhook 1건. 실패는 예외를 올리지 않고 False(호출부가 삼킬 필요 없게)."""
-    url = _webhook()
-    if not url:
+    """chat.postMessage 1건. 실패는 예외를 올리지 않고 False(호출부가 삼킬 필요 없게).
+
+    ⚠ Slack은 실패도 **HTTP 200**으로 준다 — 본문의 {"ok":false,"error":…}를 봐야 한다.
+      상태코드만 보면 봇이 채널에 초대 안 됐을 때(not_in_channel) 알림이 조용히 사라진다."""
+    token = _token()
+    if not token:
         return False
-    req = urllib.request.Request(  # noqa: S310 — 고정 https 웹훅
-        url, data=json.dumps({"text": text}).encode("utf-8"),
-        headers={"Content-Type": "application/json"})
+    body = json.dumps({"channel": _channel(), "text": text}).encode("utf-8")
+    req = urllib.request.Request(  # noqa: S310 — 고정 https(API_BASE)
+        f"{API_BASE}/chat.postMessage", data=body,
+        headers={"Content-Type": "application/json; charset=utf-8",
+                 "Authorization": f"Bearer {token}"})
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:  # noqa: S310
-            return r.status == 200
+            res = json.loads(r.read().decode("utf-8"))
     except Exception as e:  # noqa: BLE001
         print(f"[alerts] Slack 전송 실패({type(e).__name__}) — 무시(🔔은 정상)")
         return False
+    if not res.get("ok"):
+        # 흔한 값: not_in_channel(봇 미초대) · channel_not_found · invalid_auth · missing_scope
+        print(f"[alerts] Slack 거부: {res.get('error')} — 채널 {_channel()}")
+        return False
+    return True
 
 
 # ───────────────────────── 단일 진입점 ─────────────────────────
@@ -196,8 +216,8 @@ def notify(key: str, summary: str, detail: str = "", *, engine=None,
     if a.sev > _min_sev():
         out["why"] = f"sev{a.sev} > ALERT_MIN_SEV"
         return out
-    if not _webhook():
-        out["why"] = "SLACK_WEBHOOK_URL 미설정"
+    if not _token():
+        out["why"] = "SLACK_BOT_TOKEN 미설정"
         return out
     if not _cap.allow(_max_per_day()):
         out["why"] = f"일일 상한 {_max_per_day()}건 초과"
