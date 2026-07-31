@@ -1,0 +1,35 @@
+# .graphifyignore — graphify 색인 제외 (2차 방어)
+#
+# graphify는 .gitignore를 자동 존중하고, 이 파일은 거기에 **제외만 더한다**(재포함 불가).
+# 그래도 여기 다시 적는 이유는 .cbmignore와 같다: 색인 도구가 무엇을 어떻게 해석하든
+# **내부 콘텐츠가 코드 그래프에 들어가는 경로를 남기지 않기** 위해서다.
+#
+# ⛔ 특히 graphify는 문서·PDF를 LLM으로 넘긴다(--code-only가 아니면). 규정 원문·별지 PDF가
+#    외부로 나가는 사고를 구조적으로 막는다. 문서까지 넣을 땐 반드시 --backend ollama.
+
+# ── 내부 콘텐츠: 규정 볼트와 원본 문서 ─────────────────────────────
+KEI-행정가이드/
+rule_files/
+research_rule_files/
+pms_raw/
+
+# ── 규정 유래 PDF(별지·서식) — LLM 패스 절대 금지 ──────────────────
+web/public/forms-pdf/
+web/public/quality/
+
+# ── 운영 데이터·자격증명 ───────────────────────────────────────────
+tools/chroma/
+tools/chroma.bak.*
+tools/app.db
+tools/.app_secret
+tools/.test_credentials
+tools/ecosystem.local.js
+
+# ── 색인 가치가 없는 대용량(그래프를 흐리게 만든다) ────────────────
+tools/.venv/
+web/node_modules/
+web/out/
+web/.next/
+eval/daily/
+docs/img/
+graphify-out/
