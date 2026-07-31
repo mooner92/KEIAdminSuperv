@@ -13,6 +13,11 @@
 [![웹](https://img.shields.io/badge/웹-Next.js_14-000000)](#2-웹앱--뇌와-llm을-한-앱으로-web)
 [![내부 전용](https://img.shields.io/badge/공개-내부_전용_🔒-B71C1C)](#내부-전용-고지)
 
+<p align="center">
+  <a href="README.md">한국어</a> &bull;
+  <a href="README_en.md">English</a>
+</p>
+
 <img src="docs/img/screen-chat.png" width="860" alt="호롱 채팅 화면 — 질문에 규정 조문 출처를 달아 답하고, 인용 조문 칩과 면책 고지, 피드백 버튼을 함께 제공">
 
 <sub>규정 근거 답변 · 인용 조문 칩 · 근거 열람 · 면책 고지 · 👍/👎 피드백<br/>
@@ -46,7 +51,7 @@
 | 항목 | 상태 |
 | --- | --- |
 | 상태 | 🟢 파이프라인 + LLM 가동 · 검색(리랭커·쿼리 재작성)·신뢰(피드백·금액·신뢰게이트) 보강 · 화면 9종(채팅·둘러보기·그래프·결재선·업무 한 장·캘린더·서식·허브·소개) + 용어 툴팁 · KRDS 디자인 통일 · 서식찾기 별지 **PDF↓/HWP↓ 다운로드**(별지 288건, docs/50) · 모바일 개편(GNB 3탭, docs/48) |
-| 코퍼스 | **588 문서**(규정집 111 · 연구행정 가이드 65 · 용어집 307 · 사내 시스템 68 · 대외업무 15 · 상위법령(참고) 22) · **6,044 청크** 임베딩(KURE-v1, `kei_regs`) + 상위법령 4,116(`kei_uplaw`, 물리 분리) — 2026-07-30 dev 실측 |
+| 코퍼스 | **599 문서**(규정집·연구행정 가이드·용어집 307+·사내 시스템·대외업무·상위법령(참고)) · **6,044 청크** 임베딩(KURE-v1, `kei_regs`) + 상위법령 4,116(`kei_uplaw`, 물리 분리) — 2026-07-31 v1.9.0 승격으로 **prod 동일** |
 | 배포 | 🔒 사내 전용 · dev 3101/9001(`feat/krds`, **정착 확정** — 이전 시에도 이 포트 유지, manual/) · prod 3100/9000(`feat/0620`, 동결) · **서버 로그인 게이트**(비로그인은 랜딩만, docs/44) — 랜딩(`/about`) 외부 공개 대비 |
 | 모델 | 🖥️ 온프레미스 GPU (Quadro RTX 6000 24GB×2, 총 48GB) · 답변 격리 Ollama v0.31.1(Qwen3.5-9B GGUF Q4_K_M) |
 | 조직 | KEI · 한국환경연구원 (Korea Environment Institute) |
@@ -193,7 +198,7 @@ pm2 start tools/ecosystem.config.js          # 프로세스 kei-rag-api 기동
 ```
 
 > [!note] 실측 (2026-07-16)
-> 코퍼스 **363 문서**(규정 111 · 가이드 65 · 용어 119 · 사내 시스템 54 · 대외업무 14) → **약 4,830 청크** 임베딩(긴 조문 하위분할(P2.3)·용어집 확충(docs/49) 반영). 검색 정확(예: "출장 여비 정산" → 여비규정 해당 조 · "재직증명서 어느 메뉴" → ERP 인사관리 제증명서신청 `gen_3015M`). **답변 생성**은 격리 Ollama v0.31.1(Qwen3.5-9B GGUF Q4_K_M)로 한국어까지 검증. 변환 실패 2건(타임아웃 1·이미지PDF 1)은 LibreOffice/OCR 폴백 대상. 파이프라인 상세는 [docs/04-pipeline.md](docs/04-pipeline.md).
+> 코퍼스 **599 문서** → **6,044 청크** 임베딩(`kei_regs`, 2026-07-31 실측 — 긴 조문 하위분할(P2.3)·정의어 노트(specs/02)·검색 라벨(specs/01) 반영). 검색 정확(예: "출장 여비 정산" → 여비규정 해당 조 · "재직증명서 어느 메뉴" → ERP 인사관리 제증명서신청 `gen_3015M`). **답변 생성**은 격리 Ollama v0.31.1(Qwen3.5-9B GGUF Q4_K_M)로 한국어까지 검증. 변환 실패 2건(타임아웃 1·이미지PDF 1)은 LibreOffice/OCR 폴백 대상. 파이프라인 상세는 [docs/04-pipeline.md](docs/04-pipeline.md).
 
 ### 2) 웹앱 — [뇌]와 [LLM]을 한 앱으로 (web/)
 
@@ -222,7 +227,7 @@ VAULT_DIR=/path/to/KEI-행정가이드 npm run build  # → web/out/ 정적 산�
 ```
 
 > [!note] 실측 (2026-07-16)
-> `next build` 성공 — 정적 export(**문서 363** = 규정집 111 · 연구행정 가이드 65 · 용어집 119 · 사내 시스템 54 · 대외업무 14) + `out/docdata/*.json`. 한글 mojibake 0, 위키링크 내부 네비 + 제N조 앵커 동작, 관계 그래프 **363 노드 · 515 연결**(5색 섹션 · ERP↔규정 · 용어↔ERP 교차링크), **다크모드/테마**(라이트·다크·시스템). `/` first-load JS는 TDS 제거 후 재측정 예정. 임베딩 청크 약 **4,830**(긴 조문 하위분할(P2.3)·용어집 확충(docs/49) 반영). ⚠️ 빌드는 반드시 **nvm Node 22**로 — 기본 node18은 `out/docdata/*.json` emit이 조용히 실패해 드로어가 깨집니다("문서를 불러오지 못했습니다"). 디자인 원칙·토큰·컴포넌트 규약은 [docs/design-system.md](docs/design-system.md).
+> `next build` 성공 — 정적 export(**문서 599** — 규정집·가이드·용어집·사내 시스템·대외업무·상위법령) + `out/docdata/*.json`. 한글 mojibake 0, 위키링크 내부 네비 + 제N조 앵커 동작, 관계 그래프(6색 섹션 · ERP↔규정 · 용어↔ERP 교차링크), **다크모드/테마**(라이트·다크·시스템). `/` first-load JS는 TDS 제거 후 재측정 예정. 임베딩 청크 **6,044**(2026-07-31 실측). ⚠️ 빌드는 반드시 **nvm Node 22**로 — 기본 node18은 `out/docdata/*.json` emit이 조용히 실패해 드로어가 깨집니다("문서를 불러오지 못했습니다"). 디자인 원칙·토큰·컴포넌트 규약은 [docs/design-system.md](docs/design-system.md).
 
 ### 3) 서빙 — PM2로 상시 가동
 
@@ -236,7 +241,7 @@ LLM은 별도 앱이 아니라 위 웹앱 `/` 화면입니다. 운영은 PM2가 
 #              별지 원문 web/public/forms-pdf/* 도 게이트 뒤에서 직결 서빙(docs/50).
 # kei-rag-api: tools/04_rag_api.py(uvicorn) — Chroma 검색 + Ollama 생성 + 인증·채팅기록(SQLite app.db) (127.0.0.1:9000, 로컬 전용)
 pm2 start tools/ecosystem.config.js                   # 운영(prod, 3100/9000)
-# 개발(dev, feat/krds worktree, 3101/9001)을 나란히 굴리려면:
+# 개발(dev 브랜치 worktree ~/kei-dev-0703, 3101/9001)을 나란히 굴리려면:
 pm2 start deploy/ecosystem.dev-0703.config.js         # kei-guide-dev · kei-rag-api-dev
 pm2 save                                # 현재 프로세스 목록 저장
 # 부팅 자동시작은 'pm2 startup'(systemd) 별도 1회 필요 (아직 미설정일 수 있음)
@@ -342,7 +347,7 @@ flowchart LR
     S1D --> XL
     S1F --> XL
     XL --> S02["02 청킹(규정 제N조 / 가이드·ERP·용어 헤딩)<br/>+ KURE-v1 임베딩"]
-    S02 --> Chroma[("Chroma kei_regs<br/>hnsw:space=cosine · 약 4,830청크")]
+    S02 --> Chroma[("Chroma kei_regs<br/>hnsw:space=cosine · 6,044청크")]
     Chroma --> S04["04_rag_api.py(진입점)<br/>rag_core 검색·생성 + app_api 인증·채팅(/app)<br/>OpenAI 호환 /v1 :9000"]
     S04 --> Ollama["격리 Ollama v0.31.1 127.0.0.1:11436/v1<br/>Qwen3.5-9B GGUF Q4_K_M"]
     S04 --> DB[("SQLite tools/app.db<br/>user·chatsession·message<br/>(근거 = message.sources_json)")]
@@ -351,7 +356,7 @@ flowchart LR
 
 - **01 변환:** `hwp-hwpx-parser`로 본문 추출, 표는 `extract_text`가 본문에 인라인 마크다운으로 삽입(제N조 청킹과 정합). 가이드는 PDF(PyMuPDF)·PPTX(python-pptx)도 처리(`01c`), 스캔 이미지 PDF는 `image-pdf` 플레이스홀더. 표/별표가 깨지면 LibreOffice + H2Orestart로 PDF를 만들고 그 페이지를 VLM(`Qwen2.5-VL`)에 넘겨 **표만** 재추출.
 - **02 청킹:** 규정은 **조문 1개 = 청크 1개**(`제N조`), 가이드·ERP·용어는 **헤딩(####/##) 단위**(없으면 문단 패킹). 고정 길이 청킹 금지. **별표/별지는 1급 청크로 분리**(P1.3, 조=`별표 N`, `refs`=인용 조문, 토글 `CHUNK_BYEOLPYO`). **긴 청크는 하위청킹**(P2.3, `max_seq_len` 초과 시 항(①②)→호→문단→줄 순으로 분할, 조 라벨·메타 유지, 표는 분할 안 함, 토글 `CHUNK_SUBSPLIT`).
-- **교차링크(01b/01e/01g):** 규정 상호참조 + ERP 모듈↔규정 + 용어↔ERP/규정을 `[[ ]]`로 연결 → 관계 그래프의 엣지(363 노드·515 연결, 5색 섹션).
+- **교차링크(01b/01e/01g):** 규정 상호참조 + ERP 모듈↔규정 + 용어↔ERP/규정을 `[[ ]]`로 연결 → 관계 그래프의 엣지(6색 섹션).
 - **03/04 질의:** 검색(Chroma `kei_regs`, KURE-v1, 밀집 top-20) → **리랭커**(P1.4, `BAAI/bge-reranker-v2-m3` cross-encoder, 온프레미스 GPU) 재점수 → top-5 → `[규정명 제N조]` 블록으로 근거 컨텍스트 구성 → Ollama가 답하고 출처를 강제 표기. 후속 질문은 **멀티턴 쿼리 재작성**(P1.5, `condense_query`)으로 독립 검색어로 바꿔 검색합니다(검색어만 바꾸고 답변·근거는 불변). 시스템(ERP) 근거에는 `(ERP 시스템)` 라벨을 붙여 메뉴·경로를 답변에 안내합니다(P2.4, 근거에 있을 때만). 응답에는 구조화 출처 `x_sources`(규정명/조/분류/type/snippet/distance)와 하위호환 `x_retrieved`(태그 문자열)가 포함됩니다. 면책 문구는 `_ensure_disclaimer`로 100% 보장(스트리밍 `answer_stream`도 동일).
 - **멀티턴:** 세션의 이전 메시지를 LLM에 재생(replay)해 맥락을 잇되, **사실 근거는 매 턴 새로 검색한 `[근거]`에서만** 가져옵니다(가드레일 유지). OpenAI 호환 `/v1` 엔드포인트도 마지막 user 메시지로 검색하고 그 앞을 맥락으로 전달합니다.
 - **채팅 API(`/app`, server.js가 `/api/app/*` → `/app/*` 프록시):** 인증 `POST /app/auth/register`·`login`·`logout`·`GET /app/auth/me`, 대화 `GET·POST /app/chats`·`GET·PATCH·DELETE /app/chats/{id}`, 메시지 `POST /app/chats/{id}/messages`(`?stream=1`이면 SSE: `meta`→`delta`…→`done`; 검색+멀티턴 생성 → user/assistant 메시지 저장, assistant에 근거 `sources` 첨부, 첫 질문으로 대화 제목 자동 설정), 피드백 `POST·DELETE /app/messages/{id}/feedback`, 관리자 `GET /app/feedback`·`GET /app/stats`·플래그 토글.
@@ -423,6 +428,8 @@ scp -r <USER>@<SRC_HOST>:<SRC_DIR>/manual ./manual   # ⛔ 커밋 금지(gitigno
 | 13 | 기능 플래그 | 한 코드베이스에서 기능 토글(설계 + 운영 매뉴얼) | [13-feature-flags.md](docs/13-feature-flags.md) |
 | 14 | 피드백 루프 | 👍/👎 신호 → 검수 큐 환류(P2.1) | [14-feedback-loop.md](docs/14-feedback-loop.md) |
 | 15 | LLM 교체 | Qwen3.5-9B 채택 근거·트러블슈팅 | [15-LLM-교체-Qwen3.5.md](docs/15-LLM-교체-Qwen3.5.md) |
+| 66 | 알림 정책 | Slack 봇·SEV 등급·유출 금지 계약·런북 | [66-알림정책.md](docs/66-알림정책.md) |
+| 67 | 코드 그래프 | graphify 도입·안전 계약·치트시트 | [67-graphify-코드그래프.md](docs/67-graphify-코드그래프.md) |
 | 16 | reasoning A/B | `reasoning_effort` none vs low 측정(none 유지) | [16-reasoning-effort-AB.md](docs/16-reasoning-effort-AB.md) |
 | 17 | 서비스 로드맵 | 시스템 계층 확장 + net-new 5트랙(A~E) | [17-service-roadmap.md](docs/17-service-roadmap.md) |
 | 18 | 조문 정제·무결성 | Track A — 삭제필터·참조그래프·정의어·개정마이닝 | [18-조문정제-무결성.md](docs/18-조문정제-무결성.md) |
@@ -510,12 +517,15 @@ scp -r <USER>@<SRC_HOST>:<SRC_DIR>/manual ./manual   # ⛔ 커밋 금지(gitigno
 
 | 영역 | 상태 | 핵심 |
 |------|:---:|------|
-| 코퍼스 | ✅ | 5섹션 **363문서**(규정 111·가이드 65·용어 119·사내 시스템 54·대외업무 14), 임베딩 약 **4,830 청크**. 전건 미검수 |
+| 코퍼스 | ✅ | 6섹션 **599문서**, 임베딩 **6,044 청크**(`kei_regs`) + 상위법령 4,116(`kei_uplaw`). 전건 미검수 |
+| 운영 알림 | ✅ | Slack `#horong` 봇(카탈로그 8종·런북 6장·유출 백스톱, docs/66) — 헬스 이상·오토픽스·제보 계획·**일일 품질 다이제스트+재시험 급락 감지** 자동 발송 |
+| 코드 그래프 | ✅ | graphify(전용 venv)로 코드+설계문서 지식그래프(4천+ 노드, docs/67) — 유출검사 내장 갱신 스크립트, 실험실(specs/09)에서 사내 열람(플래그 off 대기) |
+| 출제 품질 | ✅ | 3중 필터(gen_filter) — 페르소나 256조합 프롬프트·결정적 결함사전 10종·LLM 검수자. 실측 결함 12건 픽스처 회귀 |
 | 파이프라인 | ✅ | HWP/PDF/PPTX 변환 → 교차링크(ERP↔규정·용어↔ERP) → 제N조/별표 청킹 → KURE-v1 임베딩 → Chroma |
 | [LLM] 채팅 | ✅ | 로그인·멀티턴·메시지별 근거·**SSE 스트리밍**. 격리 Ollama v0.31.1 `Qwen3.5-9B GGUF Q4_K_M`(한국어 검증) |
 | [뇌] 웹앱 | ✅ | Next.js 14 **KRDS** 단일 앱 — 화면 9종(채팅·둘러보기·그래프·결재선·업무 한 장·캘린더·서식찾기·허브·소개) + 용어 툴팁 + 모바일 개편, 다크모드/테마 |
 | 백엔드 | ✅ | 3분리(`rag_core`/`app_api`/`04_rag_api`) 한 프로세스 + bcrypt·PyJWT + SQLite. PM2 `kei-rag-api`(9000)·`kei-guide`(3100) |
-| 그래프 | ✅ | **363 노드 · 515 연결**(5색 섹션), ERP 모듈이 허브 |
+| 그래프 | ✅ | 규정·가이드·용어·시스템·대외업무·상위법령 6색 섹션 관계 그래프(교차링크가 엣지), ERP 모듈이 허브 |
 | 운영 버전 | ✅ | 운영(prod, feat/0620) **3100/9000** · 개발(dev, feat/krds worktree) **3101/9001**(완전 격리) · Cloudflare Zero Trust 뒤 |
 | 검수 | ⏳ | 전건 미검수 — 규정 미분류 번호 배정·초안 확정 대기 |
 
@@ -598,4 +608,4 @@ gantt
 
 ---
 
-최종 수정: 2026-07-16 (KRDS 전환(37)·캘린더 연간그리드(43)·서버 로그인 게이트(44)·용어 인라인 툴팁(45)·통합 랜딩(47)·모바일 개편(48)·용어집 확충 119(49)·별지 다운로드·서식찾기 개선(50) 반영, 코퍼스 363문서·4,830청크 현행화)
+최종 수정: 2026-07-31 (v1.9.0 승격 — 운영 알림(66)·코드 그래프(67)·실험실(specs/09)·출제 3중 필터 반영, 코퍼스 599문서·6,044청크 현행화. 이전: KRDS 전환(37)·로그인 게이트(44)·별지 개선(50) 등)
