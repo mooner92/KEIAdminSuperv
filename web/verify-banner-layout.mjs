@@ -15,8 +15,8 @@ if (!TEST_PW) {
 }
 const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
 const b = await chromium.launch();
-let pass = 0, fail = 0;
-const check = (n, ok, d = "") => { console.log((ok ? "✅" : "❌") + " " + n + (d ? " — " + d : "")); ok ? pass++ : fail++; };
+import { makeCheck } from "./verify-lib.mjs";
+const { check, finish } = makeCheck();
 
 const ctx = await b.newContext({ viewport: { width: 1500, height: 860 } });
 await ctx.request.post(BASE + "/api/app/auth/login", { data: { username: TEST_USER, password: TEST_PW } });
@@ -61,6 +61,5 @@ await p.waitForTimeout(1500);
 m = await measure();
 check("④ 둘러보기(fill) 무스크롤", m.over <= 1 && m.footerIn, `초과 ${m.over}px`);
 
-console.log(`\n${pass}/${pass + fail} 판정 통과`);
 await b.close();
-process.exit(fail ? 1 : 0);
+process.exit(finish());

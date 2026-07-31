@@ -13,8 +13,8 @@ if (!TEST_PW) {
 }
 const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
 const b = await chromium.launch();
-let pass = 0, fail = 0;
-const check = (n, ok, d = "") => { console.log((ok ? "✅" : "❌") + " " + n + (d ? " — " + d : "")); ok ? pass++ : fail++; };
+import { makeCheck } from "./verify-lib.mjs";
+const { check, finish } = makeCheck();
 
 // ① /about (로그인 상태) — 6섹션 + ScrollRail
 const ctx = await b.newContext({ viewport: { width: 1400, height: 950 } });
@@ -190,6 +190,5 @@ check("⑧ 로그인 '/': 채팅 유지", (await p.locator("textarea, input[plac
   || chatBody.includes("무엇이든 물어보세요") || chatBody.includes("질문"));
 check("⑧ footer 소개 링크", (await p.locator('footer a[href="/about/"]').count()) === 1);
 
-console.log(`\n${pass}/${pass + fail} 판정 통과`);
 await b.close();
-process.exit(fail ? 1 : 0);
+process.exit(finish());

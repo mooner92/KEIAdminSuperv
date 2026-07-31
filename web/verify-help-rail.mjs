@@ -13,8 +13,8 @@ if (!TEST_PW) {
 }
 const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
 const b = await chromium.launch();
-let pass = 0, fail = 0;
-const check = (n, ok, d = "") => { console.log((ok ? "✅" : "❌") + " " + n + (d ? " — " + d : "")); ok ? pass++ : fail++; };
+import { makeCheck } from "./verify-lib.mjs";
+const { check, finish } = makeCheck();
 const RAIL = 'nav[aria-label="페이지 섹션 이동"]';
 
 // ① 데스크톱: 레일 노출 + 가로 칩 숨김
@@ -75,6 +75,5 @@ check("⑤ 768px 가로칩 노출", await pm.locator('nav[aria-label="도움말 
 check("⑤ 768px 가로 스크롤 0", await pm.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
 await pm.close();
 
-console.log(`\n${pass}/${pass + fail} 판정 통과`);
 await b.close();
-process.exit(fail ? 1 : 0);
+process.exit(finish());

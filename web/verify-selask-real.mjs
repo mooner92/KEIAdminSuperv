@@ -14,8 +14,8 @@ if (!TEST_PW) {
 }
 const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
 const b = await chromium.launch();
-let pass = 0, fail = 0;
-const check = (n, ok, d = "") => { console.log((ok ? "✅" : "❌") + " " + n + (d ? " — " + d : "")); ok ? pass++ : fail++; };
+import { makeCheck } from "./verify-lib.mjs";
+const { check, finish } = makeCheck();
 
 const ctx = await b.newContext({ viewport: { width: 1500, height: 900 } });
 await ctx.request.post(BASE + "/api/app/auth/login", { data: { username: TEST_USER, password: TEST_PW } });
@@ -55,6 +55,5 @@ check("① 입력창 프리필(자동 전송 없음)", input.includes("이게 �
 
 // ② 채팅 드로어(콜백 경로)도 실마우스로 회귀 확인 — 근거 문서를 열 채팅이 필요하므로
 //    둘러보기 딥링크로 연 드로어와 동일 컴포넌트라 ①로 대표 검증(콜백 분기는 기존 E2E가 커버).
-console.log(`\n${pass}/${pass + fail} 판정 통과`);
 await b.close();
-process.exit(fail ? 1 : 0);
+process.exit(finish());

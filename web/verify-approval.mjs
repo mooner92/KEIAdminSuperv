@@ -13,8 +13,8 @@ if (!TEST_PW) {
 }
 const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
 const b = await chromium.launch();
-let pass = 0, fail = 0;
-const check = (n, ok, d = "") => { console.log((ok ? "✅" : "❌") + " " + n + (d ? " — " + d : "")); ok ? pass++ : fail++; };
+import { makeCheck } from "./verify-lib.mjs";
+const { check, finish } = makeCheck();
 const email = `apprtest_${Date.now()}@kei.re.kr`;
 
 // ① 가입 신청 → '승인 대기' 안내(코드 입력칸 없음)
@@ -64,6 +64,5 @@ const r = await c2.request.post(BASE + "/api/app/auth/login", { data: { username
 check("④ 승인 후 로그인 성공", r.ok(), String(r.status()));
 await adm.close?.();
 
-console.log(`\n${pass}/${pass + fail} 판정 통과`);
 await b.close();
-process.exit(fail ? 1 : 0);
+process.exit(finish());

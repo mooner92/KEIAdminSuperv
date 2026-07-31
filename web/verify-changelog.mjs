@@ -13,8 +13,8 @@ if (!TEST_PW) {
 }
 const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
 const b = await chromium.launch();
-let pass = 0, fail = 0;
-const check = (n, ok, d = "") => { console.log((ok ? "✅" : "❌") + " " + n + (d ? " — " + d : "")); ok ? pass++ : fail++; };
+import { makeCheck } from "./verify-lib.mjs";
+const { check, finish } = makeCheck();
 
 const ctx = await b.newContext({ viewport: { width: 1280, height: 900 } });
 // docs/44 게이트: changelog.json도 로그인 필요 — 로그인 먼저
@@ -102,6 +102,5 @@ await poff.waitForTimeout(1500);
 const offCards = await poff.locator("article").count();
 check("ⓓ flag off: /changelog 직접 진입도 카드 0건(준비 중 안내)", offCards === 0 && (await poff.innerText("body")).includes("준비 중"), `${offCards}건`);
 
-console.log(`\n${pass}/${pass + fail} 판정 통과`);
 await b.close();
-process.exit(fail ? 1 : 0);
+process.exit(finish());

@@ -1,0 +1,34 @@
+# Horong Alerts — Slack 앱 manifest (docs/66 §5 · T05)
+#
+# 사용법 (KEIwi Alerts와 같은 방식):
+#   1. https://api.slack.com/apps → Create New App → **From a manifest**
+#   2. 워크스페이스 `KEI workspace` 선택 → 이 파일 내용 붙여넣기 → Create
+#   3. Install to Workspace → OAuth & Permissions에서 **Bot User OAuth Token(xoxb-…)** 복사
+#   4. 토큰을 tools/ecosystem.local.js(gitignore)에만 넣는다:
+#        module.exports = { APP_ADMINS: "…기존…", SLACK_BOT_TOKEN: "xoxb-…" };
+#      ⛔ 채팅·커밋·이 파일 어디에도 토큰을 적지 않는다(manifest에는 시크릿이 없다).
+#   5. #horong 채널에서 `/invite @Horong Alerts`  ← 빼먹으면 not_in_channel로 조용히 실패
+#   6. 검증: cd tools && SLACK_BOT_TOKEN=... .venv/bin/python alerts.py   (테스트 1건 발송)
+#      상시 반영: pm2 restart kei-rag-api (ecosystem.local.js 재로드)
+#
+# 권한이 chat:write 하나뿐인 이유(docs/66 §9 스코프 아웃):
+#   단방향 알림 봇이다. 이벤트 수신·슬래시 커맨드·버튼은 Slack→우리 서버 인바운드가
+#   필요한데 Cloudflare Zero Trust 뒤라 열지 않는다. 읽기 권한도 불필요.
+#   ⚠ 전송 코드는 www.slack.com을 쓴다 — 사내 방화벽이 맨 slack.com만 SNI 차단(§5.1).
+
+display_information:
+  name: Horong Alerts
+  description: 호롱(KEI 행정 가이드) 운영 알림 — 서비스 이상·오토픽스·제보 계획·일일 품질
+  background_color: "#b45309"
+features:
+  bot_user:
+    display_name: Horong Alerts
+    always_online: true
+oauth_config:
+  scopes:
+    bot:
+      - chat:write
+settings:
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false

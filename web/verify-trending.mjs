@@ -18,11 +18,8 @@ const b = await chromium.launch();
 const ctx = await b.newContext({ viewport: { width: 1280, height: 900 } });
 await ctx.request.post(BASE + "/api/app/auth/login", { data: { username: TEST_USER, password: TEST_PW } });
 const p = await ctx.newPage();
-let pass = 0, fail = 0;
-const check = (name, ok, detail = "") => {
-  console.log((ok ? "✅" : "❌") + " " + name + (detail ? " — " + detail : ""));
-  ok ? pass++ : fail++;
-};
+import { makeCheck } from "./verify-lib.mjs";
+const { check, finish } = makeCheck();
 
 await p.goto(BASE + "/", { waitUntil: "load" });
 await p.waitForTimeout(1800);
@@ -53,6 +50,5 @@ const chipTexts = [];
 for (let i = 0; i < nChips; i++) chipTexts.push((await chips.nth(i).innerText()).trim());
 check("④ 일반어(신청) 단독 칩 없음", !chipTexts.includes("신청"), chipTexts.join(","));
 
-console.log(`\n${pass}/${pass + fail} 판정 통과`);
 await b.close();
-process.exit(fail ? 1 : 0);
+process.exit(finish());

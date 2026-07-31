@@ -5,11 +5,8 @@ import { chromium } from "playwright";
 const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
 const b = await chromium.launch();
 const p = await b.newPage({ viewport: { width: 1280, height: 900 } });
-let pass = 0, fail = 0;
-const check = (name, ok, detail = "") => {
-  console.log((ok ? "✅" : "❌") + " " + name + (detail ? " — " + detail : ""));
-  ok ? pass++ : fail++;
-};
+import { makeCheck } from "./verify-lib.mjs";
+const { check, finish } = makeCheck();
 
 async function openDoc(slug) {
   await p.goto(`${BASE}/d/${encodeURIComponent(slug)}/`, { waitUntil: "load" });
@@ -68,6 +65,5 @@ async function openDoc(slug) {
   check("④ 길라잡이 주석 미노출", !g.text.includes("outdated") && !g.text.includes("<!--"));
 }
 
-console.log(`\n${pass}/${pass + fail} 판정 통과`);
 await b.close();
-process.exit(fail ? 1 : 0);
+process.exit(finish());

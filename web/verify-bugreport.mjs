@@ -13,8 +13,8 @@ if (!TEST_PW) {
 }
 const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
 const b = await chromium.launch();
-let pass = 0, fail = 0;
-const check = (n, ok, d = "") => { console.log((ok ? "✅" : "❌") + " " + n + (d ? " — " + d : "")); ok ? pass++ : fail++; };
+import { makeCheck } from "./verify-lib.mjs";
+const { check, finish } = makeCheck();
 
 const ctx = await b.newContext({ viewport: { width: 1280, height: 900 } });
 await ctx.request.post(BASE + "/api/app/auth/login", { data: { username: TEST_USER, password: TEST_PW } });
@@ -65,6 +65,5 @@ await p.waitForTimeout(1500);
 check("⑥ flag off 시 탭 미노출", (await p.locator('button[role="tab"]', { hasText: "버그리포트" }).count()) === 0);
 await setFlag(true); // 복원
 
-console.log(`\n${pass}/${pass + fail} 판정 통과`);
 await b.close();
-process.exit(fail ? 1 : 0);
+process.exit(finish());
