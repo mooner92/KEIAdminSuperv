@@ -487,6 +487,21 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-12-31",
     },
+    # ── 실험실(specs/09) — 실험 1개 = 플래그 1개. 졸업·퇴출 시 반드시 제거(flag debt 금지) ──
+    "lab_hub": {
+        "default": False,  # off 배포 — 켜는 건 관리자가 /admin에서(spec §2.2)
+        "description": "실험실 허브(specs/09) — /now 카드 + /lab 페이지. 정식 승격 전 기능의 무대. "
+                       "off면 카드·페이지 모두 숨김(개별 실험 플래그와 독립).",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
+    "lab_code_graph": {
+        "default": False,
+        "description": "실험 1호: 코드 그래프(specs/09·docs/67) — 호롱 코드·문서 연결 지도를 "
+                       "/lab/code-graph에서 열람(로그인 사용자 전원). 게시본은 유출 검사 통과분만.",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
 }
 
 
