@@ -307,6 +307,18 @@ const server = http.createServer((req, res) => {
       return serveFile(res, live);
     }
   }
+  // 실험실 에셋(specs/09) — 코드 그래프 게시본. graphify-refresh --publish가 갱신하는
+  // web/lab-assets/(gitignore·빌드 미포함 — 코드 구조를 out/에도 안 넣는다)를 직접 서빙.
+  // 게이트는 위에서 이미 통과(isPublicPath 미등록 = 비로그인 302, fail-closed).
+  if (safe.startsWith("lab-assets" + path.sep) || safe.startsWith(path.join("/", "lab-assets"))) {
+    const base = path.join(__dirname, "lab-assets");
+    const live = path.join(__dirname, safe.replace(/^[/\\]+/, ""));
+    // 이중 탈출 방지 — 정규화는 위에서 끝났지만 이 분기만의 루트 확인을 한 번 더.
+    if (live.startsWith(base + path.sep) && fs.existsSync(live) && fs.statSync(live).isFile()) {
+      return serveFile(res, live);
+    }
+    return notFound(res);
+  }
 
   // 디렉터리(슬래시로 끝남) → index.html
   if (pathname.endsWith("/")) target = path.join(target, "index.html");

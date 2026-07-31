@@ -99,6 +99,9 @@ for (const p of [
   "/fonts/../d/secret.html",
   "/_next/static/./../../d/secret.html",
   "/_next/data/x/index.json/../../../d/secret.html",
+  // 실험실 에셋(specs/09 §3) — 직서빙 분기가 게이트 앞에 서지 않는지 + 분기 경유 탈출 불가
+  "/lab-assets/../d/secret.html",
+  "/_next/static/..%2f..%2flab-assets%2fcode-graph.html",
 ]) {
   const r = await get(p);
   const leaked = r.includes("SECRET-REGULATION-BODY");

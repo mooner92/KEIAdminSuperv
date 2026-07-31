@@ -38,6 +38,7 @@ export default function NowPage({ seasonal, revised, notes, terms, formsCount, d
   const impactOn = useFlag("impact_analysis"); // specs/05: 개정 영향 분석 // 결재선 — 모바일 GNB에서 빠진 화면의 허브 도달(docs/48)
   const journeyOn = useFlag("journey_map"); // 업무 한 장 — 〃
   const feedbackOn = useFlag("feedback_center"); // 의견 보내기(docs/51) — 허브 카드
+  const labOn = useFlag("lab_hub"); // 실험실(specs/09) — 정식 승격 전 기능의 무대
   const landingOn = useFlag("landing_page"); // 소개 — 모바일 셸에선 푸터가 숨어 허브가 유일 진입(docs/54 v2)
   const { user } = useAuth(); // 관리자 카드(조건) — 〃
   const [month, setMonth] = useState<number | null>(null); // 이번 달 — null = 클라이언트 미확정(SSG 안전)
@@ -89,6 +90,8 @@ export default function NowPage({ seasonal, revised, notes, terms, formsCount, d
       desc: notes[0] ? `최근: ${notes[0].제목}` : "서비스 업데이트 내역" }] : []),
     ...(feedbackOn ? [{ icon: "📮", title: "의견 보내기", accent: "대외업무", href: "/feedback/",
       desc: "원문 오류·빠진 개정본·개선 의견을 제보하고 처리 상태 확인" }] : []),
+    ...(labOn ? [{ icon: "🧪", title: "실험실", accent: "시스템", href: "/lab/",
+      desc: "정식 기능이 되기 전의 시제품들 — 언제든 바뀌거나 사라질 수 있어요" }] : []),
     // 모바일 셸(docs/54 v2)에선 푸터가 숨어 아래 진입점은 이 허브가 유일 — 데스크톱 허브에도 무해
     { icon: "❓", title: "도움말", accent: "규정집", href: "/help/", desc: "사용법·FAQ — 처음이라면 여기부터" },
     ...(landingOn ? [{ icon: "🏛️", title: "소개", accent: "상위법령", href: "/about/",

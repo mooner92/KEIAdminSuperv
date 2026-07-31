@@ -49,3 +49,27 @@ for pat in 'KEI-행정가이드' 'research_rule_files' 'pms_raw' 'forms-pdf' '�
 done
 [ "$bad" = 0 ] && echo "  ✓ 통과" || exit 1
 echo "완료: graphify-out/graph.html · GRAPH_REPORT.md"
+
+# ── --publish: 실험실 게시본 갱신 (specs/09 §2.3~2.4) ──────────────────────
+# 유출 검사를 통과한 산출물만 게시본이 된다(위에서 exit 1이면 여기 못 온다).
+# ⛔ CDN 치환 필수: graph.html은 vis-network를 unpkg에서 로드하는데, server.js CSP가
+#    외부 오리진 스크립트를 전부 차단하므로 치환 없인 화면이 아예 안 뜬다(정책이자 동작 필수).
+#    로컬 사본(web/lab-assets/vis-network.min.js, 9.1.6 고정)은 1회 수동 확보 — 스크립트는
+#    다운로드하지 않는다(게시 경로에 네트워크 의존을 만들지 않는다).
+for a in "$@"; do
+  if [ "$a" = "--publish" ]; then
+    LAB="web/lab-assets"
+    [ -f "$LAB/vis-network.min.js" ] || { echo "⛔ $LAB/vis-network.min.js 없음 — specs/09 §2.3(1회 고정) 확인" >&2; exit 1; }
+    sed 's|https://unpkg.com/vis-network@[^"]*|/lab-assets/vis-network.min.js|' \
+      graphify-out/graph.html > "$LAB/code-graph.html.tmp"
+    if grep -qE '<(script|link)[^>]+(src|href)="https?://' "$LAB/code-graph.html.tmp"; then
+      echo "⛔ 외부 로드가 남아 있다 — 게시 중단(specs/09 §2.3)" >&2
+      rm -f "$LAB/code-graph.html.tmp"; exit 1
+    fi
+    mv "$LAB/code-graph.html.tmp" "$LAB/code-graph.html"
+    printf '{"commit":"%s","generated":"%s","nodes":%s}\n' \
+      "$(git rev-parse --short HEAD)" "$(date +%F)" \
+      "$(grep -o '"id"' graphify-out/graph.json | wc -l)" > "$LAB/code-graph.meta.json"
+    echo "게시: $LAB/code-graph.html ($(du -h "$LAB/code-graph.html" | cut -f1)) + meta"
+  fi
+done

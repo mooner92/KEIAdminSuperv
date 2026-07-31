@@ -192,3 +192,6 @@ web/public/quality/
 
 # graphify — 코드 그래프 산출물. ⛔ 커밋 금지(우리 코드 구조가 담긴 파일).
 graphify-out/
+
+# 실험실 게시본(specs/09) — 코드 그래프 HTML·vis-network 사본. 커밋 금지(코드 구조 파일).
+web/lab-assets/
