@@ -13,8 +13,8 @@ if (!TEST_PW) {
 }
 const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
 const b = await chromium.launch();
-let pass = 0, fail = 0;
-const check = (n, ok, d = "") => { console.log((ok ? "✅" : "❌") + " " + n + (d ? " — " + d : "")); ok ? pass++ : fail++; };
+import { makeCheck } from "./verify-lib.mjs";
+const { check, finish } = makeCheck();
 
 const ctx = await b.newContext({ viewport: { width: 1500, height: 900 } });
 await ctx.request.post(BASE + "/api/app/auth/login", { data: { username: TEST_USER, password: TEST_PW } });
@@ -162,7 +162,6 @@ const gated = await poff.waitForFunction(
 if (!gated) console.log("   (디버그) 본문:", (await poff.innerText("body")).slice(0, 120).replace(/\n/g, " | "));
 check("게이트: flag off /forms = 준비 중(표 미노출)", gated);
 
-console.log(`\n${pass}/${pass + fail} 판정 통과`);
 await ctxOff.close().catch(() => {});
 await b.close();
-process.exit(fail ? 1 : 0);
+process.exit(finish());

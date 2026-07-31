@@ -24,6 +24,61 @@ sys.path.insert(0, str(ROOT / "tools"))
 from refusal_detect import is_refusal  # 단일 정본(specs/01 P0) — 결론부 스코프+부정형 한정(T9)
 VAL_RE = re.compile(r"\d[\d,]*(?:\.\d+)?\s*(?:원|만원|천원|억원|%|퍼센트|일|개월|년|주|시간|회|명|점|급|호)")
 
+# ── 골든 결함 후보 감지 (docs/58 §6d) ─────────────────────────────────────────────
+# 실측(2026-07-30): 미정답 8건 중 2건은 시스템이 근거를 정확히 회수했는데도 채점이 불가능했다.
+#   · "15. 연구안내게시판의 게시글 등록·수정 권한과 게시종료 기능."  ← 목차 항목이 골든
+#   · "-회의 개최경비는 당해 연구 또는 행사 수행과 … 소요경비"        ← 문장 파편이 골든
+# 이런 골든은 답변 품질과 무관하게 정답률을 깎는다 → 라벨을 붙여 사람이 손볼 수 있게 한다.
+# ⛔ 의도적으로 보수적이다 — 목차·목록 마커만 본다. '문장 종결 없음' 같은 넓은 휴리스틱은
+#   표에서 뽑은 정상 골든(예: "… 200만원 이하 → 전결권자 실･팀장")을 오탐해서 쓰지 않는다.
+# ⛔ 라벨만 — 정답률 분모를 바꾸지 않는다(출제 결함 확정은 사람만, retire 상태로).
+GOLDEN_FRAG_RE = re.compile(r"^\s*(?:\d+[.)]|[-·•*])")
+
+
+def golden_suspect(golden: str) -> bool:
+    """골든이 목차 항목·목록 파편으로 보이면 True(채점 자체가 불가능한 출제 결함 후보)."""
+    g = (golden or "").strip()
+    if not g:
+        return True
+    return bool(GOLDEN_FRAG_RE.match(g))
+
+
+def cohort_of(bank_entry) -> str:
+    """문항 코호트. ⚠ 오늘 판정이력을 append하기 **전에** 호출해야 한다.
+
+    재시험 = 이전에 이미 채점된 문항(주로 이월된 실패) → 여기 정답률이 '개선 신호'.
+    신규   = 오늘 처음 출제 → '커버리지 신호'이며 표본 구성에 크게 흔들린다.
+    """
+    return "재시험" if (bank_entry and (bank_entry.get("판정이력") or [])) else "신규"
+
+
+def classify_failure(item: dict) -> str:
+    """미정답 문항의 성격 라벨(집계·보강 우선순위용). 정답이면 "".
+
+    검색으로 고칠 것 / 생성으로 고칠 것 / 골든을 손볼 것을 갈라 본다 —
+    합산 정답률만 보면 셋이 한 숫자에 섞여 어디를 고쳐야 할지 알 수 없다.
+    """
+    v = item.get("판정")
+    if v == "정답":
+        return ""
+    if v == "폐기":
+        return "출제결함"
+    if golden_suspect(item.get("골든") or ""):
+        return "골든품질"
+    cause = item.get("원인")
+    if cause in ("검색실패", "생성환각", "원문결함", "시드재검토"):
+        return str(cause)
+    if v == "판정불가":
+        return "판정불가-기타"
+    if v == "부분":
+        return "부분정답"
+    # 실측 결함(2026-07-30 재실행): 재심(REBUT) 경로가 내는 '검토필요'에 원인이 안 붙으면
+    #   여기까지 흘러내려 '미분류'로 집계됐다. '미분류'는 **분류기 구멍**을 뜻해야 하고,
+    #   알려진 판정값이 버킷 없이 남은 상태를 뜻해선 안 된다 — 구멍이 통계로 위장된다.
+    if v == "검토필요":
+        return "검토필요-기타"
+    return "미분류"
+
 JUDGE_SYS = (
     "너는 채점자다. [질문, 챗봇 답변, 정답 근거 원문]이 주어진다. 답변이 원문과 부합하는지 다음 "
     'JSON만 출력하라:\n{"판정": "<정답|부분|오답|판정불가>", "근거문장": "<원문에서 그대로 복사한 한 문장>", '
@@ -213,6 +268,14 @@ def main() -> int:
     bh = {b["id"]: b for b in bank}
     for r in results:
         b = bh.get(r["id"])
+        # ── 코호트 판정 (docs/58 §6d) — ⚠ 오늘 이력을 append하기 **전**에 정해야 한다 ──
+        #   재시험 = 이전에 이미 채점된 문항(주로 이월된 실패). 여기 정답률이 곧 '개선 신호'다.
+        #   신규   = 오늘 처음 출제. 여기 정답률은 '커버리지 신호'이고 표본 구성에 크게 흔들린다.
+        # 실측(2026-07-30): 29일↔30일 공통 문항이 60건 중 9건뿐 — 표본 85%가 매일 교체된다.
+        #   그래서 합산 정답률의 일별 비교(80.7→91.2)는 대부분 표본 구성이고, 개선 여부를
+        #   말해주지 못한다. 코호트를 나누면 재시험분에서 오답 7→1이 깨끗하게 보인다.
+        r["코호트"] = cohort_of(b)
+        r["실패유형"] = classify_failure(r)
         if not b:
             continue
         b.setdefault("판정이력", []).append({"date": args.date, "판정": r["판정"]})
@@ -233,10 +296,26 @@ def main() -> int:
         b["최근판정"] = r["판정"]
     save_bank(bank)
 
+    # ── 코호트별·실패유형별 집계 (docs/58 §6d) ──
+    # ⛔ 합산 `정답률`은 계산식을 바꾸지 않는다(과거 일자와 비교 가능해야 한다).
+    #    코호트는 *같은 분모 규칙*으로 따로 계산한 표시용 지표다.
+    def _acc(rows: list) -> dict:
+        c = Counter(r["판정"] for r in rows)
+        d = len(rows) - c.get("판정불가", 0) - c.get("폐기", 0)
+        return {"문항수": len(rows), "집계": dict(c),
+                "정답률": round(100 * c.get("정답", 0) / d, 1) if d else None}
+
+    코호트별 = {n: _acc([r for r in results if r.get("코호트") == n]) for n in ("재시험", "신규")}
+    실패유형별 = dict(Counter(r["실패유형"] for r in results if r.get("실패유형")))
+
     out = DAILY_DIR / f"{args.date}.graded.json"
     out.write_text(json.dumps({"date": args.date, "정답률": acc, "집계": dict(cnt),
+                               "코호트별": 코호트별, "실패유형별": 실패유형별,
                                "문항": results}, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"\n정답률 {acc}% — {dict(cnt)} → {out}")
+    for n, v in 코호트별.items():
+        print(f"  · {n}: {v['정답률']}% ({v['문항수']}건) {v['집계']}")
+    print(f"  · 실패유형: {실패유형별}")
     return 0
 
 

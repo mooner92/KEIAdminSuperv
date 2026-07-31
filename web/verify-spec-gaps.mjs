@@ -15,8 +15,8 @@ if (!TEST_PW) {
 const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
 const STALE = "/home/mhchoi/kei-dev-0703/tools/index/reindex_stale.json";
 const b = await chromium.launch();
-let pass = 0, fail = 0;
-const check = (n, ok, d = "") => { console.log((ok ? "✅" : "❌") + " " + n + (d ? " — " + d : "")); ok ? pass++ : fail++; };
+import { makeCheck } from "./verify-lib.mjs";
+const { check, finish } = makeCheck();
 
 const ctx = await b.newContext({ viewport: { width: 1440, height: 1000 } });
 await ctx.request.post(BASE + "/api/app/auth/login", { data: { username: TEST_USER, password: TEST_PW } });
@@ -69,6 +69,5 @@ const j2 = await r2.json();
 check("③ 복구 후 스테일 해제", (j2.docs.find((d) => d.slug === "3400_복무규정") || {}).needs_reindex === false);
 await p.screenshot({ path: "verify-spec-gaps.png" });
 
-console.log(`\n${pass}/${pass + fail} 판정 통과`);
 await b.close();
-process.exit(fail ? 1 : 0);
+process.exit(finish());

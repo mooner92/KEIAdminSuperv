@@ -9,6 +9,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import rag_core  # noqa: E402
 
 TRIP = [{"규정명": "ERP 상세가이드 · 일반·총무(GEN)", "조": "국내출장신청상세"}, {"규정명": "여비규정", "조": "제9조"}]
+# 인사자료조회(ERP) 근거 — '자료'·'조회' 토큰을 포함해 오발 조건을 그대로 재현한다
+HRM = [{"규정명": "ERP 상세가이드 · 인사(HRM)", "조": "인사자료조회"}, {"규정명": "인사규정", "조": "제14조"}]
 
 
 def test_trip_full_set():
@@ -23,6 +25,31 @@ def test_longest_keyword_wins():
     s = rag_core.suggest_followups("연차휴가 며칠이야?", [{"규정명": "복무규정", "조": "제16조"}])
     j = next(x for x in s if x["type"] == "journey")
     assert j["journey"] == "annual-leave", j
+
+
+def test_generic_token_alone_no_journey():
+    """⛔ 일반 토큰 1개('자료')로는 여정을 지목하지 않는다 — 실측 오발 회귀(2026-07-30).
+
+    "인사 자료 조회는 어디서?"에 '자료(도서) 구입 신청' 칩이 떴던 결함.
+    """
+    s = rag_core.suggest_followups("사내 구성원 조직도는 어디서 확인할 수 있지?", HRM)
+    assert not any(x["type"] == "journey" for x in s), f"일반 토큰 오발: {s}"
+    s2 = rag_core.suggest_followups("인사 자료 조회는 어디서 할 수 있지?", HRM)
+    assert not any(x["type"] == "journey" for x in s2), f"일반 토큰 오발: {s2}"
+
+
+def test_generic_pair_still_triggers():
+    """일반 토큰이라도 같은 여정에서 2개 이상이면 정상 트리거(정상 기능 보존)."""
+    s = rag_core.suggest_followups("도서 구입 신청은 어떻게 해?", [])
+    j = next((x for x in s if x["type"] == "journey"), None)
+    assert j and j["journey"] == "도서구입", f"정상 트리거가 죽었다: {s}"
+
+
+def test_unique_token_triggers():
+    """고유 토큰 1개면 즉시 확정 — '신청'이 3개 여정 공통이어도 '유연근무'가 이긴다."""
+    s = rag_core.suggest_followups("유연근무 신청 방법 알려줘", [])
+    j = next((x for x in s if x["type"] == "journey"), None)
+    assert j and j["journey"] == "유연근무신청", f"고유 토큰 확정 실패: {s}"
 
 
 def test_no_deadline_when_already_asked():

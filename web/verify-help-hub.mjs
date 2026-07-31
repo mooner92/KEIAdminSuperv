@@ -2,8 +2,8 @@
 import { chromium } from "playwright";
 const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
 const b = await chromium.launch();
-let pass = 0, fail = 0;
-const check = (n, ok, d = "") => { console.log((ok ? "✅" : "❌") + " " + n + (d ? " — " + d : "")); ok ? pass++ : fail++; };
+import { makeCheck } from "./verify-lib.mjs";
+const { check, finish } = makeCheck();
 const lum = (rgb) => { const m = rgb.match(/\d+/g).map(Number); return (m[0] + m[1] + m[2]) / 3; };
 
 // ⓑ flag on: 목차·FAQ 노출 + 초기 접힘.
@@ -93,6 +93,5 @@ const offBody = await poff.innerText("body");
 check("ⓐ flag off: FAQ 미노출", (await poff.locator("details").count()) === 0);
 check("ⓐ flag off: 현행 섹션은 유지", offBody.includes("한계 — 꼭 알아두세요") && offBody.includes("할 수 있는 것"));
 
-console.log(`\n${pass}/${pass + fail} 판정 통과`);
 await b.close();
-process.exit(fail ? 1 : 0);
+process.exit(finish());

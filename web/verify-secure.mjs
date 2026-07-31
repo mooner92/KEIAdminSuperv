@@ -15,8 +15,8 @@ if (!TEST_PW) {
 }
 const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
 const b = await chromium.launch();
-let pass = 0, fail = 0;
-const check = (n, ok, d = "") => { console.log((ok ? "✅" : "❌") + " " + n + (d ? " — " + d : "")); ok ? pass++ : fail++; };
+import { makeCheck } from "./verify-lib.mjs";
+const { check, finish } = makeCheck();
 
 // ── ① 비로그인 HTTP 매트릭스(리다이렉트 미추적) ──
 const anon = await b.newContext();
@@ -89,6 +89,5 @@ const big = await anon.request.post(BASE + "/api/app/auth/login", {
 }).then((r) => r.status()).catch(() => 413);
 check("⑥ 초대형 본문(3MB) → 413", big === 413, String(big));
 
-console.log(`\n${pass}/${pass + fail} 판정 통과`);
 await b.close();
-process.exit(fail ? 1 : 0);
+process.exit(finish());

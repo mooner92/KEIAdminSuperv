@@ -13,8 +13,8 @@ if (!TEST_PW) {
 }
 const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
 const b = await chromium.launch();
-let pass = 0, fail = 0;
-const check = (n, ok, d = "") => { console.log((ok ? "✅" : "❌") + " " + n + (d ? " — " + d : "")); ok ? pass++ : fail++; };
+import { makeCheck } from "./verify-lib.mjs";
+const { check, finish } = makeCheck();
 const navVisible = (p) => p.evaluate(() => {
   const h = document.querySelector("header")?.innerText || "";
   return h.includes("규정 둘러보기") && h.includes("관계 그래프");
@@ -57,6 +57,5 @@ check("④ 로그아웃 직후: GNB 즉시 사라짐(새로고침 없이)", gone
 check("④ 로그아웃 후 앱 메뉴 클릭 불가", (await p.locator('header a[href="/browse/"]').count()) === 0);
 await p.screenshot({ path: "verify-auth-nav.png" });
 
-console.log(`\n${pass}/${pass + fail} 판정 통과`);
 await b.close();
-process.exit(fail ? 1 : 0);
+process.exit(finish());

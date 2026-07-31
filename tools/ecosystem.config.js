@@ -55,8 +55,20 @@ module.exports = {
         //    운영 관리자(mhchoi@kei.re.kr)는 ecosystem.local.js(gitignore)에만 둔다.
         APP_ADMINS: "",
         PYTHONUNBUFFERED: "1", // print/로그 즉시 flush(PM2 로그 가시성)
+
+        // ── 운영자 알림(Slack) — 정책 정본 docs/66 ──────────────────────────
+        // ⛔ 봇 토큰은 시크릿이다. APP_ADMINS와 같은 이유로 커밋본은 **비워 둔다**
+        //    → 미설정 = 발송 안 함(fail-safe). 실제 토큰은 ecosystem.local.js(gitignore)에만.
+        // ⚠ 사내 방화벽이 TLS SNI로 **맨 slack.com만** 끊는다. www.slack.com(=공식 slack_sdk의
+        //   기본 base URL)·api.slack.com은 열려 있어 chat.postMessage가 정상 동작한다.
+        //   그래서 SLACK_API_BASE 기본값이 www.slack.com이다(2026-07-30 실측, docs/66 §5.1).
+        SLACK_BOT_TOKEN: "",
+        SLACK_CHANNEL: "#horong",
+        ALERT_MIN_SEV: "3", // 3=전부 / 2=SEV3(일일 다이제스트) 조용
+        ALERT_MAX_PER_DAY: "50", // 폭주 시 채널 보호 상한
+
         // 로컬 오버라이드(선택): tools/ecosystem.local.js 가 있으면 env를 덮어씀.
-        // 예) module.exports = { APP_ADMINS: "operator@kei.re.kr" };
+        // 예) module.exports = { APP_ADMINS: "…", SLACK_BOT_TOKEN: "xoxb-…" };
         ...(function () { try { return require("./ecosystem.local.js"); } catch { return {}; } })(),
       },
     },

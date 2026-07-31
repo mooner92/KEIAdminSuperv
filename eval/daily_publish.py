@@ -98,9 +98,12 @@ def main() -> int:
     qdir.mkdir(parents=True, exist_ok=True)
     pub_items = [{k: r.get(k) for k in
                   ("id", "질문", "유형", "정량여부", "주제", "분류", "판정", "증거", "원인",
-                   "답변", "근거문장", "출처", "회귀", "축")} for r in items]
+                   "답변", "근거문장", "출처", "회귀", "축", "코호트", "실패유형")} for r in items]
     (qdir / f"{args.date}.json").write_text(json.dumps(
         {"date": args.date, "정답률": g["정답률"], "집계": g["집계"],
+         # 코호트 분리(docs/58 §6d) — 합산 정답률은 표본 구성에 지배된다(표본 85%가 매일 교체).
+         #   재시험=개선 신호 / 신규=커버리지 신호. 둘을 섞으면 개선을 증명할 수 없다.
+         "코호트별": g.get("코호트별") or {}, "실패유형별": g.get("실패유형별") or {},
          "약점지도": final["약점지도"], "원인": cause_stats, "다양성": diversity,
          "문항": pub_items},
         ensure_ascii=False, indent=1), encoding="utf-8")
@@ -108,7 +111,8 @@ def main() -> int:
     idx_f = qdir.parent / "index.json"
     idx = json.loads(idx_f.read_text(encoding="utf-8")) if idx_f.exists() else {"days": []}
     idx["days"] = [d for d in idx["days"] if d["date"] != args.date]
-    idx["days"].append({"date": args.date, "정답률": g["정답률"], "집계": g["집계"]})
+    idx["days"].append({"date": args.date, "정답률": g["정답률"], "집계": g["집계"],
+                        "코호트별": g.get("코호트별") or {}})  # 추이에서도 코호트를 갈라 본다
     idx["days"] = sorted(idx["days"], key=lambda d: d["date"])[-90:]
     idx_f.write_text(json.dumps(idx, ensure_ascii=False, indent=1), encoding="utf-8")
 

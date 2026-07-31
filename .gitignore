@@ -188,3 +188,7 @@ eval/daily/
 eval/faq_candidates/
 tools/.daily_eval_signals.json
 web/public/quality/
+
+
+# graphify — 코드 그래프 산출물. ⛔ 커밋 금지(우리 코드 구조가 담긴 파일).
+graphify-out/

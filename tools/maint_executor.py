@@ -375,11 +375,11 @@ def main() -> int:
 
 
 def _notify(app_api, summary: str, detail: str, ok: bool) -> None:
-    from sqlmodel import Session  # noqa: PLC0415
-    with Session(app_api.engine) as s:
-        s.add(app_api.MaintNotice(kind="autofix" if ok else "autofix-fail",
-                                  summary=summary, detail_path=detail[:500]))
-        s.commit()
+    # 알림 단일 진입점(docs/66) — MaintNotice 기록(kind=autofix/autofix-fail 보존, 🔔 호환)
+    # + Slack #horong 발송(토큰 미설정이면 조용히 생략). 실패해도 오토픽스 흐름은 계속.
+    import alerts  # noqa: PLC0415
+    alerts.notify("autofix_ready" if ok else "autofix_failed",
+                  summary, detail, engine=app_api.engine)
 
 
 if __name__ == "__main__":

@@ -33,11 +33,8 @@ const restore = async () => {
 };
 const ctx = await b.newContext({ viewport: { width: 1280, height: 900 } });
 const p = await ctx.newPage();
-let pass = 0, fail = 0;
-const check = (name, ok, detail = "") => {
-  console.log((ok ? "✅" : "❌") + " " + name + (detail ? " — " + detail : ""));
-  ok ? pass++ : fail++;
-};
+import { makeCheck } from "./verify-lib.mjs";
+const { check, finish } = makeCheck();
 
 await p.goto(BASE + "/", { waitUntil: "load" });
 await p.waitForTimeout(1200);
@@ -93,7 +90,6 @@ check("④ 인증 상태 배지", abody.includes("인증됨"));
 check("④ 개인정보 고지 문구", abody.includes("채팅 내용은 관리자도 볼 수 없습니다"));
 await ap.screenshot({ path: "verify-signup-users.png" });
 
-console.log(`\n${pass}/${pass + fail} 판정 통과`);
 await restore(); // 승인제 플래그 원상 복원
 await b.close();
-process.exit(fail ? 1 : 0);
+process.exit(finish());

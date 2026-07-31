@@ -3,8 +3,8 @@ import { chromium } from "playwright";
 const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
 const b = await chromium.launch();
 const p = await b.newPage({ viewport: { width: 1200, height: 900 } });
-let pass = 0, fail = 0;
-const check = (n, ok, d = "") => { console.log((ok ? "✅" : "❌") + " " + n + (d ? " — " + d : "")); ok ? pass++ : fail++; };
+import { makeCheck } from "./verify-lib.mjs";
+const { check, finish } = makeCheck();
 const lum = (rgb) => { const m = rgb.match(/\d+/g).map(Number); return (m[0] + m[1] + m[2]) / 3; };
 
 // ① 다크모드에서 h2/li/p가 밝은 글자인지(실측 버그: rgb(33,37,41)로 안 보였음)
@@ -52,6 +52,5 @@ const c2 = await p2.evaluate(() => ({
 }));
 check("④ 라이트: 어두운 글자/밝은 배경", lum(c2.li) < 90 && lum(c2.bg) > 200, JSON.stringify(c2));
 
-console.log(`\n${pass}/${pass + fail} 판정 통과`);
 await b.close();
-process.exit(fail ? 1 : 0);
+process.exit(finish());

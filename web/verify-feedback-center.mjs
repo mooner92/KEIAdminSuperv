@@ -14,8 +14,8 @@ if (!TEST_PW) {
 }
 const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
 const b = await chromium.launch();
-let pass = 0, fail = 0;
-const check = (n, ok, d = "") => { console.log((ok ? "✅" : "❌") + " " + n + (d ? " — " + d : "")); ok ? pass++ : fail++; };
+import { makeCheck } from "./verify-lib.mjs";
+const { check, finish } = makeCheck();
 
 // 관리자 컨텍스트(플래그 토글·의견함) + 일반 사용자 컨텍스트(제출·RL — fb_test)
 const adm = await b.newContext({ viewport: { width: 1280, height: 950 } });
@@ -181,6 +181,5 @@ for (const r of allR) {
 }
 console.log(`🧹 테스트 제보 정리: ${cleaned}건 → 보류`);
 
-console.log(`\n${pass}/${pass + fail} 판정 통과`);
 await b.close();
-process.exit(fail ? 1 : 0);
+process.exit(finish());

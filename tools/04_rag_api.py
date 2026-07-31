@@ -26,6 +26,7 @@ from pydantic import BaseModel
 import rag_core
 import app_api  # 엔진·MaintNotice 접근(관측 알림)
 import obs  # P0 관측 순수 로직(docs/56)
+import alerts  # 알림 단일 진입점 — MaintNotice+Slack (docs/66)
 from app_api import init_db
 from app_api import router as app_router
 
@@ -51,18 +52,12 @@ app.include_router(app_router)  # /app/* (로그인·채팅기록)
 
 # ─────────────────── P0 관측: "죽으면 안다" (docs/56) ───────────────────
 # Sentry 전체 이식 대신 최소 P0만: ⓐ주기 헬스체크(_warm_loop에 얹음) ⓑ미처리 예외 알림.
-# 둘 다 기존 MaintNotice(🔔 배지·브라우저 알림)를 재사용 — 새 테이블·탭 없음.
+# 발화는 alerts.notify 단일 진입점(docs/66) — MaintNotice(🔔, 기존 kind 보존) + Slack #horong.
 # 동기 사례: 재색인 후 dev API가 옛 chroma 핸들을 물어 채팅 전부 500인데 아무도 몰랐음.
 
-def _maint_notice(kind: str, summary: str, detail: str = "") -> None:
-    """MaintNotice 1건 생성(fail-safe — 알림 실패가 서비스에 영향 주지 않게)."""
-    try:
-        from sqlmodel import Session  # noqa: PLC0415
-        with Session(app_api.engine) as s:
-            s.add(app_api.MaintNotice(kind=kind, summary=summary[:200], detail_path=detail[:500]))
-            s.commit()
-    except Exception as e:  # noqa: BLE001
-        print(f"[obs] MaintNotice 실패({type(e).__name__}) — 무시")
+# 헬스 상태를 예외 핸들러와 공유 — service_down 중의 500은 원인이 아니라 결과라
+# unhandled_error 알림을 억제한다(inhibition, docs/66 §4). 데몬 스레드가 갱신.
+_HEALTHY = True
 
 
 def _health_probe() -> tuple[bool, str]:
@@ -81,7 +76,9 @@ async def _on_unhandled(request, exc):  # noqa: ANN001
     if _err_throttle.should_notify(fp):
         tb = "".join(traceback.format_exception_only(type(exc), exc))[:200]
         # ⛔ 프라이버시: 라우트 경로·예외형만 — 질문/입력값/쿼리스트링 미포함(docs/56 §5)
-        _maint_notice("error", f"⛔ 서버 오류 {type(exc).__name__} — {request.url.path}", tb)
+        alerts.notify("unhandled_error", f"⛔ 서버 오류 {type(exc).__name__} — {request.url.path}",
+                      tb, engine=app_api.engine,
+                      suppressed=(() if _HEALTHY else ("service_down",)))
         print(f"[obs] 미처리 예외 알림: {fp} — {tb.strip()}")
     return JSONResponse({"error": {"message": "내부 오류가 발생했습니다.", "type": "internal_error"}},
                         status_code=500)
@@ -104,14 +101,18 @@ def _warm_loop():
             rag_core.keepalive_once()
         except Exception as e:
             print(f"keepalive 실패: {type(e).__name__}: {e}")
-        # P0 헬스체크(docs/56): 이상 전이 시 🔔, 회복 전이 시 회복 알림
+        # P0 헬스체크(docs/56): 이상 전이 시 🔔+Slack(SEV1), 회복 전이 시 회복 알림(SEV3)
         try:
             ok, why = _health_probe()
             transition = obs.health_transition(healthy, ok, why)
             if transition:
-                _maint_notice(*transition)
+                # obs는 (kind, summary, detail)을 주지만 어느 방향인지는 ok가 안다
+                alerts.notify("service_recovered" if ok else "service_down",
+                              transition[1], transition[2], engine=app_api.engine)
                 print(f"[obs] 헬스 전이: {transition[1]}")
             healthy = ok
+            global _HEALTHY
+            _HEALTHY = ok
         except Exception as e:  # noqa: BLE001
             print(f"[obs] 헬스체크 예외(무시): {type(e).__name__}: {e}")
 
