@@ -472,10 +472,13 @@ def main() -> int:
                 r.admin_note = (r.admin_note + "\n[자동] 분석 결과 별도 조치 불요 판단(미배정) — 재분석하려면 상태를 '접수'로").strip()
                 r.updated_at = time.time()
                 s.add(r)
-        if groups:
-            s.add(app_api.MaintNotice(kind="plan", summary=summary,
-                                      detail_path=str(md.relative_to(HERE))))
         s.commit()
+        if groups:
+            # 알림 단일 진입점(docs/66) — MaintNotice(kind=plan 보존, 🔔 호환) + Slack #horong.
+            # ⚠ 제보 상태 커밋 **후**에 호출한다: 알림 실패가 상태 갱신을 되돌리면 안 된다.
+            import alerts  # noqa: PLC0415
+            alerts.notify("feedback_plan", summary, str(md.relative_to(HERE)),
+                          engine=app_api.engine)
         log_run({"result": "계획", "new": len(new), "groups": len(groups),
                  "gates": {str(k): v for k, v in gate_n.items()},
                  "dups": len(dups), "unassigned": n_unassigned, "plan": md.name})

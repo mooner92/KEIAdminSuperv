@@ -233,4 +233,4 @@ if __name__ == "__main__":  # 실발송 점검: python tools/alerts.py [키]
     k = sys.argv[1] if len(sys.argv) > 1 else "quality_digest"
     msg = render(k, "발송 점검 — 실제 장애가 아닙니다")
     print(msg)
-    print("→", "전송됨" if _send(msg) else "미전송(URL 미설정 또는 실패)")
+    print("→", "전송됨" if _send(msg) else "미전송(토큰 미설정 또는 거부 — 위 로그 확인)")
