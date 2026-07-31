@@ -22,25 +22,24 @@ from daily_common import (BANK, MIN_CHUNK, SCEN_RATIO, is_self_contained, DAILY_
                           TYPE_QUOTA, bigrams, chroma_col, jaccard, llm_json, load_bank,
                           norm_q, qhash, save_bank, topics_of)
 
-GEN_SYS = (
-    "너는 사내 규정 챗봇의 품질을 검사할 '시험 문항' 출제자다. 규정/가이드 원문 일부가 주어진다.\n"
-    "그 원문만으로 답할 수 있는 실무형 질문 1개를 만들어 다음 JSON만 출력하라:\n"
-    '{"질문": "<신입 직원이 물을 법한 자연스러운 한 문장>", "근거문장": "<질문의 정답이 담긴 원문 한 문장을 글자 그대로 복사>"}\n'
-    "규칙: ① 원문에 없는 내용을 묻지 마라 ② 질문에 답(수치·결론)을 넣지 마라 "
-    "③ 유형 지시를 따르라 — 값형=금액·일수·기한·비율을 묻기 / 절차형=절차·서식·방법 / 조건형=자격·조건·범위 "
-    "④ 근거문장은 반드시 원문에서 그대로 복사(요약·의역 금지) — 그 한 문장만 봐도 채점이 되게 "
-    "⑤ 정답이 한 문장으로 명확히 존재하지 않으면(모호하면) {\"질문\": \"\"} 출력 — 모호한 출제 금지."
-)
+# 출제 프롬프트·필터는 gen_filter로 이관(2026-07-31 — 저녁 크론 재실행에서 출제결함 7건 실측 후
+# 전면 개편). 페르소나×상황×말투 256조합 + 결함 사전 + LLM 검수자 3중. 상세는 gen_filter.py 머리.
+from gen_filter import GEN_SYS, build_user_msg, question_defects, referee  # noqa: E402
 
 
 def gen_one(doc: str, meta: dict, qtype: str) -> dict | None:
     label = f"{meta.get('규정명','')} {meta.get('조','')}".strip()
     r = llm_json([
         {"role": "system", "content": GEN_SYS},
-        {"role": "user", "content": f"유형: {qtype}\n출처: {label}\n원문:\n{doc[:1600]}"},
+        {"role": "user", "content": build_user_msg(qtype, label, doc)},
     ], temperature=0.7, max_tokens=220)
     q = re.sub(r"\s+", " ", str(r.get("질문", ""))).strip()
-    if not q or len(q) < 8 or len(q) > 90 or not is_self_contained(q):
+    if not q or not is_self_contained(q):
+        return None
+    # ⓐ 결정적 결함 사전(무료) — 시험지 말투·문서 파편·문장 파손·메타 질문 등 즉시 폐기
+    golden_raw = re.sub(r"\s+", " ", str(r.get("근거문장", ""))).strip()
+    defects = question_defects(q, golden_raw, qtype)
+    if defects:
         return None
     src = doc.replace(" ", "")
     # 게이트: 질문 속 숫자는 원문에 실존(환각 질문 차단)
@@ -61,6 +60,11 @@ def gen_one(doc: str, meta: dict, qtype: str) -> dict | None:
     for v in re.findall(r"\d[\d,]*\s*(?:원|만원|일|개월|년|주|%|퍼센트)", golden):
         if norm_q(v) in norm_q(q):
             return None
+    # ⓒ LLM 검수자 — 결정적 게이트를 다 통과한 것만 1회 심사("실제 직원이 이렇게 묻겠는가")
+    ok, why = referee(llm_json, q)
+    if not ok:
+        print(f"  ✂ 검수자 폐기: {q[:40]}… — {why}")
+        return None
     return {"질문": q, "골든": golden}
 
 
@@ -73,6 +77,9 @@ def gen_refusal(seed: str, bank_grams: list) -> dict | None:
     ], temperature=0.7, max_tokens=100)
     q = re.sub(r"\s+", " ", str(r.get("질문", ""))).strip()
     if not q or len(q) < 8:
+        return None
+    # 거부형도 같은 결함 사전 적용(시험지 말투·종결어미) — 골든 없는 문항이라 그 검사만
+    if question_defects(q):
         return None
     g = bigrams(q)
     if any(jaccard(g, bg) >= 0.7 for bg in bank_grams):
