@@ -195,3 +195,7 @@ graphify-out/
 
 # 실험실 게시본(specs/09) — 코드 그래프 HTML·vis-network 사본. 커밋 금지(코드 구조 파일).
 web/lab-assets/
+
+# MLflow 파일 스토어(specs/10) — artifact에 질문·답변 본문 포함. ⛔ 커밋 금지.
+eval/mlruns/
+eval/mlflow.db

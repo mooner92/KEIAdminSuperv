@@ -32,6 +32,8 @@ if [ -d "$(dirname "$PROD_Q")" ]; then
   #    실측 2026-07-27: 상대경로 'web/...'가 eval/web/...을 가리켜 **prod 동기화가 매일 조용히 실패**했다.
   rsync -a --delete ../web/public/quality/ "$PROD_Q"/ && echo "[$(date)] prod 게시판 동기화 → $PROD_Q"
 fi
+# MLflow 병행 기록(specs/10 — 실패해도 크론 정상. 정본은 graded.json·게시판 그대로)
+MLFLOW_TRIGGER=cron $PY mlflow_log.py --date "$DATE" || true
 # 일일 다이제스트+재시험 급락 감지 → 🔔+Slack #horong (docs/66 §3.3. 실패해도 크론은 정상 종료)
 $PY eval_notice.py --digest --date "$DATE" || true
 # 데드맨 해제 겸 신선도 확인(정상 종료 시 갱신 시각이 갱신되므로 여기선 통과만 확인)

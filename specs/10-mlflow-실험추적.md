@@ -41,8 +41,9 @@ Experiment (실험 묶음, 예: "daily-eval")
 - **params vs metrics 구분이 본질**: "무엇을 다르게 했나"(param) ↔ "무엇이 나왔나"(metric).
   UI에서 run들을 param으로 필터하고 metric으로 정렬하는 게 이 도구의 가치 전부다.
 - **저장 구조 2층**: backend store(메타·metrics — 파일/SQLite/DB)와 artifact store(파일).
-  로컬 파일 스토어(`mlruns/` 디렉터리)면 **서버 프로세스 없이** 동작하고,
-  UI가 필요할 때만 `mlflow ui`를 띄우면 된다.
+  ⚠ **실측(3.15, 2026-08-02)**: 파일 스토어(`mlruns/`)는 유지보수 모드로 강등 — 기본이 예외를
+  던진다. **sqlite 백엔드(`sqlite:///mlflow.db`)가 권장 경로**이고 여전히 서버 프로세스 없이
+  동작한다(artifact는 계속 디렉터리). UI가 필요할 때만 `mlflow ui --backend-store-uri`로 연다.
 - **autolog**: sklearn·pytorch 등 학습 프레임워크의 파라미터·지표를 자동 후킹.
   ⚠ 우리 파이프라인은 학습이 아니라 평가라 autolog 대상이 아니다 — **수동 API**
   (`start_run`/`log_params`/`log_metrics`/`log_artifact`)가 우리 경로다.
@@ -51,7 +52,7 @@ Experiment (실험 묶음, 예: "daily-eval")
 
 ```python
 import mlflow
-mlflow.set_tracking_uri("file:eval/mlruns")     # 로컬 파일 스토어(서버 불요)
+mlflow.set_tracking_uri("sqlite:///eval/mlflow.db")  # sqlite 백엔드(서버 불요 — 3.15 실측)
 mlflow.set_experiment("daily-eval")
 with mlflow.start_run(run_name="2026-08-02"):
     mlflow.log_params({"llm": "Qwen3.5-9B-Q4", "collection": "kei_regs", "rerank": 1})
@@ -91,15 +92,15 @@ daily_run.sh
 
 ## 3. 비목표
 
-- 원격 tracking server·DB 백엔드·인증 — 1인 운영에 과함. 파일 스토어로 시작.
+- 원격 tracking server·인증 — 1인 운영에 과함. 로컬 sqlite로 시작(3.15 실측 반영).
 - Model Registry 실연결·pyfunc 서빙 — 서빙은 Ollama가 정본.
 - 기존 게시판 대체 — 게시판은 사용자용, MLflow는 운영자 실험 비교용. 역할이 다르다.
 
 ## 4. Tasks
 
 - [x] T01 이 spec(개념 정리 + 설계)
-- [ ] T02 `pip install mlflow`(venv) + `eval/mlflow_log.py` + gitignore + daily_run 훅
-- [ ] T03 백필 — 기존 graded.json 전부 소급 기록, UI에서 추이 확인
+- [x] T02 `pip install mlflow`(venv 3.15.0) + `eval/mlflow_log.py` + gitignore + daily_run 훅
+- [x] T03 백필 — 12건 소급 기록·search_runs 조회 검증(코호트 지표가 07-30b부터만 존재 — 도입 시점이 데이터에 남음)
 - [ ] T04 ab_model_test 연동(experiment `model-ab`)
 - [ ] T05 치트시트(docs) — UI 띄우기·비교 쿼리·"언제 MLflow, 언제 게시판"
 
