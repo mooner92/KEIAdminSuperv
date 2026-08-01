@@ -136,7 +136,16 @@ def sample_amount(rng: random.Random, n: int) -> list:
 def grade_amount(item: dict, 답변: str) -> tuple:
     label = item["판정키"]["전결권자"]
     exp = _ranks_in(label)          # 라벨도 원자로 환원('부서장/센터장' → {부서장})
-    got = _ranks_in(답변)
+    # ⚠ 직급 스캔은 '전결' 문맥 문장으로 한정한다(2026-08-02 실측 결함): 답변이 "전결권자는
+    #   실·팀장"을 명확히 말한 뒤 절차 설명("소속 부서장의 결재를 얻어 구매 요청" — 지침의
+    #   실제 절차)을 덧붙였는데, 전체 스캔이 그 부서장까지 주워 '부분'으로 깎았다 — 3일 연속.
+    #   정확하고 친절한 답변이 벌점을 받으면 채점이 개선 방향을 오도한다(T7·T9 계열).
+    #   전결 문장이 없으면 기존처럼 전체 스캔으로 폴백(판정 공백 방지). 진짜 얼버무림
+    #   ("실·팀장 또는 부장 전결")은 전결 문장 안에 두 직급이라 여전히 '부분'이다.
+    sents = [s for s in re.split(r"(?<=[.!?])\s+|\n+", 답변 or "") if "전결" in s]
+    got = _ranks_in(" ".join(sents)) if sents else set()
+    if not got:
+        got = _ranks_in(답변)
     if not exp:                     # 별표에 새 표기가 생긴 경우 — 오답 선언 금지
         return "검토필요", f"전결권자 표기 '{label}'를 직급 원자로 환원하지 못함(축 갱신 필요)", None
     if exp <= got and got <= exp:
