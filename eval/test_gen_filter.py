@@ -10,7 +10,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from gen_filter import question_defects  # noqa: E402
+from gen_filter import (PARA_MAX_OVERLAP, content_words, doc_overlap,  # noqa: E402
+                        paraphrase, question_defects)
 
 
 def test_real_defects_rejected():
@@ -75,6 +76,59 @@ def test_ending_rules():
     assert "종결어미" in question_defects("연차휴가 신청 절차를 정리한 평서문이다")
     assert not question_defects("연차휴가 며칠까지 쓸 수 있나요?")
     assert not question_defects("초과근무 수당 신청 방법 좀 알려주세요.")
+
+
+# ───────── 일상어 패러프레이즈(specs/11 A1) ─────────
+# ⛔ 픽스처 주의: 질문은 실측이지만 **원문 문자열은 전부 합성**이다 — 이 레포는 코드 전용이라
+#    규정 원문을 테스트에 박으면 데이터 분리 원칙이 깨진다. doc_overlap은 순수 어휘 함수라
+#    합성 원문으로도 계약이 그대로 검증된다.
+_SRC = "출장자는 출장 종료 후 15일 이내에 출장복명서를 제출하여야 한다. 여비는 별표에 따라 지급한다."
+
+
+def test_overlap_separates_vocabulary_layers():
+    """문서어 질문은 높고, 일상어로 바꾼 질문은 낮아야 한다 — 이 분리가 어휘 갭 측정의 전제."""
+    doc_q = "출장복명서는 출장 종료 후 며칠 이내에 제출하여야 하나요?"
+    plain_q = "출장 다녀오면 보고서 같은 거 언제까지 내야 하나요?"   # 실측 패러프레이즈 산출물
+    assert doc_overlap(doc_q, _SRC) >= 0.8, doc_overlap(doc_q, _SRC)
+    assert doc_overlap(plain_q, _SRC) <= PARA_MAX_OVERLAP, doc_overlap(plain_q, _SRC)
+
+
+def test_interrogative_tokens_excluded():
+    """지표 자체의 결함 회귀(2026-08-02 실측): '무엇입니까'가 분모를 채워 겹침이 0.00으로 나왔다.
+    의문·서술 토큰은 내용어가 아니다 — 아니면 임계값이 통째로 거짓이 된다."""
+    src = "중복게재란 이미 발표한 논문을 다시 게재하는 것을 말한다."
+    q = "중복게재란 무엇입니까?"
+    assert doc_overlap(q, src) == 1.0, doc_overlap(q, src)
+    # 남는 내용어는 주제어 하나뿐이어야 한다(의문형이 분모를 채우면 이 수가 늘고 겹침이 무너진다)
+    assert content_words(q) == {"중복게재란"}, content_words(q)
+
+
+def _fake_llm(para: str, equal: bool = True):
+    """패러프레이저/심판 두 역할을 프롬프트로 구분하는 가짜 LLM."""
+    def fn(messages, **kw):
+        sysmsg = messages[0]["content"]
+        return {"같음": equal, "사유": "테스트"} if "같은 것을 묻고 있는지" in sysmsg else {"질문": para}
+    return fn
+
+
+def test_paraphrase_rejects_residual_document_vocabulary():
+    """문서 용어가 그대로 남은 '패러프레이즈'는 실패다 — 통과시키면 일상어 정답률이 거짓이 된다."""
+    p, why = paraphrase(_fake_llm("출장복명서는 출장 종료 후 언제까지 제출하여야 하나요?"),
+                        "원 질문", _SRC, tries=1)
+    assert p is None and "어휘겹침" in why, (p, why)
+
+
+def test_paraphrase_rejects_meaning_drift():
+    """뜻이 흐르면 폐기 — 실측 5/16이 여기서 걸렸다(승인 절차→제출 기한, 조정→신규 등록).
+    이걸 통과시키면 서비스가 멀쩡해도 오답이 찍혀 어휘 갭을 측정이 스스로 오염시킨다."""
+    p, why = paraphrase(_fake_llm("휴가 신청은 어디서 하나요?", equal=False), "원 질문", _SRC, tries=1)
+    assert p is None and "뜻 달라짐" in why, (p, why)
+
+
+def test_paraphrase_accepts_plain_language():
+    p, why = paraphrase(_fake_llm("출장 다녀오면 보고서 같은 거 언제까지 내야 하나요?"),
+                        "원 질문", _SRC, tries=1)
+    assert p and "겹침" in why, (p, why)
 
 
 if __name__ == "__main__":

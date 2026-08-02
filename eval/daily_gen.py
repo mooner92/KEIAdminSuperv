@@ -18,13 +18,13 @@ from collections import Counter as Counter0
 
 import axes  # 평가 축 레지스트리(specs/07 B) — 결정적 4축
 import scenarios  # 복합 시나리오(specs/07 A) — 여정 기반 다중 근거 문항
-from daily_common import (BANK, MIN_CHUNK, SCEN_RATIO, is_self_contained, DAILY_DIR, NEW_N, REG_N, REFUSAL_SEEDS, SECTION_QUOTA,
+from daily_common import (BANK, MIN_CHUNK, PARA_RATIO, SCEN_RATIO, is_self_contained, DAILY_DIR, NEW_N, REG_N, REFUSAL_SEEDS, SECTION_QUOTA,
                           TYPE_QUOTA, bigrams, chroma_col, jaccard, llm_json, load_bank,
                           norm_q, qhash, save_bank, topics_of)
 
 # 출제 프롬프트·필터는 gen_filter로 이관(2026-07-31 — 저녁 크론 재실행에서 출제결함 7건 실측 후
 # 전면 개편). 페르소나×상황×말투 256조합 + 결함 사전 + LLM 검수자 3중. 상세는 gen_filter.py 머리.
-from gen_filter import GEN_SYS, build_user_msg, question_defects, referee  # noqa: E402
+from gen_filter import GEN_SYS, build_user_msg, paraphrase, question_defects, referee  # noqa: E402
 
 
 def gen_one(doc: str, meta: dict, qtype: str) -> dict | None:
@@ -267,15 +267,22 @@ def main() -> int:
     for sec in by_sec:  # 미출제 청크 우선
         by_sec[sec].sort(key=lambda i: (got["ids"][i] in used_chunks, random.random()))
 
-    ctypes = (["값형"] * round(n_chunk * 0.45) + ["절차형"] * round(n_chunk * 0.33))
-    ctypes += ["조건형"] * (n_chunk - len(ctypes))
+    # 어휘층 배분(specs/11 A4): 청크 슬롯을 문서어/일상어로 나눈다. 일상어는 문서어 문항에서
+    # 파생되므로 **문서어 목표를 n_doc으로 줄이고** 남은 자리를 짝이 채운다(총량 불변).
+    n_para = round(n_chunk * PARA_RATIO)
+    n_doc = n_chunk - n_para
+    para_items: list = []
+    para_drop = Counter0()
+
+    ctypes = (["값형"] * round(n_doc * 0.45) + ["절차형"] * round(n_doc * 0.33))
+    ctypes += ["조건형"] * (n_doc - len(ctypes))
     random.shuffle(ctypes)
 
     new_items, sec_keys = [], list(SECTION_QUOTA)
-    sec_take = {s: round(n_chunk * SECTION_QUOTA[s] / sum(SECTION_QUOTA.values())) for s in sec_keys}
+    sec_take = {s: round(n_doc * SECTION_QUOTA[s] / sum(SECTION_QUOTA.values())) for s in sec_keys}
     cursor = {s: 0 for s in sec_keys}
     attempts = 0
-    while len(new_items) < n_chunk and attempts < n_chunk * 6:
+    while len(new_items) < n_doc and attempts < n_doc * 6:
         attempts += 1
         # 남은 쿼터가 큰 섹션부터
         sec = max(sec_keys, key=lambda s: sec_take[s] - sum(1 for it in new_items if it["섹션"] == s))
@@ -303,14 +310,34 @@ def main() -> int:
             "유형": qtype, "정량여부": qtype == "값형",
             "출처": {"규정명": meta.get("규정명", ""), "조": meta.get("조", ""), "청크id": cid},
             "분류": meta.get("분류", ""), "주제": topics_of(meta.get("규정명", "") + doc[:300]),
-            "골든": g.get("골든", ""),
+            "골든": g.get("골든", ""), "어휘층": "문서어",
             "생성일": args.date, "상태": "active", "판정이력": [],
         }
         new_items.append({**item, "섹션": meta.get("type", "regulation")})
         by_hash[h] = item
         bank_grams.append(gr)
+        # ── 일상어 짝(specs/11 A1) — 골든은 그대로 두고 **질문만** 눈 가리고 다시 쓴다.
+        #    같은 정답을 두 어휘로 물었을 때의 결과 차이가 곧 어휘 갭의 크기다(쌍id로 연결).
+        if len(para_items) < n_para:
+            try:
+                p, why = paraphrase(llm_json, g["질문"], doc, random)
+            except Exception as ex:  # noqa: BLE001
+                p, why = None, f"예외 {ex}"
+            if not p:
+                para_drop[why.split(" ")[0]] += 1
+            else:
+                ph, pgr = qhash(p), bigrams(p)
+                if ph in by_hash or any(jaccard(pgr, bg) >= 0.7 for bg in bank_grams):
+                    para_drop["중복"] += 1
+                else:
+                    pit = {**item, "id": item["id"] + "p", "hash": ph, "질문": p,
+                           "어휘층": "일상어", "쌍id": h, "판정이력": []}
+                    para_items.append({**pit, "섹션": meta.get("type", "regulation")})
+                    by_hash[ph] = pit
+                    bank_grams.append(pgr)
+                    item["쌍id"] = h  # 문서어 쪽에도 같은 쌍id — 짝 비교의 양끝
 
-    new_items += axis_items + scen_items
+    new_items += para_items + axis_items + scen_items
 
     # 거부형
     random.shuffle(REFUSAL_SEEDS)
@@ -347,6 +374,8 @@ def main() -> int:
     from collections import Counter
     print(f"문항 {len(today)} (신규 {len(new_items)} · 회귀 {len(regression)}) → {out}")
     print("  유형:", dict(Counter(q['유형'] for q in today)))
+    vl = Counter(q.get('어휘층') for q in today if q.get('어휘층'))
+    print(f"  어휘층: {dict(vl)} (일상어 목표 {n_para}) · 패러프레이즈 폐기 {dict(para_drop)}")
     print("  주제:", dict(Counter(t for q in today for t in q.get('주제', []))))
     ax = Counter(q['축'] for q in today if q.get('축'))
     print(f"  축: {dict(ax)} (사용 가능 {axes.available()})")
