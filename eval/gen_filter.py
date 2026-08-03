@@ -101,6 +101,15 @@ _DOC_FRAGMENT = re.compile(
 _META_ARTICLE = re.compile(r"제\s*\d+\s*조는|언제부터 시행|시행일이? 언제|부칙")
 _MID_DEICTIC = re.compile(r"해당 (표|별표|화면|항목|서식)|본 (규정|지침|편람)|위 (표|규정|조항)")
 _LONG_QUOTE = re.compile(r"[\"“'‘][^\"”'’]{30,}[\"”'’]")
+# 한자 혼입 = 생성 모델의 코드 스위칭(2026-08-03 실측 12/661, 특히 일상어 4.2%):
+#   "예산决算 같은 거", "몇 年工作经历", "뭐都有哪些까요" — 직원은 이렇게 쓰지 않는다.
+# ⚠ 단 규정 원문은 한글(漢字) 병기를 쓴다("심의가 부(否)라면") — 괄호 안 한자는 정상 인용이므로
+#   괄호쌍을 지운 뒤 남는 한자만 결함으로 본다(정상 문항을 죽이지 않기 위한 예외).
+_HANJA = re.compile(r"[一-鿿]")
+
+
+def _hanja_outside_parens(q: str) -> bool:
+    return bool(_HANJA.search(re.sub(r"[(（][^)）]*[)）]", "", q)))
 
 
 def question_defects(q: str, golden: str = "", qtype: str = "") -> list:
@@ -123,6 +132,8 @@ def question_defects(q: str, golden: str = "", qtype: str = "") -> list:
         out.append("지시어")
     if _LONG_QUOTE.search(q):
         out.append("인용과다")
+    if _hanja_outside_parens(q):
+        out.append("한자혼입")
     # 3중 복합절 — 사람도 가끔 길게 묻지만 단문 유형(값·절차·조건)에서 '~이며/~되며' 연쇄는 출제 냄새
     if qtype in ("값형", "절차형", "조건형") and len(re.findall(r"(이며|되며|하며)", q)) >= 2:
         out.append("복합절과다")

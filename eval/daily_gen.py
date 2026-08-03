@@ -335,7 +335,10 @@ def main() -> int:
                     para_items.append({**pit, "섹션": meta.get("type", "regulation")})
                     by_hash[ph] = pit
                     bank_grams.append(pgr)
-                    item["쌍id"] = h  # 문서어 쪽에도 같은 쌍id — 짝 비교의 양끝
+                    # 문서어 쪽에도 같은 쌍id — 짝 비교의 양끝.
+                    # ⚠ new_items에 이미 **복사본**이 들어갔으므로 원본만 고치면 산출물엔 안 실린다
+                    #   (2026-08-03 실측: 짝 조인이 한 방향으로만 되던 원인).
+                    item["쌍id"] = new_items[-1]["쌍id"] = h
 
     new_items += para_items + axis_items + scen_items
 
