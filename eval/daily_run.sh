@@ -28,6 +28,10 @@ $PY daily_answer.py --date "$DATE"
 $PY daily_grade.py --date "$DATE"
 $PY daily_publish.py --date "$DATE"
 
+# 아침 분석서(1단, LLM 0회 — specs/12). daily_publish 다음: 채점 결과를 사람이 읽는 분석으로.
+# ⛔ 실패해도 크론은 계속 — 정본은 graded.json·게시판이고 분석서는 파생이다.
+$PY daily_report.py --date "$DATE" || true
+
 # prod 게시판 동기화(docs/58 — dev 크론이 유일 평가원, prod는 결과만 미러). PROD_QUALITY_DIR
 # 미설정/미존재 시 조용히 skip(dev 단독 운용 안전). server.js가 web/public/quality를 직서빙 →
 # 재빌드 불필요. ⛔ quality 데이터만 복사(코드·볼트 무관).

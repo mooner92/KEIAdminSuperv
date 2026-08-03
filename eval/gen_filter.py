@@ -285,6 +285,13 @@ def paraphrase(llm_json_fn, q: str, src: str, rng=None, tries: int = 2) -> tuple
         if d:
             last = f"결함 {','.join(d)}"
             continue
+        # ⓐ' 자족성 — 원 출제에만 걸려 있던 게이트다. 패러프레이즈는 맥락을 줄이는 작업이라
+        #    오히려 여기서 더 잘 깨진다(2026-08-03 실측: "상사 출장 가기 전에 저는 안 되는
+        #    거예요?" — 무엇을 묻는지 사라진 채 채점까지 갔다).
+        from daily_common import is_self_contained  # 지연 import — 순환 방지
+        if not is_self_contained(p):
+            last = "자족성 실패(지시어·맥락 의존)"
+            continue
         ov = doc_overlap(p, src)                      # ⓑ 문서 어휘가 남았으면 패러프레이즈 실패
         if ov > PARA_MAX_OVERLAP:
             last = f"어휘겹침 {ov:.2f} — 문서어 잔존"

@@ -99,6 +99,25 @@ def _cohort(d: dict, name: str) -> dict:
     return (d.get("코호트별") or {}).get(name) or {}
 
 
+def _report_line(date: str) -> str:
+    """아침 분석서(daily_report)에서 뽑은 두 수치. 없으면 빈 문자열 — 분석서가 없어도
+    다이제스트는 정상 발송된다(1단이 죽어도 알림은 살아야 한다).
+    ⛔ Slack 유출 금지 계약(docs/66 §6): 여기 붙이는 건 **집계 수치뿐**, 질문·답변 본문 금지."""
+    p = ROOT / "web" / "public" / "quality" / "reports" / f"{date}.json"
+    if not p.exists():
+        return ""
+    try:
+        a = json.loads(p.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        return ""
+    bits = []
+    if a.get("어휘갭"):
+        bits.append(f"어휘갭 {a['어휘갭'].get('정답률차')}%p")
+    if a.get("수술대기") is not None:
+        bits.append(f"🔧수술대기 {len(a['수술대기'])}건")
+    return (" · " + " · ".join(bits)) if bits else ""
+
+
 def digest(date: str) -> int:
     """일일 다이제스트(SEV3) + 재시험 코호트 급락(SEV2, 전일 대비 ≥10%p) — docs/66 §3.3.
 
@@ -111,7 +130,8 @@ def digest(date: str) -> int:
     d = json.loads(f.read_text(encoding="utf-8"))
     rc, nc = _cohort(d, "재시험"), _cohort(d, "신규")
     fmt = lambda c: f"{c.get('정답률', '?')}%({c.get('문항수', 0)}건)" if c else "—"  # noqa: E731
-    summary = f"📊 {date} 자가평가: 전체 {d.get('정답률', '?')}% · 재시험 {fmt(rc)} · 신규 {fmt(nc)}"
+    summary = (f"📊 {date} 자가평가: 전체 {d.get('정답률', '?')}% · 재시험 {fmt(rc)} · 신규 {fmt(nc)}"
+               + _report_line(date))
     notice("quality", summary, "품질 게시판(/quality)에서 실패유형·문항 상세 확인")
 
     os.environ.setdefault("SLACK_BOT_TOKEN", _slack_token())
