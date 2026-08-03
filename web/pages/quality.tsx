@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import Layout from "../components/Layout";
 import PageHero from "../components/common/PageHero";
+import ReportCard from "../components/quality/ReportCard";
 import DataTable from "../components/common/DataTable";
 import PagedList from "../components/common/PagedList";
 import { useFlag } from "../lib/flags";
@@ -149,6 +150,8 @@ export default function QualityPage() {
                 ]}
               />
             </div>
+            {/* 오늘의 분석서(specs/12 T02) — 분석서가 없는 날엔 스스로 사라진다 */}
+            <ReportCard date={day.date} />
           </section>
 
           {/* 약점 지도 */}

@@ -132,7 +132,9 @@ def _actions(gap, surgery, noise, n, by_reg) -> list:
         out.append(f"생성환각 {len(hal)}건 — 신뢰 게이트(수치·표) 통과 여부 확인 대상")
     nz = sum(noise.values())
     if n and nz / n >= 0.10:
-        out.append(f"출제 위생 점검 — 측정 노이즈 {nz}건({100 * nz / n:.0f}%): {dict(noise)}")
+        # ⚠ dict를 그대로 찍지 않는다 — 이 문장은 화면(게시판 카드)에도 그대로 나간다.
+        detail = " · ".join(f"{k} {v}" for k, v in noise.most_common())
+        out.append(f"출제 위생 점검 — 측정 노이즈 {nz}건({100 * nz / n:.0f}%): {detail}")
     if not out:
         out.append("특이 없음 — 수술 대기 0건")
     return out
