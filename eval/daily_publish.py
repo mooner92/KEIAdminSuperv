@@ -96,9 +96,12 @@ def main() -> int:
     # ── 웹 공개본(질문·답변·판정·증거·근거 열람 — 내부 로그인 뒤) ──
     qdir = ROOT / "web" / "public" / "quality" / "daily"
     qdir.mkdir(parents=True, exist_ok=True)
+    # ⚠ 화이트리스트다 — 여기 없는 필드는 게시판에서 **존재 자체가 사라진다**(어휘층을 넣지
+    #   않으면 문서어/일상어 갭을 화면에서 계산할 수 없다, specs/11 B2).
     pub_items = [{k: r.get(k) for k in
                   ("id", "질문", "유형", "정량여부", "주제", "분류", "판정", "증거", "원인",
-                   "답변", "근거문장", "출처", "회귀", "축", "코호트", "실패유형")} for r in items]
+                   "답변", "근거문장", "출처", "회귀", "축", "코호트", "실패유형",
+                   "어휘층", "쌍id")} for r in items]
     (qdir / f"{args.date}.json").write_text(json.dumps(
         {"date": args.date, "정답률": g["정답률"], "집계": g["집계"],
          # 코호트 분리(docs/58 §6d) — 합산 정답률은 표본 구성에 지배된다(표본 85%가 매일 교체).

@@ -48,6 +48,10 @@
   --color-bg-subtle: #efece4;          /* 페이지 그라운드(패널 뒤) */
   --color-field-bg: #f3f0e9;           /* 입력·2단계 카드·칩 */
   --color-surface: #fdfcf9;
+  /* 패널 위에 한 단 더 뜬 표면(카드) — 패널과 surface가 같은 값이라 카드 경계가 **선에만**
+     의존하던 문제(2026-08-03 실사용 지적: "어디까지가 한 콘텐츠인지 모르겠다") 해소용.
+     면 대비와 선 대비를 함께 준다. 목록형 카드에만 쓴다(패널·폼 표면은 surface 그대로). */
+  --color-surface-raised: #ffffff;
   --color-surface-hover: #e9e4d9;
   --color-border: rgba(30, 26, 18, 0.09);       /* 헤어라인(P6) — 진한 테두리 금지 */
   --color-border-strong: rgba(30, 26, 18, 0.16);
@@ -165,6 +169,7 @@ html { transition: background-color 0.2s ease; }
   --color-bg-subtle: #0e0d0b;          /* 페이지 그라운드 */
   --color-field-bg: #211f1b;
   --color-surface: #171613;
+  --color-surface-raised: #211f1b;     /* 3단 심도의 세 번째 — 카드가 패널 위로 뜬다 */
   --color-surface-hover: #2b2823;
   --color-border: rgba(255, 255, 255, 0.07);
   --color-border-strong: rgba(255, 255, 255, 0.14);

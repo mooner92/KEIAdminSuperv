@@ -1,0 +1,21 @@
+/* 오늘의 분석서 카드(specs/12 T02) — 시맨틱 토큰만(다크모드 호환).
+   공용 패널 톤은 Quality.module.css의 .trendCard를 재사용하고, 여기엔 고유 레이아웃만 둔다. */
+
+.card { grid-column: 1 / -1; }   /* heroRow 아래 전폭 — 두 갈래 수치가 잘리면 의미가 없다 */
+
+.split { display: flex; gap: var(--space-4); margin: 6px 0 10px; flex-wrap: wrap; }
+.half {
+  display: flex; align-items: center; gap: 10px;
+  flex: 1 1 240px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-strong);   /* 카드 경계 규칙과 동일(2026-08-03) */
+  border-radius: 10px;
+  background: var(--color-surface-raised);
+}
+.num { font-size: 26px; font-weight: 800; color: var(--color-primary); font-variant-numeric: tabular-nums; }
+.muted { color: var(--color-text-tertiary); }     /* 노이즈는 강조하지 않는다 — 고칠 대상이 아니다 */
+.lab { font-size: 12.5px; font-weight: 700; color: var(--color-text-secondary); line-height: 1.45; }
+
+.gap { margin: 0 0 8px; font-size: 13px; color: var(--color-text-secondary); }
+.actions { margin: 0; padding-left: 18px; font-size: 13px; color: var(--color-text-secondary); line-height: 1.7; }
+.actions li { margin: 2px 0; }

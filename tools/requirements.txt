@@ -34,3 +34,4 @@ python-multipart  # P3 업로드(FastAPI File) — v1.1 docs/20
 # 7) 임베딩 도메인 FT 실험(train_kure_ft) — docs/23 지렛대 ②
 datasets>=5.0
 accelerate>=1.0
+mlflow  # 실험추적(specs/10) — sqlite 백엔드, eval/mlflow_log.py

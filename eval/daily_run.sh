@@ -2,6 +2,11 @@
 # daily_run.sh — 일일 자가평가 크론 진입(docs/58 §7). 06:00 KST crontab에서 호출.
 # GPU 가드 → 생성 → 답변 → 채점 → 공개. 실패 시 exit≠0(로그로 원인 추적).
 set -e
+# 겹침 방지(2026-08-02, 주말 8시간 주기 도입과 함께): 이전 실행이 아직 돌면 스킵.
+# 500문항 실행이 ~5시간이라 GPU 경합 시 다음 주기와 겹칠 수 있다 — 겹치면 같은 날짜
+# 파일을 두 실행이 덮어쓴다(08-01 저녁 재실행 사고와 동형). 락이 그 경로를 차단한다.
+exec 9>/tmp/kei-daily-eval.lock
+flock -n 9 || { echo "[$(date)] 이전 실행 진행 중 — 이번 주기 스킵"; exit 0; }
 cd "$(dirname "$0")"
 PY=../tools/.venv/bin/python
 
@@ -23,6 +28,10 @@ $PY daily_answer.py --date "$DATE"
 $PY daily_grade.py --date "$DATE"
 $PY daily_publish.py --date "$DATE"
 
+# 아침 분석서(1단, LLM 0회 — specs/12). daily_publish 다음: 채점 결과를 사람이 읽는 분석으로.
+# ⛔ 실패해도 크론은 계속 — 정본은 graded.json·게시판이고 분석서는 파생이다.
+$PY daily_report.py --date "$DATE" || true
+
 # prod 게시판 동기화(docs/58 — dev 크론이 유일 평가원, prod는 결과만 미러). PROD_QUALITY_DIR
 # 미설정/미존재 시 조용히 skip(dev 단독 운용 안전). server.js가 web/public/quality를 직서빙 →
 # 재빌드 불필요. ⛔ quality 데이터만 복사(코드·볼트 무관).
@@ -32,6 +41,8 @@ if [ -d "$(dirname "$PROD_Q")" ]; then
   #    실측 2026-07-27: 상대경로 'web/...'가 eval/web/...을 가리켜 **prod 동기화가 매일 조용히 실패**했다.
   rsync -a --delete ../web/public/quality/ "$PROD_Q"/ && echo "[$(date)] prod 게시판 동기화 → $PROD_Q"
 fi
+# MLflow 병행 기록(specs/10 — 실패해도 크론 정상. 정본은 graded.json·게시판 그대로)
+MLFLOW_TRIGGER=cron $PY mlflow_log.py --date "$DATE" || true
 # 일일 다이제스트+재시험 급락 감지 → 🔔+Slack #horong (docs/66 §3.3. 실패해도 크론은 정상 종료)
 $PY eval_notice.py --digest --date "$DATE" || true
 # 데드맨 해제 겸 신선도 확인(정상 종료 시 갱신 시각이 갱신되므로 여기선 통과만 확인)
