@@ -38,7 +38,18 @@ const cards = p.locator("details");
 const n = await cards.count();
 check("② 버그리포트 카드 노출(≥6)", n >= 6, `${n}건`);
 const firstText = await cards.first().innerText();
-check("② 첫 카드 = 높음 심각도(정렬)", firstText.includes("높음"));
+// ⚠ '첫 카드는 높음'은 데이터에 달린 단언이라 새 리포트가 쌓이면 깨진다(2026-08-03 실측 실패).
+//    검증할 것은 값이 아니라 **정렬 규칙**이다 — 날짜 내림차순, 같은 날짜면 심각도 순.
+const order = { "높음": 0, "보통": 1, "낮음": 2 };
+const rows = await cards.evaluateAll((els) => els.map((e) => {
+  const t = e.innerText;
+  return { sev: (t.match(/🐛\s*(높음|보통|낮음)/) || [])[1] || "",
+           date: (t.match(/(\d{4}\.\d{2}\.\d{2})/) || [])[1] || "" };
+}));
+const sortedOk = rows.every((r, i) => i === 0 || rows[i - 1].date > r.date ||
+  (rows[i - 1].date === r.date && (order[rows[i - 1].sev] ?? 9) <= (order[r.sev] ?? 9)));
+check("② 정렬 규칙 — 최신 날짜 우선, 같은 날짜면 심각도 순", sortedOk,
+      rows.slice(0, 3).map((r) => `${r.date}/${r.sev}`).join(" "));
 
 // ③ 배지: 버전·영역·날짜
 check("③ 버전 배지 vYYYY.MM.DD", /v\d{4}\.\d{2}\.\d{2}/.test(firstText));
@@ -58,12 +69,18 @@ await p.waitForTimeout(300);
 const allText = await p.innerText("body");
 check("⑤ '전체' 탭에 버그리포트 본문 미혼입", !allText.includes("## 증상") && !allText.includes("재정렬 단계가 단어만"));
 
-// ⑥ flag off → 탭 미노출(런타임 fetch라 리로드만으로 반영)
-await setFlag(false);
-await p.reload({ waitUntil: "load" });
-await p.waitForTimeout(1500);
-check("⑥ flag off 시 탭 미노출", (await p.locator('button[role="tab"]', { hasText: "버그리포트" }).count()) === 0);
-await setFlag(true); // 복원
+// ⑥ flag off → 탭 미노출. ⚠ 토글로 검증하지 않는다 — 플래그 변경은 관리자 전용이라
+//    픽스처 계정에선 403이 조용히 무시되고, 그 결과가 '기능 결함'으로 오독된다(2026-08-03 실측).
+//    응답을 가로채면 권한 없이도 off 상태를 만들 수 있고 남의 dev 설정도 안 바뀐다.
+const p2 = await ctx.newPage();
+await p2.route("**/app/flags", async (route) => {
+  const res = await route.fetch();
+  route.fulfill({ response: res, json: { ...(await res.json()), bug_reports: false } });
+});
+await p2.goto(BASE + "/changelog/", { waitUntil: "load" });
+await p2.waitForTimeout(1500);
+check("⑥ flag off 시 탭 미노출",
+      (await p2.locator('button[role="tab"]', { hasText: "버그리포트" }).count()) === 0);
 
 await b.close();
 process.exit(finish());

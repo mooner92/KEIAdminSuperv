@@ -5,6 +5,7 @@ import type { GetStaticProps } from "next";
 import Layout from "../components/Layout";
 import PageHero from "../components/common/PageHero";
 import JourneyMap from "../components/JourneyMap";
+import FreshnessNote from "../components/journey/FreshnessNote";
 import DocDrawer from "../components/DocDrawer";
 import { useFlag } from "../lib/flags";
 import { track } from "../lib/track";
@@ -26,6 +27,7 @@ export default function JourneyPage({
   titleSlugs: [string, string][];
 }) {
   const on = useFlag("journey_map");
+  const freshOn = useFlag("journey_freshness");   // 신선도 배지(specs/13 T01b)
   useEffect(() => { if (on) track("journey_view"); }, [on]);
   const [cur, setCur] = useState(0);
   // /journey/?task=<id> 딥링크(후속 제안 칩에서 진입) — 정적 export라 하이드레이션 후 파싱
@@ -78,6 +80,9 @@ export default function JourneyPage({
             {j.요약} · 단계 {j.stages.length} · 근거 {j.nodes.reduce((a, n) => a + n.근거.length, 0)}건
             {j.검수상태 !== "검수완료" ? <span className={jm.unreviewed}>미검수 — 원문 확인 필요</span> : null}
           </p>
+          {/* 신선도(specs/13 T01b) — 근거 조문이 삭제·개정됐으면 여정을 믿기 전에 알려준다.
+              ⛔ 지도보다 위에 둔다: 낡았을 수 있다는 사실을 보고 나서 내용을 읽어야 한다. */}
+          {freshOn ? <FreshnessNote f={j.신선도} /> : null}
           <JourneyMap journey={j} onOpenDoc={openDoc} />
           <p className={jm.footNote}>
             데이터: <Link href="/browse/">규정 원문</Link>·ERP 가이드에서 대조해 정리(검수 전). 오류 제보는 답변 👎로.

@@ -181,9 +181,17 @@ export type JourneyNode = {
   전결?: { 사다리: string; 근거: JourneyBasis };
   근거: JourneyBasis[];
 };
+// 신선도(specs/13 T01) — 01k2가 노드 근거를 조문 효력 인덱스와 대조한 결과.
+// 여정은 사람이 손으로 만들어 규정 개정 시 조용히 낡는다. 화면이 그 사실을 말해야 한다.
+export type JourneyFreshness = {
+  최고심각도: "삭제" | "미확인" | "개정";
+  건수: number;
+  항목: { 노드: string; 노드명: string; 규정명: string; 조: string; 심각도: string; 사유: string }[];
+};
 export type Journey = {
   id: string; title: string; emoji: string; 요약: string; 검수상태: string;
   lanes: string[]; stages: string[]; nodes: JourneyNode[]; edges: [string, string][];
+  신선도?: JourneyFreshness;   // 인덱스 없거나 이상 없으면 undefined(= 배지 없음)
 };
 
 // ── 업데이트 노트('새로워진 점', docs/32) — 볼트 90_관리/_changelog/*.md ──
@@ -604,6 +612,20 @@ export function loadJourneys(): Journey[] {
       out.push(JSON.parse(fs.readFileSync(path.join(dir, f), "utf-8")) as Journey);
     } catch {
       /* 손상 파일은 건너뜀 */
+    }
+  }
+  // 신선도 부착(specs/13 T01b) — 인덱스가 없으면 조용히 넘어간다(01k2 미실행 환경에서도 빌드 성공).
+  const fresh = loadJson("journey_freshness.json");
+  if (fresh?.여정별) {
+    for (const j of out) {
+      const s = fresh.여정별[j.id];
+      if (!s?.최고심각도) continue;
+      j.신선도 = {
+        최고심각도: s.최고심각도, 건수: s.건수 ?? 0,
+        항목: (fresh.항목 || []).filter((r: any) => r.여정 === j.id).map((r: any) => ({
+          노드: r.노드, 노드명: r.노드명, 규정명: r.규정명, 조: r.조, 심각도: r.심각도, 사유: r.사유,
+        })),
+      };
     }
   }
   return out;

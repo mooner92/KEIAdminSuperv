@@ -275,6 +275,14 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-12-31",
     },
+    "journey_freshness": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "업무 한 장 신선도 배지(specs/13 T01) — 여정 노드의 근거 조문을 article_status와 "
+                       "대조해 삭제·개정·미확인을 화면에 표시. 여정은 수작업이라 규정 개정 시 조용히 낡는다. "
+                       "데이터=tools/index/journey_freshness.json(01k2, 결정적·LLM 0회). ⛔ 표시만·수정은 사람.",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
     "followup_suggest": {
         "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
         "description": "답변 후속 질문 제안(docs/26) — 무LLM·결정적(여정 점프·ACTION_FLOWS 후속단계·기한). "

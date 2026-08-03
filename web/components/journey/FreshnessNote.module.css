@@ -1,0 +1,24 @@
+/* 여정 신선도 알림(specs/13 T01b) — 시맨틱 토큰만(다크모드 호환).
+   ⚠ 톤은 심각도에 비례한다: '개정'은 참고(정보), '삭제·미확인'은 재검토 요청.
+   과장된 붉은 배너를 매번 띄우면 사람이 배너를 안 보게 된다 — 경보의 가치는 희소성에서 온다. */
+
+.note {
+  display: flex; flex-direction: column; gap: 4px;
+  margin: 0 0 var(--space-3);
+  padding: 12px 14px;
+  border: 1px solid var(--color-border-strong);
+  border-left-width: 4px;
+  border-radius: 10px;
+  background: var(--color-surface-raised);
+}
+.info { border-left-color: var(--color-primary); }
+.warn { border-left-color: var(--color-warning); }
+.bad { border-left-color: var(--color-danger); }
+
+.head { font-size: 14px; font-weight: 800; color: var(--color-text); }
+.sub { font-size: 12.5px; color: var(--color-text-secondary); }
+.list { margin: 6px 0 0; padding-left: 16px; display: flex; flex-direction: column; gap: 3px; }
+.list li { font-size: 12.5px; color: var(--color-text-secondary); }
+.node { font-weight: 700; color: var(--color-text); margin-right: 6px; }
+.basis { color: var(--color-primary); font-weight: 600; margin-right: 6px; }
+.why { color: var(--color-text-tertiary); }
