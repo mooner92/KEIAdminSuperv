@@ -35,6 +35,7 @@ LOG_PATH = HERE / "index" / "corpus_replace_log.jsonl"
 BACKUP_SUB = "90_관리/_backup"
 
 sys.path.insert(0, str(HERE))
+import corpus_amend  # noqa: E402 — 교체 관문(개정안 거부)
 from vault_parse import ARTICLE, article_label, split_frontmatter  # noqa: E402
 
 
@@ -259,6 +260,14 @@ def replace(vault, rel_path: str, new_body: str, upload_name: str, actor: str,
     """백업 → 본문 교체 → 프론트매터 갱신. 반환 = 감사·로그용 기록.
     ⛔ 규정번호·규정명·분류는 **기존 값을 승계**한다(업로드 파일명이 아니라 — 파일명엔 번호가
        없는 경우가 흔하다). 검수상태는 항상 '미검수'로 되돌린다: 내용이 바뀌었으니 사람이 다시 본다."""
+    # ⛔ 관문 — 개정안(신·구조문 대비표)이면 여기서 멈춘다. 2026-08-04 실측: 운영자가 실제로
+    #    올리는 개정 파일이 전문이 아니라 대비표였고, 본문이 '생략/좌동'으로만 적혀 있었다.
+    #    그대로 교체하면 위임전결규정 651줄이 51줄 요약본으로 덮이고 별표 335규칙이 사라진다.
+    ok, why = corpus_amend.replaceable(new_body)
+    if not ok:
+        log("replace_blocked", target=rel_path, upload=upload_name, actor=actor, 사유=why)
+        raise ValueError(f"교체 거부: {why}")
+
     vault = Path(vault)
     target = vault / rel_path
     old = target.read_text(encoding="utf-8")
