@@ -311,9 +311,17 @@ export const api = {
       try { const e = await r.json(); if (e?.detail) msg = e.detail; } catch { /* ignore */ }
       throw new ApiError(r.status, msg);
     }
-    return (await r.json()) as { id: string; name: string; warn: string; preview: string; chars: number };
+    return (await r.json()) as { id: string; name: string; warn: string; kind?: string; preview: string; chars: number };
   },
-  corpusUploads: () => j<{ uploads: { id: string; name: string; warn: string; at: number }[] }>("/corpus/uploads"),
+  corpusUploads: () => j<{ uploads: { id: string; name: string; warn: string; kind?: string; at: number }[] }>("/corpus/uploads"),
+  // 개정 반영(specs/15) — 신·구조문 대비표는 '승인'이 아니라 기존 문서에 한 줄씩 전사한다.
+  // ⚠ 보내는 개정줄/현행줄은 **선택자**다. 반영 가능 여부·줄 번호는 서버가 다시 계산한다.
+  amendPreview: (id: string, doc = "") =>
+    j<AmendView>(`/corpus/uploads/${id}/amend${doc ? `?doc=${encodeURIComponent(doc)}` : ""}`),
+  amendApply: (id: string, rel_path: string, 개정줄: string, 현행줄 = "") =>
+    j<AmendView & { 결과: AmendResult }>(`/corpus/uploads/${id}/amend/apply`,
+      { method: "POST", body: JSON.stringify({ rel_path, 개정줄, 현행줄 }) }),
+  amendLog: (limit = 50) => j<{ log: AmendLogRow[] }>(`/corpus/amend/log?limit=${limit}`),
   corpusApprove: (id: string, doc_type: "guide" | "regulation", title: string) =>
     j<{ slug: string; path: string }>(`/corpus/uploads/${id}/approve`, { method: "POST", body: JSON.stringify({ doc_type, title }) }),
   corpusReject: (id: string) => j<{ rejected: string }>(`/corpus/uploads/${id}/reject`, { method: "POST" }),
@@ -336,4 +344,29 @@ export const api = {
 export type FaqCandidate = {
   id: string; date: string; 질문: string; 인용: string; 규정명: string; 조: string; 증거: string;
   상태: "pending" | "applied" | "dismissed";
+};
+
+/* 개정 반영(specs/15) — 대비표 한 줄을 볼트에 전사하는 흐름의 데이터 계약.
+   ⛔ 반영가능·불가사유는 **서버 판정**이다. 화면은 그대로 보여줄 뿐 스스로 판단하지 않는다. */
+export type AmendItem = {
+  현행줄: string; 개정줄: string; 볼트줄: number; 앵커줄: number;
+  모드: "replace" | "insert" | "append" | "delete";
+  반영가능: boolean; 불가사유: string; 상태?: string;
+};
+export type AmendRow = { 행: number; 종류: string; 비고: string; 경고: string[]; 변경: AmendItem[] };
+export type AmendView = {
+  id: string; name: string;
+  판별: { kind: string; 조문수: number; 근거: string[] };
+  교체가능: boolean; 사유: string;
+  개정안?: { 제목: string; 개정이유: string[]; 시행일: string };
+  후보?: { path: string; slug: string; 규정명: string; score: number; why?: string }[];
+  대상?: string;
+  제안?: AmendRow[];
+};
+export type AmendResult = {
+  ok: boolean; already?: boolean; reason?: string; detail?: string; backup?: string; line?: number;
+};
+export type AmendLogRow = {
+  ts: string; event: string; target?: string; mode?: string; line?: number;
+  before?: string; after?: string; actor?: string; reason?: string; detail?: string;
 };

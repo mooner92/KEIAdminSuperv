@@ -1,0 +1,73 @@
+/* 개정 반영 패널(specs/15 §9) — 시맨틱 토큰만(다크모드 호환).
+   ⚠ 잠긴 항목을 흐리게 감추지 않는다: 왜 못 누르는지가 보여야 사람이 원문을 확인하러 간다. */
+
+.head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.title { font-size: 15px; font-weight: 800; color: var(--color-text); }
+.chip {
+  font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+  background: var(--color-surface-raised);
+  color: var(--color-primary); border: 1px solid var(--color-border-strong);
+}
+.target { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--color-text-secondary); }
+.target select {
+  max-width: 340px; font: inherit; padding: 4px 8px; border-radius: 8px;
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface-raised); color: var(--color-text);
+}
+.reasons { margin: 0 0 10px; padding-left: 18px; font-size: 12.5px; color: var(--color-text-secondary); }
+.note {
+  margin: 8px 0; padding: 8px 10px; border-radius: 8px; font-size: 13px;
+  border: 1px solid var(--color-border-strong); background: var(--color-surface-raised);
+  color: var(--color-text);
+}
+
+.row {
+  margin: 10px 0; padding: 10px 12px; border-radius: 10px;
+  border: 1px solid var(--color-border-strong); background: var(--color-surface-raised);
+}
+.rowHead { display: flex; align-items: baseline; gap: 8px; font-size: 13.5px; color: var(--color-text); }
+.memo { font-size: 12px; color: var(--color-text-tertiary); }
+.warn { margin: 6px 0 0; font-size: 12.5px; color: var(--color-warning); }
+
+.item {
+  display: grid; grid-template-columns: 1fr auto; gap: 8px 12px;
+  align-items: center; padding: 8px 0;
+  border-top: 1px dashed var(--color-border);
+}
+.item:first-of-type { border-top: 0; }
+.diff { min-width: 0; }
+.diff p { margin: 2px 0; font-size: 12.5px; line-height: 1.5; word-break: break-all; }
+.minus { color: var(--color-danger); }
+.plus { color: var(--color-primary); }
+.side { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.loc { font-size: 12px; color: var(--color-text-tertiary); font-variant-numeric: tabular-nums; }
+.apply {
+  font: inherit; font-size: 12.5px; font-weight: 700; padding: 5px 12px; border-radius: 8px;
+  border: 1px solid var(--color-primary); background: var(--color-primary); color: #fff;
+  cursor: pointer;
+}
+.apply:hover:not(:disabled) { opacity: .9; }
+.apply:disabled { opacity: .5; cursor: default; }
+.locked { font-size: 12.5px; color: var(--color-text-tertiary); }
+.why { grid-column: 1 / -1; margin: 0; font-size: 12px; color: var(--color-text-tertiary); }
+
+.after {
+  margin: 12px 0 0; padding: 10px 12px; border-radius: 10px; font-size: 12.5px; line-height: 1.6;
+  border: 1px solid var(--color-border-strong); border-left: 4px solid var(--color-warning);
+  background: var(--color-surface-raised); color: var(--color-text-secondary);
+}
+.after code { font-size: 12px; padding: 1px 4px; border-radius: 4px; background: var(--color-surface); }
+
+.logBox { margin-top: 12px; font-size: 12.5px; }
+.logBox summary { cursor: pointer; font-weight: 700; color: var(--color-text); }
+.logList { margin: 8px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 3px; }
+.logList li { display: flex; gap: 8px; font-size: 12px; }
+.logOk { color: var(--color-text-secondary); }
+.logNo { color: var(--color-text-tertiary); }
+.logTs { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.logEv { font-weight: 700; white-space: nowrap; }
+.logTxt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.close { font: inherit; font-size: 12.5px; background: none; border: 0; color: var(--color-text-secondary); cursor: pointer; }
+.err { color: var(--color-danger); font-size: 13px; }
+.dim { color: var(--color-text-tertiary); font-size: 12.5px; }

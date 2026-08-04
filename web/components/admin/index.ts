@@ -2,6 +2,7 @@
 // admin 페이지는 여기서 한 번에 import하고 탭 셸만 담당한다.
 export { default as AdminDashboard } from "./AdminDashboard";
 export { default as AdminCorpus } from "./AdminCorpus";
+export { default as AmendPanel } from "./AmendPanel";
 export { default as AdminTableRestore } from "./AdminTableRestore";
 export { default as AdminTrust } from "./AdminTrust";
 export { default as AdminReports } from "./AdminReports";

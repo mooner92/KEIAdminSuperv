@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import AmendPanel from "./AmendPanel";
 import SearchInput from "../common/SearchInput";
 import { api, type CorpusDoc } from "../../lib/api";
+import { useFlag } from "../../lib/flags";
 import Section from "../common/Section";
 import styles from "../../styles/Admin.module.css";
 import ex from "../Explorer.module.css";
@@ -20,7 +22,10 @@ export default function AdminCorpus() {
   const [f, setF] = useState<Filters>({ gubun: new Set(), cat: new Set(), rev: new Set(), idx: new Set() });
   const [page, setPage] = useState(1);
   // 업로드(P3)
-  const [pending, setPending] = useState<{ id: string; name: string; warn: string }[]>([]);
+  const [pending, setPending] = useState<{ id: string; name: string; warn: string; kind?: string }[]>([]);
+  // 개정 반영(specs/15) — 신·구조문 대비표는 '승인'이 아니라 기존 문서에 한 줄씩 전사한다.
+  const [amendId, setAmendId] = useState("");
+  const amendOn = useFlag("corpus_amend");
   const [preview, setPreview] = useState<{ id: string; name: string; text: string; warn: string } | null>(null);
   const [upBusy, setUpBusy] = useState(false);
   // 재색인(P2)
@@ -107,18 +112,30 @@ export default function AdminCorpus() {
               try {
                 const r = await api.corpusUpload(file);
                 setPreview({ id: r.id, name: r.name, text: r.preview, warn: r.warn });
+                // 개정안이면 승인(신규 편입)이 아니라 반영 흐름으로 곧장 데려간다 —
+                // 그대로 승인하면 같은 규정의 두 판본이 색인된다(specs/15 §0).
+                if (amendOn && (r.kind === "개정안" || r.kind === "혼합")) setAmendId(r.id);
                 loadUploads();
               } catch (err) { alert(err instanceof Error ? err.message : "업로드 실패"); }
               finally { setUpBusy(false); }
             }} />
         </label>
       </div>
+      {amendOn && amendId ? <AmendPanel id={amendId} onClose={() => { setAmendId(""); load(); }} /> : null}
       {pending.length > 0 ? (
         <ul className={styles.pendList}>
           {pending.map((u) => (
             <li key={u.id} className={styles.pendRow}>
-              <span>⏳ {u.name}{u.warn ? <em className={styles.pendWarn}> — {u.warn}</em> : null}</span>
+              <span>⏳ {u.name}
+                {u.kind === "개정안" || u.kind === "혼합"
+                  ? <em className={styles.pendWarn}> — 📋 개정안(신·구조문 대비표) · 승인 대신 반영</em> : null}
+                {u.warn ? <em className={styles.pendWarn}> — {u.warn}</em> : null}</span>
               <span className={styles.pendBtns}>
+                {amendOn && (u.kind === "개정안" || u.kind === "혼합")
+                  ? <button onClick={() => setAmendId(u.id)}>📋 개정 반영</button> : null}
+                {/* ⛔ 개정안에는 승인(신규 편입)을 노출하지 않는다 — 누르면 같은 규정의 두 판본이
+                    색인되고, 답변이 어느 쪽을 인용할지 운에 맡기게 된다(specs/15 §0). */}
+                {amendOn && (u.kind === "개정안" || u.kind === "혼합") ? null : <>
                 <button onClick={async () => {
                   const t = prompt("편입할 문서 제목(가이드로 편입):", u.name.replace(/\.[^.]+$/, ""));
                   if (t === null) return;
@@ -131,6 +148,7 @@ export default function AdminCorpus() {
                   await api.corpusApprove(u.id, "regulation", t).catch((e) => alert(e.message));
                   setPreview(null); loadUploads(); load();
                 }}>📜 규정으로 승인</button>
+                </>}
                 <button onClick={async () => { await api.corpusReject(u.id).catch(() => {}); setPreview(null); loadUploads(); }}>🗑 거절</button>
               </span>
             </li>
