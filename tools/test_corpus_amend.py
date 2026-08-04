@@ -133,6 +133,19 @@ def test_changed_line_is_located_in_vault_despite_middot_variants():
     assert any(x["상태"] == "신설" and "6." in x["개정줄"] for x in row["변경"]), row["변경"]
 
 
+def test_angle_bracket_text_is_not_stripped_as_html():
+    """⑥ 꺾쇠를 전부 태그로 보면 **규정 원문이 지워진다**(2026-08-04 실측).
+
+    `부 칙<2026. 7. 27.>`의 시행 날짜와 `<공통>` 같은 구획 표시가 통째로 사라졌고,
+    그 탓에 부칙 표제가 '부 칙'만 남아 문서에 누적된 옛 부칙과 같아 보였다
+    (→ 신설 부칙이 '이미 반영됨'으로 오판돼 반영이 조용히 누락됐다)."""
+    p = CA.parse(AMEND)
+    buchik = p["행"][-1]["개정"]
+    assert any("2026. 7. 27." in x for x in buchik), buchik
+    flat = " ".join(x for r in p["행"] for x in r["현행"] + r["개정"])
+    assert "<공통>" in flat, "구획 표시가 태그로 오인돼 사라졌다"
+
+
 def test_no_write_path_exists():
     """⛔ 이 모듈은 볼트를 쓰지 않는다 — 자동 반영이 생기는 순간 규정을 지어내게 된다."""
     src = Path(CA.__file__).read_text(encoding="utf-8")

@@ -150,11 +150,18 @@ def _outer_tables(md: str) -> list:
 
 
 def _cell_lines(cell: str) -> list:
-    """셀 → 사람이 읽는 줄 목록. 중첩 표의 행 경계도 줄바꿈으로 살린다."""
+    """셀 → 사람이 읽는 줄 목록. 중첩 표의 행 경계도 줄바꿈으로 살린다.
+
+    ⚠ **꺾쇠를 전부 태그로 보면 규정 원문이 지워진다**(2026-08-04 실측).
+       `부 칙<2026. 7. 27.>`의 시행 날짜와 `<공통사항>`·`<연구업무>` 같은 구획 표시가
+       통째로 사라졌고, 그 탓에 부칙 표제가 '부 칙'만 남아 문서에 이미 있는 옛 부칙과
+       같아 보였다(→ 신설 부칙이 '이미 반영됨'으로 오판). HWP 문서는 꺾쇠를 본문 기호로
+       쓴다 — **태그명이 영문으로 시작하는 것만** 지운다.
+    """
     s = re.sub(r"</\s*tr\s*>", "\n", cell, flags=re.I)
     s = re.sub(r"<\s*br\s*/?>", "\n", s, flags=re.I)
     s = re.sub(r"</\s*t[dh]\s*>", " ", s, flags=re.I)
-    s = re.sub(r"<[^>]+>", "", s)
+    s = re.sub(r"</?[a-zA-Z][^>]*>", "", s)   # ⛔ `<[^>]+>` 금지 — 위 주석 참조
     s = html.unescape(s)
     return [ln.strip() for ln in s.split("\n") if ln.strip()]
 
@@ -225,15 +232,52 @@ def _norm(s: str) -> str:
     return re.sub(r"\s+", "", s)
 
 
+_BUCHIK_HEAD = re.compile(r"^\s*부\s{0,8}칙")
+
+
+def _gate(row: dict, item: dict) -> tuple:
+    """spec 15 §3 다섯 관문 → (반영가능, 불가사유). ⛔ 사유는 그대로 화면에 나간다:
+    버튼을 조용히 감추면 사람이 '누락'으로 오해한다. 왜 못 누르는지 항상 쓴다."""
+    if row.get("표"):
+        return False, "별표(표) 내용 — 줄 대조가 성립하지 않습니다. 원문 표에서 직접 확인하세요."
+    if any("생략" in w for w in row.get("경고", [])):
+        return False, "'생략' 포함 — 규정 본문이 이 문서에 없어 옮길 글자가 없습니다."
+    if row["종류"] == "좌동":
+        return False, "'좌동'(변경 없음) — 반영할 것이 없습니다."
+    if item["모드"] == "delete":
+        # ⛔ 짝 없는 현행 줄은 '삭제'인지 '순서 이동'인지 대비표만으로 단정할 수 없다.
+        #    지우는 것은 되돌리기가 가장 어려운 조작이다 — 자동화하지 않는다.
+        return False, "대응하는 개정 문구가 없습니다(삭제 여부는 원문으로 확인) — 사람이 직접."
+    if not item["개정줄"]:
+        return False, "개정 문구가 비어 있습니다."
+    if item["모드"] == "replace" and item["상태"] != "확정":
+        return False, ("볼트에서 여러 곳과 일치합니다 — 어느 줄인지 사람이 확인하세요."
+                       if item["상태"] == "모호" else
+                       "볼트에서 이 줄을 찾지 못했습니다 — 문구가 다르거나 표 안에 있습니다.")
+    if item["모드"] == "insert" and not item["앵커줄"]:
+        return False, "넣을 자리(바로 앞줄)를 볼트에서 특정하지 못했습니다 — 사람이 직접 넣으세요."
+    return True, ""
+
+
 def propose(doc_md: str, parsed: dict) -> list:
-    """대비표 행 → 볼트 문서 줄 번호. → [{행, 종류, 변경[], 경고[], 비고}]
-    변경 항목 = {현행줄, 개정줄, 볼트줄, 상태}. 상태 = 확정(1곳)|모호(여러 곳)|미발견|신설."""
+    """대비표 행 → 볼트 문서 줄 번호 + 반영 가능 여부(spec 15 §3·§5).
+
+    → [{행, 종류, 변경[], 경고[], 비고}]
+      변경 항목 = {현행줄, 개정줄, 볼트줄, 상태, 모드, 앵커줄, 반영가능, 불가사유}
+      상태 = 확정(1곳)|모호(여러 곳)|미발견|신설
+      모드 = replace(그 줄 교체) | insert(앵커 다음 줄에 삽입) | append(문서 끝에 블록 추가)
+    """
     lines = (doc_md or "").splitlines()
     idx: dict = {}
     for i, ln in enumerate(lines, 1):
         k = _norm(ln)
         if k:
             idx.setdefault(k, []).append(i)
+
+    def uniq(text: str) -> int:
+        """볼트에서 **1곳만** 일치할 때 그 줄 번호. 여러 곳이면 0 — 앵커로 못 쓴다."""
+        hits = idx.get(_norm(text), [])
+        return hits[0] if len(hits) == 1 else 0
 
     out = []
     for n, row in enumerate(parsed["행"], 1):
@@ -244,6 +288,17 @@ def propose(doc_md: str, parsed: dict) -> list:
 
         cur = [x for x in row["현행"] if not _OMITTED.match(x)]
         new = [x for x in row["개정"] if not _OMITTED.match(x) and not _SAME_AS.match(x)]
+
+        # 부칙 신설은 **블록 하나**로 다룬다: 표제·제1조·제2조가 한 덩어리이고,
+        # 규정에서 부칙은 언제나 문서 끝이라 앵커를 찾을 필요가 없다(spec 15 §5-4).
+        if not cur and new and _BUCHIK_HEAD.match(new[0]):
+            item = {"현행줄": "", "개정줄": "\n".join(new), "볼트줄": 0, "상태": "신설",
+                    "모드": "append", "앵커줄": len(lines)}
+            item["반영가능"], item["불가사유"] = _gate(row, item)
+            out.append({"행": n, "종류": "신설·부칙", "변경": [item],
+                        "경고": row["경고"], "비고": row["비고"]})
+            continue
+
         curn, newn = {_norm(x) for x in cur}, {_norm(x) for x in new}
 
         gone, added = [], []
@@ -254,9 +309,14 @@ def propose(doc_md: str, parsed: dict) -> list:
             gone.append({"현행줄": ln, "개정줄": "",
                          "볼트줄": hits[0] if len(hits) == 1 else 0,
                          "상태": "확정" if len(hits) == 1 else ("모호" if hits else "미발견")})
-        for ln in new:                       # 새로 들어오는 줄
-            if _norm(ln) not in curn:
-                added.append({"현행줄": "", "개정줄": ln, "볼트줄": 0, "상태": "신설"})
+        for k_new, ln in enumerate(new):     # 새로 들어오는 줄
+            if _norm(ln) in curn:
+                continue
+            # 앵커 = 개정 칸에서 **바로 앞줄** 중 볼트에서 유일하게 찾히는 것(spec 15 §5).
+            # ⛔ 못 찾으면 0 — "적당한 곳에 넣기"는 없다.
+            anchor = next((a for a in (uniq(new[j]) for j in range(k_new - 1, -1, -1)) if a), 0)
+            added.append({"현행줄": "", "개정줄": ln, "볼트줄": 0, "상태": "신설",
+                          "앵커줄": anchor})
 
         # 같은 번호로 시작하는 현행/개정 줄은 한 쌍으로 묶는다("4. …" → "4. …")
         items, taken = [], set()
@@ -271,6 +331,13 @@ def propose(doc_md: str, parsed: dict) -> list:
                         break
             items.append({**a, "개정줄": mate["개정줄"]} if mate else a)
         items += [b for k, b in enumerate(added) if k not in taken]
+
+        # 모드 확정 + 관문 판정. 짝지어진 항목(현행+개정)은 그 줄을 교체, 나머지 신설은 삽입.
+        for it in items:
+            it.setdefault("앵커줄", 0)
+            it["모드"] = ("replace" if it["현행줄"] and it["개정줄"]
+                          else "delete" if it["현행줄"] else "insert")
+            it["반영가능"], it["불가사유"] = _gate(row, it)
 
         out.append({"행": n, "종류": row["종류"], "변경": items,
                     "경고": row["경고"], "비고": row["비고"]})
@@ -296,13 +363,19 @@ def report(md: str, doc: str | None) -> str:
         for w in pr["경고"]:
             L.append(f"    ⚠ {w}")
         for it in pr["변경"]:
-            loc = f"볼트 {it['볼트줄']}줄" if it["볼트줄"] else it["상태"]
+            loc = (f"볼트 {it['볼트줄']}줄" if it["볼트줄"]
+                   else f"{it['앵커줄']}줄 뒤" if it.get("앵커줄") else it["상태"])
+            mark = "✅반영가능" if it["반영가능"] else "🔒"
             if it["현행줄"] and it["개정줄"]:
-                L += [f"    ({loc}) - {it['현행줄']}", f"    {' ' * len(loc)}   + {it['개정줄']}"]
+                L += [f"    {mark} ({loc}) - {it['현행줄']}", f"                 + {it['개정줄']}"]
             elif it["현행줄"]:
-                L.append(f"    ({loc}) - {it['현행줄']}")
+                L.append(f"    {mark} ({loc}) - {it['현행줄']}")
             else:
-                L.append(f"    (신설)    + {it['개정줄']}")
+                head = it["개정줄"].split("\n")[0]
+                more = it["개정줄"].count("\n")
+                L.append(f"    {mark} ({loc})  + {head}" + (f"  …외 {more}줄" if more else ""))
+            if not it["반영가능"]:
+                L.append(f"         └ {it['불가사유']}")
     return "\n".join(L)
 
 
