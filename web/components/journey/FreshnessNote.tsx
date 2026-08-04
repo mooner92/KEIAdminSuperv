@@ -13,7 +13,15 @@ const TONE: Record<string, { icon: string; head: string; cls: string }> = {
   개정: { icon: "🔄", head: "근거 규정이 최근 개정됐어요", cls: "info" },
 };
 
-export default function FreshnessNote({ f }: { f?: JourneyFreshness }) {
+export default function FreshnessNote({
+  f,
+  onOpenDoc,
+}: {
+  f?: JourneyFreshness;
+  /** 근거 조문 → 문서 드로어. 알림이 "원문을 열어 확인하라"고 말하면서 열 수단이 없으면
+   *  사람은 검색으로 되돌아간다 — 지도 노드와 같은 openDoc을 그대로 쓴다. */
+  onOpenDoc?: (규정명: string, 조: string) => void;
+}) {
   if (!f?.최고심각도) return null;
   const t = TONE[f.최고심각도] ?? TONE.개정;
   return (
@@ -28,7 +36,18 @@ export default function FreshnessNote({ f }: { f?: JourneyFreshness }) {
         {f.항목.slice(0, 5).map((r, i) => (
           <li key={i}>
             <span className={s.node}>{r.노드명}</span>
-            <span className={s.basis}>{r.규정명} {r.조}</span>
+            {onOpenDoc ? (
+              <button
+                type="button"
+                className={s.basisBtn}
+                onClick={() => onOpenDoc(r.규정명, r.조)}
+                title={`${r.규정명} ${r.조} 원문 열기`}
+              >
+                {r.규정명} {r.조}
+              </button>
+            ) : (
+              <span className={s.basis}>{r.규정명} {r.조}</span>
+            )}
             <span className={s.why}>{r.사유}</span>
           </li>
         ))}

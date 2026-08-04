@@ -61,5 +61,21 @@ if (cleanIdx >= 0) {
 } else {
   check("⑤ 이상 없는 여정엔 미노출", false, "정상 여정을 찾지 못함(전 여정이 이상)");
 }
+
+// ⓓ 근거 조문을 **누르면 열려야** 한다. 알림이 "원문을 열어 확인하라"고 말하면서 열 수단이
+//   없으면 사람은 검색으로 되돌아간다 — 안내와 수단이 같은 자리에 있어야 한다.
+await p.goto(`${BASE}/journey/?task=${dirty[0]}`, { waitUntil: "load" });
+await p.waitForTimeout(1800);
+const basis = note.locator("button");
+check("⑥ 근거 조문이 누를 수 있는 버튼", (await basis.count()) > 0, `${await basis.count()}개`);
+if (await basis.count()) {
+  const label = (await basis.first().innerText()).trim();
+  await basis.first().click();
+  await p.waitForTimeout(1600);
+  const opened = await p.evaluate(() =>
+    !!document.querySelector("[class*='drawer'],[class*='Drawer']"));
+  check("⑦ 클릭하면 문서 드로어가 열린다", opened, label);
+  await p.screenshot({ path: "verify-journey-freshness-drawer.png" });
+}
 await b.close();
 finish("여정 신선도 배지");
