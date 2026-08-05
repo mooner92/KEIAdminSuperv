@@ -44,6 +44,12 @@ type: regulation
 부 칙<2026. 1. 1.>
 
 제1조(시행일) 이 규정은 2026년 1월 1일부터 시행한다.
+
+<기획･행정>
+
+<table>
+<tr><td>과제<br>책임자(담당)</td><td>팀장</td><td>부서장</td><td>부원장</td></tr>
+</table>
 """
 CUR4 = "4. 실·팀장은 합성부서의 실장, 합성센터의 실장, 기획·행정부서의 팀장임"
 NEW4 = "4. 실장은 합성부서, 합성센터, 기획·행정부서의 실장임"
@@ -162,6 +168,37 @@ def test_gate_failure_never_writes():
         assert not r["ok"] and r["reason"] == "gate", r
         assert (v / REL).read_text(encoding="utf-8") == before
         assert not (v / "90_관리/_backup").exists(), "쓰지도 않았는데 백업이 생겼다"
+
+
+def test_cell_mode_replaces_only_the_wrapped_value():
+    """운영자 지적(2026-08-05): 표 전체를 일괄 잠그면 자동화 취지에 어긋난다. 요약표
+    "(현행) X ▶ (변경) Y"는 명확한 지시라 옮길 수 있어야 한다 — 단, 셀 경계(<td>…</td>) 밖의
+    같은 줄 다른 값("과제책임자(담당)"·"부서장"·"부원장")은 그대로여야 한다."""
+    with tempfile.TemporaryDirectory() as t:
+        v = _vault(t)
+        n = _line_of(v, "<tr><td>과제")
+        r = AP.apply_item(v, REL, _item(현행줄="팀장", 개정줄="실･팀장", 볼트줄=n, 모드="cell"), "t")
+        assert r["ok"] and not r.get("already"), r
+        after = (v / REL).read_text(encoding="utf-8").splitlines()[n - 1]
+        assert "<td>실･팀장</td>" in after and "<td>팀장</td>" not in after, after
+        assert "과제<br>책임자(담당)" in after and "부서장" in after and "부원장" in after, after
+
+        r2 = AP.apply_item(v, REL, _item(현행줄="팀장", 개정줄="실･팀장", 볼트줄=n, 모드="cell"), "t")
+        assert r2["ok"] and r2.get("already"), r2   # 멱등
+
+
+def test_cell_mode_refuses_when_line_has_duplicate_cell():
+    """같은 줄에 같은 셀 값이 두 번 있으면(대상 특정 불가) 쓰지 않는다."""
+    with tempfile.TemporaryDirectory() as t:
+        v = _vault(t)
+        lines = (v / REL).read_text(encoding="utf-8").splitlines()
+        n = next(i for i, ln in enumerate(lines, 1) if ln.startswith("<tr><td>과제"))
+        lines[n - 1] = lines[n - 1] + "<td>팀장</td>"          # 인위적으로 중복 생성
+        (v / REL).write_text("\n".join(lines), encoding="utf-8")
+        before = (v / REL).read_text(encoding="utf-8")
+        r = AP.apply_item(v, REL, _item(현행줄="팀장", 개정줄="실･팀장", 볼트줄=n, 모드="cell"), "t")
+        assert not r["ok"] and r["reason"] == "stale", r
+        assert (v / REL).read_text(encoding="utf-8") == before
 
 
 def test_propose_gates_match_spec():

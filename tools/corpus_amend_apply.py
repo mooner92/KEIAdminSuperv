@@ -39,7 +39,7 @@ import corpus_amend as CA  # noqa: E402
 from corpus_replace import BACKUP_SUB, log  # noqa: E402 — 로그·백업 규약을 교체와 공유
 from vault_parse import split_frontmatter  # noqa: E402
 
-MODES = ("replace", "insert", "append")
+MODES = ("replace", "insert", "append", "cell")
 
 
 def _backup(vault: Path, target: Path) -> str:
@@ -125,7 +125,7 @@ def apply_item(vault, rel_path: str, item: dict, actor: str, 시행일: str = ""
         lines[a:a] = gap + [new_line]
         at = a + len(gap) + 1
 
-    else:  # append — 부칙은 언제나 문서 끝(specs/15 §5-4)
+    elif mode == "append":  # 부칙은 언제나 문서 끝(specs/15 §5-4)
         blk = [x for x in new_line.split("\n") if x.strip()]
         if not blk:
             return {"ok": False, **log("amend_blocked", reason="empty", **base)}
@@ -140,6 +140,24 @@ def apply_item(vault, rel_path: str, item: dict, actor: str, 시행일: str = ""
         for x in blk:
             lines += ["", x]
         before, at = "", len(lines)
+
+    else:  # cell — 요약표 "(현행) X ▶ (변경) Y" 별표 셀 치환(specs/15, 2026-08-05 추가).
+        # ⛔ 맨줄 텍스트로 찾으면 "팀장"이 다른 단어 속에 우연히 들어있어도 걸린다 — 항상
+        #    <td>…</td> 셀 경계로 감싸 찾는다(표 셀 값만, 산문 속 부분 일치 금지).
+        n = int(item.get("볼트줄") or 0)
+        if not (1 <= n <= len(lines)):
+            return {"ok": False, **log("amend_blocked", reason="range", detail=str(n), **base)}
+        now = lines[n - 1]
+        cur_cell, new_cell = f"<td>{item.get('현행줄', '')}</td>", f"<td>{new_line}</td>"
+        if new_cell in now and cur_cell not in now:
+            return {"ok": True, "already": True,
+                    **log("amend_already", line=n, detail=new_cell[:120], **base)}
+        if now.count(cur_cell) != 1:
+            return {"ok": False, **log("amend_blocked", reason="stale", line=n,
+                                       기대=cur_cell, 실제=now[:200], **base)}
+        backup = _backup(vault, target)
+        lines[n - 1] = now.replace(cur_cell, new_cell, 1)
+        before, at = now, n
 
     out = "\n".join(lines) + "\n"
     target.write_text(_touch_frontmatter(out, 시행일), encoding="utf-8")

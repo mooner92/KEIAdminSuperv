@@ -142,5 +142,15 @@ ok(any(x["event"] == "amend_apply" for x in lg), "⑥ 반영 로그 기록")
 ok(any(x["event"] == "amend_blocked" for x in lg), "⑥ 거부도 로그에 남는다")
 ok(joe.get("/app/corpus/amend/log").status_code == 403, "① 로그도 관리자 전용")
 
+# ⑦ 대상 매칭이 파일명 접미사에 흔들리지 않는다(2026-08-05 실측: "(1)"·날짜 접미사로 매칭 실패)
+UID2 = "20260805-140000-def456"
+(TMP / "uploads" / f"{UID2}.converted.md").write_text(T.AMEND_PIPE, encoding="utf-8")
+with open(TMP / "uploads" / f"{UID2}.meta.json", "w", encoding="utf-8") as f:
+    import json as _json
+    _json.dump({"name": "(ver3)합성규정_개정(안)_-_조직개편 (1)_260721.hwpx", "kind": "개정안"}, f)
+r7 = boss.get(f"/app/corpus/uploads/{UID2}/amend").json()
+ok(str(r7.get("대상", "")).endswith("합성규정.md"),
+   "⑦ 배포 접미사가 붙은 파일명도 대상규정 추출로 매칭", str(r7.get("대상")))
+
 print(f"\n{'❌ ' + str(len(fails)) + '건 실패' if fails else '✅ 전부 통과'} — 개정 반영 API")
 sys.exit(1 if fails else 0)

@@ -93,13 +93,14 @@ export default function AmendPanel({ id, onClose }: { id: string; onClose: () =>
               </div>
               <div className={s.side}>
                 <span className={s.loc}>
-                  {it.모드 === "replace" && it.볼트줄 ? `${it.볼트줄}줄`
+                  {(it.모드 === "replace" || it.모드 === "cell") && it.볼트줄 ? `${it.볼트줄}줄`
                     : it.모드 === "insert" && it.앵커줄 ? `${it.앵커줄}줄 뒤`
                       : it.모드 === "append" ? "문서 끝" : it.상태 || "—"}
                 </span>
                 {it.반영가능 ? (
                   <button className={s.apply} disabled={!!busy} onClick={() => apply(it)}>
-                    {busy === it.개정줄 ? "반영 중…" : it.모드 === "append" ? "블록 반영" : "이 줄 반영"}
+                    {busy === it.개정줄 ? "반영 중…"
+                      : it.모드 === "append" ? "블록 반영" : it.모드 === "cell" ? "이 값 반영" : "이 줄 반영"}
                   </button>
                 ) : <span className={s.locked} title={it.불가사유}>🔒 반영 불가</span>}
               </div>

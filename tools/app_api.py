@@ -1797,13 +1797,17 @@ def _amend_view(uid: str, rel: str = "") -> dict:
 
     vault = _vault_dir()
     parsed = CA.parse(md)
-    cands = CR.find_candidates(vault, name, md)
+    # 매칭 순서: 대상규정(공문이 스스로 "「X」을 개정"이라 밝힌 이름) → 파일명 → 제목.
+    # ⚠ 파일명은 배포 시 붙는 접미사("(1)", "260721" 등)에 취약해 유사도가 임계값 밑으로
+    #   떨어지면 "대상 문서를 찾지 못했습니다"가 뜬다(2026-08-05 실측). 대상규정은 문서 본문
+    #   자체의 진술이라 훨씬 안정적이다.
+    cands = CR.find_candidates(vault, parsed["대상규정"], md) if parsed.get("대상규정") else []
+    if not cands:
+        cands = CR.find_candidates(vault, name, md)
     if not cands and parsed.get("제목"):
-        # 파일명으로 못 찾으면 **대비표 제목**으로 다시 찾는다("위임전결규정 개정(안)" → 위임전결규정).
-        # 업로드 이름이 uid로 퇴화한 경우(재기동)에도 대상을 찾을 수 있어야 한다.
         cands = CR.find_candidates(vault, parsed["제목"], md)
     target = _safe_rel(vault, rel) if rel else (cands[0]["path"] if cands else "")
-    out.update({"개정안": {k: parsed[k] for k in ("제목", "개정이유", "시행일")},
+    out.update({"개정안": {k: parsed[k] for k in ("제목", "대상규정", "개정이유", "시행일")},
                 "후보": cands, "대상": target})
     if target:
         out["제안"] = CA.propose((_P(vault) / target).read_text(encoding="utf-8"), parsed)

@@ -350,7 +350,7 @@ export type FaqCandidate = {
    ⛔ 반영가능·불가사유는 **서버 판정**이다. 화면은 그대로 보여줄 뿐 스스로 판단하지 않는다. */
 export type AmendItem = {
   현행줄: string; 개정줄: string; 볼트줄: number; 앵커줄: number;
-  모드: "replace" | "insert" | "append" | "delete";
+  모드: "replace" | "insert" | "append" | "delete" | "cell";
   반영가능: boolean; 불가사유: string; 상태?: string;
 };
 export type AmendRow = { 행: number; 종류: string; 비고: string; 경고: string[]; 변경: AmendItem[] };

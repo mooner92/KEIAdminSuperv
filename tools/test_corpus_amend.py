@@ -12,6 +12,9 @@
      가장 위험한 경고(본문이 이 문서에 없다)가 조용히 사라진다(실측)
   ④ 가운뎃점 이형(·/･/‧)만 다른 줄을 **못 찾음으로 떨구면 안 된다**
   ⑤ 전문 개정본은 지금처럼 교체가 **통과**해야 한다(관문이 정상 경로를 막으면 안 된다)
+  ⑥ **실제 업로드 경로는 kordoc이 아니라 01c(hwp-hwpx-parser)를 쓴다** — 표를 HTML이 아니라
+     마크다운 파이프로 낸다. 2026-08-05 실측: HTML만 지원해서 실제 파일이 대비표 0행으로
+     파싱되고, 표 전체가 개정이유 목록에 원문 그대로 흘러들었다(운영자가 화면에서 직접 목격)
 실행: python tools/test_corpus_amend.py
 """
 import sys
@@ -58,6 +61,12 @@ type: regulation
 4. 실·팀장은 합성부서의 실장, 합성센터의 실장, 기획·행정부서의 팀장임
 
 5. 합성센터장의 위임은 실장 체계를 준용함
+
+<기획･행정>
+
+<table>
+<tr><td>과제<br>책임자(담당)</td><td>팀장</td><td>부서장</td><td>부원장</td></tr>
+</table>
 """
 
 FULL = """---
@@ -144,6 +153,108 @@ def test_angle_bracket_text_is_not_stripped_as_html():
     assert any("2026. 7. 27." in x for x in buchik), buchik
     flat = " ".join(x for r in p["행"] for x in r["현행"] + r["개정"])
     assert "<공통>" in flat, "구획 표시가 태그로 오인돼 사라졌다"
+
+
+AMEND_PIPE = """합성규정 개정(안)
+
+(합성부서, 2026.7.15.)
+
+□ 개정이유
+
+ㅇ 「합성직제규정」 개정(안)을 반영하여 「합성규정」을 개정
+
+- 합성단 신설에 따른 조정
+
+□ 주요내용
+
+| 구분 | 조항 | 주요 제·개정 사항 | 비고 |
+| --- | --- | --- | --- |
+| 위임<br>전결 규정 | 별표 | <기획·행정> | 1.가~27.하 관련 직무 결재권자 명칭<br>(현행) 팀장 ▶ (변경) 실･팀장 | 편제 체계 지속성 유지 |
+
+□ 붙임자료: 합성규정 개정(안) 신·구조문 대비표 1부. 끝.
+
+붙임1 합성규정 개정(안) 신·구조문 대비표
+
+| 현행 | 개정(안) | 비고 |
+| --- | --- | --- |
+| (별표)<br>합성사항<br><공통><br>구 분 직무내용 전결권자 원장 1. 가~<br>8. 하 생략 | (별표)<br>합성사항<br><공통><br>좌동 - | 표 유지 |
+| 4. 실･팀장은 합성부서의 실장, 합성센터의 실장, 기획･행정부서의 팀장임<br>5. 합성센터장의 위임은 실장 체계를 준용함 | 4. 실장은 합성부서, 합성센터, 기획･행정부서의 실장임<br>5. 합성센터장의 위임은 실장 체계를 준용함<br>6. 합성단장의 위임은 실장 체계를 준용함 | 직책 현행화 |
+|  | 부    칙<2026. 7. 27.><br>제1조(시행일) 이 규정은 2026년 8월 3일부터 시행한다. |  |
+"""
+
+
+def test_pipe_table_upload_path_is_parsed():
+    """⑥ 실제 업로드(01c) 산출물인 **파이프 마크다운 표**도 HTML 표와 동일하게 파싱돼야 한다.
+
+    실측 결함: HTML `<table>`만 인식해서 파이프 표는 대비표 0행이 됐고, 표 전체 원문이
+    '개정이유' 목록에 그대로 흘러들어 화면에 노출됐다(사용자가 실제 화면에서 목격).
+    """
+    c = CA.classify(AMEND_PIPE)
+    assert c["kind"] == CA.KIND_AMEND, c
+    assert "현행/개정(안) 대조표 머리(파이프)" in c["강신호"], c["강신호"]
+
+    p = CA.parse(AMEND_PIPE)
+    assert p["개정이유"] == ["「합성직제규정」 개정(안)을 반영하여 「합성규정」을 개정",
+                            "합성단 신설에 따른 조정"], p["개정이유"]
+    assert len(p["행"]) == 3, [r["종류"] for r in p["행"]]          # 표 전체가 새지 않았다
+    tbl_row = p["행"][0]
+    assert tbl_row["표"] is True, tbl_row                            # 전결권자 어휘로 짚었다
+    assert any("생략" in w for w in tbl_row["경고"]), tbl_row["경고"]
+
+    props = CA.propose(DOC, p)
+    ok = [x for r in props for x in r["변경"] if x["반영가능"]]
+    assert len(ok) == 4, ok                    # replace·insert·부칙·별표 헤더(cell) 각 1
+    assert not any(x["반영가능"] for x in props[0]["변경"]), "표 행이 열려 있다"
+
+
+def test_summary_table_cell_change_is_extracted_and_matched():
+    """운영자 지적(2026-08-05): '표는 사람이 확인'을 무조건 적용하면 자동화 취지에 어긋난다.
+    요약표("(현행) X ▶ (변경) Y")는 대비표 본문(생략)과 달리 **명확한 지시**다 — 실제 볼트에서
+    대상 셀(`<td>팀장</td>`)이 정확히 한 곳뿐임을 확인하고 이 경로를 열었다."""
+    p = CA.parse(AMEND_PIPE)
+    assert p["요약변경"] == [{"구획": "기획·행정", "현행": "팀장", "개정": "실･팀장"}], p["요약변경"]
+
+    props = CA.propose(DOC, p)
+    cell_row = next(r for r in props if r["종류"] == "별표 헤더 변경")
+    it = cell_row["변경"][0]
+    assert it["모드"] == "cell" and it["상태"] == "확정" and it["반영가능"], it
+    assert it["볼트줄"] == 18, it                                  # DOC의 <td>팀장</td> 줄
+    assert it["현행줄"] == "팀장" and it["개정줄"] == "실･팀장", it
+
+
+def test_summary_cell_change_locks_when_ambiguous_in_vault():
+    """대상 셀이 볼트에 **여러 곳**이면(또는 없으면) 여전히 잠긴다 — 요약표 발견이
+    안전장치를 우회하지 않는다."""
+    dup_doc = DOC + "\n<table>\n<tr><td>팀장</td></tr>\n</table>\n"
+    p = CA.parse(AMEND_PIPE)
+    props = CA.propose(dup_doc, p)
+    cell_row = next(r for r in props if r["종류"] == "별표 헤더 변경")
+    it = cell_row["변경"][0]
+    assert it["상태"] == "모호" and not it["반영가능"], it
+    assert "여러 곳" in it["불가사유"], it["불가사유"]
+
+
+def test_title_reads_pipe_boxed_text_not_raw_syntax():
+    """01c는 표제도 '|  |\\n| --- |\\n| 제목 |' 파이프 박스로 낸다 — 첫 줄을 그대로 집으면
+    '|  |'(빈 칸)가 뽑힌다(2026-08-05 실측, 화면 상단에 그대로 노출됐다)."""
+    boxed = "|  |\n| --- |\n| 합성규정 개정(안) |\n|  |\n\n" + AMEND_PIPE
+    assert CA.parse(boxed)["제목"] == "합성규정 개정(안)"
+
+
+def test_target_regulation_extracted_and_survives_filename_suffixes():
+    """대상규정 추출이 **파일명보다 안정적**이어야 한다.
+
+    실측 결함(2026-08-05): 파일명에 배포 접미사("(1)", 날짜 "260721")가 붙자 문자열 유사도가
+    0.6 임계값 밑으로 떨어져 "대상 문서를 찾지 못했습니다"가 떴다. 문서가 스스로
+    "「합성규정」을 개정"이라 말하는 문장에서 규정명을 뽑으면 접미사와 무관하게 항상 정확하다."""
+    p = CA.parse(AMEND_PIPE)
+    assert p["대상규정"] == "합성규정", p["대상규정"]     # 「합성직제규정」이 아니라 뒤쪽 것
+
+    fragile_name = "(ver3)합성규정_개정(안)_-_조직개편 (1)_260721.hwpx"
+    import difflib
+    from corpus_replace import _norm_title
+    ratio = difflib.SequenceMatcher(None, _norm_title(fragile_name), "합성규정").ratio()
+    assert ratio < 0.6, f"픽스처가 실패 재현을 못 함(ratio={ratio:.2f}) — 접미사를 늘릴 것"
 
 
 def test_no_write_path_exists():

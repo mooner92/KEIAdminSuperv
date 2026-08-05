@@ -51,7 +51,11 @@ KIND_UNKNOWN = "불명"
 #    약신호만으로 막으면 멀쩡한 규정 교체가 거부된다.
 _STRONG = [
     ("신구조문 대비표", re.compile(r"신[\s·‧・･]*구\s*조문\s*대비표")),
-    ("현행/개정(안) 대조표 머리", re.compile(r"<t[hd]>\s*현\s*행\s*</t[hd]>\s*<t[hd]>\s*개\s*정")),
+    ("현행/개정(안) 대조표 머리(HTML)", re.compile(r"<t[hd]>\s*현\s*행\s*</t[hd]>\s*<t[hd]>\s*개\s*정")),
+    # ⚠ 실제 업로드 경로는 kordoc이 아니라 **01c(hwp-hwpx-parser)**를 쓰고, 이건 표를 HTML이
+    #   아니라 마크다운 파이프(`| 현행 | 개정(안) | 비고 |`)로 낸다(2026-08-05 실측). 신호를 하나만
+    #   지원하면 실제 업로드는 강신호가 부족해 오판되거나 대비표를 아예 못 찾는다.
+    ("현행/개정(안) 대조표 머리(파이프)", re.compile(r"^\|\s*현\s*행\s*\|\s*개\s*정", re.MULTILINE)),
 ]
 _SOFT = [
     ("개정이유 절", re.compile(r"[□ㅁ○]\s*개\s*정\s*이\s*유")),
@@ -128,6 +132,75 @@ def _top_level_blocks(chunk: str, tag: str) -> list:
     return out
 
 
+def _html_compare_rows(body: str) -> list:
+    """HTML `<table>`(kordoc 변환) 대비표의 (현행, 개정, 비고, 표?) 원시 셀 텍스트."""
+    out = []
+    for tbl in _outer_tables(body):
+        if not re.search(r"<t[hd]>\s*현\s*행\s*</t[hd]>", tbl):
+            continue
+        for tr in _top_level_blocks(tbl, "tr"):
+            cells = _top_level_blocks(tr, "td") + _top_level_blocks(tr, "th")
+            if len(cells) < 2:
+                continue
+            in_table = bool(re.search(r"<\s*table", cells[0] + cells[1], re.I))
+            out.append((cells[0], cells[1], cells[2] if len(cells) > 2 else "", in_table))
+    return out
+
+
+_PIPE_LINE = re.compile(r"^\|(.*)\|[ \t]*$")
+
+
+def _pipe_cells(line: str) -> list:
+    inner = line.strip()
+    if inner.startswith("|"):
+        inner = inner[1:]
+    if inner.endswith("|"):
+        inner = inner[:-1]
+    return [c.strip() for c in inner.split("|")]
+
+
+def _is_pipe_sep(line: str) -> bool:
+    """`| --- | --- | --- |` 같은 머리-본문 구분선인지. 열 개수가 표마다 달라 셀 단위로 검사한다."""
+    if not _PIPE_LINE.match(line or ""):
+        return False
+    cells = _pipe_cells(line)
+    return bool(cells) and all(re.fullmatch(r":?-{2,}:?", c) for c in cells)
+
+
+def _pipe_compare_rows(body: str) -> list:
+    """마크다운 파이프 표(**01c/hwp-hwpx-parser** 산출 — 실제 업로드 경로의 기본 변환기) 대비표의
+    (현행, 개정, 비고, 표?) 원시 셀 텍스트.
+
+    ⚠ 변환기가 둘이다: kordoc은 표를 HTML `<table>`로 내고(개발·테스트에 씀), 01c는 파이프
+       마크다운으로 낸다. 하나만 지원하면 실제 업로드가 **대비표 0행**으로 파싱된다
+       (2026-08-05 실측 — 335규칙 별표 매트릭스가 통째로 '개정이유' 목록에 흘러들고 반영 항목이
+       하나도 안 나왔다). 표 안 표는 01c가 이미 한 셀 안에 평탄화해 내놓으므로(줄바꿈 없는
+       공백 나열) HTML 쪽과 달리 중첩을 따로 다룰 필요가 없다.
+    """
+    lines = body.splitlines()
+    out, n, i = [], len(lines), 0
+    while i < n - 1:
+        if _PIPE_LINE.match(lines[i]) and _is_pipe_sep(lines[i + 1]):
+            header = _pipe_cells(lines[i])
+            is_cmp = (len(header) >= 2 and re.search(r"현\s*행", header[0])
+                      and re.search(r"개\s*정", header[1]))
+            j = i + 2
+            while j < n and _PIPE_LINE.match(lines[j]):
+                if is_cmp:
+                    cells = _pipe_cells(lines[j])
+                    cur = cells[0] if cells else ""
+                    new = cells[1] if len(cells) > 1 else ""
+                    note = cells[2] if len(cells) > 2 else ""
+                    # 표 안 표가 평탄화되며 HTML 쪽의 '<table 존재' 신호가 사라진다 — 매트릭스
+                    # 헤더 어휘로 대신 짚는다. ⛔ 이걸 못 잡아도 '생략' 경고가 백스톱이다(아래).
+                    out.append((cur, new, note, "전결권자" in (cur + new)))
+                j += 1
+            i = j
+        else:
+            i += 1
+    return out
+
+
 def _outer_tables(md: str) -> list:
     """문서의 최상위 <table>의 **안쪽 내용**(중첩 표는 그 안에 통째로 포함).
 
@@ -166,15 +239,62 @@ def _cell_lines(cell: str) -> list:
     return [ln.strip() for ln in s.split("\n") if ln.strip()]
 
 
+# 「위임전결규정 개정(안)」의 '주요내용' 요약표는 대비표(생략/좌동)와 달리 **정확한 지시**를
+# 담는다: "(현행) 팀장 ▶ (변경) 실･팀장". 대비표 쪽 별표 셀은 통째로 잠그지만, 이 문장은
+# 문서가 스스로 "무엇을 무엇으로" 말하고 있으므로 여전히 전사다(판단이 아니다) — 2026-08-05,
+# 실제 볼트에서 대상 셀이 정확히 한 곳뿐임을 확인하고 추가했다(운영자 지적: "자동화하려고
+# 만든 건데 사람이 직접 보는 건 원칙에 어긋난다").
+_SUMMARY_CHANGE = re.compile(r"\(현\s*행\)\s*([^\s▶<|]+)\s*▶\s*\(변\s*경\)\s*([^\s<|]+)")
+_SECTION_MARK = re.compile(r"<([^/>][^>]{0,20})>")
+
+
+def _summary_changes(body: str) -> list:
+    """→ [{구획, 현행, 개정}]. 구획은 같은 줄에서 그 앞에 나온 마지막 한글 꺾쇠 표시
+    (`<기획·행정>`)를 쓴다 — 표시는 화면용일 뿐, 매칭은 아래 propose()에서 '현행' 값이
+    볼트 전체에서 유일한지로 다시 검증한다(구획 오독이 안전을 대신하지 않는다)."""
+    out = []
+    for ln in body.splitlines():
+        for m in _SUMMARY_CHANGE.finditer(ln):
+            secs = _SECTION_MARK.findall(ln[:m.start()])
+            sec = next((s for s in reversed(secs) if re.search(r"[가-힣]", s)), "")
+            out.append({"구획": sec, "현행": m.group(1).strip(), "개정": m.group(2).strip()})
+    return out
+
+
 # ───────────────────────── ② 해독 ─────────────────────────
 def parse(md: str) -> dict:
     """→ {제목, 개정이유[], 시행일, 행[]}. 행 = {현행[], 개정[], 비고, 종류, 경고[]}."""
     _, body = split_frontmatter(md)
     body = body or md
 
-    title = next((ln.strip() for ln in body.splitlines() if ln.strip()), "")
+    # 제목 — 첫 비어있지 않은 줄. ⚠ 01c는 표제도 파이프 표 한 칸("|  |\n| --- |\n| 제목 |")으로
+    # 낸다 — 그대로 첫 줄을 집으면 "|  |"가 뽑힌다(2026-08-05 실측, 화면에 그대로 노출됨).
+    title = ""
+    for ln in body.splitlines():
+        ln = ln.strip()
+        if not ln or _is_pipe_sep(ln):
+            continue
+        if _PIPE_LINE.match(ln):
+            cells = [c for c in _pipe_cells(ln) if c]
+            if cells:
+                title = cells[0]
+                break
+            continue
+        title = ln
+        break
+
+    # 대상 규정명 — 파일명보다 훨씬 믿을 만한 매칭 근거다. 공문은 스스로
+    # "「위임전결규정」을 개정"이라고 말한다. 파일명 유사도는 배포 시 붙는 접미사
+    # (버전 "(1)", 날짜 "260721" 등)에 취약해 실제로 매칭이 깨진 적이 있다(2026-08-05 실측).
+    m = re.search(r"「([^」]{2,40})」\s*(을|를)\s*개정", body)
+    target_reg = m.group(1) if m else ""
+
     reasons = []
-    m = re.search(r"[□ㅁ]\s*개\s*정\s*이\s*유(.*?)(?=[□ㅁ]|<table|\Z)", body, re.S)
+    # ⚠ 경계로 `<table`만 보면 안 된다 — 01c(실제 업로드 경로)는 HTML 태그 없이 파이프 마크다운
+    #   표를 바로 이어 붙인다. 그러면 다음 '□'까지의 첫 표 전체가 개정이유에 흘러들어간다
+    #   (2026-08-05 실측: 개정이유 3개가 8개로 부풀고 원시 표 텍스트가 그대로 노출됐다).
+    #   '\n|' = 파이프 표 시작 신호를 추가 경계로 쓴다.
+    m = re.search(r"[□ㅁ]\s*개\s*정\s*이\s*유(.*?)(?=[□ㅁ]|<table|\n\s*\||\Z)", body, re.S)
     if m:
         reasons = [re.sub(r"^[ㅇo○\-\s]+", "", ln).strip()
                    for ln in m.group(1).splitlines() if ln.strip()]
@@ -185,39 +305,35 @@ def parse(md: str) -> dict:
     if m:
         enforce = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
 
-    # 대비표 = 현행/개정 머리를 가진 최상위 표
+    # 대비표 = 현행/개정 머리를 가진 최상위 표. 변환기가 둘이라(kordoc=HTML, 01c=파이프
+    # 마크다운) 두 형식을 다 스캔해 합친다 — 하나만 지원하면 실제 업로드가 0행으로 파싱된다.
     rows = []
-    for tbl in _outer_tables(body):
-        if not re.search(r"<t[hd]>\s*현\s*행\s*</t[hd]>", tbl):
+    for cur_raw, new_raw, note_raw, in_table_hint in (_html_compare_rows(body)
+                                                        + _pipe_compare_rows(body)):
+        cur, new = _cell_lines(cur_raw), _cell_lines(new_raw)
+        note = " ".join(_cell_lines(note_raw)) if note_raw else ""
+        if not cur and not new:
             continue
-        for tr in _top_level_blocks(tbl, "tr"):
-            cells = _top_level_blocks(tr, "td") + _top_level_blocks(tr, "th")
-            if len(cells) < 2:
-                continue
-            cur, new = _cell_lines(cells[0]), _cell_lines(cells[1])
-            note = " ".join(_cell_lines(cells[2])) if len(cells) > 2 else ""
-            if not cur and not new:
-                continue
-            if re.fullmatch(r"\s*현\s*행\s*", " ".join(cur)):   # 머리행
-                continue
+        if re.fullmatch(r"\s*현\s*행\s*", " ".join(cur)):   # 머리행
+            continue
 
-            warn = []
-            if any(_OMITTED_ANY.search(x) for x in cur + new):
-                warn.append("표에 '생략'이 있다 — 규정 본문이 이 문서에 없다. ⛔반영 금지")
-            same = [x for x in new if _SAME_AS.match(x)]
-            if same:
-                warn.append(f"'좌동' {len(same)}건 — 그 부분은 변경 없음(현행 유지)")
-            # 셀 안에 표가 또 있으면 이 행은 별표(매트릭스) 내용이다. 볼트에서는 표 안에 살아
-            # 있어 줄 단위 대조가 성립하지 않는다 — '미발견'을 결함으로 오해하지 않도록 밝힌다.
-            in_table = bool(re.search(r"<\s*table", cells[0] + cells[1], re.I))
-            if in_table:
-                warn.append("별표(표) 내용이다 — 줄 대조가 성립하지 않으니 원문 표에서 직접 확인할 것")
+        warn = []
+        if any(_OMITTED_ANY.search(x) for x in cur + new):
+            warn.append("표에 '생략'이 있다 — 규정 본문이 이 문서에 없다. ⛔반영 금지")
+        same = [x for x in new if _SAME_AS.match(x)]
+        if same:
+            warn.append(f"'좌동' {len(same)}건 — 그 부분은 변경 없음(현행 유지)")
+        # 셀 안에 표가 또 있으면 이 행은 별표(매트릭스) 내용이다. 볼트에서는 표 안에 살아
+        # 있어 줄 단위 대조가 성립하지 않는다 — '미발견'을 결함으로 오해하지 않도록 밝힌다.
+        if in_table_hint:
+            warn.append("별표(표) 내용이다 — 줄 대조가 성립하지 않으니 원문 표에서 직접 확인할 것")
 
-            kind = ("신설" if not cur else "삭제" if not new
-                    else "좌동" if all(_SAME_AS.match(x) for x in new) else "변경")
-            rows.append({"현행": cur, "개정": new, "비고": note, "종류": kind,
-                         "경고": warn, "표": in_table})
-    return {"제목": title, "개정이유": reasons, "시행일": enforce, "행": rows}
+        kind = ("신설" if not cur else "삭제" if not new
+                else "좌동" if all(_SAME_AS.match(x) for x in new) else "변경")
+        rows.append({"현행": cur, "개정": new, "비고": note, "종류": kind,
+                     "경고": warn, "표": in_table_hint})
+    return {"제목": title, "대상규정": target_reg, "개정이유": reasons, "시행일": enforce,
+            "행": rows, "요약변경": _summary_changes(body)}
 
 
 # ───────────────────────── ③ 위치 짚기 ─────────────────────────
@@ -256,6 +372,10 @@ def _gate(row: dict, item: dict) -> tuple:
                        "볼트에서 이 줄을 찾지 못했습니다 — 문구가 다르거나 표 안에 있습니다.")
     if item["모드"] == "insert" and not item["앵커줄"]:
         return False, "넣을 자리(바로 앞줄)를 볼트에서 특정하지 못했습니다 — 사람이 직접 넣으세요."
+    if item["모드"] == "cell" and item["상태"] != "확정":
+        return False, ("표 셀 값이 볼트 여러 곳에 있어 어느 것인지 특정할 수 없습니다 — 사람이 확인하세요."
+                       if item["상태"] == "모호" else
+                       "요약표가 말하는 문구를 원문 표에서 찾지 못했습니다 — 사람이 확인하세요.")
     return True, ""
 
 
@@ -341,6 +461,22 @@ def propose(doc_md: str, parsed: dict) -> list:
 
         out.append({"행": n, "종류": row["종류"], "변경": items,
                     "경고": row["경고"], "비고": row["비고"]})
+
+    # 요약표 기반 별표 셀 치환("(현행) 팀장 ▶ (변경) 실･팀장") — 대비표 본문은 '생략'이라
+    # 잠기지만, 이 문장은 문서가 스스로 "무엇을 무엇으로"라 말하는 명확한 지시다(2026-08-05,
+    # 운영자 지적으로 추가). 판단이 아니라 여전히 전사다. 안전장치는 동일: 대상 셀 값이
+    # **볼트 전체에서 정확히 한 줄에만** 있을 때만 열린다(모호·미발견은 그대로 잠김).
+    for k, sc in enumerate(parsed.get("요약변경", []), 1):
+        cur_cell, new_cell = f"<td>{sc['현행']}</td>", f"<td>{sc['개정']}</td>"
+        hits = [i for i, ln in enumerate(lines, 1) if cur_cell in ln]
+        item = {"현행줄": sc["현행"], "개정줄": sc["개정"], "볼트줄": hits[0] if len(hits) == 1 else 0,
+                "앵커줄": 0, "모드": "cell",
+                "상태": "확정" if len(hits) == 1 else ("모호" if hits else "미발견")}
+        item["반영가능"], item["불가사유"] = _gate({"종류": "변경", "경고": []}, item)
+        out.append({"행": f"별표·{sc['구획'] or k}", "종류": "별표 헤더 변경", "변경": [item],
+                    "경고": [] if item["반영가능"] else
+                    [f"요약표 지시: {sc['구획'] or '구획 미상'} — 현행 '{sc['현행']}' → 개정 '{sc['개정']}'"],
+                    "비고": sc.get("구획", "")})
     return out
 
 
