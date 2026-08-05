@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import AmendPanel from "./AmendPanel";
+import ChangelogDrafts from "./ChangelogDrafts";
 import SearchInput from "../common/SearchInput";
 import { api, type CorpusDoc } from "../../lib/api";
 import { useFlag } from "../../lib/flags";
@@ -194,6 +195,8 @@ export default function AdminCorpus() {
         다음 웹 재빌드(배포) 때 반영됩니다.
       </p>
       </Section>
+
+      <ChangelogDrafts />
 
       <Section icon="📚" title="문서 목록"
         actions={<span className={styles.viewSummary}>청크 {data.summary.indexed_chunks}

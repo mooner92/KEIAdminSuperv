@@ -222,6 +222,33 @@ def test_summary_table_cell_change_is_extracted_and_matched():
     assert it["현행줄"] == "팀장" and it["개정줄"] == "실･팀장", it
 
 
+def test_already_applied_is_not_shown_as_a_failure():
+    """운영자 확인 요청(2026-08-05): 반영 버튼을 눌러 실제로 성공했는데, 그 항목을 다시 열면
+    현행 문구가 이미 사라져서 '못 찾음(🔒 반영 불가)'과 똑같이 보였다 — 성공을 실패로
+    오인시켰다. replace·insert·append·cell 네 모드 전부 '이미반영'을 구분해야 한다."""
+    already = DOC.replace(
+        "4. 실·팀장은 합성부서의 실장, 합성센터의 실장, 기획·행정부서의 팀장임",
+        "4. 실장은 합성부서, 합성센터, 기획·행정부서의 실장임\n\n"
+        "6. 합성단장의 위임은 실장 체계를 준용함\n\n"
+        "부    칙<2026. 7. 27.>\n\n제1조(시행일) 이 규정은 2026년 8월 3일부터 시행한다.",
+    ).replace("<td>팀장</td>", "<td>실･팀장</td>")
+    p = CA.parse(AMEND_PIPE)
+    props = CA.propose(already, p)
+
+    row2 = next(r for r in props if r["행"] == 2)
+    replace_it = next(x for x in row2["변경"] if x["모드"] == "replace")
+    assert replace_it["이미반영"] and not replace_it["반영가능"], replace_it
+    assert "이미 반영" in replace_it["불가사유"], replace_it["불가사유"]
+    insert_it = next(x for x in row2["변경"] if x["모드"] == "insert")
+    assert insert_it["이미반영"], insert_it
+
+    buchik = next(r for r in props if r["종류"] == "신설·부칙")["변경"][0]
+    assert buchik["이미반영"], buchik
+
+    cell_it = next(r for r in props if r["종류"] == "별표 헤더 변경")["변경"][0]
+    assert cell_it["이미반영"], cell_it
+
+
 def test_summary_cell_change_locks_when_ambiguous_in_vault():
     """대상 셀이 볼트에 **여러 곳**이면(또는 없으면) 여전히 잠긴다 — 요약표 발견이
     안전장치를 우회하지 않는다."""

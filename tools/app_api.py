@@ -1261,6 +1261,16 @@ def _reindex_worker(vault: str):
         _clear_stale()  # 전량 재색인 성공 — 내용 변경 스테일 해소(docs/24 ⓓ)
         REINDEX["ok"] = True
         REINDEX["log"].append("✅ 완료 — 새 색인 적용됨(무재시작). 웹 화면(둘러보기·그래프)은 다음 배포에 반영")
+        # 개정 반영 → 패치노트 초안(운영자 요청, 2026-08-05): 재색인 성공 후 그 사이 실제로
+        # 반영된 amend_apply를 모아 초안을 쓴다. ⛔ 실패해도 재색인 자체는 성공으로 둔다 —
+        # 패치노트는 부가 산출물이다. 자동 게시는 없다(상태: 초안 — 관리자가 검토 후 게시).
+        try:
+            import changelog_amend as CGA
+            made = CGA.run(vault)
+            if made:
+                REINDEX["log"].append(f"📝 패치노트 초안 {len(made)}건 — 코퍼스 관리에서 검토·게시하세요")
+        except Exception as e_cg:  # noqa: BLE001
+            REINDEX["log"].append(f"⚠ 패치노트 초안 생성 실패(무시): {e_cg}")
     except Exception as e:  # noqa: BLE001
         REINDEX["ok"] = False
         REINDEX["log"].append(f"⛔ 실패: {type(e).__name__}: {e} — 필요 시 롤백하세요")
@@ -1873,6 +1883,29 @@ def corpus_amend_log(limit: int = 50, admin: User = Depends(current_admin)):
     rows = [r for r in CR.read_log(max(1, min(limit, 300)))
             if str(r.get("event", "")).startswith(("amend_", "replace_"))]
     return {"log": rows}
+
+
+@router.get("/corpus/amend/changelog-drafts")
+def corpus_amend_changelog_drafts(admin: User = Depends(current_admin)):
+    """재색인 후 자동 생성된 패치노트 초안 목록. ⛔ 게시 전까지 사이트에 안 보인다."""
+    import changelog_amend as CGA
+    return {"drafts": CGA.list_drafts(_vault_dir())}
+
+
+class PublishDraftIn(BaseModel):
+    rel_path: str
+
+
+@router.post("/corpus/amend/changelog-drafts/publish")
+def corpus_amend_changelog_publish(body: PublishDraftIn, admin: User = Depends(current_admin)):
+    """초안 게시 — '상태: 초안' 제거. changelog_lint 위반이면 되돌리고 거부한다."""
+    import changelog_amend as CGA
+    vault = _vault_dir()
+    rel = _safe_rel(vault, body.rel_path)
+    ok, msg = CGA.publish(vault, rel)
+    if not ok:
+        raise HTTPException(400, msg)
+    return {"published": True, "message": msg}
 
 
 @router.get("/flags/manage")

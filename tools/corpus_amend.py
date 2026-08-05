@@ -379,6 +379,33 @@ def _gate(row: dict, item: dict) -> tuple:
     return True, ""
 
 
+def _already_applied(idx: dict, doc_lines: list, it: dict) -> bool:
+    """모드별로 '개정줄'이 이미 볼트에 들어가 있는지 — **못 찾음(문제)**과
+    **이미 반영됨(성공)**을 가른다. 2026-08-05 실측: 이 구분이 없어서 실제로는 성공한
+    반영이 다시 열면 🔒 반영 불가·미발견으로 보여 실패로 오인시켰다(운영자 확인 요청).
+    ⚠ cell 모드는 `<td>…</td>` 경계로 봐야 한다 — 순수 부분일치("팀장")는 "실팀장"에도
+    걸려 항상 참이 된다(실제로 다른 매트릭스 섹션에 이미 '실팀장'이 여럿 있다)."""
+    if it["모드"] == "replace":
+        return _norm(it["개정줄"]) in idx and _norm(it["현행줄"]) not in idx
+    if it["모드"] == "insert":
+        return _norm(it["개정줄"]) in idx
+    if it["모드"] == "append":
+        return _norm(it["개정줄"]) in _norm("\n".join(doc_lines))
+    if it["모드"] == "cell":
+        full = "\n".join(doc_lines)
+        return f"<td>{it['개정줄']}</td>" in full and f"<td>{it['현행줄']}</td>" not in full
+    return False
+
+
+def _finalize(row: dict, it: dict, idx: dict, lines: list) -> None:
+    """이미반영 판정 → 참이면 관문을 건너뛰고 긍정적인 사유로 잠근다(그 외엔 기존 관문)."""
+    it["이미반영"] = _already_applied(idx, lines, it)
+    if it["이미반영"]:
+        it["반영가능"], it["불가사유"] = False, "이미 반영되었습니다."
+    else:
+        it["반영가능"], it["불가사유"] = _gate(row, it)
+
+
 def propose(doc_md: str, parsed: dict) -> list:
     """대비표 행 → 볼트 문서 줄 번호 + 반영 가능 여부(spec 15 §3·§5).
 
@@ -414,7 +441,7 @@ def propose(doc_md: str, parsed: dict) -> list:
         if not cur and new and _BUCHIK_HEAD.match(new[0]):
             item = {"현행줄": "", "개정줄": "\n".join(new), "볼트줄": 0, "상태": "신설",
                     "모드": "append", "앵커줄": len(lines)}
-            item["반영가능"], item["불가사유"] = _gate(row, item)
+            _finalize(row, item, idx, lines)
             out.append({"행": n, "종류": "신설·부칙", "변경": [item],
                         "경고": row["경고"], "비고": row["비고"]})
             continue
@@ -457,7 +484,7 @@ def propose(doc_md: str, parsed: dict) -> list:
             it.setdefault("앵커줄", 0)
             it["모드"] = ("replace" if it["현행줄"] and it["개정줄"]
                           else "delete" if it["현행줄"] else "insert")
-            it["반영가능"], it["불가사유"] = _gate(row, it)
+            _finalize(row, it, idx, lines)
 
         out.append({"행": n, "종류": row["종류"], "변경": items,
                     "경고": row["경고"], "비고": row["비고"]})
@@ -472,7 +499,7 @@ def propose(doc_md: str, parsed: dict) -> list:
         item = {"현행줄": sc["현행"], "개정줄": sc["개정"], "볼트줄": hits[0] if len(hits) == 1 else 0,
                 "앵커줄": 0, "모드": "cell",
                 "상태": "확정" if len(hits) == 1 else ("모호" if hits else "미발견")}
-        item["반영가능"], item["불가사유"] = _gate({"종류": "변경", "경고": []}, item)
+        _finalize({"종류": "변경", "경고": []}, item, idx, lines)
         out.append({"행": f"별표·{sc['구획'] or k}", "종류": "별표 헤더 변경", "변경": [item],
                     "경고": [] if item["반영가능"] else
                     [f"요약표 지시: {sc['구획'] or '구획 미상'} — 현행 '{sc['현행']}' → 개정 '{sc['개정']}'"],
@@ -501,7 +528,7 @@ def report(md: str, doc: str | None) -> str:
         for it in pr["변경"]:
             loc = (f"볼트 {it['볼트줄']}줄" if it["볼트줄"]
                    else f"{it['앵커줄']}줄 뒤" if it.get("앵커줄") else it["상태"])
-            mark = "✅반영가능" if it["반영가능"] else "🔒"
+            mark = "✅반영가능" if it["반영가능"] else ("✔️이미반영" if it.get("이미반영") else "🔒")
             if it["현행줄"] and it["개정줄"]:
                 L += [f"    {mark} ({loc}) - {it['현행줄']}", f"                 + {it['개정줄']}"]
             elif it["현행줄"]:

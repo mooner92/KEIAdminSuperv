@@ -77,6 +77,12 @@ export default function AmendPanel({ id, onClose }: { id: string; onClose: () =>
 
       {!v.대상 ? (
         <p className={s.err}>대상 문서를 찾지 못했습니다 — 개정안은 기존 규정이 있어야 반영할 수 있습니다.</p>
+      ) : (v.제안 || []).length === 0 ? (
+        <p className={s.err}>
+          이 문서에서 대비표를 찾지 못했습니다 — &apos;현행/개정(안)&apos; 형식이 아니거나
+          지원하지 않는 표 구조일 수 있습니다. 반영 버튼을 만들 수 없으니, 원문을 직접 열어
+          확인·반영해 주세요.
+        </p>
       ) : (v.제안 || []).map((row) => (
         <div key={row.행} className={s.row}>
           <div className={s.rowHead}>
@@ -102,9 +108,11 @@ export default function AmendPanel({ id, onClose }: { id: string; onClose: () =>
                     {busy === it.개정줄 ? "반영 중…"
                       : it.모드 === "append" ? "블록 반영" : it.모드 === "cell" ? "이 값 반영" : "이 줄 반영"}
                   </button>
+                ) : it.이미반영 ? (
+                  <span className={s.done}>✅ 이미 반영됨</span>
                 ) : <span className={s.locked} title={it.불가사유}>🔒 반영 불가</span>}
               </div>
-              {!it.반영가능 ? <p className={s.why}>{it.불가사유}</p> : null}
+              {!it.반영가능 && !it.이미반영 ? <p className={s.why}>{it.불가사유}</p> : null}
             </div>
           ))}
         </div>

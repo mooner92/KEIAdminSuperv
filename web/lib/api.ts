@@ -322,6 +322,10 @@ export const api = {
     j<AmendView & { 결과: AmendResult }>(`/corpus/uploads/${id}/amend/apply`,
       { method: "POST", body: JSON.stringify({ rel_path, 개정줄, 현행줄 }) }),
   amendLog: (limit = 50) => j<{ log: AmendLogRow[] }>(`/corpus/amend/log?limit=${limit}`),
+  changelogDrafts: () => j<{ drafts: ChangelogDraft[] }>("/corpus/amend/changelog-drafts"),
+  publishChangelogDraft: (rel_path: string) =>
+    j<{ published: boolean; message: string }>("/corpus/amend/changelog-drafts/publish",
+      { method: "POST", body: JSON.stringify({ rel_path }) }),
   corpusApprove: (id: string, doc_type: "guide" | "regulation", title: string) =>
     j<{ slug: string; path: string }>(`/corpus/uploads/${id}/approve`, { method: "POST", body: JSON.stringify({ doc_type, title }) }),
   corpusReject: (id: string) => j<{ rejected: string }>(`/corpus/uploads/${id}/reject`, { method: "POST" }),
@@ -352,8 +356,9 @@ export type AmendItem = {
   현행줄: string; 개정줄: string; 볼트줄: number; 앵커줄: number;
   모드: "replace" | "insert" | "append" | "delete" | "cell";
   반영가능: boolean; 불가사유: string; 상태?: string;
+  이미반영?: boolean; // 성공(더 반영할 것 없음)과 실패(못 찾음)를 UI가 구분해야 한다
 };
-export type AmendRow = { 행: number; 종류: string; 비고: string; 경고: string[]; 변경: AmendItem[] };
+export type AmendRow = { 행: number | string; 종류: string; 비고: string; 경고: string[]; 변경: AmendItem[] };
 export type AmendView = {
   id: string; name: string;
   판별: { kind: string; 조문수: number; 근거: string[] };
@@ -365,6 +370,10 @@ export type AmendView = {
 };
 export type AmendResult = {
   ok: boolean; already?: boolean; reason?: string; detail?: string; backup?: string; line?: number;
+};
+export type ChangelogDraft = {
+  path: string; type?: string; 제목: string; 날짜: string; 분류: string; 요약: string;
+  관련페이지?: string; 대상문서?: string; body: string;
 };
 export type AmendLogRow = {
   ts: string; event: string; target?: string; mode?: string; line?: number;
