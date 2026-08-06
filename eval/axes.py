@@ -28,6 +28,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 IDX = ROOT / "tools" / "index"
 sys.path.insert(0, str(ROOT / "tools"))
 from refusal_detect import is_refusal  # noqa: E402  단일 정본(specs/01 P0)
+from daily_common import refusal_cause  # noqa: E402  거부 원인 분류 단일 정본(2026-08-06)
 
 # 축별 최소 쿼터(일일 신규 문항 중) — 데이터 없으면 자동 0
 AXIS_QUOTA = {"amount": 2, "impact": 2, "defterm": 2, "deadline": 2}
@@ -154,7 +155,7 @@ def grade_amount(item: dict, 답변: str) -> tuple:
         others = ", ".join(sorted(got - exp))
         return "부분", f"전결권자 {label}는 맞았으나 다른 직급({others})도 함께 제시함", None
     if is_refusal(답변):
-        return "오답", f"별표에 {item['판정키']['구간']} → {label}로 명시돼 있는데 확인 불가로 답변함", "검색실패"
+        return "오답", f"별표에 {item['판정키']['구간']} → {label}로 명시돼 있는데 확인 불가로 답변함", refusal_cause(item)
     if got:
         return "오답", f"기대 전결권자 {label} · 답변 {', '.join(sorted(got))} (근거 행: {item['판정키']['원문행'][:60]})", "생성환각"
     return "검토필요", f"답변에서 전결권자를 특정하지 못함(기대 {label})", None
@@ -201,7 +202,7 @@ def grade_impact(item: dict, 답변: str) -> tuple:
     if hit:
         return "정답", "", None
     if is_refusal(답변):
-        return "오답", f"참조 그래프상 관련 조문({', '.join(item['판정키']['기대'][:3])})이 있는데 확인 불가로 답변함", "검색실패"
+        return "오답", f"참조 그래프상 관련 조문({', '.join(item['판정키']['기대'][:3])})이 있는데 확인 불가로 답변함", refusal_cause(item)
     return "검토필요", f"기대 조문 미언급(기대 {', '.join(item['판정키']['기대'][:3])})", None
 
 
@@ -264,7 +265,7 @@ def grade_defterm(item: dict, 답변: str) -> tuple:
     if bg >= 0.4 or kw >= 0.7:  # 2축(regress_refusal과 동일 철학 — 의역에 강함)
         return "정답", "", None
     if is_refusal(답변):
-        return "오답", f"규정 제{item['출처']['조']} 정의가 실재하는데 확인 불가로 답변함", "검색실패"
+        return "오답", f"규정 제{item['출처']['조']} 정의가 실재하는데 확인 불가로 답변함", refusal_cause(item)
     if bg >= 0.2 or kw >= 0.4:
         return "부분", f"정의 일부만 일치(2그램 {bg:.0%} · 키워드 {kw:.0%})", None
     return "검토필요", f"정의와 겹침 낮음(2그램 {bg:.0%} · 키워드 {kw:.0%})", None
@@ -323,7 +324,7 @@ def grade_deadline(item: dict, 답변: str) -> tuple:
     if any(v == n and u in aliases for v, u in got):
         return "정답", "", None
     if is_refusal(답변):
-        return "오답", f"원문에 '{n}{unit} 이내'가 명시돼 있는데 확인 불가로 답변함", "검색실패"
+        return "오답", f"원문에 '{n}{unit} 이내'가 명시돼 있는데 확인 불가로 답변함", refusal_cause(item)
     if got:
         shown = ", ".join(f"{v}{u}" for v, u in got[:3])
         return "오답", f"기대 {n}{unit} · 답변 {shown}", "생성환각"

@@ -130,6 +130,34 @@ def chroma_col():
     return chromadb.PersistentClient(path=CHROMA_DIR).get_collection(COLLECTION)
 
 
+# ── 거부 원인 분류의 **단일 정본**(refusal_detect와 같은 철학, 2026-08-06) ──
+# ⛔ 각자 "거부 = 검색실패"로 단정 금지. 축 채점기 5곳이 x_sources를 보지 않고 거부만으로
+#    검색실패를 찍고 있었고(axes 4 + scenarios 1), 그 탓에 검색실패 56건 중 9건(16%)이
+#    오분류됐다. 그중 dq-2026-07-30b-a02는 **7회차 연속** 같은 오분류로 수술대기에 올랐다.
+#    실측 사례: '사적이해관계자' — 근거(제12조)는 정확히 회수됐으나 그 조문이 '수의계약 제한'
+#    이라 모델이 올바르게 거부. 원인은 검색이 아니라 defterms 인덱스 오귀속이었다.
+def retrieved_expected(item: dict) -> bool:
+    """기대 근거(출처 규정명·조)가 실제로 회수됐는가. daily_grade.classify_cause와 같은 규칙."""
+    src = item.get("출처") or {}
+    reg, jo = (src.get("규정명") or "").strip(), (src.get("조") or "").strip()
+    if not reg:
+        srcs = item.get("출처들") or []
+        return any(retrieved_expected({**item, "출처": s, "출처들": []}) for s in srcs)
+    base = jo.split("의")[0]
+    return any((s.get("규정명") or "").strip() == reg
+               and (not jo or (s.get("조") or "").startswith(base))
+               for s in (item.get("x_sources") or []))
+
+
+def refusal_cause(item: dict) -> str:
+    """거부 답변의 원인. 회수 실패면 '검색실패', **회수는 됐는데 거부**면 '근거부적합'.
+
+    '근거부적합' = 근거는 붙었으나 기대 답을 담고 있지 않음 → 검색 개선이 아니라
+    인덱스 귀속·골든 품질·기능 배선(예: 그래프 파급 데이터가 채팅 컨텍스트에 미첨부)을
+    점검해야 하는 사안. 검색 탓으로 뭉뚱그리면 진짜 원인이 라벨 뒤에 숨는다."""
+    return "검색실패" if not retrieved_expected(item) else "근거부적합"
+
+
 # ── 정규화·중복(임베딩 없이: 해시 + 문자 2-그램 자카드 — P1 단순화, docs/58 §1.2) ──
 def norm_q(s: str) -> str:
     return re.sub(r"[\s\.\?!,·'\"()\[\]]+", "", (s or "")).lower()

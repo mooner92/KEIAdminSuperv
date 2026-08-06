@@ -27,7 +27,7 @@ import random
 import re
 import sys
 
-from daily_common import ROOT, chroma_col, llm_json, norm_q
+from daily_common import ROOT, chroma_col, llm_json, norm_q, refusal_cause
 
 sys.path.insert(0, str(ROOT / "tools"))
 from refusal_detect import is_refusal  # noqa: E402  단일 정본(specs/01 P0)
@@ -258,7 +258,7 @@ def grade_scenario(item: dict, 답변: str) -> tuple:
         return "정답", "", None
     if is_refusal(답변) and not ok:
         regs = ", ".join(f"{s['규정명']} {s['조']}" for s in (item.get("출처들") or [])[:3])
-        return "오답", f"근거({regs})가 실재하는데 확인 불가로 답변함", "검색실패"
+        return "오답", f"근거({regs})가 실재하는데 확인 불가로 답변함", refusal_cause(item)
     if ok:
         빠짐 = " / ".join(f"「{g[:40]}…」({c:.0%})" for g, c in miss[:2])
         return "부분", f"근거 {len(ok)}/{len(hits)}건만 반영 — 빠진 항목: {빠짐}", None
