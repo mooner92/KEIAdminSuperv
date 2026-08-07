@@ -85,6 +85,35 @@ def test_graders_use_the_single_source_of_truth():
         assert "refusal_cause" in src, f"{name}: 단일 정본을 임포트하지 않았다"
 
 
+def test_new_cause_reaches_report_not_미분류():
+    """⛔ 원인이 신설되면 **집계까지 살아서 가야** 한다.
+
+    2026-08-07 실측: 전날 신설한 '근거부적합'을 classify_failure 화이트리스트에 넣지 않아
+    2건이 '미분류'로 떨어졌고, 수술대기 목록에서 통째로 사라졌다(리포트엔 9건만 표시).
+    분류기 구멍이 '정상'처럼 보이는 통계가 되는 게 가장 나쁘다 — 경로 전체를 회귀로 잡는다."""
+    import daily_grade as G
+    import daily_report as R
+    item = {"판정": "오답", "골든": "합성 근거 문장", "원인": "근거부적합"}
+    assert G.classify_failure(item) == "근거부적합", G.classify_failure(item)
+    assert "근거부적합" in R.SURGERY, R.SURGERY
+
+
+def test_causes_and_report_buckets_stay_in_sync():
+    """원인 화이트리스트와 리포트 버킷(SURGERY∪NOISE)이 갈라지면 조용히 유실된다.
+    새 원인을 한쪽에만 넣는 실수를 구조적으로 막는다."""
+    import re as _re
+
+    import daily_report as R
+    src = (Path(__file__).resolve().parent / "daily_grade.py").read_text(encoding="utf-8")
+    m = _re.search(r'if cause in \(([^)]*)\)', src)
+    assert m, "classify_failure의 원인 화이트리스트를 찾지 못함"
+    causes = {c.strip().strip('"\'') for c in m.group(1).split(",") if c.strip()}
+    buckets = set(R.SURGERY) | set(R.NOISE)
+    # 원문결함·시드재검토는 별도 취급(측정/원문 계열) — 나머지는 반드시 버킷에 있어야 한다
+    orphan = causes - buckets - {"원문결함", "시드재검토"}
+    assert not orphan, f"버킷 없는 원인(집계에서 유실됨): {orphan}"
+
+
 def test_graders_receive_answer_merged_item():
     """⛔ daily_grade는 채점기에 item(=질문+답변)을 넘겨야 한다. q만 넘기면 x_sources가 없어
     원인 분류가 항상 '검색실패'로 샌다 — 이 회귀가 그 재발을 막는다."""

@@ -66,7 +66,10 @@ def classify_failure(item: dict) -> str:
     if golden_suspect(item.get("골든") or ""):
         return "골든품질"
     cause = item.get("원인")
-    if cause in ("검색실패", "생성환각", "원문결함", "시드재검토"):
+    # ⚠ 새 원인을 만들면 **여기에도 넣어야 한다**. 2026-08-07 실측: 전날 신설한 '근거부적합'을
+    #   빠뜨려 2건이 '미분류'로 떨어졌고, 수술대기(daily_report)에서 통째로 사라졌다 —
+    #   아래 주석이 경고하던 '분류기 구멍'을 신설 원인이 그대로 밟았다.
+    if cause in ("검색실패", "생성환각", "원문결함", "시드재검토", "근거부적합"):
         return str(cause)
     if v == "판정불가":
         return "판정불가-기타"
