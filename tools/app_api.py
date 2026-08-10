@@ -1885,6 +1885,38 @@ def corpus_amend_log(limit: int = 50, admin: User = Depends(current_admin)):
     return {"log": rows}
 
 
+@router.get("/gates")
+def gates_telemetry(days: int = 14, admin: User = Depends(current_admin)):
+    """게이트 발동 텔레메트리(specs/16 W1-E — docs/26 '무음 텔레메트리' 결정의 구현).
+
+    최근 N일 assistant 메시지의 sources_json(라우트 플래그 포함 저장됨)에서 라우트별
+    발동 메시지 수를 집계한다. 🔒 본문·질문 미반환 — 집계 수치만(개인정보 원칙 유지).
+    Wave 2의 판단 입력: 발동률 ~0 라우트는 Wave 4에서 기본 off 후보(docs/69 P3)."""
+    import corpus_amend  # noqa: F401 — 지연 임포트 관례 유지
+    keys = ("rerank", "graph_expand", "graph_expand_reg", "defterm_route", "amount_route",
+            "impact_route", "graph_expand_action", "graph_expand_gian", "scope_anchor",
+            "value_store", "procedure_pack", "uplaw", "표깨짐", "절단", "효력")
+    since = time.time() - max(1, min(days, 90)) * 86400
+    counts: dict = {k: 0 for k in keys}
+    total = 0
+    with Session(engine) as s2:
+        rows = s2.exec(select(Message).where(Message.role == "assistant",
+                                             Message.created_at >= since)).all()
+    for m in rows:
+        if not m.sources_json:
+            continue
+        total += 1
+        try:
+            srcs = json.loads(m.sources_json)
+        except ValueError:
+            continue
+        seen = {k for src in srcs for k in keys if isinstance(src, dict) and src.get(k)}
+        for k in seen:
+            counts[k] += 1
+    return {"days": days, "assistant_messages": total,
+            "route_hits": {k: v for k, v in counts.items() if v}}
+
+
 @router.get("/corpus/amend/changelog-drafts")
 def corpus_amend_changelog_drafts(admin: User = Depends(current_admin)):
     """재색인 후 자동 생성된 패치노트 초안 목록. ⛔ 게시 전까지 사이트에 안 보인다."""
@@ -2880,7 +2912,8 @@ def post_message(cid: int, body: MsgIn, stream: bool = False, user: User = Depen
             s.refresh(am)
             s.refresh(cs)
             sugg = rag_core.suggest_followups(q, sources)  # docs/26 — 무LLM 후속 제안(휘발성)
-            return {"user": _msg(um), "assistant": _msg(am), "session": _ses(cs), "suggestions": sugg}
+            return {"user": _msg(um), "assistant": _msg(am), "session": _ses(cs), "suggestions": sugg,
+                    "x_gates": rag_core.gate_summary(ans, context, sources)}  # specs/16 W1-E 텔레메트리
 
     # 스트리밍(SSE): meta(근거+user) → delta(토큰…) → [error] → done(저장된 assistant+session)
     def gen():
@@ -2943,7 +2976,8 @@ def post_message(cid: int, body: MsgIn, stream: bool = False, user: User = Depen
             except Exception:  # noqa: BLE001
                 sugg = []
             yield _sse({"type": "done", "assistant": _msg(am), "session": _ses(cs) if cs else None,
-                        "suggestions": sugg})
+                        "suggestions": sugg,
+                        "x_gates": rag_core.gate_summary(full, context, sources)})  # specs/16 W1-E
         finally:
             if not saved:
                 # GeneratorExit(연결 절단) 경로 — yield 금지, DB 작업만. 부분 응답도 보존.

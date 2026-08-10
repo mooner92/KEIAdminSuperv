@@ -122,7 +122,8 @@ def rag_answer(question: str, history: list | None = None) -> dict:
                                  headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=300) as r:
         d = json.load(r)
-    return {"content": d["choices"][0]["message"]["content"], "x_sources": d.get("x_sources", [])}
+    return {"content": d["choices"][0]["message"]["content"], "x_sources": d.get("x_sources", []),
+            "x_gates": d.get("x_gates")}   # specs/16 W1-E 텔레메트리(없으면 None — 구서버 호환)
 
 
 def chroma_col():

@@ -48,7 +48,7 @@ def list_candidates() -> int:
     rows = _bank()
     cand = []
     for q in rows:
-        if q.get("상태") == "retired":
+        if q.get("상태") == "retire":
             continue
         if q.get("유형") == "거부형":
             continue  # 거부형은 골든이 빈 것이 정상(정답=거부) — 보수 대상 아님
@@ -77,7 +77,7 @@ def mutate(args) -> int:
         if not args.why:
             print("⛔ --why '사유' 필수 — 퇴출 근거 없는 퇴출은 기록이 아니다")
             return 1
-        q["상태"] = "retired"
+        q["상태"] = "retire"  # ⚠ "retired" 금지 — 소비자 8곳(daily_gen·daily_grade 등)은 전부 "retire"를 검사한다(specs/16 W1-A)
         q["retire_사유"] = args.why
         q["retire_일자"] = time.strftime("%Y-%m-%d")
         print(f"퇴출: {q['질문'][:50]} — {args.why}")

@@ -63,7 +63,11 @@ def classify_failure(item: dict) -> str:
         return ""
     if v == "폐기":
         return "출제결함"
-    if golden_suspect(item.get("골든") or ""):
+    # ⚠ 거부형은 설계상 골든이 없다(코퍼스 밖 시드) — golden_suspect("")==True 가 모든
+    #   거부형 실패를 '골든품질'(노이즈)로 삼켰다(25회차 전수: 생성환각 72 + 시드재검토 19,
+    #   예외 0 — 2026-08-10 실측, specs/16 W1-B). 거부형만 면제한다. 전면 재순서는 하지
+    #   않는다: LLM 채점 문항은 골든이 손상되면 채점 자체가 불신 대상이라 골든품질 우선이 옳다.
+    if golden_suspect(item.get("골든") or "") and item.get("유형") != "거부형":
         return "골든품질"
     cause = item.get("원인")
     # ⚠ 새 원인을 만들면 **여기에도 넣어야 한다**. 2026-08-07 실측: 전날 신설한 '근거부적합'을

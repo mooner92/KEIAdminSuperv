@@ -110,7 +110,7 @@ def test_causes_and_report_buckets_stay_in_sync():
     causes = {c.strip().strip('"\'') for c in m.group(1).split(",") if c.strip()}
     buckets = set(R.SURGERY) | set(R.NOISE)
     # 원문결함·시드재검토는 별도 취급(측정/원문 계열) — 나머지는 반드시 버킷에 있어야 한다
-    orphan = causes - buckets - {"원문결함", "시드재검토"}
+    orphan = causes - buckets - {"원문결함"}   # 시드재검토는 W1-B에서 NOISE 편입 — 면제 해제
     assert not orphan, f"버킷 없는 원인(집계에서 유실됨): {orphan}"
 
 
@@ -120,6 +120,34 @@ def test_graders_receive_answer_merged_item():
     src = (Path(__file__).resolve().parent / "daily_grade.py").read_text(encoding="utf-8")
     assert "axes.grade(item, 답변)" in src, "axes.grade에 q를 넘기고 있다"
     assert "scenarios.grade_scenario(item, 답변)" in src, "grade_scenario에 q를 넘기고 있다"
+
+
+def test_refusal_seed_failures_are_not_swallowed_as_golden_noise():
+    """W1-B(T0) 회귀 — 거부형 91건 유실의 재발 방지.
+
+    거부형은 골든이 없어서 golden_suspect가 항상 참 → 모든 거부형 실패가 골든품질(노이즈)로
+    삼켜졌다(25회차 전수 91건, 예외 0). 거부형은 면제되어 원인이 그대로 흘러야 하고,
+    골든이 진짜 손상된 일반 문항은 여전히 골든품질이어야 한다(전면 재순서 금지의 이유)."""
+    import daily_grade as G
+    import daily_report as R
+    # 거부형 + 생성환각 → SURGERY로
+    ref = {"판정": "오답", "유형": "거부형", "원인": "생성환각"}      # 골든 없음(설계)
+    assert G.classify_failure(ref) == "생성환각", G.classify_failure(ref)
+    assert "생성환각" in R.SURGERY
+    # 거부형 + 시드재검토 → NOISE로(사라지지 않는다)
+    seed = {"판정": "검토필요", "유형": "거부형", "원인": "시드재검토"}
+    assert G.classify_failure(seed) == "시드재검토"
+    assert "시드재검토" in R.NOISE
+    # 일반 문항 + 파편 골든(목록 마커)은 여전히 골든품질(면제는 거부형만 — 전면 재순서 금지 증명)
+    broken = {"판정": "오답", "골든": "- 회의 개최경비는 당해", "원인": "검색실패"}
+    assert G.classify_failure(broken) == "골든품질", G.classify_failure(broken)
+
+
+def test_golden_repair_uses_terminal_state_retire():
+    """W1-A 회귀 — golden_repair가 "retired"를 다시 쓰면 소비자 8곳과 갈라져
+    은퇴 문항이 회귀 풀에 남는다(잠복 폭탄). 소스에서 리터럴을 금지한다."""
+    src = (Path(__file__).resolve().parent / "golden_repair.py").read_text(encoding="utf-8")
+    assert '"retired"' not in src, 'golden_repair에 "retired" 리터럴 — "retire"로 통일할 것'
 
 
 if __name__ == "__main__":
