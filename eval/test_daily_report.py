@@ -100,6 +100,29 @@ def test_clean_day_says_so():
         assert R.analyze("2026-01-06")["행동후보"] == ["특이 없음 — 수술 대기 0건"]
 
 
+def test_evidence_unfit_is_surgery_not_search_failure():
+    """'근거부적합'(2026-08-06 신설)은 수술대기에 뜨되 **검색실패와 섞이지 않는다**.
+
+    실측 배경: 축 채점기 5곳이 거부만 보고 검색실패를 찍어 56건 중 9건이 오분류됐고,
+    그중 1건은 7회차 연속 잘못 집계됐다. 라벨이 섞이면 개선 방향이 어긋난다."""
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        R.DAILY = tmp
+        _write(tmp, "2026-01-07", [
+            _q(1, "오답", "문서어", "검색실패"),
+            _q(2, "오답", "일상어", "근거부적합"),
+            _q(3, "정답", "문서어"),
+        ])
+        r = R.analyze("2026-01-07")
+        types = [s["실패유형"] for s in r["수술대기"]]
+        assert sorted(types) == ["검색실패", "근거부적합"], types      # 둘 다 수술대기
+        assert r["측정노이즈"].get("근거부적합", 0) == 0, r["측정노이즈"]  # 노이즈 아님
+        # 어휘층 '검색실패' 집계에는 근거부적합이 섞이면 안 된다(검색 지표 오염 금지)
+        assert r["어휘층"]["일상어"]["검색실패"] == 0, r["어휘층"]["일상어"]
+        acts = " / ".join(r["행동후보"])
+        assert "근거부적합 1건" in acts and "인덱스 귀속" in acts, acts
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     bad = 0

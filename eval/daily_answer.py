@@ -10,6 +10,10 @@ import json
 import sys
 import time
 
+_GATE_KEYS = ("rerank", "graph_expand", "graph_expand_reg", "defterm_route",
+              "amount_route", "impact_route", "graph_expand_action",
+              "graph_expand_gian", "scope_anchor", "value_store",
+              "procedure_pack", "uplaw", "표깨짐", "절단", "효력")
 from daily_common import API, DAILY_DIR, rag_answer
 
 
@@ -46,9 +50,14 @@ def main() -> int:
                     hist.append((tq, r["content"]))
                 content = "\n\n".join(o for o in outs if o.strip())
                 if content.strip():
+                    # ⚠ 3키 절삭이 라우트 플래그·절단을 소실시켜 게이트 발동률·절단율이
+                    #   측정 불가였다(docs/69 R2, specs/16 W1-D). truthy 플래그만 보존(용량 최소).
+                    #   소비자(daily_grade·retrieved_expected)는 3키만 읽으므로 추가 키는 무해.
                     ans = {"id": q["id"], "답변": content,
-                           "x_sources": [{k: s.get(k) for k in ("규정명", "조", "snippet")}
+                           "x_sources": [{**{k: s.get(k) for k in ("규정명", "조", "snippet")},
+                                          **{k: s[k] for k in _GATE_KEYS if s.get(k)}}
                                          for s in srcs[:8]],
+                           "x_gates": r.get("x_gates"),   # 멀티턴은 마지막 턴 요약(주석 계약)
                            "소요": round(time.time() - t, 1)}
                     if len(turns) > 1:
                         ans["턴답변"] = outs

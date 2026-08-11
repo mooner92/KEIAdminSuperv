@@ -358,7 +358,12 @@
 @keyframes srcSheetUp { from { transform: translateY(24px); opacity: 0.6; } to { transform: translateY(0); opacity: 1; } }
 @media (max-width: 1080px) {
   .app {
-    grid-template-columns: 200px 1fr;
+    /* ⚠ 200px 1fr 금지(2026-08-10 실측, 955px 창): v2 셸은 인앱 대화목록을 768px+에서
+       숨기는데(sidebarV2Hidden) 첫 트랙 200px를 남겨두면 **스레드가 그 트랙에 떨어져**
+       본문·입력창이 200px로 짜부라지고 1fr(~440px)은 빈 채로 남는다(한 글자 세로 줄바꿈).
+       숨김 구간(768~1080px)은 단일 컬럼이 맞다 — 인앱 사이드바가 실제로 보이는
+       721~767px 구간만 아래 별도 쿼리로 2컬럼을 유지한다. */
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto;
     height: auto;
     overflow: visible;
@@ -396,6 +401,11 @@
   }
   .thread { height: 64vh; } /* 자동 높이 모드에선 스레드에 명시 높이를 줘 내부 스크롤 유지 */
 }
+/* 인앱 대화 사이드바가 실제로 렌더되는 유일한 구간(v2 셸 숨김 768px+ 미만 · 드로어 720px 이하 초과) */
+@media (min-width: 721px) and (max-width: 767px) {
+  .app { grid-template-columns: 200px minmax(0, 1fr); }
+}
+
 /* 모바일 바(대화 목록·새 대화) — 데스크톱에선 숨김 */
 .mobileBar { display: none; }
 
@@ -611,6 +621,7 @@
 }
 @media (max-width: 720px) { .situGrid { grid-template-columns: repeat(2, 1fr); } }
 .situGrid .exChip {
+  word-break: keep-all;   /* 좁은 컨테이너에서 한 글자 세로 낙하 방지(955px 실측 방어) */
   background: var(--color-surface); border: 1px solid var(--color-border);
   border-radius: 16px; padding: 13px 12px; font-size: 13px; font-weight: 600;
   box-shadow: var(--shadow-card); text-align: center;

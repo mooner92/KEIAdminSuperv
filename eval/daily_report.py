@@ -27,8 +27,14 @@ DAILY = HERE / "daily"
 REPORTS = ROOT / "web" / "public" / "quality" / "reports"
 
 # 이 두 줄이 리포트의 뼈대다 — 무엇이 서비스 결함이고 무엇이 시험지 결함인가.
-SURGERY = ("검색실패", "생성환각")
-NOISE = ("출제결함", "골든품질", "판정불가-기타", "검토필요-기타")
+# '근거부적합'(2026-08-06 신설) = 근거는 회수됐는데 거부 — 검색이 아니라 인덱스 귀속·골든·
+# 기능 배선을 봐야 하는 사안이다. 검색실패에 뭉뚱그리면 진짜 원인이 라벨 뒤에 숨는다
+# (실측: 56건 중 9건이 그렇게 숨어 있었고, 1건은 7회차 연속 잘못 집계됐다).
+SURGERY = ("검색실패", "생성환각", "근거부적합")
+# 시드재검토 = "코퍼스 밖" 시드 가정이 틀렸다는 신호(볼트에 근거가 실제로 있었음) —
+# 시험지 쪽 문제이므로 NOISE(specs/16 W1-B). 거부형 면제와 같은 커밋: 버킷 없이 두면
+# 19건이 리포트에서 사라진다(사라진 것은 통계에서 정상처럼 보인다 — docs/68 §1 교훈).
+NOISE = ("출제결함", "골든품질", "판정불가-기타", "검토필요-기타", "시드재검토")
 
 
 def _rate(c: collections.Counter) -> float:
@@ -130,6 +136,13 @@ def _actions(gap, surgery, noise, n, by_reg) -> list:
     hal = [s for s in surgery if s["실패유형"] == "생성환각"]
     if hal:
         out.append(f"생성환각 {len(hal)}건 — 신뢰 게이트(수치·표) 통과 여부 확인 대상")
+    # 근거는 붙었는데 거부 — 검색 개선 대상이 아니다. 어디를 봐야 하는지 명시한다.
+    unfit = [s for s in surgery if s["실패유형"] == "근거부적합"]
+    if unfit:
+        regs = ", ".join(dict.fromkeys(s["규정"] for s in unfit if s["규정"]))
+        out.append(f"근거부적합 {len(unfit)}건 — 근거는 회수됐으나 기대 답이 없음. "
+                   f"인덱스 귀속(defterms·clause_xref)·골든 출처·기능 배선 점검"
+                   + (f" — 대상: {regs}" if regs else ""))
     nz = sum(noise.values())
     if n and nz / n >= 0.10:
         # ⚠ dict를 그대로 찍지 않는다 — 이 문장은 화면(게시판 카드)에도 그대로 나간다.

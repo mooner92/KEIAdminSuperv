@@ -29,11 +29,46 @@ CASES = [
     # 능동형 변형(실측 2026-07-25 — 주차장 질문): '명시하지 않습니다'
     ("능동형 거부(명시하지 않)", "검색된 근거에서는 주차 이용 가능 시간을 명시하지 않습니다.", True),
     ("능동형 긍정(명시하고 있)", "**여비규정 제12조가 선박운임 등급 기준을 명시하고 있습니다.**", False),
+    # ── W1-C(specs/16): 게이트 노트 오염 — 짧은 답변(<40자)에서 t[:200] 폴백이 꼬리 노트까지
+    #    스캔해 numeric_guard의 "확인되지 않았습니다"가 거부로 오채점되던 실증 결함 ──
+    ("짧은 정답+수치 노트(오염 방지)", "**가능합니다.**\n\n"
+     "⚠️ **수치 확인 필요**: 다음 값은 인용된 근거에서 확인되지 않았습니다 — 5만원. "
+     "원문(조문·별표)에서 직접 확인하기 전에는 이 수치를 사용하지 마세요.", False),
+    ("짧은 정답+개수 노트+면책", "**신청 가능합니다.**\n\nℹ️ 위 개수·목록은 이번에 검색된 근거 기준이며 "
+     "전체가 아닐 수 있습니다.\n\n최종 판단은 원문과 담당 부서 확인 바랍니다.", False),
+    ("짧은 진짜 거부+노트(거부 유지)", "**규정에서 확인되지 않습니다.**\n\n"
+     "⚠️ **수치 확인 필요**: 다음 값은 인용된 근거에서 확인되지 않았습니다 — 3일.", True),
+    ("노트만 있고 본문 없음", "⚠️ **수치 확인 필요**: 다음 값은 인용된 근거에서 확인되지 않았습니다 — 5만원.", False),
+    ("서두 ⚠️는 모델 결론(제거 안 함)", "⚠️ 해당 요트 대여 기준은 규정에서 확인되지 않습니다.\n\n"
+     "관련 조문이 검색되지 않았습니다.", True),
 ]
+
+
+def test_note_wording_contract():
+    """모든 시스템 노트 리터럴은 NOTE_TITLES에 등록된 접두로 시작해야 한다(specs/16 W1-C).
+    신설 노트가 등록 없이 추가되면 여기서 실패 — 거부 오염의 구조적 재발 방지."""
+    import re as _re
+    from refusal_detect import NOTE_MARKERS, NOTE_TITLES
+    src = (pathlib.Path(__file__).resolve().parent / "rag_core.py").read_text(encoding="utf-8")
+    lits = _re.findall(r'"((?:⚠️|ℹ️)[^"]{4,60})', src)
+    assert lits, "rag_core에서 노트 리터럴을 찾지 못함(스캔 회귀 자체 점검)"
+    bad = [t for t in lits
+           if not t.startswith(tuple(m for m in NOTE_TITLES if m != "최종 판단은"))
+           and t.startswith(NOTE_MARKERS)]
+    assert not bad, f"NOTE_TITLES 미등록 노트(거부 오염 위험): {bad}"
+
+
+import pathlib
 
 
 def main() -> int:
     bad = 0
+    try:
+        test_note_wording_contract()
+        print("  ✅ 노트 문구 계약(NOTE_TITLES 등록)")
+    except AssertionError as e:
+        bad += 1
+        print(f"  ❌ 노트 문구 계약: {e}")
     for name, text, want in CASES:
         got = is_refusal(text)
         ok = got == want

@@ -283,6 +283,14 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-12-31",
     },
+    "corpus_amend": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "개정 반영(specs/15) — 업로드가 신·구조문 대비표(개정안)로 판별되면 승인 대신 "
+                       "'개정 반영' 패널. 확정 매칭된 한 줄만 대비표 문구 그대로 전사(백업·미검수 복귀 자동). "
+                       "⛔ 표·좌동·생략·모호는 버튼 없음(사유 노출) · 일괄 반영 없음 · 반영은 사람이 한 건씩.",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
     "followup_suggest": {
         "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
         "description": "답변 후속 질문 제안(docs/26) — 무LLM·결정적(여정 점프·ACTION_FLOWS 후속단계·기한). "
@@ -1253,6 +1261,16 @@ def _reindex_worker(vault: str):
         _clear_stale()  # 전량 재색인 성공 — 내용 변경 스테일 해소(docs/24 ⓓ)
         REINDEX["ok"] = True
         REINDEX["log"].append("✅ 완료 — 새 색인 적용됨(무재시작). 웹 화면(둘러보기·그래프)은 다음 배포에 반영")
+        # 개정 반영 → 패치노트 초안(운영자 요청, 2026-08-05): 재색인 성공 후 그 사이 실제로
+        # 반영된 amend_apply를 모아 초안을 쓴다. ⛔ 실패해도 재색인 자체는 성공으로 둔다 —
+        # 패치노트는 부가 산출물이다. 자동 게시는 없다(상태: 초안 — 관리자가 검토 후 게시).
+        try:
+            import changelog_amend as CGA
+            made = CGA.run(vault)
+            if made:
+                REINDEX["log"].append(f"📝 패치노트 초안 {len(made)}건 — 코퍼스 관리에서 검토·게시하세요")
+        except Exception as e_cg:  # noqa: BLE001
+            REINDEX["log"].append(f"⚠ 패치노트 초안 생성 실패(무시): {e_cg}")
     except Exception as e:  # noqa: BLE001
         REINDEX["ok"] = False
         REINDEX["log"].append(f"⛔ 실패: {type(e).__name__}: {e} — 필요 시 롤백하세요")
@@ -1639,15 +1657,34 @@ async def corpus_upload(file: UploadFile = File(...), admin: User = Depends(curr
     conv = os.path.join(UPLOAD_DIR, uid + ".converted.md")
     with open(conv, "w", encoding="utf-8") as f:
         f.write(md)
-    PENDING[uid] = {"name": file.filename, "ext": ext, "raw": raw, "conv": conv, "warn": warn, "at": time.time()}
+    # 개정안(신·구조문 대비표)인지 여기서 가른다 — 목록에서 바로 구분되어야
+    # 사람이 '승인'(신규 편입) 대신 '개정 반영'으로 가게 된다(specs/15 §9).
+    try:
+        kind = _amend_mods()[0].classify(md)["kind"]
+    except Exception as e_k:  # noqa: BLE001 — 판별 실패가 업로드를 막으면 안 된다
+        kind = ""
+        print(f"⚠ 업로드 판별 실패(개정 반영 안내 생략): {e_k}")
+    PENDING[uid] = {"name": file.filename, "ext": ext, "raw": raw, "conv": conv,
+                    "warn": warn, "kind": kind, "at": time.time()}
+    # 사이드카 — PENDING은 인메모리라 API 재기동 시 원본 파일명을 잃는다. 이름을 잃으면
+    # 개정 반영에서 **대상 문서 매칭이 실패**한다(specs/15 §8, 2026-08-04 실측).
+    try:
+        with open(os.path.join(UPLOAD_DIR, uid + ".meta.json"), "w", encoding="utf-8") as f:
+            json.dump({"name": file.filename, "ext": ext, "warn": warn, "kind": kind,
+                       "at": time.time()}, f, ensure_ascii=False)
+    except OSError as e:
+        print(f"⚠ 업로드 메타 기록 실패(재기동 시 이름 소실 가능): {e}")
     with Session(engine) as s:
         s.add(CorpusAudit(slug=file.filename or uid, action="upload", actor=admin.username)); s.commit()
-    return {"id": uid, "name": file.filename, "warn": warn, "preview": md[:4000], "chars": len(md)}
+    return {"id": uid, "name": file.filename, "warn": warn, "kind": kind,
+            "preview": md[:4000], "chars": len(md)}
 
 
 @router.get("/corpus/uploads")
 def corpus_uploads(admin: User = Depends(current_admin)):
-    return {"uploads": [{"id": k, "name": v["name"], "warn": v["warn"], "at": v["at"]} for k, v in sorted(PENDING.items())]}
+    return {"uploads": [{"id": k, "name": v["name"], "warn": v["warn"],
+                         "kind": v.get("kind", ""), "at": v["at"]}
+                        for k, v in sorted(PENDING.items())]}
 
 
 class ApproveIn(BaseModel):
@@ -1712,6 +1749,195 @@ def corpus_upload_reject(uid: str, admin: User = Depends(current_admin)):
     with Session(engine) as s:
         s.add(CorpusAudit(slug=it["name"] or uid, action="reject", actor=admin.username)); s.commit()
     return {"rejected": uid}
+
+
+# ───────────────── 개정 반영(신·구조문 대비표) — specs/15 ─────────────────
+def _vault_dir() -> str:
+    return os.environ.get("VAULT_DIR", os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "KEI-행정가이드"))
+
+
+def _amend_mods():
+    """corpus_amend / corpus_amend_apply 지연 로드(기동 비용 0)."""
+    import corpus_amend
+    import corpus_amend_apply
+    return corpus_amend, corpus_amend_apply
+
+
+def _amend_src(uid: str) -> tuple:
+    """(변환본 md, 원본 파일명). ⚠ PENDING은 **인메모리**라 API 재기동 시 날아간다.
+    반영은 여러 번 클릭하는 작업이라 그사이 재기동되면 흐름이 끊긴다 —
+    변환본 경로를 uid로 **결정적으로 재구성**해 이어서 작업할 수 있게 한다(specs/15 §8)."""
+    it = PENDING.get(uid) or {}
+    conv = it.get("conv") or os.path.join(UPLOAD_DIR, uid + ".converted.md")
+    if not os.path.isfile(conv):
+        raise HTTPException(404, "변환본을 찾지 못했습니다 — 파일을 다시 올려주세요.")
+    name = it.get("name") or ""
+    if not name:                      # 사이드카에서 원본 파일명 복원(재기동 대비)
+        try:
+            with open(os.path.join(UPLOAD_DIR, uid + ".meta.json"), encoding="utf-8") as f:
+                name = json.load(f).get("name") or ""
+        except (OSError, ValueError):
+            pass
+    with open(conv, encoding="utf-8") as f:
+        return f.read(), (name or uid)
+
+
+def _safe_rel(vault: str, rel: str) -> str:
+    """볼트 안의 md만 허용. ⛔ 경로 이탈(../)로 레포 밖 파일을 쓰지 못하게 막는다."""
+    from pathlib import Path as _P
+    root = _P(vault).resolve()
+    p = (root / (rel or "")).resolve()
+    if root not in p.parents or p.suffix != ".md" or not p.is_file():
+        raise HTTPException(400, "볼트 안의 문서를 지정하세요.")
+    return str(p.relative_to(root))
+
+
+def _amend_view(uid: str, rel: str = "") -> dict:
+    """판별 + 대비표 해독 + 대상 매칭 + 항목별 제안. ⛔ 읽기만 한다."""
+    from pathlib import Path as _P
+    import corpus_replace as CR
+    CA, _ = _amend_mods()
+    md, name = _amend_src(uid)
+    kind = CA.classify(md)
+    ok, why = CA.replaceable(md)
+    out = {"id": uid, "name": name, "판별": kind, "교체가능": ok, "사유": why}
+    if kind["kind"] not in (CA.KIND_AMEND, CA.KIND_MIXED):
+        return out
+
+    vault = _vault_dir()
+    parsed = CA.parse(md)
+    # 매칭 순서: 대상규정(공문이 스스로 "「X」을 개정"이라 밝힌 이름) → 파일명 → 제목.
+    # ⚠ 파일명은 배포 시 붙는 접미사("(1)", "260721" 등)에 취약해 유사도가 임계값 밑으로
+    #   떨어지면 "대상 문서를 찾지 못했습니다"가 뜬다(2026-08-05 실측). 대상규정은 문서 본문
+    #   자체의 진술이라 훨씬 안정적이다.
+    cands = CR.find_candidates(vault, parsed["대상규정"], md) if parsed.get("대상규정") else []
+    if not cands:
+        cands = CR.find_candidates(vault, name, md)
+    if not cands and parsed.get("제목"):
+        cands = CR.find_candidates(vault, parsed["제목"], md)
+    target = _safe_rel(vault, rel) if rel else (cands[0]["path"] if cands else "")
+    out.update({"개정안": {k: parsed[k] for k in ("제목", "대상규정", "개정이유", "시행일")},
+                "후보": cands, "대상": target})
+    if target:
+        out["제안"] = CA.propose((_P(vault) / target).read_text(encoding="utf-8"), parsed)
+    return out
+
+
+@router.get("/corpus/uploads/{uid}/amend")
+def corpus_amend_preview(uid: str, doc: str = "", admin: User = Depends(current_admin)):
+    return _amend_view(uid, doc)
+
+
+class AmendApplyIn(BaseModel):
+    """⚠ 이 필드들은 **선택자**다(어느 항목인지 가리키는 용도). 반영 가능 여부·줄 번호·앵커는
+    전부 서버가 다시 계산한 값을 쓴다 — 클라이언트가 보낸 판정은 절대 신뢰하지 않는다.
+    ⛔ 인덱스로 지목하면 안 된다: 한 건 반영하면 목록에서 그 항목이 빠져 **인덱스가 밀리고**
+       다음 클릭이 엉뚱한 항목을 가리킨다(2026-08-04 실측)."""
+    rel_path: str
+    개정줄: str
+    현행줄: str = ""
+
+
+@router.post("/corpus/uploads/{uid}/amend/apply")
+def corpus_amend_apply(uid: str, body: AmendApplyIn, admin: User = Depends(current_admin)):
+    """한 항목 적용. ⛔ **클라이언트가 보낸 항목 내용을 신뢰하지 않는다** —
+    서버가 현재 문서로 제안을 다시 계산하고 (행, 인덱스)로 고른다. 그러지 않으면
+    반영가능=True와 임의 문구를 위조해 규정 본문에 써넣을 수 있다."""
+    from pathlib import Path as _P
+    CA, AP = _amend_mods()
+    vault = _vault_dir()
+    rel = _safe_rel(vault, body.rel_path)
+    md, _n = _amend_src(uid)
+    parsed = CA.parse(md)
+    props = CA.propose((_P(vault) / rel).read_text(encoding="utf-8"), parsed)
+
+    # ── 멱등 판정이 **관문보다 먼저**다. 반영이 끝난 항목은 현행줄이 사라져 '미발견'으로
+    #    남는데, 그대로 관문에 넣으면 "이미 됐다"가 "실패했다"로 보고된다(2026-08-04 실측).
+    #    그러면 사람이 다시 눌러 이중 적용을 시도한다 — 멱등의 존재 이유가 무너진다.
+    doc_now = (_P(vault) / rel).read_text(encoding="utf-8")
+    n_doc = CA._norm(doc_now)
+    if body.개정줄 and CA._norm(body.개정줄) in n_doc and (
+            not body.현행줄 or CA._norm(body.현행줄) not in n_doc):
+        return {"결과": {"ok": True, "already": True, "event": "amend_already"},
+                **_amend_view(uid, rel)}
+
+    hit = next((x for r in props for x in r["변경"]
+                if x["개정줄"] == body.개정줄
+                and (not body.현행줄 or x["현행줄"] == body.현행줄)), None)
+    if hit is None:
+        raise HTTPException(400, "항목을 찾지 못했습니다 — 미리보기를 새로 여세요.")
+    res = AP.apply_item(vault, rel, hit, admin.username, parsed.get("시행일", ""))
+    if res.get("ok") and not res.get("already"):
+        _corpus_cache["t"] = 0
+        _mark_stale([_P(rel).stem])     # ⟳ 재색인 필요 배지
+        with Session(engine) as s:
+            s.add(CorpusAudit(slug=_P(rel).stem, action="amend", actor=admin.username)); s.commit()
+    return {"결과": res, **_amend_view(uid, rel)}   # 항상 재계산본을 함께 준다
+
+
+@router.get("/corpus/amend/log")
+def corpus_amend_log(limit: int = 50, admin: User = Depends(current_admin)):
+    """반영 로그. 거부(amend_blocked)도 함께 준다 — 왜 안 됐는지가 고칠 단서다."""
+    import corpus_replace as CR
+    rows = [r for r in CR.read_log(max(1, min(limit, 300)))
+            if str(r.get("event", "")).startswith(("amend_", "replace_"))]
+    return {"log": rows}
+
+
+@router.get("/gates")
+def gates_telemetry(days: int = 14, admin: User = Depends(current_admin)):
+    """게이트 발동 텔레메트리(specs/16 W1-E — docs/26 '무음 텔레메트리' 결정의 구현).
+
+    최근 N일 assistant 메시지의 sources_json(라우트 플래그 포함 저장됨)에서 라우트별
+    발동 메시지 수를 집계한다. 🔒 본문·질문 미반환 — 집계 수치만(개인정보 원칙 유지).
+    Wave 2의 판단 입력: 발동률 ~0 라우트는 Wave 4에서 기본 off 후보(docs/69 P3)."""
+    import corpus_amend  # noqa: F401 — 지연 임포트 관례 유지
+    keys = ("rerank", "graph_expand", "graph_expand_reg", "defterm_route", "amount_route",
+            "impact_route", "graph_expand_action", "graph_expand_gian", "scope_anchor",
+            "value_store", "procedure_pack", "uplaw", "표깨짐", "절단", "효력")
+    since = time.time() - max(1, min(days, 90)) * 86400
+    counts: dict = {k: 0 for k in keys}
+    total = 0
+    with Session(engine) as s2:
+        rows = s2.exec(select(Message).where(Message.role == "assistant",
+                                             Message.created_at >= since)).all()
+    for m in rows:
+        if not m.sources_json:
+            continue
+        total += 1
+        try:
+            srcs = json.loads(m.sources_json)
+        except ValueError:
+            continue
+        seen = {k for src in srcs for k in keys if isinstance(src, dict) and src.get(k)}
+        for k in seen:
+            counts[k] += 1
+    return {"days": days, "assistant_messages": total,
+            "route_hits": {k: v for k, v in counts.items() if v}}
+
+
+@router.get("/corpus/amend/changelog-drafts")
+def corpus_amend_changelog_drafts(admin: User = Depends(current_admin)):
+    """재색인 후 자동 생성된 패치노트 초안 목록. ⛔ 게시 전까지 사이트에 안 보인다."""
+    import changelog_amend as CGA
+    return {"drafts": CGA.list_drafts(_vault_dir())}
+
+
+class PublishDraftIn(BaseModel):
+    rel_path: str
+
+
+@router.post("/corpus/amend/changelog-drafts/publish")
+def corpus_amend_changelog_publish(body: PublishDraftIn, admin: User = Depends(current_admin)):
+    """초안 게시 — '상태: 초안' 제거. changelog_lint 위반이면 되돌리고 거부한다."""
+    import changelog_amend as CGA
+    vault = _vault_dir()
+    rel = _safe_rel(vault, body.rel_path)
+    ok, msg = CGA.publish(vault, rel)
+    if not ok:
+        raise HTTPException(400, msg)
+    return {"published": True, "message": msg}
 
 
 @router.get("/flags/manage")
@@ -2686,7 +2912,8 @@ def post_message(cid: int, body: MsgIn, stream: bool = False, user: User = Depen
             s.refresh(am)
             s.refresh(cs)
             sugg = rag_core.suggest_followups(q, sources)  # docs/26 — 무LLM 후속 제안(휘발성)
-            return {"user": _msg(um), "assistant": _msg(am), "session": _ses(cs), "suggestions": sugg}
+            return {"user": _msg(um), "assistant": _msg(am), "session": _ses(cs), "suggestions": sugg,
+                    "x_gates": rag_core.gate_summary(ans, context, sources)}  # specs/16 W1-E 텔레메트리
 
     # 스트리밍(SSE): meta(근거+user) → delta(토큰…) → [error] → done(저장된 assistant+session)
     def gen():
@@ -2749,7 +2976,8 @@ def post_message(cid: int, body: MsgIn, stream: bool = False, user: User = Depen
             except Exception:  # noqa: BLE001
                 sugg = []
             yield _sse({"type": "done", "assistant": _msg(am), "session": _ses(cs) if cs else None,
-                        "suggestions": sugg})
+                        "suggestions": sugg,
+                        "x_gates": rag_core.gate_summary(full, context, sources)})  # specs/16 W1-E
         finally:
             if not saved:
                 # GeneratorExit(연결 절단) 경로 — yield 금지, DB 작업만. 부분 응답도 보존.

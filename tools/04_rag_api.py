@@ -185,4 +185,6 @@ def chat(req: ChatReq):
         "usage": {},
         "x_retrieved": tags,    # 하위호환: 회수된 조문 태그 문자열
         "x_sources": srcs,      # 구조화 출처(규정명·조·분류·snippet·distance)
+        # 게이트·인용 텔레메트리(specs/16 W1-E) — 답변 텍스트 불변, 필드로만. 평가 저장이 소비.
+        "x_gates": rag_core.gate_summary(answer, context, srcs),
     })

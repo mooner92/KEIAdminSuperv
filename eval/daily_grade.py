@@ -63,10 +63,17 @@ def classify_failure(item: dict) -> str:
         return ""
     if v == "폐기":
         return "출제결함"
-    if golden_suspect(item.get("골든") or ""):
+    # ⚠ 거부형은 설계상 골든이 없다(코퍼스 밖 시드) — golden_suspect("")==True 가 모든
+    #   거부형 실패를 '골든품질'(노이즈)로 삼켰다(25회차 전수: 생성환각 72 + 시드재검토 19,
+    #   예외 0 — 2026-08-10 실측, specs/16 W1-B). 거부형만 면제한다. 전면 재순서는 하지
+    #   않는다: LLM 채점 문항은 골든이 손상되면 채점 자체가 불신 대상이라 골든품질 우선이 옳다.
+    if golden_suspect(item.get("골든") or "") and item.get("유형") != "거부형":
         return "골든품질"
     cause = item.get("원인")
-    if cause in ("검색실패", "생성환각", "원문결함", "시드재검토"):
+    # ⚠ 새 원인을 만들면 **여기에도 넣어야 한다**. 2026-08-07 실측: 전날 신설한 '근거부적합'을
+    #   빠뜨려 2건이 '미분류'로 떨어졌고, 수술대기(daily_report)에서 통째로 사라졌다 —
+    #   아래 주석이 경고하던 '분류기 구멍'을 신설 원인이 그대로 밟았다.
+    if cause in ("검색실패", "생성환각", "원문결함", "시드재검토", "근거부적합"):
         return str(cause)
     if v == "판정불가":
         return "판정불가-기타"
@@ -159,7 +166,7 @@ def main() -> int:
         # 복합 시나리오 — 근거가 여러 개다. 골든별 개별 대조(결정적)로 채점하고,
         # 멀티턴이면 후속 턴에서 맥락을 잃었는지(거부로 새는지)까지 본다.
         if q.get("형식") == "복합":
-            판정, 증거, 원인 = scenarios.grade_scenario(q, 답변)
+            판정, 증거, 원인 = scenarios.grade_scenario(item, 답변)
             turns = a.get("턴답변") or []
             if 판정 == "정답" and len(turns) > 1 and is_refusal(turns[-1]):
                 판정, 증거, 원인 = "부분", "후속 턴에서 맥락을 잃고 거부함(멀티턴 회귀)", "검색실패"
@@ -168,8 +175,10 @@ def main() -> int:
             continue
         # 축 문항 — 파생 인덱스가 정답을 이미 가지고 있으므로 **LLM 없이** 결정적으로 채점한다.
         # (채점기 오판이 개선 방향을 오도한 T7·T9 계열 사고가 이 축들에선 구조적으로 불가능)
+        # ⚠ item(=q+answer)을 넘긴다. q만 넘기면 채점기 안에서 x_sources를 볼 수 없어
+        #   거부가 전부 '검색실패'로 샌다(2026-08-06 실측: 56건 중 9건 오분류).
         if q.get("축"):
-            판정, 증거, 원인 = axes.grade(q, 답변)
+            판정, 증거, 원인 = axes.grade(item, 답변)
             item.update({"판정": 판정, "증거": 증거, "원인": 원인})
             results.append(item)
             continue

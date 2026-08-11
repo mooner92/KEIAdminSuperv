@@ -836,6 +836,54 @@ def suggest_followups(question: str, srcs: list) -> list:
         return []
 
 
+# ── x_gates 텔레메트리(specs/16 W1-E — docs/26 '무음 텔레메트리' 결정의 구현) ──
+# ⛔ 답변 텍스트를 절대 건드리지 않는다 — 응답 필드로만 나간다(배지 여부는 Wave 4에서 데이터로).
+_GATE_FLAG_KEYS = ("rerank", "graph_expand", "graph_expand_reg", "defterm_route", "amount_route",
+                   "impact_route", "graph_expand_action", "graph_expand_gian", "scope_anchor",
+                   "value_store", "procedure_pack", "uplaw", "표깨짐", "절단", "효력")
+_CITE_BR_RE = re.compile(r"\[([^\[\]\n]{2,80})\]")
+_CITE_ART_RE = re.compile(r"(제\s*\d+\s*조(?:\s*의\s*\d+)?|별\s*표\s*\d*|별\s*지\s*제?\s*\d*호?)")
+
+
+def gate_summary(answer: str, context: str, sources=None) -> dict:
+    """게이트·인용 텔레메트리 요약(순수 함수, LLM 0회).
+
+    인용 대조의 허용집합은 **x_sources가 아니라 컨텍스트 텍스트 + 태그**다(specs/16 W1-E):
+    조문 상호참조 854건(clause_xref 실측)·impact 목록처럼 '컨텍스트엔 있으나 x_sources엔 없는'
+    정당한 인용을 오탐하지 않기 위함. 8/7 실표적(컨텍스트에 규정명 자체가 없는 타 법령 인용)은
+    그대로 잡힌다. ⚠ 멀티턴 이전 턴 인용은 unmatched로 셀 수 있음(한계 명시 — 해석 시 참고).
+    정규화는 공백 제거만 — _tighten_spacing이 QWEN35 전용이라 입력 공백에 의존하면 안 된다."""
+    try:
+        routes: dict = {}
+        cut = False
+        for src in sources or []:
+            for k in _GATE_FLAG_KEYS:
+                if src.get(k):
+                    if k == "절단":
+                        cut = True
+                    else:
+                        routes[k] = routes.get(k, 0) + 1
+        hay = re.sub(r"\s+", "", (context or "") + " " + " ".join(
+            (src.get("tag") or "") for src in (sources or [])))
+        total, unmatched = 0, []
+        for m in _CITE_BR_RE.finditer(answer or ""):
+            inner = m.group(1)
+            am = _CITE_ART_RE.search(inner)
+            if not am:
+                continue                      # [근거]·[참고] 같은 비인용 대괄호 제외
+            total += 1
+            art = re.sub(r"\s+", "", am.group(1))
+            reg = re.sub(r"\s+", "", inner[: am.start()]).strip("·,;:~-—()「」")
+            if (art in hay) and ((not reg) or (reg in hay)):
+                continue
+            unmatched.append(re.sub(r"\s+", " ", inner).strip())
+        return {"routes": routes, "절단": cut, "cite_total": total,
+                "cite_unmatched": len(unmatched), "cite_unmatched_list": unmatched[:5]}
+    except Exception:  # noqa: BLE001 — 텔레메트리 실패가 답변을 막지 않게
+        return {"routes": {}, "절단": False, "cite_total": 0,
+                "cite_unmatched": 0, "cite_unmatched_list": []}
+
+
 def post_answer_notes(question: str, answer: str, context: str, sources=None) -> str:
     """생성 직후 결정적 후검증 노트 묶음(P0-1 수치 + P0-4 귀속). ""면 이상 없음."""
     notes = [n for n in (numeric_guard_note(question, answer, context),

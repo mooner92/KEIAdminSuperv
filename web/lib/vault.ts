@@ -221,6 +221,7 @@ export function loadChangelog(): ChangelogEntry[] {
         if (i > 0) meta[ln.slice(0, i).trim()] = ln.slice(i + 1).trim().replace(/^["']|["']$/g, "");
       }
       if (meta.type !== "changelog" || !meta["제목"] || !meta["날짜"] || !meta["요약"]) continue;
+      if (meta["상태"] === "초안") continue;   // 개정 반영 자동 초안 — 관리자 게시 전엔 비공개
       out.push({
         id: f.replace(/\.md$/, ""),
         제목: meta["제목"], 날짜: meta["날짜"], 분류: meta["분류"] || "개선",
