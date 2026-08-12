@@ -1243,11 +1243,15 @@ def _reindex_worker(vault: str):
         except Exception as e01:  # noqa: BLE001
             REINDEX["log"].append(f"⚠ 별지 PDF 동기화 실패(무시하고 계속): {e01}")
         # 2) 02 실행(exclude.json 자동 반영)
+        # ⚠ EMBED_CTX_LABEL=1 명시 고정(specs/01 P1) — 정본 색인(kei_regs)은 검색 라벨로 구웠다
+        # (Hit@1 78→80). 상속 env에 맡기면 PM2 env에 없어서(실측 2026-08-12) 관리자 버튼
+        # 재색인이 라벨 없는 색인으로 조용히 회귀한다. 정본 레시피는 워커가 소유한다.
         script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "02_chunk_and_embed.py")
         cmd = [sys.executable, script, "--vault", vault, "--db", cd]
-        REINDEX["log"].append("재색인 시작(수 분 소요, GPU)…")
+        REINDEX["log"].append("재색인 시작(수 분 소요, GPU · 검색 라벨 on)…")
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-                                cwd=os.path.dirname(script))
+                                cwd=os.path.dirname(script),
+                                env={**os.environ, "EMBED_CTX_LABEL": "1"})
         for line in proc.stdout:
             line = line.strip()
             if line and "it/s" not in line and "%|" not in line:   # tqdm 진행바 제외
@@ -1255,7 +1259,38 @@ def _reindex_worker(vault: str):
         rc = proc.wait()
         if rc != 0:
             raise RuntimeError(f"02 종료코드 {rc}")
-        # 3) 무재시작 적용
+        # 2.5) 파생 인덱스 재생성(specs/14 T04) — 개정 반영·문서 편입 후 재색인만 하면
+        # article_status(삭제 강등)·clause_xref(준용 확장)·approval(전결 335규칙) 등이 낡은 채
+        # 남는다. 각각 빠르고 독립적이라 부분 실패 허용 — 실패는 로그로 알리고 계속한다.
+        # (01z 용어노트·01b 링크는 볼트를 '쓰는' 도구라 여기서 안 돌린다 — 재색인 전 단계 소관.)
+        _DERIVED = [
+            ("01i_clause_xref.py", ["--vault", vault]),
+            ("01j_defterms.py", ["--vault", vault]),
+            ("01k_article_status.py", ["--vault", vault]),
+            ("01l_graph_analytics.py", []),                 # clause_xref 소비 — 01i 다음
+            ("01m_deadlines.py", ["--vault", vault]),
+            ("01n_approval.py", ["--vault", vault]),
+            ("01k2_journey_freshness.py", ["--vault", vault]),  # article_status 소비 — 01k 다음
+            ("01o_table_integrity.py", ["--vault", vault]),
+        ]
+        n_ok = 0
+        for name, args in _DERIVED:
+            sp = os.path.join(os.path.dirname(os.path.abspath(__file__)), name)
+            if not os.path.exists(sp):
+                REINDEX["log"].append(f"⚠ 파생 인덱스 {name} 없음(건너뜀)")
+                continue
+            try:
+                rD = subprocess.run([sys.executable, sp, *args], capture_output=True, text=True,
+                                    timeout=600, cwd=os.path.dirname(sp))
+                if rD.returncode == 0:
+                    n_ok += 1
+                else:
+                    tailD = (rD.stdout or rD.stderr or "").strip().splitlines()[-1:] or ["(출력 없음)"]
+                    REINDEX["log"].append(f"⚠ 파생 인덱스 {name} 실패(계속): {tailD[0][:100]}")
+            except Exception as eD:  # noqa: BLE001
+                REINDEX["log"].append(f"⚠ 파생 인덱스 {name} 실패(계속): {eD}")
+        REINDEX["log"].append(f"파생 인덱스 재생성 {n_ok}/{len(_DERIVED)} — reload로 즉시 반영")
+        # 3) 무재시작 적용(벡터 컬렉션 + 파생 인덱스 캐시 초기화 — 2.5의 산출물이 여기서 살아난다)
         rag_core.reload()
         _corpus_cache["t"] = 0
         _clear_stale()  # 전량 재색인 성공 — 내용 변경 스테일 해소(docs/24 ⓓ)
