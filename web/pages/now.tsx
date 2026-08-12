@@ -2,6 +2,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { GetStaticProps } from "next";
+import type { RevisionEvent } from "../lib/vault";
 import Layout from "../components/Layout";
 import PageHero from "../components/common/PageHero";
 import ShortcutCard, { type Shortcut } from "../components/now/ShortcutCard";
@@ -21,7 +22,7 @@ import n from "../styles/Now.module.css";
 
 type Props = {
   seasonal: SeasonalItem[];
-  revised: { slug: string; title: string; revised: string }[];
+  revised: { slug: string; title: string; revised: string; timeline: RevisionEvent[] }[];
   notes: Pick<ChangelogEntry, "id" | "제목" | "날짜" | "분류">[];
   terms: { slug: string; title: string }[];
   formsCount: number;
@@ -158,14 +159,49 @@ export default function NowPage({ seasonal, revised, notes, terms, formsCount, d
           )}
         </section>
 
-        {/* 📜 최근 개정된 규정 */}
+        {/* 📜 최근 개정된 규정 — 타임라인(docs/70 L1).
+            ● = 무엇이 바뀌었는지 아는 개정(반영 기록 있음) / ○ = 날짜만 아는 과거 개정.
+            ⛔ 둘을 시각적으로 구분한다 — 없는 것을 있는 척하면 신뢰가 무너진다. */}
         <section className={n.card} aria-label="최근 개정된 규정">
           <h2 className={n.h2}>📜 최근 개정된 규정</h2>
-          <ul className={n.plainList}>
+          <ul className={n.revList}>
             {revised.map((d) => (
-              <li key={d.slug}>
-                <Link href={`/d/${encodeURIComponent(d.slug)}/`}>{d.title}</Link>
-                <span className={n.muted}> · {d.revised.replace(/-/g, ".")}</span>
+              <li key={d.slug} className={n.revItem}>
+                <div className={n.revHead}>
+                  <Link href={`/d/${encodeURIComponent(d.slug)}/`}>{d.title}</Link>
+                  <span className={n.muted}> · {d.revised.replace(/-/g, ".")}</span>
+                </div>
+                {d.timeline.length > 0 ? (
+                  <ol className={n.tl}>
+                    {d.timeline.map((e) => (
+                      <li key={e.date} className={`${n.tlRow} ${e.detail ? n.tlKnown : ""}`}>
+                        <span className={n.tlDot} aria-hidden />
+                        <span className={n.tlDate}>{e.date}</span>
+                        {e.detail ? (
+                          <details className={n.tlDet}>
+                            <summary>{e.summary}<span className={n.tlMore}>바뀐 내용</span></summary>
+                            <div className={n.tlDiff}>
+                              {e.detail.map((c, i) => (
+                                <div key={i} className={n.tlChange}>
+                                  <span className={n.tlKind}>
+                                    {c.kind}{c.line ? ` · ${c.line}줄` : ""}
+                                  </span>
+                                  {c.before ? <p className={n.tlMinus}>− {c.before}</p> : null}
+                                  {c.after ? <p className={n.tlPlus}>＋ {c.after}</p> : null}
+                                </div>
+                              ))}
+                            </div>
+                          </details>
+                        ) : (
+                          /* 날짜만 아는 과거 — 원문이 보관돼 있지 않다는 사실을 숨기지 않는다 */
+                          <span className={n.tlOnly} title="이 시점 원문은 보관돼 있지 않아 변경 내용을 보여줄 수 없어요">
+                            {e.summary}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                ) : null}
               </li>
             ))}
           </ul>

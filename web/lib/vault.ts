@@ -338,12 +338,100 @@ export function loadSeasonal(): SeasonalItem[] {
 
 // 최근 개정된 규정 상위 N — 프론트매터 개정일(YYYY-MM-DD, 월 단위 YYYY-MM도 허용) 내림차순.
 // 월 단위 날짜는 사전순 비교에서 같은 달의 일 단위 날짜보다 앞(=더 과거 취급) — 표시상 무해.
-export function recentlyRevised(n = 5): { slug: string; title: string; revised: string }[] {
+/** 개정 타임라인 한 칸(docs/70 L1).
+ *  detail이 있으면 '무엇이 바뀌었는지' 아는 개정(우리 파이프라인이 기록), 없으면 날짜만 아는 과거.
+ *  ⛔ 이 둘을 화면에서 반드시 구분한다 — 없는 것을 있는 척하면 신뢰가 무너진다. */
+export type RevisionEvent = {
+  date: string;                 // YYYY.MM.DD
+  summary: string;              // "제1조 외 3개 조 개정" | "조문 1곳 변경 · 부칙 신설"
+  detail?: { kind: string; before: string; after: string; line?: number }[];
+};
+
+const _MODE_KO: Record<string, string> = {
+  replace: "조문 변경", insert: "항 신설", append: "부칙 신설", cell: "별표 항목 변경",
+};
+
+/** 개정 반영 로그(specs/15) → 문서별·날짜별 실제 변경 내역. 기록이 있는 개정만 담긴다. */
+type _Det = NonNullable<RevisionEvent["detail"]>;
+function _appliedByDoc(): Map<string, Map<string, _Det>> {
+  const out = new Map<string, Map<string, _Det>>();
+  let raw = "";
+  try {
+    raw = fs.readFileSync(path.resolve(process.cwd(), "..", "tools", "index",
+      "corpus_replace_log.jsonl"), "utf-8");
+  } catch { return out; }
+  for (const ln of raw.split("\n")) {
+    if (!ln.trim()) continue;
+    let r: any;
+    try { r = JSON.parse(ln); } catch { continue; }
+    if (r.event !== "amend_apply" || !r.target) continue;
+    // 시행일이 있으면 그 날짜로(사용자가 아는 날짜), 없으면 반영 시각의 날짜
+    const date = (r["시행일"] || String(r.ts || "").slice(0, 10)).replace(/-/g, ".");
+    const stem = String(r.target).split("/").pop()!.replace(/\.md$/, "");
+    if (!out.has(stem)) out.set(stem, new Map());
+    const byDate = out.get(stem)!;
+    if (!byDate.has(date)) byDate.set(date, []);
+    // 표시용 정형(2026-08-12 실측 오표시 2건 수정):
+    //  ⓐ insert/append의 before는 **삽입 앵커**이지 지워진 줄이 아니다 — '−'로 보이면
+    //     멀쩡한 조문이 삭제된 것처럼 읽힌다. 신설은 '＋'만 보여준다.
+    //  ⓑ 별표 셀 변경은 원문이 HTML 표라 태그가 그대로 노출된다 — 태그를 걷어 값만 남긴다.
+    const plain = (t: string) => String(t || "")
+      .replace(/<br\s*\/?>/gi, " ").replace(/<\/t[dh]>/gi, " ")
+      .replace(/<\/?[a-zA-Z][^>]*>/g, "").replace(/\s+/g, " ").trim();
+    const isNew = r.mode === "insert" || r.mode === "append";
+    byDate.get(date)!.push({
+      kind: _MODE_KO[r.mode] || "변경",
+      before: isNew ? "" : plain(r.before).slice(0, 120),
+      after: plain(String(r.after || "").split("\n")[0]).slice(0, 120),
+      line: r.line || undefined,
+    });
+  }
+  return out;
+}
+
+export function recentlyRevised(n = 5): {
+  slug: string; title: string; revised: string; timeline: RevisionEvent[];
+}[] {
+  const st = loadJson("article_status.json")?.articles || {};
+  const applied = _appliedByDoc();
+
+  // 규정명 → { 날짜: [조 라벨…] } (원문 <개정 …> 마커 — 날짜만 알고 내용은 모른다)
+  const marks = new Map<string, Map<string, string[]>>();
+  for (const v of Object.values(st) as any[]) {
+    const reg = (v?.["규정명"] || "").trim();
+    for (const d of (v?.["개정이력"] || []) as string[]) {
+      if (!reg || !d) continue;
+      if (!marks.has(reg)) marks.set(reg, new Map());
+      const m = marks.get(reg)!;
+      if (!m.has(d)) m.set(d, []);
+      m.get(d)!.push(v["조"] || "");
+    }
+  }
+
   return getAllDocs()
     .filter((d) => d.section === "규정집" && /^\d{4}-\d{2}(-\d{2})?$/.test(d.revised))
     .sort((a, b) => b.revised.localeCompare(a.revised))
     .slice(0, n)
-    .map((d) => ({ slug: d.slug, title: d.title, revised: d.revised }));
+    .map((d) => {
+      const byDate = new Map<string, RevisionEvent>();
+      // ⓐ 기록 있는 개정(●) — 무엇이 바뀌었는지 보여줄 수 있다
+      for (const [date, det] of applied.get(d.slug) || []) {
+        const kinds = [...new Set(det.map((x) => x.kind))].join(" · ");
+        byDate.set(date, { date, summary: kinds, detail: det });
+      }
+      // ⓑ 원문 마커만 있는 과거(○) — 날짜와 '어느 조'까지만
+      for (const [date, jos] of marks.get(d.title) || []) {
+        if (byDate.has(date)) continue;              // 기록이 있으면 그쪽이 우선
+        const uniq = [...new Set(jos.filter(Boolean))];
+        byDate.set(date, {
+          date,
+          summary: uniq.length > 1 ? `${uniq[0]} 외 ${uniq.length - 1}개 조 개정`
+            : uniq[0] ? `${uniq[0]} 개정` : "개정",
+        });
+      }
+      const timeline = [...byDate.values()].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
+      return { slug: d.slug, title: d.title, revised: d.revised, timeline };
+    });
 }
 
 // 오늘의 용어 후보 — 용어집 전체(가벼운 slug·제목만). '오늘' 선택은 클라이언트(날짜 시드).
