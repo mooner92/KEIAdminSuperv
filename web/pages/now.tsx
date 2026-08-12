@@ -190,6 +190,14 @@ export default function NowPage({ seasonal, revised, notes, terms, formsCount, d
                                   {c.after ? <p className={n.tlPlus}>＋ {c.after}</p> : null}
                                 </div>
                               ))}
+                              {e.fullDiff ? (
+                                /* L2 — 요약(200자 절단)이 놓친 것까지 백업 대조로 전부 */
+                                <details className={n.tlFull}>
+                                  <summary>전문 보기 (지워짐 {e.fullDiff.removed.length} · 추가됨 {e.fullDiff.added.length}줄)</summary>
+                                  {e.fullDiff.removed.map((t, i) => <p key={`r${i}`} className={n.tlMinus}>− {t}</p>)}
+                                  {e.fullDiff.added.map((t, i) => <p key={`a${i}`} className={n.tlPlus}>＋ {t}</p>)}
+                                </details>
+                              ) : null}
                             </div>
                           </details>
                         ) : (

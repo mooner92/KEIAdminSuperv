@@ -171,3 +171,9 @@
 .tlChange p { margin: 2px 0; font-size: 12px; line-height: 1.5; word-break: break-all; }
 .tlMinus { color: var(--color-danger); }
 .tlPlus { color: var(--color-primary); }
+
+/* L2 전문 diff — 요약 아래 접힘. 길어질 수 있어 스크롤 가둔다(페이지가 늘어나지 않게). */
+.tlFull { margin-top: 6px; }
+.tlFull > summary { cursor: pointer; font-size: 11.5px; color: var(--color-text-tertiary); }
+.tlFull[open] { max-height: 260px; overflow-y: auto; padding-right: 4px; }
+.tlFull p { margin: 1px 0; font-size: 11.5px; line-height: 1.45; word-break: break-all; }

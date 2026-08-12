@@ -345,6 +345,8 @@ export type RevisionEvent = {
   date: string;                 // YYYY.MM.DD
   summary: string;              // "제1조 외 3개 조 개정" | "조문 1곳 변경 · 부칙 신설"
   detail?: { kind: string; before: string; after: string; line?: number }[];
+  /** L2 — 반영 직전 백업 ↔ 현재 파일의 줄 단위 전체 차이(요약이 놓친 것까지). */
+  fullDiff?: { removed: string[]; added: string[] };
 };
 
 const _MODE_KO: Record<string, string> = {
@@ -383,10 +385,76 @@ function _appliedByDoc(): Map<string, Map<string, _Det>> {
       kind: _MODE_KO[r.mode] || "변경",
       before: isNew ? "" : plain(r.before).slice(0, 120),
       after: plain(String(r.after || "").split("\n")[0]).slice(0, 120),
-      line: r.line || undefined,
+      ...(r.line ? { line: r.line as number } : {}),   // ⚠ undefined 금지(SSG 직렬화)
     });
   }
   return out;
+}
+
+const _BACKUP_DIR = () => path.join(VAULT_DIR, "90_관리", "_backup");
+
+/** 이벤트(stem·표시날짜)의 '그날 첫 백업' 경로 — 로그의 backup 필드에서 찾는다.
+ *  ⚠ 파일명의 날짜는 **반영일**이고 이벤트 날짜는 **시행일**이라 파일명 매칭은 어긋난다
+ *    (실측: 시행 08-03 ↔ 백업 08-05 → diff 0건 오판). 로그가 정본. */
+function _backupFor(stem: string, date: string):
+    { backup: string; target: string } | undefined {
+  let raw = "";
+  try {
+    raw = fs.readFileSync(path.resolve(process.cwd(), "..", "tools", "index",
+      "corpus_replace_log.jsonl"), "utf-8");
+  } catch { return undefined; }
+  for (const ln of raw.split("\n")) {
+    if (!ln.trim()) continue;
+    let r: any;
+    try { r = JSON.parse(ln); } catch { continue; }
+    if (r.event !== "amend_apply" || !r.backup) continue;
+    const d = (r["시행일"] || String(r.ts || "").slice(0, 10)).replace(/-/g, ".");
+    const s = String(r.target || "").split("/").pop()!.replace(/\.md$/, "");
+    if (s === stem && d === date)                    // 첫 기록 = 그날 첫 백업
+      return { backup: String(r.backup), target: String(r.target) };
+  }
+  return undefined;
+}
+
+/** 반영 직전 백업 ↔ 현재 파일의 줄 단위 차이(L2).
+ *  ⛔ 위치 기반 diff가 아니라 **줄 다중집합 차이**다 — 규정 문서는 변경이 국소적이라 이걸로
+ *     충분하고, LCS 없이 결정적이며 빠르다. 같은 날 여러 번 반영했으면 **그날 첫 백업**을
+ *     기준으로 삼아 '그날 전체 변화'를 보여준다.
+ *  ⚠ 비교는 **양쪽 다 원시 파일**(프론트매터만 제거)로 — 렌더용 body는 위키링크가 해석돼
+ *    링크 있는 줄이 전부 가짜 diff로 잡힌다. */
+function _fullDiff(stem: string, date: string):
+    { removed: string[]; added: string[] } | undefined {
+  const rec = _backupFor(stem, date);
+  if (!rec) return undefined;
+  let before = "", current = "";
+  try {
+    before = matter(fs.readFileSync(path.join(VAULT_DIR, rec.backup), "utf-8")).content;
+    current = matter(fs.readFileSync(path.join(VAULT_DIR, rec.target), "utf-8")).content;
+  } catch { return undefined; }
+
+  const norm = (t: string) => t.split("\n").map((x) => x.trim()).filter(Boolean);
+  const count = (arr: string[]) => {
+    const m = new Map<string, number>();
+    for (const x of arr) m.set(x, (m.get(x) || 0) + 1);
+    return m;
+  };
+  const A = count(norm(before)), B = count(norm(current));
+  const removed: string[] = [], added: string[] = [];
+  for (const [k, v] of A) { const d = v - (B.get(k) || 0); for (let i = 0; i < d; i++) removed.push(k); }
+  for (const [k, v] of B) { const d = v - (A.get(k) || 0); for (let i = 0; i < d; i++) added.push(k); }
+  if (!removed.length && !added.length) return undefined;
+  const cap = (a: string[]) => a.slice(0, 40).map((x) => x.slice(0, 200));
+  return { removed: cap(removed), added: cap(added) };
+}
+
+/** L3 — 문서 하나의 '가장 최근 기록된 개정'(docdata에 실어 드로어 상단에 띠로 표시). */
+export function recentChangeFor(slug: string): { date: string; summary: string;
+    changes: { kind: string; before: string; after: string; line?: number }[] } | null {
+  const byDate = _appliedByDoc().get(slug);
+  if (!byDate || !byDate.size) return null;
+  const date = [...byDate.keys()].sort().pop()!;
+  const changes = byDate.get(date)!;
+  return { date, summary: [...new Set(changes.map((c) => c.kind))].join(" · "), changes };
 }
 
 export function recentlyRevised(n = 5): {
@@ -417,7 +485,12 @@ export function recentlyRevised(n = 5): {
       // ⓐ 기록 있는 개정(●) — 무엇이 바뀌었는지 보여줄 수 있다
       for (const [date, det] of applied.get(d.slug) || []) {
         const kinds = [...new Set(det.map((x) => x.kind))].join(" · ");
-        byDate.set(date, { date, summary: kinds, detail: det });
+        // ⚠ Next.js SSG props에 undefined를 넣으면 프리렌더가 죽는다(실측: /now 실패).
+        //    백업이 없는 개정은 키 자체를 만들지 않는다 — 선택 필드의 올바른 표현.
+        const ev: RevisionEvent = { date, summary: kinds, detail: det };
+        const fd = _fullDiff(d.slug, date);
+        if (fd) ev.fullDiff = fd;
+        byDate.set(date, ev);
       }
       // ⓑ 원문 마커만 있는 과거(○) — 날짜와 '어느 조'까지만
       for (const [date, jos] of marks.get(d.title) || []) {

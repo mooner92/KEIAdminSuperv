@@ -12,7 +12,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { getAllDocs, getDoc, getBacklinks, loadChangelog } from "../lib/vault.ts";
+import { getAllDocs, getDoc, getBacklinks, loadChangelog, recentChangeFor } from "../lib/vault.ts";
 
 const OUT = path.resolve(process.cwd(), "out", "docdata");
 fs.mkdirSync(OUT, { recursive: true });
@@ -152,7 +152,8 @@ for (const meta of docs) {
   }
   fs.writeFileSync(
     path.join(OUT, `${meta.slug}.json`),
-    JSON.stringify({ ...doc, backlinks, trackA, trackC, deadlines }),
+    JSON.stringify({ ...doc, backlinks, trackA, trackC, deadlines,
+      recentChange: meta.section === "규정집" ? recentChangeFor(meta.slug) : null }),
     "utf-8",
   );
   searchIndex[meta.slug] = searchable(doc.body);
