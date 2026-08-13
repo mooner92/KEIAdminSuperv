@@ -2925,6 +2925,10 @@ def post_message(cid: int, body: MsgIn, stream: bool = False, user: User = Depen
     if not stream:
         try:
             ans = rag_core.answer(q, context, history)
+            # 거부 복구(docs/71 ①): 거부면 문서어 재검색 1회 — 2차도 거부면 1차 유지(fail-closed)
+            rec = rag_core.refusal_recovery(q, ans, history)
+            if rec:
+                ans, context, sources = rec["답변"], rec["context"], rec["srcs"]
             note = rag_core.post_answer_notes(q, ans, context, sources)  # P0-1 수치 + P0-4 귀속(docs/22)
             if note:
                 ans = ans.rstrip() + "\n\n" + note
@@ -2959,14 +2963,41 @@ def post_message(cid: int, body: MsgIn, stream: bool = False, user: User = Depen
             s.commit()
             s.refresh(um)
             user_dict = _msg(um)
-        yield _sse({"type": "meta", "sources": sources, "user": user_dict})
+
+        # 거부 복구(docs/71 ① — 스트림판): 두괄식이라 결론은 첫 문단에 온다. 첫 문단(160자
+        # 또는 빈 줄)까지 **버퍼만** 하고, 거부로 판정되면 문서어 재검색으로 근거·스트림을
+        # 교체한다. meta는 이 결정 '뒤'에 보내므로 프로토콜 순서(meta→delta)는 불변이고,
+        # 버퍼는 아직 아무것도 방출 전이라 사용자는 교체를 눈치채지 못한다(지연 ~첫 문단 생성분).
+        # 2차 스트림의 머리는 재검사하지 않는다 — 새 근거로도 거부라면 그 거부가 정답이다.
+        nonlocal_ctx = {"context": context, "sources": sources}
+        stream_iter = rag_core.answer_stream(q, context, history)
+        head, head_err = [], None
+        try:
+            for tok in stream_iter:
+                head.append(tok)
+                h = "".join(head)
+                if len(h) >= 160 or "\n\n" in h:
+                    break
+        except Exception as e:  # noqa: BLE001 — 머리 단계 오류는 기존 오류 경로로 넘긴다
+            head_err = type(e).__name__
+        if head_err is None and rag_core.is_refusal("".join(head)):
+            rec = rag_core.refusal_retry_search(q)
+            if rec:
+                nonlocal_ctx["context"], nonlocal_ctx["sources"] = rec["context"], rec["srcs"]
+                nonlocal_ctx["recovered"] = True
+                # RECOVERY_GUARD: 대상 명칭이 근거에 없으면 유추 단정 금지(환각 방지 — 실측 결함)
+                stream_iter = rag_core.answer_stream(q, rec["context"], history,
+                                                     extra_system=rag_core.RECOVERY_GUARD)
+                head = []   # 1차 거부 머리는 폐기(미방출이라 흔적 없음)
+        context2, sources2 = nonlocal_ctx["context"], nonlocal_ctx["sources"]
+        yield _sse({"type": "meta", "sources": sources2, "user": user_dict})
 
         def _save_assistant(full_text: str):
             """assistant 저장 + 제목/시각 갱신 — 연결 수명과 무관하게 호출 가능해야 한다."""
             with Session(engine) as s:
                 cs = s.get(ChatSession, cid)
                 am = Message(session_id=cid, role="assistant", content=full_text,
-                             sources_json=json.dumps(sources, ensure_ascii=False))
+                             sources_json=json.dumps(sources2, ensure_ascii=False))
                 s.add(am)
                 if cs and cs.title == "새 대화":
                     cs.title = q[:40]
@@ -2983,36 +3014,42 @@ def post_message(cid: int, body: MsgIn, stream: bool = False, user: User = Depen
         # 전파하면(nginx 기본값·직결) 제너레이터가 yield 지점에서 GeneratorExit로 닫혀
         # 루프 '뒤'의 저장이 실행되지 않는다 → finally에서 미저장분을 절단 마커와 함께 저장.
         # (현 server.js 프록시는 절단을 전파하지 않아 완주·전체 저장 — 어느 토폴로지든 유실 0)
-        acc, err = [], None
+        acc, err = list(head), head_err
         saved = False
         try:
             try:
-                for tok in rag_core.answer_stream(q, context, history):
+                for tok in head:                      # 버퍼된 첫 문단(복구 시엔 2차 스트림 머리 없음)
+                    yield _sse({"type": "delta", "t": tok})
+                for tok in stream_iter:               # 이어지는 본 스트림
                     acc.append(tok)
                     yield _sse({"type": "delta", "t": tok})
             except Exception as e:
-                err = type(e).__name__
+                err = err or type(e).__name__
             full = finalize_stream_text("".join(acc), err)
             # P0-1 수치 게이트(docs/22): 스트림은 이미 방출된 토큰을 회수할 수 없으므로 사후 경고를 델타로 부착
             try:
-                note = rag_core.post_answer_notes(q, full, context, sources)
+                note = rag_core.post_answer_notes(q, full, context2, sources2)
             except Exception:  # noqa: BLE001 — 게이트 오류가 답변을 막지 않게
                 note = ""
             if note:
                 yield _sse({"type": "delta", "t": "\n\n" + note})
                 full = full.rstrip() + "\n\n" + note
+            # 복구 백스톱 노트(결정적): 1차 거부 = '그대로는 근거 없음' 판정 — 사용자에게 보존
+            if nonlocal_ctx.get("recovered") and full.strip():
+                yield _sse({"type": "delta", "t": "\n\n" + rag_core.RECOVERY_NOTE})
+                full = full.rstrip() + "\n\n" + rag_core.RECOVERY_NOTE
             if err:
                 # 클라이언트가 절단/실패를 표시하고 '다시 시도'를 제공할 수 있게 명시 이벤트(v1 스펙 B4)
                 yield _sse({"type": "error", "err": err, "partial": bool(acc)})
             am, cs = _save_assistant(full)
             saved = True
             try:
-                sugg = rag_core.suggest_followups(q, sources)  # docs/26 — 무LLM 후속 제안(휘발성)
+                sugg = rag_core.suggest_followups(q, sources2)  # docs/26 — 무LLM 후속 제안(휘발성)
             except Exception:  # noqa: BLE001
                 sugg = []
             yield _sse({"type": "done", "assistant": _msg(am), "session": _ses(cs) if cs else None,
                         "suggestions": sugg,
-                        "x_gates": rag_core.gate_summary(full, context, sources)})  # specs/16 W1-E
+                        "x_gates": rag_core.gate_summary(full, context2, sources2)})  # specs/16 W1-E
         finally:
             if not saved:
                 # GeneratorExit(연결 절단) 경로 — yield 금지, DB 작업만. 부분 응답도 보존.

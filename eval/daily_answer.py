@@ -13,7 +13,8 @@ import time
 _GATE_KEYS = ("rerank", "graph_expand", "graph_expand_reg", "defterm_route",
               "amount_route", "impact_route", "graph_expand_action",
               "graph_expand_gian", "scope_anchor", "value_store",
-              "procedure_pack", "uplaw", "표깨짐", "절단", "효력")
+              "procedure_pack", "uplaw", "표깨짐", "절단", "효력",
+              "refusal_retry")
 from daily_common import API, DAILY_DIR, rag_answer
 
 
