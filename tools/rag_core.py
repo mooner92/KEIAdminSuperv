@@ -886,10 +886,91 @@ def gate_summary(answer: str, context: str, sources=None) -> dict:
 
 
 def post_answer_notes(question: str, answer: str, context: str, sources=None) -> str:
-    """생성 직후 결정적 후검증 노트 묶음(P0-1 수치 + P0-4 귀속). ""면 이상 없음."""
+    """생성 직후 결정적 후검증 노트 묶음(P0-1 수치 + P0-4 귀속 + 주제 부재). ""면 이상 없음."""
     notes = [n for n in (numeric_guard_note(question, answer, context),
-                         system_attribution_note(answer, sources)) if n]
+                         system_attribution_note(answer, sources),
+                         topic_absence_note(question, answer, context)) if n]
     return "\n\n".join(notes)
+
+
+# ── 주제 부재 게이트(docs/71 G1, 2026-08-14) ───────────────────────────────────
+# 실측: SYSTEM 규칙 17('무관 근거 억지 유추 금지')이 "회의실 음식물 반입"까지 명시하는데도
+# 기록물관리규정 열람실 조항을 끌어와 "금지되어 있습니다"라고 단정했다. 9B에 규칙 17개는
+# 지켜지지 않는다(docs/69 게이트 과밀 진단) — 프롬프트를 늘리는 대신 **결정적 백스톱**을 둔다.
+# 판정은 극도로 보수적: 질문 명사가 **코퍼스 전체에서 문서빈도 0**(BM25 어휘 사전에 부재)이고
+# 회수 근거에도 없을 때만. 그래서 어휘 변형("돈 내는 거"→지급)은 걸리지 않는다 — 코퍼스에
+# 있는 단어는 DF>0이라 애초에 대상이 아니다. ⛔ 답변 차단 아님(경고 부착) · LLM 0회.
+# ⛔ **기본 off(2026-08-14 판정)**: 형태소 분석기 없이 한국어 명사만 추출하는 데 실패했다.
+#   표적(명상실·충전기)은 잡지만 용언 활용형('집행하려는데'·'승진할'·'거예요')이 명사로
+#   오인돼 오탐 3/11. 골든 40문항 오탐은 0이라 흔한 질문엔 무해하나, 사용자에게 잘못된
+#   '근거 밖' 경고를 띄우는 비용이 이득보다 크다. 재개 조건 = 로컬 형태소 분석기(kiwipiepy
+#   등, 온프레미스 가능) 도입 후 명사 추출을 정확히 하고 이 하네스를 재통과할 것. docs/71 G1.
+TOPIC_GATE = os.environ.get("RAG_TOPIC_GATE", "0") not in ("0", "", "false", "False")
+_JOSA = ("으로는", "에서는", "이라는", "이라고", "에서의", "으로", "에서", "에게", "이나", "라는",
+         "은", "는", "이", "가", "을", "를", "의", "에", "도", "만", "로", "과", "와", "랑")
+_HANGUL_WORD = re.compile(r"[가-힣]{3,10}")
+# 용언·어미로 끝나는 어절은 명사가 아니다 — 형태소 분석기 없이 후보에서 걷어낸다.
+# (실측 오탐: "며칠인가요"가 코퍼스 부재로 잡혔다 — 2026-08-14)
+_VERBAL = re.compile(r"(인가요|한가요|나요|니까|습니까|합니다|됩니다|입니다|어요|아요|해요|"
+                     r"하는|되는|있는|없는|하고|하며|한다|된다|이다|였다|겠다|시죠|거죠|가요)$")
+
+
+def _strip_josa(w: str) -> str:
+    for j in _JOSA:                       # 긴 조사부터(위 튜플이 그 순서로 정렬돼 있다)
+        if len(w) - len(j) >= 2 and w.endswith(j):
+            return w[: -len(j)]
+    return w
+
+
+def _corpus_text() -> str:
+    """코퍼스 전문(공백 제거) 1회 구축 — 부분문자열 부재 판정용.
+    ⚠ BM25 idf로는 판정할 수 없다: 원형 토큰이 **어절 단위**라 '초과근무'가 문서의
+    '초과근무수당'에 가려 부재로 오판된다(2026-08-14 실측). 원문 문자열이 정본."""
+    if "corpus_text" not in _state:
+        with _lock:
+            if "corpus_text" not in _state:
+                try:
+                    _, col, _ = backend()
+                    docs = col.get(include=["documents"])["documents"]
+                    _state["corpus_text"] = "".join(docs).replace(" ", "")
+                except Exception:  # noqa: BLE001
+                    _state["corpus_text"] = ""
+    return _state["corpus_text"]
+
+
+def topic_absence_note(question: str, answer: str, context: str) -> str:
+    """질문 대상이 코퍼스에 아예 없는데 답변이 단정하면 경고문 반환(이상 없으면 "")."""
+    if not TOPIC_GATE or not (answer or "").strip():
+        return ""
+    try:
+        corpus = _corpus_text()
+        if not corpus:
+            return ""                     # 구축 실패 시 판정 불가 — 조용히 통과(무해)
+        ctx = (context or "").replace(" ", "")
+        missing = []
+        for raw in _HANGUL_WORD.findall(question or "")[:20]:
+            if _VERBAL.search(raw):       # 용언·어미 어절은 명사 후보 아님
+                continue
+            w = _strip_josa(raw)
+            if len(w) < 3 or w in missing or _VERBAL.search(w):
+                continue
+            # 코퍼스 전문에 부분문자열로도 부재 + 회수 근거에도 부재.
+            # ⚠ 시도했다가 **철회**한 조건: 'w[:2](어간)도 부재'. 활용형 오탐("집행하려는데")은
+            #   걷어냈지만 표적까지 죽였다 — '명상실'→'명상', '충전기'→'충전'이 코퍼스에 있어
+            #   부재 판정이 뒤집혔다(2026-08-14 실측). 어간 휴리스틱은 이 코퍼스에서 무효.
+            if w not in corpus and w not in ctx:
+                missing.append(w)
+        if not missing:
+            return ""
+        # 답변이 이미 '확인되지 않는다'고 했으면 경고 불필요(정직한 거부 — 중복 경보 금지)
+        import refusal_detect
+        if refusal_detect.is_refusal(answer):
+            return ""
+        return (f"⚠️ **근거 밖 주제** — 질문의 '{missing[0]}'은(는) 검색된 규정·문서에 나오지 "
+                "않습니다. 위 답변은 유사한 다른 규정을 참고한 것이므로 그대로 적용된다고 "
+                "볼 수 없습니다. 담당 부서 확인이 필요합니다.")
+    except Exception:  # noqa: BLE001 — 게이트 오류가 답변을 막지 않게
+        return ""
 
 
 def numeric_guard_note(question: str, answer: str, context: str) -> str:
