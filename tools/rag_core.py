@@ -1824,10 +1824,13 @@ def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None
             #   (예: '구입 매각 500만원'처럼 반대 leaf를 둘 다 언급). 아래 판정 블록은
             #   '전결권자는 X'라고 확신을 갖고 나가므로, 찍어서 맞히면 안 되는 자리다.
             #   특정 실패 시엔 라우팅을 접고 일반 회수에 맡긴다(근거 없음 > 그럴듯한 오답).
-            ambiguous = len(scored) > 1 and scored[0][0] == scored[1][0]
-            tasks = [k for _, k in scored] if not ambiguous else []
-            if amt is not None and tasks:
-                r = _aj.judge(tasks[0], amt)
+            #   단, 동점이라도 **변별 토큰**(한 후보의 leaf에만 있는 말)이 질문에 있으면
+            #   업무는 특정된 것이다 — resolve_tie가 결정적으로 고른다. '집행'처럼 여러 leaf에
+            #   공통인 흔한 말 때문에 정답('…매각')이 동점에 묻혀 버려지던 실측 결함 수리
+            #   (2026-08-14: 매각 126만원 → 라우팅 접힘 → 일반 회수가 '원장' 오답).
+            task = _aj.resolve_tie(scored, query) if scored else None
+            if amt is not None and task:
+                r = _aj.judge(task, amt)
                 if r.get("상태") == "판정":
                     lines = [f"[금액 전결 판정 — 위임전결규정 별표(결정적 조회)]",
                              f"· 업무: {r['업무']} · 금액 {amt:,}원 → 구간 '{r['구간표기']}'",
