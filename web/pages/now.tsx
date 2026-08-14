@@ -37,6 +37,7 @@ export default function NowPage({ seasonal, revised, notes, terms, formsCount, d
   const changelogOn = useFlag("changelog");  // 새로워진 점 바로가기 게이트
   const approvalOn = useFlag("approval_finder");
   const impactOn = useFlag("impact_analysis"); // specs/05: 개정 영향 분석 // 결재선 — 모바일 GNB에서 빠진 화면의 허브 도달(docs/48)
+  const travelOn = useFlag("travel_calc"); // docs/72 P1: 여비 계산기
   const journeyOn = useFlag("journey_map"); // 업무 한 장 — 〃
   const feedbackOn = useFlag("feedback_center"); // 의견 보내기(docs/51) — 허브 카드
   const labOn = useFlag("lab_hub"); // 실험실(specs/09) — 정식 승격 전 기능의 무대
@@ -81,6 +82,8 @@ export default function NowPage({ seasonal, revised, notes, terms, formsCount, d
       desc: `${monthItems.length > 0 ? `이번 달 챙길 일 ${monthItems.length}건 · ` : ""}매월·연간 반복 업무를 한눈에` },
     ...(deadlinesOn ? [{ icon: "⏱️", title: "기한 사전", accent: "시스템", href: "/deadlines/",
       desc: `규정 기한 ${deadlinesCount}건을 사건·의무로 찾고 마감일 계산·캘린더 저장` }] : []),
+    ...(travelOn ? [{ icon: "💴", title: "여비 계산기", accent: "가이드", href: "/travel/",
+      desc: "직급·구간을 고르면 일비·숙박비·식비를 여비규정 별표 원문 그대로" }] : []),
     ...(impactOn ? [{ icon: "🧭", title: "개정 영향 분석", accent: "대외업무", href: "/impact/",
       desc: "조문을 고치면 어디를 확인해야 하는지 — 인용·가이드·서식·기한 지도" }] : []),
   ];

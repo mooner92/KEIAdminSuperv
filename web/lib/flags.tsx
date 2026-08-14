@@ -49,6 +49,7 @@ export const FLAG_DEFAULTS: Record<string, boolean> = {
   bug_reports: false, // docs/32 §7: /changelog 🐛 버그리포트 탭 (release, 만료 2026-12-31)
   feedback_center: false, // docs/51: 의견 보내기(/feedback+진입점 3곳+관리자 의견함) (release, 만료 2026-12-31)
   mobile_shell: false, // docs/54 v2: 모바일 전용 셸(하단 탭바+미니멀 헤더+더보기 메뉴) (release, 만료 2026-12-31)
+  travel_calc: false, // docs/72 P1: 여비 계산기 /travel(직급·구간 → 별표 원문 정액, 금액 창작 0) (release, 만료 2026-10-31)
 };
 const CACHE_KEY = "kei-flags";
 

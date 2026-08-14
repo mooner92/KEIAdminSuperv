@@ -486,6 +486,16 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-10-15",
     },
+    "travel_calc": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "여비 계산기(docs/72 P1) — 실사용 질문 1위(출장·여비)를 위한 전용 화면 /travel + 업무 도구 허브·"
+                       "보조 메뉴 진입. 직급(별표 1)·국내 관외/근무지 내(별표 2·제18조)·국외 지역등급(별표 5·별표 3)을 "
+                       "고르면 일비·숙박비·식비 정액을 **별표 원문 그대로** 표시하고 '정액 × 일수'만 계산한다. "
+                       "⛔ 금액 창작 0 — 실비(운임·숙박)는 계산 안 함, 확정 못 한 값은 빈칸+'원문 확인', 줄마다 별표 "
+                       "원문행 근거 표시, 감액·특례(제16조③·제17조)는 자동 미반영 원문 안내. 프론트 표시 전용(빌드타임 파싱).",
+        "owner": "platform",
+        "expires": "2026-10-31",
+    },
     "feedback_center": {
         "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
         "description": "의견 보내기(docs/51) — 콘텐츠·서비스 능동 제보: /feedback 페이지(폼+내 제보 내역) + "
