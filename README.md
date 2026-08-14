@@ -46,12 +46,12 @@ One markdown vault (the single source of truth) served through two faces of one 
 | **[Brain]** browse/graph | anyone exploring | node/link graph, full-text search, document drawer with article anchors |
 | **[LLM]** chat | admin beginners | RAG chat with login, persisted multi-turn history, per-message evidence, SSE streaming |
 
-| Fact | Value (measured 2026-07-31, v1.9.0) |
+| Fact | Value (measured 2026-08-12, v1.11.0) |
 |---|---|
 | Corpus | **599 documents** (regulations · work guides · 307+ glossary terms · internal systems · external-affairs stats · national statutes as reference) |
-| Index | **6,044 chunks** (`kei_regs`, KURE-v1) + 4,116 statute chunks (`kei_uplaw`, physically separated) |
+| Index | **6,192 chunks** (`kei_regs`, KURE-v1) + 4,116 statute chunks (`kei_uplaw`, physically separated) |
 | Models | isolated Ollama v0.31.1 — Qwen3.5-9B GGUF Q4_K_M · embeddings KURE-v1 · reranker bge-reranker-v2-m3 — all on 2× Quadro RTX 6000 (24GB) |
-| Ops | daily self-evaluation (60 questions, retry/new cohorts) · Slack alert bot (8-alert catalog, leak-scrubbing backstop) · feature flags with admin toggles |
+| Ops | daily self-evaluation (200 questions weekdays · 500×3 rounds weekends, retry/new cohorts) · Slack alert bot (8-alert catalog, leak-scrubbing backstop) · feature flags with admin toggles |
 
 ## Screens
 
@@ -112,7 +112,7 @@ pm2 start web/server.js --name kei-guide  # 0.0.0.0:3100 behind Cloudflare Zero 
 - **Search**: dense top-20 (KURE-v1) → on-prem reranker (bge-reranker-v2-m3) → top-5, with lexical-trap guards; definition-question routing; multi-turn query condensation with a rewrite-hygiene guard.
 - **Trust gates** (all deterministic, all attach warnings rather than trusting the LLM): numeric gate · broken-table guard · scope anchor · deleted-article demotion · system attribution.
 - **Two servers, one box**: prod (3100/9000, `main`, v1.9.0) + dev (3101/9001, `dev` worktree). Dev is the only evaluator; prod mirrors published quality data. Promotion = merge → tag → data rsync → rebuild → PM2 delete+start → **mandatory back-merge** `main → dev`.
-- **Daily self-evaluation** (06:00 cron): generate 60 questions (personas × situations × tone; triple filter = deterministic defect dictionary + LLM referee), answer through the real service path, grade with retry/new **cohort split** (sample churn is ~85%/day, so only the retry cohort proves regressions), publish to the quality board, then post a **digest to Slack** with a retry-cohort drop detector.
+- **Daily self-evaluation** (06:00 cron): generate 200 questions on weekdays — 500 × 3 rounds on weekends (personas × situations × tone; triple filter = deterministic defect dictionary + LLM referee), answer through the real service path, grade with retry/new **cohort split** (sample churn is ~85%/day, so only the retry cohort proves regressions), publish to the quality board, then post a **digest to Slack** with a retry-cohort drop detector.
 - **Alerting** ([docs/66](docs/66-알림정책.md)): 8-alert catalog, each requiring a runbook (registration fails without one); in-app 🔔 first, Slack second; a deterministic scrubber strips regulation text, user content and emails from outgoing messages. Firewall quirk: bare `slack.com` is SNI-blocked in-house — the client pins `www.slack.com`.
 - **Code graph** ([docs/67](docs/67-graphify-코드그래프.md)): graphify builds a 4k+ node knowledge graph of code + design docs (local, deterministic, zero-LLM extraction; community naming via in-house Ollama only). The refresh script includes a leak check; the graph is published to the in-app **Lab** (`/lab`, feature-flagged) with a pinned local vis-network copy (the CSP blocks CDNs by design).
 
@@ -134,7 +134,8 @@ pm2 start web/server.js --name kei-guide  # 0.0.0.0:3100 behind Cloudflare Zero 
 
 | Area | State |
 |---|---|
-| Corpus | ✅ 599 docs · 6,044 chunks (+4,116 statutes) — all pending human review |
+| Corpus | ✅ 599 docs · 6,192 chunks (+4,116 statutes) — all pending human review |
+| Amendment pipeline | ✅ comparison-table gate (rejects non-full-text uploads) · one-line apply with backup/audit · revision timeline + line diff in UI (docs/70) |
 | [LLM] chat | ✅ login · multi-turn · per-message evidence · SSE · Qwen3.5-9B |
 | [Brain] browse/graph/drawer | ✅ six-section graph, article anchors, revision-history rendering |
 | Trust gates | ✅ numeric / table / scope / deleted-article / system-attribution |
@@ -153,4 +154,4 @@ This repository holds the **code** of an internal service. The service itself, i
 
 ---
 
-Last updated: 2026-07-31 (v1.9.0 — alerting, code graph, lab, question-gen triple filter; corpus 599 docs / 6,044 chunks). The Korean README is updated first and is authoritative.
+Last updated: 2026-08-12 (v1.11.0 — amendment apply pipeline, measurement-integrity Wave 1, revision-history visualization L1–L3, derived-index auto-regen on reindex; corpus 599 docs / 6,192 chunks). The Korean README is updated first and is authoritative.

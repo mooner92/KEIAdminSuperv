@@ -170,6 +170,11 @@ def chat(req: ChatReq):
     tags = [s["tag"] for s in srcs]
     try:
         answer = rag_core.answer(user_msg, context, history, temperature=req.temperature or 0.1)
+        # 거부 복구(docs/71 ① Corrective RAG lite): 거부면 문서어 재검색 1회 — 실패 시 1차 유지
+        rec = rag_core.refusal_recovery(user_msg, answer, history)
+        if rec:
+            answer, context, srcs = rec["답변"], rec["context"], rec["srcs"]
+            tags = [s["tag"] for s in srcs]
         note = rag_core.post_answer_notes(user_msg, answer, context, srcs)  # P0-1 수치 + P0-4 귀속(docs/22)
         if note:
             answer = answer.rstrip() + "\n\n" + note

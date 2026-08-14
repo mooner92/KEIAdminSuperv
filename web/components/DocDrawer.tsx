@@ -36,6 +36,9 @@ type DrawerDoc = Doc & {
   trackA?: TrackA | null;
   trackC?: TrackC | null;
   deadlines?: Deadline[] | null;
+  /** L3(docs/70) — 이 문서의 가장 최근 '기록된' 개정. 없으면 null(과거 개정은 원문 미보관). */
+  recentChange?: { date: string; summary: string;
+    changes: { kind: string; before: string; after: string; line?: number }[] } | null;
 };
 
 /**
@@ -286,6 +289,25 @@ export default function DocDrawer({
                 </div>
                 <h1 className={styles.h1}>{doc.title}</h1>
               </header>
+
+              {/* L3 — 읽는 자리에서 '무엇이 최근 바뀌었나'를 먼저 알려준다(docs/70).
+                  ⛔ 본문은 건드리지 않는다 — 원문 위에 덧칠하지 않고 위에 띠로만 얹는다. */}
+              {doc.recentChange ? (
+                <details className={styles.recentChg}>
+                  <summary>
+                    <b>📌 최근 개정 {doc.recentChange.date}</b>
+                    <span className={styles.rcKinds}>{doc.recentChange.summary}</span>
+                  </summary>
+                  {doc.recentChange.changes.map((c, i) => (
+                    <div key={i} className={styles.rcRow}>
+                      <span className={styles.rcKind}>{c.kind}{c.line ? ` · ${c.line}줄` : ""}</span>
+                      {c.before ? <p className={styles.rcMinus}>− {c.before}</p> : null}
+                      {c.after ? <p className={styles.rcPlus}>＋ {c.after}</p> : null}
+                    </div>
+                  ))}
+                  <p className={styles.rcNote}>공식 기준은 아래 원문입니다.</p>
+                </details>
+              ) : null}
 
               <Markdown source={doc.body} onNavigate={goInternal} selfSlug={doc.slug} />
 

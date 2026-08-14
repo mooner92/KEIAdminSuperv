@@ -132,6 +132,11 @@ def digest(date: str) -> int:
     fmt = lambda c: f"{c.get('정답률', '?')}%({c.get('문항수', 0)}건)" if c else "—"  # noqa: E731
     summary = (f"📊 {date} 자가평가: 전체 {d.get('정답률', '?')}% · 재시험 {fmt(rc)} · 신규 {fmt(nc)}"
                + _report_line(date))
+    # 수술 브리핑 붙여넣기 한 줄(운영자 요청 2026-08-12): ⛔규정 내용(질문·답변·조문)은 Slack에
+    # 싣지 않는다(§6 유출 금지 계약 그대로). 상세는 로컬 eval/daily/{date}.surgery.md —
+    # 운영자가 이 한 줄을 Claude Code에 붙여넣으면 세션이 파일을 읽고 수술한다(패치노트 '개선').
+    if (HERE / "daily" / f"{date}.surgery.md").exists():
+        summary += f"\n🔧 Claude Code에 붙여넣기: 「수술 브리핑 {date} 처리해」"
     notice("quality", summary, "품질 게시판(/quality)에서 실패유형·문항 상세 확인")
 
     os.environ.setdefault("SLACK_BOT_TOKEN", _slack_token())

@@ -91,6 +91,37 @@ def find_tasks(text: str) -> list:
     return [k for _, k in find_tasks_scored(text)]
 
 
+def resolve_tie(scored: list, text: str):
+    """동점 1위들 사이의 결정적 tie-break — 변별 토큰이 **한 후보의 leaf에만** 있으면 그것.
+
+    실측 계기(2026-08-14): "매각 건으로 126만원…전결권자는?"에서 정답('…매각')을 포함해
+    3개가 8점 동점 → rag_core가 '모호'로 라우팅을 접고 일반 회수에 맡겨 오답(원장)이 나갔다.
+    동점의 원인은 '집행'처럼 **여러 leaf에 공통으로 들어 있는 흔한 말**이다. 반대로 '매각'은
+    동점 후보 중 한 곳의 leaf에만 있으므로 업무를 특정하는 신호다.
+
+    ⛔ 안전 유지: 변별 토큰이 둘 이상의 후보에서 잡히면(예: '구입 매각 500만원') None을
+    돌려 기존대로 모호 처리한다 — 찍어서 맞히면 안 되는 자리다(형제 배제 주석과 같은 정신).
+    """
+    if not scored:
+        return None
+    top = scored[0][0]
+    tied = [k for s, k in scored if s == top]
+    if len(tied) == 1:
+        return tied[0]
+    tnorm = _norm(text)
+    leaves = {}
+    for k in tied:
+        path = _rules()[k]["업무경로"]
+        parts = path.rsplit(">", 1)
+        leaves[k] = {t for t in _subtokens(parts[1] if len(parts) == 2 else path) if len(t) >= 2}
+    winners = []
+    for k, toks in leaves.items():
+        others = set().union(*(v for j, v in leaves.items() if j != k)) if len(leaves) > 1 else set()
+        if any(t in tnorm for t in (toks - others)):   # 이 후보에만 있는 토큰이 질문에 있다
+            winners.append(k)
+    return winners[0] if len(winners) == 1 else None
+
+
 def judge(task_key: str, amount_won: int) -> dict:
     """업무키+금액 → {상태, 전결권자, 협의, 원장, 구간표기, 근거} — 결정적."""
     ent = _rules().get(task_key)

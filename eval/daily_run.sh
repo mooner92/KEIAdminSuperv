@@ -43,6 +43,8 @@ if [ -d "$(dirname "$PROD_Q")" ]; then
 fi
 # MLflow 병행 기록(specs/10 — 실패해도 크론 정상. 정본은 graded.json·게시판 그대로)
 MLFLOW_TRIGGER=cron $PY mlflow_log.py --date "$DATE" || true
+# 수술 브리핑 — 수술대기를 Claude Code가 바로 수술할 자족 md로(Slack엔 붙여넣기 한 줄만)
+$PY surgery_brief.py --date "$DATE" || true
 # 일일 다이제스트+재시험 급락 감지 → 🔔+Slack #horong (docs/66 §3.3. 실패해도 크론은 정상 종료)
 $PY eval_notice.py --digest --date "$DATE" || true
 # 데드맨 해제 겸 신선도 확인(정상 종료 시 갱신 시각이 갱신되므로 여기선 통과만 확인)

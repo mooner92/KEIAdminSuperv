@@ -486,6 +486,16 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-10-15",
     },
+    "travel_calc": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "여비 계산기(docs/72 P1) — 실사용 질문 1위(출장·여비)를 위한 전용 화면 /travel + 업무 도구 허브·"
+                       "보조 메뉴 진입. 직급(별표 1)·국내 관외/근무지 내(별표 2·제18조)·국외 지역등급(별표 5·별표 3)을 "
+                       "고르면 일비·숙박비·식비 정액을 **별표 원문 그대로** 표시하고 '정액 × 일수'만 계산한다. "
+                       "⛔ 금액 창작 0 — 실비(운임·숙박)는 계산 안 함, 확정 못 한 값은 빈칸+'원문 확인', 줄마다 별표 "
+                       "원문행 근거 표시, 감액·특례(제16조③·제17조)는 자동 미반영 원문 안내. 프론트 표시 전용(빌드타임 파싱).",
+        "owner": "platform",
+        "expires": "2026-10-31",
+    },
     "feedback_center": {
         "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
         "description": "의견 보내기(docs/51) — 콘텐츠·서비스 능동 제보: /feedback 페이지(폼+내 제보 내역) + "
@@ -1243,11 +1253,15 @@ def _reindex_worker(vault: str):
         except Exception as e01:  # noqa: BLE001
             REINDEX["log"].append(f"⚠ 별지 PDF 동기화 실패(무시하고 계속): {e01}")
         # 2) 02 실행(exclude.json 자동 반영)
+        # ⚠ EMBED_CTX_LABEL=1 명시 고정(specs/01 P1) — 정본 색인(kei_regs)은 검색 라벨로 구웠다
+        # (Hit@1 78→80). 상속 env에 맡기면 PM2 env에 없어서(실측 2026-08-12) 관리자 버튼
+        # 재색인이 라벨 없는 색인으로 조용히 회귀한다. 정본 레시피는 워커가 소유한다.
         script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "02_chunk_and_embed.py")
         cmd = [sys.executable, script, "--vault", vault, "--db", cd]
-        REINDEX["log"].append("재색인 시작(수 분 소요, GPU)…")
+        REINDEX["log"].append("재색인 시작(수 분 소요, GPU · 검색 라벨 on)…")
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-                                cwd=os.path.dirname(script))
+                                cwd=os.path.dirname(script),
+                                env={**os.environ, "EMBED_CTX_LABEL": "1"})
         for line in proc.stdout:
             line = line.strip()
             if line and "it/s" not in line and "%|" not in line:   # tqdm 진행바 제외
@@ -1255,7 +1269,38 @@ def _reindex_worker(vault: str):
         rc = proc.wait()
         if rc != 0:
             raise RuntimeError(f"02 종료코드 {rc}")
-        # 3) 무재시작 적용
+        # 2.5) 파생 인덱스 재생성(specs/14 T04) — 개정 반영·문서 편입 후 재색인만 하면
+        # article_status(삭제 강등)·clause_xref(준용 확장)·approval(전결 335규칙) 등이 낡은 채
+        # 남는다. 각각 빠르고 독립적이라 부분 실패 허용 — 실패는 로그로 알리고 계속한다.
+        # (01z 용어노트·01b 링크는 볼트를 '쓰는' 도구라 여기서 안 돌린다 — 재색인 전 단계 소관.)
+        _DERIVED = [
+            ("01i_clause_xref.py", ["--vault", vault]),
+            ("01j_defterms.py", ["--vault", vault]),
+            ("01k_article_status.py", ["--vault", vault]),
+            ("01l_graph_analytics.py", []),                 # clause_xref 소비 — 01i 다음
+            ("01m_deadlines.py", ["--vault", vault]),
+            ("01n_approval.py", ["--vault", vault]),
+            ("01k2_journey_freshness.py", ["--vault", vault]),  # article_status 소비 — 01k 다음
+            ("01o_table_integrity.py", ["--vault", vault]),
+        ]
+        n_ok = 0
+        for name, args in _DERIVED:
+            sp = os.path.join(os.path.dirname(os.path.abspath(__file__)), name)
+            if not os.path.exists(sp):
+                REINDEX["log"].append(f"⚠ 파생 인덱스 {name} 없음(건너뜀)")
+                continue
+            try:
+                rD = subprocess.run([sys.executable, sp, *args], capture_output=True, text=True,
+                                    timeout=600, cwd=os.path.dirname(sp))
+                if rD.returncode == 0:
+                    n_ok += 1
+                else:
+                    tailD = (rD.stdout or rD.stderr or "").strip().splitlines()[-1:] or ["(출력 없음)"]
+                    REINDEX["log"].append(f"⚠ 파생 인덱스 {name} 실패(계속): {tailD[0][:100]}")
+            except Exception as eD:  # noqa: BLE001
+                REINDEX["log"].append(f"⚠ 파생 인덱스 {name} 실패(계속): {eD}")
+        REINDEX["log"].append(f"파생 인덱스 재생성 {n_ok}/{len(_DERIVED)} — reload로 즉시 반영")
+        # 3) 무재시작 적용(벡터 컬렉션 + 파생 인덱스 캐시 초기화 — 2.5의 산출물이 여기서 살아난다)
         rag_core.reload()
         _corpus_cache["t"] = 0
         _clear_stale()  # 전량 재색인 성공 — 내용 변경 스테일 해소(docs/24 ⓓ)
@@ -2890,6 +2935,10 @@ def post_message(cid: int, body: MsgIn, stream: bool = False, user: User = Depen
     if not stream:
         try:
             ans = rag_core.answer(q, context, history)
+            # 거부 복구(docs/71 ①): 거부면 문서어 재검색 1회 — 2차도 거부면 1차 유지(fail-closed)
+            rec = rag_core.refusal_recovery(q, ans, history)
+            if rec:
+                ans, context, sources = rec["답변"], rec["context"], rec["srcs"]
             note = rag_core.post_answer_notes(q, ans, context, sources)  # P0-1 수치 + P0-4 귀속(docs/22)
             if note:
                 ans = ans.rstrip() + "\n\n" + note
@@ -2924,14 +2973,41 @@ def post_message(cid: int, body: MsgIn, stream: bool = False, user: User = Depen
             s.commit()
             s.refresh(um)
             user_dict = _msg(um)
-        yield _sse({"type": "meta", "sources": sources, "user": user_dict})
+
+        # 거부 복구(docs/71 ① — 스트림판): 두괄식이라 결론은 첫 문단에 온다. 첫 문단(160자
+        # 또는 빈 줄)까지 **버퍼만** 하고, 거부로 판정되면 문서어 재검색으로 근거·스트림을
+        # 교체한다. meta는 이 결정 '뒤'에 보내므로 프로토콜 순서(meta→delta)는 불변이고,
+        # 버퍼는 아직 아무것도 방출 전이라 사용자는 교체를 눈치채지 못한다(지연 ~첫 문단 생성분).
+        # 2차 스트림의 머리는 재검사하지 않는다 — 새 근거로도 거부라면 그 거부가 정답이다.
+        nonlocal_ctx = {"context": context, "sources": sources}
+        stream_iter = rag_core.answer_stream(q, context, history)
+        head, head_err = [], None
+        try:
+            for tok in stream_iter:
+                head.append(tok)
+                h = "".join(head)
+                if len(h) >= 160 or "\n\n" in h:
+                    break
+        except Exception as e:  # noqa: BLE001 — 머리 단계 오류는 기존 오류 경로로 넘긴다
+            head_err = type(e).__name__
+        if head_err is None and rag_core.is_refusal("".join(head)):
+            rec = rag_core.refusal_retry_search(q)
+            if rec:
+                nonlocal_ctx["context"], nonlocal_ctx["sources"] = rec["context"], rec["srcs"]
+                nonlocal_ctx["recovered"] = True
+                # RECOVERY_GUARD: 대상 명칭이 근거에 없으면 유추 단정 금지(환각 방지 — 실측 결함)
+                stream_iter = rag_core.answer_stream(q, rec["context"], history,
+                                                     extra_system=rag_core.RECOVERY_GUARD)
+                head = []   # 1차 거부 머리는 폐기(미방출이라 흔적 없음)
+        context2, sources2 = nonlocal_ctx["context"], nonlocal_ctx["sources"]
+        yield _sse({"type": "meta", "sources": sources2, "user": user_dict})
 
         def _save_assistant(full_text: str):
             """assistant 저장 + 제목/시각 갱신 — 연결 수명과 무관하게 호출 가능해야 한다."""
             with Session(engine) as s:
                 cs = s.get(ChatSession, cid)
                 am = Message(session_id=cid, role="assistant", content=full_text,
-                             sources_json=json.dumps(sources, ensure_ascii=False))
+                             sources_json=json.dumps(sources2, ensure_ascii=False))
                 s.add(am)
                 if cs and cs.title == "새 대화":
                     cs.title = q[:40]
@@ -2948,36 +3024,42 @@ def post_message(cid: int, body: MsgIn, stream: bool = False, user: User = Depen
         # 전파하면(nginx 기본값·직결) 제너레이터가 yield 지점에서 GeneratorExit로 닫혀
         # 루프 '뒤'의 저장이 실행되지 않는다 → finally에서 미저장분을 절단 마커와 함께 저장.
         # (현 server.js 프록시는 절단을 전파하지 않아 완주·전체 저장 — 어느 토폴로지든 유실 0)
-        acc, err = [], None
+        acc, err = list(head), head_err
         saved = False
         try:
             try:
-                for tok in rag_core.answer_stream(q, context, history):
+                for tok in head:                      # 버퍼된 첫 문단(복구 시엔 2차 스트림 머리 없음)
+                    yield _sse({"type": "delta", "t": tok})
+                for tok in stream_iter:               # 이어지는 본 스트림
                     acc.append(tok)
                     yield _sse({"type": "delta", "t": tok})
             except Exception as e:
-                err = type(e).__name__
+                err = err or type(e).__name__
             full = finalize_stream_text("".join(acc), err)
             # P0-1 수치 게이트(docs/22): 스트림은 이미 방출된 토큰을 회수할 수 없으므로 사후 경고를 델타로 부착
             try:
-                note = rag_core.post_answer_notes(q, full, context, sources)
+                note = rag_core.post_answer_notes(q, full, context2, sources2)
             except Exception:  # noqa: BLE001 — 게이트 오류가 답변을 막지 않게
                 note = ""
             if note:
                 yield _sse({"type": "delta", "t": "\n\n" + note})
                 full = full.rstrip() + "\n\n" + note
+            # 복구 백스톱 노트(결정적): 1차 거부 = '그대로는 근거 없음' 판정 — 사용자에게 보존
+            if nonlocal_ctx.get("recovered") and full.strip():
+                yield _sse({"type": "delta", "t": "\n\n" + rag_core.RECOVERY_NOTE})
+                full = full.rstrip() + "\n\n" + rag_core.RECOVERY_NOTE
             if err:
                 # 클라이언트가 절단/실패를 표시하고 '다시 시도'를 제공할 수 있게 명시 이벤트(v1 스펙 B4)
                 yield _sse({"type": "error", "err": err, "partial": bool(acc)})
             am, cs = _save_assistant(full)
             saved = True
             try:
-                sugg = rag_core.suggest_followups(q, sources)  # docs/26 — 무LLM 후속 제안(휘발성)
+                sugg = rag_core.suggest_followups(q, sources2)  # docs/26 — 무LLM 후속 제안(휘발성)
             except Exception:  # noqa: BLE001
                 sugg = []
             yield _sse({"type": "done", "assistant": _msg(am), "session": _ses(cs) if cs else None,
                         "suggestions": sugg,
-                        "x_gates": rag_core.gate_summary(full, context, sources)})  # specs/16 W1-E
+                        "x_gates": rag_core.gate_summary(full, context2, sources2)})  # specs/16 W1-E
         finally:
             if not saved:
                 # GeneratorExit(연결 절단) 경로 — yield 금지, DB 작업만. 부분 응답도 보존.

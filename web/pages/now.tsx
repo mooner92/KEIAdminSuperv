@@ -2,6 +2,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { GetStaticProps } from "next";
+import type { RevisionEvent } from "../lib/vault";
 import Layout from "../components/Layout";
 import PageHero from "../components/common/PageHero";
 import ShortcutCard, { type Shortcut } from "../components/now/ShortcutCard";
@@ -21,7 +22,7 @@ import n from "../styles/Now.module.css";
 
 type Props = {
   seasonal: SeasonalItem[];
-  revised: { slug: string; title: string; revised: string }[];
+  revised: { slug: string; title: string; revised: string; timeline: RevisionEvent[] }[];
   notes: Pick<ChangelogEntry, "id" | "제목" | "날짜" | "분류">[];
   terms: { slug: string; title: string }[];
   formsCount: number;
@@ -36,6 +37,7 @@ export default function NowPage({ seasonal, revised, notes, terms, formsCount, d
   const changelogOn = useFlag("changelog");  // 새로워진 점 바로가기 게이트
   const approvalOn = useFlag("approval_finder");
   const impactOn = useFlag("impact_analysis"); // specs/05: 개정 영향 분석 // 결재선 — 모바일 GNB에서 빠진 화면의 허브 도달(docs/48)
+  const travelOn = useFlag("travel_calc"); // docs/72 P1: 여비 계산기
   const journeyOn = useFlag("journey_map"); // 업무 한 장 — 〃
   const feedbackOn = useFlag("feedback_center"); // 의견 보내기(docs/51) — 허브 카드
   const labOn = useFlag("lab_hub"); // 실험실(specs/09) — 정식 승격 전 기능의 무대
@@ -80,6 +82,8 @@ export default function NowPage({ seasonal, revised, notes, terms, formsCount, d
       desc: `${monthItems.length > 0 ? `이번 달 챙길 일 ${monthItems.length}건 · ` : ""}매월·연간 반복 업무를 한눈에` },
     ...(deadlinesOn ? [{ icon: "⏱️", title: "기한 사전", accent: "시스템", href: "/deadlines/",
       desc: `규정 기한 ${deadlinesCount}건을 사건·의무로 찾고 마감일 계산·캘린더 저장` }] : []),
+    ...(travelOn ? [{ icon: "💴", title: "여비 계산기", accent: "가이드", href: "/travel/",
+      desc: "직급·구간을 고르면 일비·숙박비·식비를 여비규정 별표 원문 그대로" }] : []),
     ...(impactOn ? [{ icon: "🧭", title: "개정 영향 분석", accent: "대외업무", href: "/impact/",
       desc: "조문을 고치면 어디를 확인해야 하는지 — 인용·가이드·서식·기한 지도" }] : []),
   ];
@@ -158,14 +162,57 @@ export default function NowPage({ seasonal, revised, notes, terms, formsCount, d
           )}
         </section>
 
-        {/* 📜 최근 개정된 규정 */}
+        {/* 📜 최근 개정된 규정 — 타임라인(docs/70 L1).
+            ● = 무엇이 바뀌었는지 아는 개정(반영 기록 있음) / ○ = 날짜만 아는 과거 개정.
+            ⛔ 둘을 시각적으로 구분한다 — 없는 것을 있는 척하면 신뢰가 무너진다. */}
         <section className={n.card} aria-label="최근 개정된 규정">
           <h2 className={n.h2}>📜 최근 개정된 규정</h2>
-          <ul className={n.plainList}>
+          <ul className={n.revList}>
             {revised.map((d) => (
-              <li key={d.slug}>
-                <Link href={`/d/${encodeURIComponent(d.slug)}/`}>{d.title}</Link>
-                <span className={n.muted}> · {d.revised.replace(/-/g, ".")}</span>
+              <li key={d.slug} className={n.revItem}>
+                <div className={n.revHead}>
+                  <Link href={`/d/${encodeURIComponent(d.slug)}/`}>{d.title}</Link>
+                  <span className={n.muted}> · {d.revised.replace(/-/g, ".")}</span>
+                </div>
+                {d.timeline.length > 0 ? (
+                  <ol className={n.tl}>
+                    {d.timeline.map((e) => (
+                      <li key={e.date} className={`${n.tlRow} ${e.detail ? n.tlKnown : ""}`}>
+                        <span className={n.tlDot} aria-hidden />
+                        <span className={n.tlDate}>{e.date}</span>
+                        {e.detail ? (
+                          <details className={n.tlDet}>
+                            <summary>{e.summary}<span className={n.tlMore}>바뀐 내용</span></summary>
+                            <div className={n.tlDiff}>
+                              {e.detail.map((c, i) => (
+                                <div key={i} className={n.tlChange}>
+                                  <span className={n.tlKind}>
+                                    {c.kind}{c.line ? ` · ${c.line}줄` : ""}
+                                  </span>
+                                  {c.before ? <p className={n.tlMinus}>− {c.before}</p> : null}
+                                  {c.after ? <p className={n.tlPlus}>＋ {c.after}</p> : null}
+                                </div>
+                              ))}
+                              {e.fullDiff ? (
+                                /* L2 — 요약(200자 절단)이 놓친 것까지 백업 대조로 전부 */
+                                <details className={n.tlFull}>
+                                  <summary>전문 보기 (지워짐 {e.fullDiff.removed.length} · 추가됨 {e.fullDiff.added.length}줄)</summary>
+                                  {e.fullDiff.removed.map((t, i) => <p key={`r${i}`} className={n.tlMinus}>− {t}</p>)}
+                                  {e.fullDiff.added.map((t, i) => <p key={`a${i}`} className={n.tlPlus}>＋ {t}</p>)}
+                                </details>
+                              ) : null}
+                            </div>
+                          </details>
+                        ) : (
+                          /* 날짜만 아는 과거 — 원문이 보관돼 있지 않다는 사실을 숨기지 않는다 */
+                          <span className={n.tlOnly} title="이 시점 원문은 보관돼 있지 않아 변경 내용을 보여줄 수 없어요">
+                            {e.summary}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                ) : null}
               </li>
             ))}
           </ul>

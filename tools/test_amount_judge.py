@@ -31,7 +31,8 @@ def main() -> int:
     for key, amt, want, why in CASES:
         r = judge(key, amt)
         got = r.get("전결권자", f"({r.get('상태')})")
-        ok = got == want
+        # 별표 원문 표기의 공백은 판정과 무관('과제 책임자' == '과제책임자') — 비교만 정규화한다.
+        ok = got.replace(" ", "") == want.replace(" ", "")
         bad += not ok
         print(f"  {'✅' if ok else '❌'} {amt:>12,}원 → {got:12} (기대 {want}) — {why}")
     # 판정불가 정직성
@@ -53,6 +54,17 @@ def main() -> int:
     print(f"  {'✅' if ok else '❌'} find_tasks(법인카드 업무추진비) → {ks[:1]}")
     print("\n" + ("🎉 전부 통과" if not bad else f"⚠ {bad}건 실패"))
     return 0 if not bad else 1
+
+
+def test_resolve_tie():
+    """동점 tie-break — 변별 토큰이 한 후보에만 있으면 특정, 둘 다면 모호 유지(2026-08-14)."""
+    import amount_judge as aj
+    q = "매각 건으로 126만원을 집행하려는데 전결권자는 누구인가요?"
+    k = aj.resolve_tie(aj.find_tasks_scored(q), q)
+    assert k and "매각" in k.rsplit(">", 1)[-1], f"매각을 특정 못 함: {k}"
+    assert aj.judge(k, aj.parse_amount(q))["전결권자"].replace(" ", "") == "실･팀장"
+    q2 = "물품 구입과 매각 500만원은 누가 전결하나요?"   # 반대 leaf 동시 언급 = 찍으면 안 됨
+    assert aj.resolve_tie(aj.find_tasks_scored(q2), q2) is None
 
 
 if __name__ == "__main__":

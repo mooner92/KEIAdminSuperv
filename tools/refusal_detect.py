@@ -40,7 +40,7 @@ HEAD_CHARS = 200  # 두괄식 결론부 근사 — 첫 굵은 결론 문장이 �
 NOTE_MARKERS = ("⚠️ **", "ℹ️ ")            # 신설 노트가 따라야 할 접두 규약(계약 검사용)
 NOTE_TITLES = ("⚠️ **수치 확인 필요**",      # rag_core.numeric_guard_note
                "⚠️ **시스템 확인**",         # rag_core.system_attribution_note
-               "ℹ️ 위 개수",                 # rag_core._ENUM_NOTE
+               "ℹ️ 위 개수", "ℹ️ 질문하신 명칭", "⚠️ **근거 밖 주제**",                 # rag_core._ENUM_NOTE
                "최종 판단은")                # rag_core.DISCLAIMER(면책)
 def _strip_trailing_notes(t: str) -> str:
     """꼬리의 시스템 노트·면책 문단 제거 — 거부 판정은 모델 본문만 봐야 한다."""

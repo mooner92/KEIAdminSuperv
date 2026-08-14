@@ -840,7 +840,8 @@ def suggest_followups(question: str, srcs: list) -> list:
 # ⛔ 답변 텍스트를 절대 건드리지 않는다 — 응답 필드로만 나간다(배지 여부는 Wave 4에서 데이터로).
 _GATE_FLAG_KEYS = ("rerank", "graph_expand", "graph_expand_reg", "defterm_route", "amount_route",
                    "impact_route", "graph_expand_action", "graph_expand_gian", "scope_anchor",
-                   "value_store", "procedure_pack", "uplaw", "표깨짐", "절단", "효력")
+                   "value_store", "procedure_pack", "uplaw", "표깨짐", "절단", "효력",
+                   "refusal_retry")
 _CITE_BR_RE = re.compile(r"\[([^\[\]\n]{2,80})\]")
 _CITE_ART_RE = re.compile(r"(제\s*\d+\s*조(?:\s*의\s*\d+)?|별\s*표\s*\d*|별\s*지\s*제?\s*\d*호?)")
 
@@ -885,10 +886,91 @@ def gate_summary(answer: str, context: str, sources=None) -> dict:
 
 
 def post_answer_notes(question: str, answer: str, context: str, sources=None) -> str:
-    """생성 직후 결정적 후검증 노트 묶음(P0-1 수치 + P0-4 귀속). ""면 이상 없음."""
+    """생성 직후 결정적 후검증 노트 묶음(P0-1 수치 + P0-4 귀속 + 주제 부재). ""면 이상 없음."""
     notes = [n for n in (numeric_guard_note(question, answer, context),
-                         system_attribution_note(answer, sources)) if n]
+                         system_attribution_note(answer, sources),
+                         topic_absence_note(question, answer, context)) if n]
     return "\n\n".join(notes)
+
+
+# ── 주제 부재 게이트(docs/71 G1, 2026-08-14) ───────────────────────────────────
+# 실측: SYSTEM 규칙 17('무관 근거 억지 유추 금지')이 "회의실 음식물 반입"까지 명시하는데도
+# 기록물관리규정 열람실 조항을 끌어와 "금지되어 있습니다"라고 단정했다. 9B에 규칙 17개는
+# 지켜지지 않는다(docs/69 게이트 과밀 진단) — 프롬프트를 늘리는 대신 **결정적 백스톱**을 둔다.
+# 판정은 극도로 보수적: 질문 명사가 **코퍼스 전체에서 문서빈도 0**(BM25 어휘 사전에 부재)이고
+# 회수 근거에도 없을 때만. 그래서 어휘 변형("돈 내는 거"→지급)은 걸리지 않는다 — 코퍼스에
+# 있는 단어는 DF>0이라 애초에 대상이 아니다. ⛔ 답변 차단 아님(경고 부착) · LLM 0회.
+# ⛔ **기본 off(2026-08-14 판정)**: 형태소 분석기 없이 한국어 명사만 추출하는 데 실패했다.
+#   표적(명상실·충전기)은 잡지만 용언 활용형('집행하려는데'·'승진할'·'거예요')이 명사로
+#   오인돼 오탐 3/11. 골든 40문항 오탐은 0이라 흔한 질문엔 무해하나, 사용자에게 잘못된
+#   '근거 밖' 경고를 띄우는 비용이 이득보다 크다. 재개 조건 = 로컬 형태소 분석기(kiwipiepy
+#   등, 온프레미스 가능) 도입 후 명사 추출을 정확히 하고 이 하네스를 재통과할 것. docs/71 G1.
+TOPIC_GATE = os.environ.get("RAG_TOPIC_GATE", "0") not in ("0", "", "false", "False")
+_JOSA = ("으로는", "에서는", "이라는", "이라고", "에서의", "으로", "에서", "에게", "이나", "라는",
+         "은", "는", "이", "가", "을", "를", "의", "에", "도", "만", "로", "과", "와", "랑")
+_HANGUL_WORD = re.compile(r"[가-힣]{3,10}")
+# 용언·어미로 끝나는 어절은 명사가 아니다 — 형태소 분석기 없이 후보에서 걷어낸다.
+# (실측 오탐: "며칠인가요"가 코퍼스 부재로 잡혔다 — 2026-08-14)
+_VERBAL = re.compile(r"(인가요|한가요|나요|니까|습니까|합니다|됩니다|입니다|어요|아요|해요|"
+                     r"하는|되는|있는|없는|하고|하며|한다|된다|이다|였다|겠다|시죠|거죠|가요)$")
+
+
+def _strip_josa(w: str) -> str:
+    for j in _JOSA:                       # 긴 조사부터(위 튜플이 그 순서로 정렬돼 있다)
+        if len(w) - len(j) >= 2 and w.endswith(j):
+            return w[: -len(j)]
+    return w
+
+
+def _corpus_text() -> str:
+    """코퍼스 전문(공백 제거) 1회 구축 — 부분문자열 부재 판정용.
+    ⚠ BM25 idf로는 판정할 수 없다: 원형 토큰이 **어절 단위**라 '초과근무'가 문서의
+    '초과근무수당'에 가려 부재로 오판된다(2026-08-14 실측). 원문 문자열이 정본."""
+    if "corpus_text" not in _state:
+        with _lock:
+            if "corpus_text" not in _state:
+                try:
+                    _, col, _ = backend()
+                    docs = col.get(include=["documents"])["documents"]
+                    _state["corpus_text"] = "".join(docs).replace(" ", "")
+                except Exception:  # noqa: BLE001
+                    _state["corpus_text"] = ""
+    return _state["corpus_text"]
+
+
+def topic_absence_note(question: str, answer: str, context: str) -> str:
+    """질문 대상이 코퍼스에 아예 없는데 답변이 단정하면 경고문 반환(이상 없으면 "")."""
+    if not TOPIC_GATE or not (answer or "").strip():
+        return ""
+    try:
+        corpus = _corpus_text()
+        if not corpus:
+            return ""                     # 구축 실패 시 판정 불가 — 조용히 통과(무해)
+        ctx = (context or "").replace(" ", "")
+        missing = []
+        for raw in _HANGUL_WORD.findall(question or "")[:20]:
+            if _VERBAL.search(raw):       # 용언·어미 어절은 명사 후보 아님
+                continue
+            w = _strip_josa(raw)
+            if len(w) < 3 or w in missing or _VERBAL.search(w):
+                continue
+            # 코퍼스 전문에 부분문자열로도 부재 + 회수 근거에도 부재.
+            # ⚠ 시도했다가 **철회**한 조건: 'w[:2](어간)도 부재'. 활용형 오탐("집행하려는데")은
+            #   걷어냈지만 표적까지 죽였다 — '명상실'→'명상', '충전기'→'충전'이 코퍼스에 있어
+            #   부재 판정이 뒤집혔다(2026-08-14 실측). 어간 휴리스틱은 이 코퍼스에서 무효.
+            if w not in corpus and w not in ctx:
+                missing.append(w)
+        if not missing:
+            return ""
+        # 답변이 이미 '확인되지 않는다'고 했으면 경고 불필요(정직한 거부 — 중복 경보 금지)
+        import refusal_detect
+        if refusal_detect.is_refusal(answer):
+            return ""
+        return (f"⚠️ **근거 밖 주제** — 질문의 '{missing[0]}'은(는) 검색된 규정·문서에 나오지 "
+                "않습니다. 위 답변은 유사한 다른 규정을 참고한 것이므로 그대로 적용된다고 "
+                "볼 수 없습니다. 담당 부서 확인이 필요합니다.")
+    except Exception:  # noqa: BLE001 — 게이트 오류가 답변을 막지 않게
+        return ""
 
 
 def numeric_guard_note(question: str, answer: str, context: str) -> str:
@@ -1113,6 +1195,107 @@ def condense_query(question: str, history=None, enabled: bool = None) -> str:
         return rq
     except Exception:  # noqa: BLE001 — 재작성 실패는 원 질문으로 강등(서비스 영향 없음)
         return question
+
+
+# ── 거부 트리거 2차 검색 — Corrective RAG lite (docs/71 ①, 2026-08-13) ──────────
+# 실측 계기: "조직도 어디서 봐?" → 거부. 사용자가 스스로 "인사 자료 조회"로 번역해 다시 묻자
+# 완답 — 그 번역을 시스템이 대신한다. ⛔ 거부 경로에서만 발동(정상 답변 무접촉), 복구 실패
+# 시 원래 거부 유지(fail-closed). 재표현문은 **검색어로만** 쓰고 답변·근거 규칙 불변 —
+# 환각이 사용자에게 닿을 경로 없음(P1.5 멀티턴 재작성과 동일 원칙). 가드레일(SYSTEM) 불변.
+REFUSAL_RETRY = os.environ.get("RAG_REFUSAL_RETRY", "1") not in ("0", "", "false", "False")
+
+_REFORM_SYS = (
+    "너는 검색어 재작성기다. 사용자의 질문을 한국 공공기관의 규정·사내 시스템 문서에서 쓰는 "
+    "행정 용어로 재표현하라. 의도는 유지하되 일상어를 문서 용어로 바꿔라"
+    "(예: 조직도 → 구성원 인적사항 부서 조회 / 돈 내는 거 → 지급 신청). "
+    "재표현한 검색어 한 줄만 출력하라. 설명·인사말 금지."
+)
+
+
+def is_refusal(text: str) -> bool:
+    """거부 판정 — 정본 refusal_detect(docs/62) 위임. ⛔ 정규식 복제 금지(T9 재발 원인)."""
+    try:
+        import refusal_detect  # 정본은 rag_core를 임포트하지 않음(W1-C) — 순환 없음
+        return refusal_detect.is_refusal(text or "")
+    except Exception:  # noqa: BLE001 — 판정 불가면 복구 미발동(안전 쪽)
+        return False
+
+
+def _reform_ok(rq: str, question: str) -> bool:
+    """재표현 위생 가드(_rewrite_ok와 같은 정신): 빈 출력·과장·원문 복사·거부문 복사는 버린다."""
+    if not rq or len(rq) > 120:
+        return False
+    if rq.strip() == (question or "").strip():
+        return False
+    if "확인되지 않" in rq or "죄송" in rq:
+        return False
+    return True
+
+
+def reformulate_query(question: str) -> str:
+    """질문을 행정 문서어 검색어로 재표현(LLM 1회). 불량이면 ''(호출부 fail-closed)."""
+    try:
+        _, _, llm = backend()
+        out = llm.chat.completions.create(
+            model=LLM_MODEL, temperature=0.0, max_tokens=80,
+            messages=[{"role": "system", "content": _REFORM_SYS},
+                      {"role": "user", "content": question}],
+            extra_body=_gen_extra(),  # 사고 off 필수 — 없으면 빈 출력(condense_query 실측)
+        )
+        rq = (out.choices[0].message.content or "").strip().strip('"')
+        rq = rq.splitlines()[0].strip() if rq else ""
+    except Exception:  # noqa: BLE001
+        return ""
+    return rq if _reform_ok(rq, question) else ""
+
+
+def refusal_retry_search(question: str):
+    """거부 복구용 재검색: 재표현 → 회수. 성과 없으면 None.
+    반환 srcs에는 refusal_retry 플래그(텔레메트리 — gate_summary·UI 배지 게이트가 소비)."""
+    if not REFUSAL_RETRY:
+        return None
+    rq = reformulate_query(question)
+    if not rq:
+        return None
+    context, srcs = retrieve(rq)
+    if not srcs:
+        return None
+    for s in srcs:
+        s["refusal_retry"] = True
+    return {"context": context, "srcs": srcs, "재표현": rq}
+
+
+# 복구 재생성 전용 추가 지시(전역 SYSTEM 불변 — 강화 덧붙임만). 실측 계기: 복구가 정직한
+# 거부를 유추 환각으로 바꿈("명상실 예약?" → 휴양시설 규정으로 단정, 2026-08-13 스트림 E2E).
+# 질문의 대상이 근거에 그 명칭 그대로 없으면 '없다'를 먼저 말하고 이웃 절차를 구분해 안내한다.
+RECOVERY_GUARD = (
+    "12. (재검색 답변 전용) 질문이 가리키는 대상(시설·물건·제도·화면 이름)이 근거에 그 명칭 "
+    "그대로 등장하지 않으면, 유사 규정을 그 대상에 적용된다고 단정하지 마라. 첫 줄에 해당 "
+    "명칭은 규정에서 확인되지 않음을 밝히고, 이어서 '유사한 절차로는 ~가 있다'처럼 근거에 "
+    "실제로 있는 내용만 구분해 안내하라."
+)
+
+
+# 복구 답변 결정적 백스톱(프롬프트 준수에 기대지 않음): 복구가 발동했다는 사실 자체가
+# '질문 그대로는 직접 근거 없음'(1차 거부)의 증거다 — 그 판정을 노트로 보존해 유추 단정
+# 환각(명상실→휴양시설 실측)이 무단 단정으로 읽히지 않게 한다. ⛔ 'ℹ️ ' 시작 = NOTE_MARKERS
+# 규약(refusal_detect가 채점 시 꼬리 노트로 제거 — 거부 오채점 없음, W1-C 문구 계약).
+RECOVERY_NOTE = ("ℹ️ 질문하신 명칭 그대로는 규정에서 확인되지 않아, 재검색으로 찾은 "
+                 "유사·관련 절차를 안내했습니다. 실제 적용 여부는 원문과 담당 부서 확인이 필요합니다.")
+
+
+def refusal_recovery(question: str, first_answer: str, history=None):
+    """비스트리밍 복구: 1차 답변이 거부일 때 재검색+재생성 1회. 2차도 거부면 None(1차 유지)."""
+    if not REFUSAL_RETRY or not is_refusal(first_answer):
+        return None
+    rec = refusal_retry_search(question)
+    if not rec:
+        return None
+    ans2 = answer(question, rec["context"], history, extra_system=RECOVERY_GUARD)
+    if is_refusal(ans2):
+        return None
+    rec["답변"] = ans2.rstrip() + "\n\n" + RECOVERY_NOTE
+    return rec
 
 
 def _ensure_bm25():
@@ -1641,10 +1824,13 @@ def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None
             #   (예: '구입 매각 500만원'처럼 반대 leaf를 둘 다 언급). 아래 판정 블록은
             #   '전결권자는 X'라고 확신을 갖고 나가므로, 찍어서 맞히면 안 되는 자리다.
             #   특정 실패 시엔 라우팅을 접고 일반 회수에 맡긴다(근거 없음 > 그럴듯한 오답).
-            ambiguous = len(scored) > 1 and scored[0][0] == scored[1][0]
-            tasks = [k for _, k in scored] if not ambiguous else []
-            if amt is not None and tasks:
-                r = _aj.judge(tasks[0], amt)
+            #   단, 동점이라도 **변별 토큰**(한 후보의 leaf에만 있는 말)이 질문에 있으면
+            #   업무는 특정된 것이다 — resolve_tie가 결정적으로 고른다. '집행'처럼 여러 leaf에
+            #   공통인 흔한 말 때문에 정답('…매각')이 동점에 묻혀 버려지던 실측 결함 수리
+            #   (2026-08-14: 매각 126만원 → 라우팅 접힘 → 일반 회수가 '원장' 오답).
+            task = _aj.resolve_tie(scored, query) if scored else None
+            if amt is not None and task:
+                r = _aj.judge(task, amt)
                 if r.get("상태") == "판정":
                     lines = [f"[금액 전결 판정 — 위임전결규정 별표(결정적 조회)]",
                              f"· 업무: {r['업무']} · 금액 {amt:,}원 → 구간 '{r['구간표기']}'",
@@ -1876,13 +2062,16 @@ def retrieve(query: str, k: int = TOPK, hybrid: bool = None, rerank: bool = None
     return "\n\n---\n\n".join(blocks), srcs
 
 
-def _build_messages(question: str, context: str, history=None):
+def _build_messages(question: str, context: str, history=None, extra_system: str = ""):
     """system + (선택)이전 대화 + (이번 질문+근거). 멀티턴은 history를 LLM에 재생(replay).
 
     history: [{"role": "user"|"assistant", "content": str}, ...] (원문 질문/답변, 근거 미포함).
+    extra_system: 특정 경로에서만 덧붙이는 **추가** 지시(거부 복구의 유추 단정 방지 등).
+      ⛔ SYSTEM 가드레일 본문은 불변 — 덧붙이기만 허용(절대 규칙 4: 약화 금지, 강화는 가능).
     """
     # 사고 off: qwen3.5는 요청 파라미터(think:false, _gen_extra), qwen3는 시스템 '/no_think' 지시
-    sys_content = SYSTEM + ("\n/no_think" if (NO_THINK and not QWEN35) else "")
+    sys_content = SYSTEM + (("\n" + extra_system) if extra_system else "") \
+        + ("\n/no_think" if (NO_THINK and not QWEN35) else "")
     msgs = [{"role": "system", "content": sys_content}]
     for h in history or []:
         role = h.get("role")
@@ -1907,12 +2096,13 @@ def _gen_extra():
     return extra
 
 
-def answer(question: str, context: str, history=None, temperature: float = 0.1) -> str:
+def answer(question: str, context: str, history=None, temperature: float = 0.1,
+           extra_system: str = "") -> str:
     """근거 주입 + (선택)이전 대화 맥락으로 답변 생성(비스트리밍)."""
     _, _, llm = backend()
     out = llm.chat.completions.create(
         model=LLM_MODEL, temperature=temperature,
-        messages=_build_messages(question, context, history),
+        messages=_build_messages(question, context, history, extra_system),
         extra_body=_gen_extra(),  # 매 요청마다 상주 재확인 + 사고 off
     )
     return _ensure_disclaimer(
@@ -1924,12 +2114,13 @@ def answer(question: str, context: str, history=None, temperature: float = 0.1) 
 _STREAM_HOLDBACK = 12
 
 
-def answer_stream(question: str, context: str, history=None, temperature: float = 0.1):
+def answer_stream(question: str, context: str, history=None, temperature: float = 0.1,
+                  extra_system: str = ""):
     """answer()의 스트리밍 버전 — LLM 토큰을 순차적으로 yield(제너레이터)."""
     _, _, llm = backend()
     stream = llm.chat.completions.create(
         model=LLM_MODEL, temperature=temperature,
-        messages=_build_messages(question, context, history), stream=True,
+        messages=_build_messages(question, context, history, extra_system), stream=True,
         extra_body=_gen_extra(),  # 매 요청마다 상주 재확인 + 사고 off
     )
     seen = ""       # 원문(사고블록 포함) 누적
