@@ -18,13 +18,15 @@ from collections import Counter as Counter0
 
 import axes  # 평가 축 레지스트리(specs/07 B) — 결정적 4축
 import scenarios  # 복합 시나리오(specs/07 A) — 여정 기반 다중 근거 문항
-from daily_common import (BANK, MIN_CHUNK, PARA_RATIO, SCEN_RATIO, is_self_contained, DAILY_DIR, NEW_N, REG_N, REFUSAL_SEEDS, SECTION_QUOTA,
+from daily_common import (BANK, CHUNK_GATE, MIN_CHUNK, PARA_RATIO, SCEN_RATIO, chunk_unanswerable,
+                          is_self_contained, DAILY_DIR, NEW_N, REG_N, REFUSAL_SEEDS, SECTION_QUOTA,
                           TYPE_QUOTA, bigrams, chroma_col, jaccard, llm_json, load_bank,
                           norm_q, qhash, save_bank, topics_of)
 
 # 출제 프롬프트·필터는 gen_filter로 이관(2026-07-31 — 저녁 크론 재실행에서 출제결함 7건 실측 후
 # 전면 개편). 페르소나×상황×말투 256조합 + 결함 사전 + LLM 검수자 3중. 상세는 gen_filter.py 머리.
-from gen_filter import GEN_SYS, build_user_msg, paraphrase, question_defects, referee  # noqa: E402
+from gen_filter import (GEN_SYS, build_user_msg, golden_defects, paraphrase,  # noqa: E402
+                        question_defects, referee)
 
 
 def gen_one(doc: str, meta: dict, qtype: str) -> dict | None:
@@ -55,6 +57,9 @@ def gen_one(doc: str, meta: dict, qtype: str) -> dict | None:
     src_n = norm_q(doc)
     gg = {ng[i:i + 2] for i in range(len(ng) - 1)}
     if sum(1 for g in gg if g in src_n) / max(1, len(gg)) < 0.8:
+        return None
+    # 골든이 원문에 실존해도 **답이 아니면** 문항이 성립하지 않는다(제목줄·라벨·파일명).
+    if golden_defects(golden):
         return None
     # 게이트: 자문자답 — 골든 핵심 값이 질문에 그대로 들어가면 폐기
     for v in re.findall(r"\d[\d,]*\s*(?:원|만원|일|개월|년|주|%|퍼센트)", golden):
@@ -259,11 +264,22 @@ def main() -> int:
     idx = list(range(len(got["ids"])))
     random.shuffle(idx)
     by_sec: dict = {k: [] for k in SECTION_QUOTA}
+    gate_drop = Counter0()
     for i in idx:
         m = got["metadatas"][i]
         sec = m.get("type", "regulation")
-        if sec in by_sec and len(got["documents"][i]) >= MIN_CHUNK.get(sec, 200):
-            by_sec[sec].append(i)
+        if sec not in by_sec or len(got["documents"][i]) < MIN_CHUNK.get(sec, 200):
+            continue
+        # 출제 후보 게이트 — 길이 게이트와 같은 자리. 변환 파편·적재 산출물에서 출제하면
+        # 기대 정답이 조문이 아니라 파편 한 줄이라 문항 자체가 성립하지 않는다(daily_common 참조).
+        if CHUNK_GATE:
+            why = chunk_unanswerable(got["documents"][i])
+            if why:
+                gate_drop[why[0]] += 1
+                continue
+        by_sec[sec].append(i)
+    if gate_drop:
+        print(f"  ⛔ 출제 후보 게이트 제외: {dict(gate_drop)}")
     for sec in by_sec:  # 미출제 청크 우선
         by_sec[sec].sort(key=lambda i: (got["ids"][i] in used_chunks, random.random()))
 
