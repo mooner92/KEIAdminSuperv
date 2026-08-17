@@ -20,8 +20,17 @@ export default function TravelCalc({ rates }: { rates: TravelRates }) {
   const [mode, setMode] = useState<"국내" | "국외">("국내");
   const [ho, setHo] = useState(6);
   const [kind, setKind] = useState<"관외" | "근무지내">("관외");
-  const [days, setDays] = useState(1);
-  const [nights, setNights] = useState(0);
+  // ⚠ 입력 상태는 **문자열**이다. 숫자 상태로 두면 '01'을 쳤을 때 Number('01')===1이라
+  //   React가 값이 같다고 보고 다시 그리지 않아 화면에 '01'이 그대로 남는다(실측 결함).
+  //   타이핑 중에는 사용자가 친 그대로 두고, 계산에는 아래 파생 숫자(daysN·nightsN)를 쓴다.
+  const [daysIn, setDaysIn] = useState("1");
+  const [nightsIn, setNightsIn] = useState("0");
+  const clampNum = (v: string, lo: number, hi: number, dflt: number) => {
+    const n = Number(v);
+    return v.trim() === "" || Number.isNaN(n) ? dflt : Math.max(lo, Math.min(hi, Math.floor(n)));
+  };
+  const days = clampNum(daysIn, 1, 365, 1);
+  const nights = clampNum(nightsIn, 0, 364, 0);
   const [area, setArea] = useState("특별시");
   const [grade, setGrade] = useState("가");
   const [hours4, setHours4] = useState<"이상" | "미만">("이상");
@@ -109,13 +118,15 @@ export default function TravelCalc({ rates }: { rates: TravelRates }) {
             <>
               <label className={s.field}>
                 <b>여행일수</b>
-                <input className={s.num} type="number" min={1} max={365} value={days}
-                  onChange={(e) => setDays(Math.max(1, Math.min(365, Number(e.target.value) || 1)))} aria-label="여행일수" />일
+                <input className={s.num} type="number" min={1} max={365} inputMode="numeric" value={daysIn}
+                  onChange={(e) => setDaysIn(e.target.value)}
+                  onBlur={() => setDaysIn(String(clampNum(daysIn, 1, 365, 1)))} aria-label="여행일수" />일
               </label>
               <label className={s.field}>
                 <b>숙박</b>
-                <input className={s.num} type="number" min={0} max={364} value={nights}
-                  onChange={(e) => setNights(Math.max(0, Math.min(364, Number(e.target.value) || 0)))} aria-label="숙박 수" />박
+                <input className={s.num} type="number" min={0} max={364} inputMode="numeric" value={nightsIn}
+                  onChange={(e) => setNightsIn(e.target.value)}
+                  onBlur={() => setNightsIn(String(clampNum(nightsIn, 0, 364, 0)))} aria-label="숙박 수" />박
               </label>
             </>
           ) : (
