@@ -905,21 +905,82 @@ def post_answer_notes(question: str, answer: str, context: str, sources=None) ->
 #   오인돼 오탐 3/11. 골든 40문항 오탐은 0이라 흔한 질문엔 무해하나, 사용자에게 잘못된
 #   '근거 밖' 경고를 띄우는 비용이 이득보다 크다. 재개 조건 = 로컬 형태소 분석기(kiwipiepy
 #   등, 온프레미스 가능) 도입 후 명사 추출을 정확히 하고 이 하네스를 재통과할 것. docs/71 G1.
-TOPIC_GATE = os.environ.get("RAG_TOPIC_GATE", "0") not in ("0", "", "false", "False")
-_JOSA = ("으로는", "에서는", "이라는", "이라고", "에서의", "으로", "에서", "에게", "이나", "라는",
-         "은", "는", "이", "가", "을", "를", "의", "에", "도", "만", "로", "과", "와", "랑")
-_HANGUL_WORD = re.compile(r"[가-힣]{3,10}")
-# 용언·어미로 끝나는 어절은 명사가 아니다 — 형태소 분석기 없이 후보에서 걷어낸다.
-# (실측 오탐: "며칠인가요"가 코퍼스 부재로 잡혔다 — 2026-08-14)
-_VERBAL = re.compile(r"(인가요|한가요|나요|니까|습니까|합니다|됩니다|입니다|어요|아요|해요|"
-                     r"하는|되는|있는|없는|하고|하며|한다|된다|이다|였다|겠다|시죠|거죠|가요)$")
+#
+# ── 2026-08-18 재개(기본 on) — 재개 조건을 실측으로 통과했다 ─────────────────────────
+# 하네스: 채점 완료 37회차 전수(8,216문항, `질문`+`답변`+`x_sources` 저장분)로 발동을 재현.
+#   ⓐ **kiwipiepy 명사 추출**(NNG/NNP/SL/SH의 공백 없는 연쇄 = 복합명사, XSN은 경계):
+#      08-14 오탐의 원인이던 활용형이 구조적으로 사라진다('집행하려는데'→집행+하(XSV)+…,
+#      '거예요'→그거(NP), '며칠인가요'→며칠+이(VCP)). 표적은 살아남는다(명상실=명상+실).
+#      실측 단독 성능: 오탐 281/6,539(4.30%) · 거부형 오답 포착 116/153(75.8%).
+#   ⓑ 그런데 **단독 배포는 여전히 불가**였다. 남은 오탐은 형태소 문제가 아니라 **어휘 변형**이다
+#      — '밥값'·'기름'·'어머니'·'새내기'처럼 일상어 패러프레이즈가 규정 코퍼스에 없는 낱말을
+#      정당하게 쓴다(오탐 111건 중 고유어 ~100, 불용어 사전으로 못 막는 롱테일).
+#      '코퍼스 부분문자열 부재'는 **어휘 갭과 교란**돼 있어 그 자체로 부재 신호가 될 수 없다.
+#   ⓒ 그래서 **모델 자신의 주저함**을 두 번째 조건으로 요구한다(교집합): 본문에는 거부 표현이
+#      있는데 두괄식 **결론부는 단정**하는 자기모순(`is_refusal_anywhere ∧ ¬is_refusal`).
+#      실측(같은 8,216문항):
+#        · 주제부재 단독      n=621  미정답 정밀도 17.1% (리프트 +8.3%p)
+#        · 결론불일치 단독    n=642  정밀도 10.3% (리프트 +1.5%p)
+#        · **교집합**         n= 75  정밀도 48.0% (리프트 **+39.2%p** · 기저 8.76%)
+#      발동은 전체 트래픽의 0.9%뿐이고, **정답에 붙는 헛경고는 31/6,933 = 0.45%**다.
+#      08-14 기각안(오탐 6% 트래픽)보다 한 자릿수 낮으면서 거부형 오답의 23%를 잡는다.
+#   ⛔ 이 게이트는 **채점을 못 움직인다** — refusal_detect가 시스템 노트를 꼬리에서 떼고
+#      판정하므로(NOTE_TITLES에 등록됨) 자가평가 점수와 무관하다. 순수 사용자 안전 장치다.
+#   ⚠ kiwipiepy 미설치 시 명사 추출이 불가능하므로 게이트는 **조용히 비활성**(구 정규식으로
+#      되돌리지 않는다 — 그 경로가 08-14에 기각된 그 경로다).
+TOPIC_GATE = os.environ.get("RAG_TOPIC_GATE", "1") not in ("0", "", "false", "False")
+# 복합명사 최대 형태소 수 — 실측상 3 이상은 오탐만 늘고 표적은 안 는다(포착 116건 동일,
+# 오탐 281→302). '연근무시간'·'신규임용계약서' 같은 문서 유래 과합성이 그 구간에 있다.
+_TOPIC_MAX_MORPH = 2
+_TOPIC_NOUN_TAGS = {"NNG", "NNP", "SL", "SH"}
+# ⛔ 08-14의 정규식 명사 추출(_JOSA 목록 + 종결어미 패턴 _VERBAL)은 **삭제**했다.
+#    형태소 분석기 없이 조사·어미를 흉내 내는 접근이 그때 기각의 직접 원인이었고, 되살릴 수
+#    있는 폴백으로 남겨 두면 kiwipiepy가 빠졌을 때 조용히 그 경로로 돌아간다.
+#    분석기가 없으면 게이트는 **꺼진다**(_topic_nouns가 [] 반환) — 그게 안전한 기본값이다.
 
 
-def _strip_josa(w: str) -> str:
-    for j in _JOSA:                       # 긴 조사부터(위 튜플이 그 순서로 정렬돼 있다)
-        if len(w) - len(j) >= 2 and w.endswith(j):
-            return w[: -len(j)]
-    return w
+def _kiwi():
+    """형태소 분석기 1회 로드. 미설치·로드 실패면 None(게이트가 조용히 꺼진다)."""
+    if "kiwi" not in _state:
+        with _lock:
+            if "kiwi" not in _state:
+                try:
+                    from kiwipiepy import Kiwi
+                    _state["kiwi"] = Kiwi()
+                except Exception:  # noqa: BLE001 — 분석기 부재가 답변을 막지 않게
+                    _state["kiwi"] = None
+    return _state["kiwi"]
+
+
+def _topic_nouns(question: str) -> list:
+    """질문에서 복합명사 후보 추출 — 공백 없이 이어진 명사 형태소 연쇄.
+
+    XSN(들·별·명·란…)은 병합하지 않고 **경계로** 쓴다. 실측 근거: 병합하면 '용도구분별'
+    ('용도구분'은 코퍼스에 있다)·'내용들'·'참석자란'이 통째로 부재 판정돼 헛경고가 난다.
+    """
+    kiwi = _kiwi()
+    if not kiwi:
+        return []
+    out, cur, morphs, end = [], "", 0, -1
+    for t in kiwi.tokenize(question or ""):
+        if t.tag in _TOPIC_NOUN_TAGS and (not cur or t.start == end):
+            cur += t.form
+            morphs += 1
+            end = t.start + t.len
+            continue
+        if len(cur) >= 2 and morphs <= _TOPIC_MAX_MORPH:
+            out.append(cur)
+        cur, morphs, end = "", 0, -1
+        if t.tag in _TOPIC_NOUN_TAGS:      # 새 연쇄의 시작(공백으로 끊긴 경우)
+            cur, morphs, end = t.form, 1, t.start + t.len
+    if len(cur) >= 2 and morphs <= _TOPIC_MAX_MORPH:
+        out.append(cur)
+    seen, res = set(), []
+    for w in out:
+        if w not in seen:
+            seen.add(w)
+            res.append(w)
+    return res
 
 
 def _corpus_text() -> str:
@@ -938,33 +999,40 @@ def _corpus_text() -> str:
     return _state["corpus_text"]
 
 
+def topic_absence_missing(question: str, context: str) -> list:
+    """질문 명사 중 코퍼스에도 회수 근거에도 없는 것들(부재 후보). 판정 불가면 []."""
+    corpus = _corpus_text()
+    if not corpus:
+        return []                         # 구축 실패 시 판정 불가 — 조용히 통과(무해)
+    ctx = (context or "").replace(" ", "")
+    # ⚠ 시도했다가 **철회**한 조건: '어간(앞 2음절)도 부재'. 활용형 오탐은 걷어냈지만 표적까지
+    #   죽였다 — '명상실'→'명상', '충전기'→'충전'이 코퍼스에 있어 부재 판정이 뒤집힌다
+    #   (2026-08-14 실측). 어간 휴리스틱은 이 코퍼스에서 무효 — 형태소 분석기가 정답이었다.
+    return [w for w in _topic_nouns(question)[:20]
+            if w not in corpus and w not in ctx]
+
+
 def topic_absence_note(question: str, answer: str, context: str) -> str:
-    """질문 대상이 코퍼스에 아예 없는데 답변이 단정하면 경고문 반환(이상 없으면 "")."""
+    """질문 대상이 코퍼스에 없는데 답변이 **자기모순으로** 단정하면 경고문 반환(이상 없으면 "").
+
+    발동 조건 2개(둘 다 필요 — 단독 조건의 정밀도는 각각 17%·10%로 배포 불가, 위 주석 ⓑⓒ):
+      ① 질문의 명사가 코퍼스 전문·회수 근거 어디에도 없다(형태소 분석 기반)
+      ② 답변 **본문**엔 거부 표현이 있는데 **결론부**는 단정한다(모델 스스로 주저한 흔적)
+    """
     if not TOPIC_GATE or not (answer or "").strip():
         return ""
     try:
-        corpus = _corpus_text()
-        if not corpus:
-            return ""                     # 구축 실패 시 판정 불가 — 조용히 통과(무해)
-        ctx = (context or "").replace(" ", "")
-        missing = []
-        for raw in _HANGUL_WORD.findall(question or "")[:20]:
-            if _VERBAL.search(raw):       # 용언·어미 어절은 명사 후보 아님
-                continue
-            w = _strip_josa(raw)
-            if len(w) < 3 or w in missing or _VERBAL.search(w):
-                continue
-            # 코퍼스 전문에 부분문자열로도 부재 + 회수 근거에도 부재.
-            # ⚠ 시도했다가 **철회**한 조건: 'w[:2](어간)도 부재'. 활용형 오탐("집행하려는데")은
-            #   걷어냈지만 표적까지 죽였다 — '명상실'→'명상', '충전기'→'충전'이 코퍼스에 있어
-            #   부재 판정이 뒤집혔다(2026-08-14 실측). 어간 휴리스틱은 이 코퍼스에서 무효.
-            if w not in corpus and w not in ctx:
-                missing.append(w)
-        if not missing:
-            return ""
-        # 답변이 이미 '확인되지 않는다'고 했으면 경고 불필요(정직한 거부 — 중복 경보 금지)
         import refusal_detect
+        # 답변이 결론부터 '확인되지 않는다'고 했으면 경고 불필요(정직한 거부 — 중복 경보 금지).
         if refusal_detect.is_refusal(answer):
+            return ""
+        # 조건② — 본문 어딘가엔 거부 표현이 있어야 한다. 이 교집합이 정밀도를 17.1%→48.0%로
+        #   끌어올린 실측 조건이다(2026-08-18, 8,216문항). 본문에도 주저가 없는 '완전 단정'은
+        #   더 위험하지만 부재 판정만으로는 어휘 변형과 구분되지 않아 여기서 잡지 않는다.
+        if not refusal_detect.is_refusal_anywhere(answer):
+            return ""
+        missing = topic_absence_missing(question, context)
+        if not missing:
             return ""
         return (f"⚠️ **근거 밖 주제** — 질문의 '{missing[0]}'은(는) 검색된 규정·문서에 나오지 "
                 "않습니다. 위 답변은 유사한 다른 규정을 참고한 것이므로 그대로 적용된다고 "
@@ -2168,4 +2236,12 @@ def warmup():
             _reranker().predict([("워밍업", "워밍업 청크")])
         except Exception as e:  # noqa: BLE001
             print(f"⚠ 리랭커 워밍업 실패(런타임에 밀집 강등): {e}")
+    if TOPIC_GATE:
+        # 주제 부재 게이트는 첫 발동 때 컬렉션 전문(≈2MB)을 끌어온다 — 기동 시 미리 채워
+        # 첫 사용자 질문이 그 비용을 물지 않게 한다(형태소 분석기 로드도 여기서).
+        try:
+            _corpus_text()
+            _topic_nouns("워밍업 질문")
+        except Exception as e:  # noqa: BLE001
+            print(f"⚠ 주제 게이트 워밍업 실패(런타임에 무음 강등): {e}")
     keepalive_once()

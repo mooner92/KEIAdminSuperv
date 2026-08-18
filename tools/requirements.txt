@@ -35,3 +35,7 @@ python-multipart  # P3 업로드(FastAPI File) — v1.1 docs/20
 datasets>=5.0
 accelerate>=1.0
 mlflow  # 실험추적(specs/10) — sqlite 백엔드, eval/mlflow_log.py
+
+# 8) 주제 부재 게이트(rag_core.topic_absence_note, docs/71 G1) — 온프레미스 형태소 분석
+# ⚠ 없으면 게이트가 조용히 꺼진다(정규식 명사추출 폴백 없음 — 2026-08-14 기각된 경로).
+kiwipiepy>=0.20    # 한국어 명사 추출(NNG/NNP 연쇄 = 복합명사). 모델 포함, 네트워크 불필요

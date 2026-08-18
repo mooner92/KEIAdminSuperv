@@ -162,7 +162,11 @@ def _send(text: str, timeout: float = 5.0) -> bool:
     token = _token()
     if not token:
         return False
-    body = json.dumps({"channel": _channel(), "text": text}).encode("utf-8")
+    # ⛔ 링크 미리보기 끔(2026-08-18): 런북 링크의 GitHub OG 이미지는 사내망에서
+    #   opengraph.githubassets.com을 못 불러와 **깨진 이미지**로 뜬다(텍스트만 정상).
+    #   알림에 부가가치도 없고 3줄 형식(docs/66 §7)을 어지럽히므로 unfurl을 끈다.
+    body = json.dumps({"channel": _channel(), "text": text,
+                       "unfurl_links": False, "unfurl_media": False}).encode("utf-8")
     req = urllib.request.Request(  # noqa: S310 — 고정 https(API_BASE)
         f"{API_BASE}/chat.postMessage", data=body,
         headers={"Content-Type": "application/json; charset=utf-8",
