@@ -3,7 +3,7 @@
 
 ⛔ 원칙(docs/58 §6d와 동일): 골든 퇴출·교체 **확정은 사람만** 한다. 이 도구는
    ⓐ --list  : 채점이 막힌 문항(골든품질·판정불가 이력 + golden_suspect)을 빈도순으로 나열
-   ⓑ --retire <hash> --why "..."      : 사람이 결정한 퇴출을 은행에 기록(상태=retired)
+   ⓑ --retire <hash> --why "..."      : 사람이 결정한 퇴출을 은행에 기록(상태=retire)
    ⓒ --regolden <hash> "새 골든 문장"  : 사람이 고른 원문 한 문장으로 교체
    자동 판단으로 은행을 고치는 경로는 없다 — 채점기가 어려워하는 문항부터 지우면
    자기 채점 조작이 된다.
@@ -77,7 +77,11 @@ def mutate(args) -> int:
         if not args.why:
             print("⛔ --why '사유' 필수 — 퇴출 근거 없는 퇴출은 기록이 아니다")
             return 1
-        q["상태"] = "retire"  # ⚠ "retired" 금지 — 소비자 8곳(daily_gen·daily_grade 등)은 전부 "retire"를 검사한다(specs/16 W1-A)
+        # ⚠ 과거형(…d)으로 쓰지 말 것 — 소비자 8곳(daily_gen·daily_grade 등)이 전부 "retire"를
+        #   검사한다(specs/16 W1-A). test_refusal_cause가 소스를 grep해 이 규약을 지킨다.
+        #   ⛔ 그 회귀는 **문자열 리터럴**을 찾으므로 주석에도 과거형을 적으면 안 된다
+        #      (2026-08-19 실측: 이 줄의 경고 문구 자체가 회귀를 깨뜨리고 있었다).
+        q["상태"] = "retire"
         q["retire_사유"] = args.why
         q["retire_일자"] = time.strftime("%Y-%m-%d")
         print(f"퇴출: {q['질문'][:50]} — {args.why}")

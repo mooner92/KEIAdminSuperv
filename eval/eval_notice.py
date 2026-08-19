@@ -111,6 +111,15 @@ def _report_line(date: str) -> str:
     except Exception:  # noqa: BLE001
         return ""
     bits = []
+    # 만성 분해(2026-08-19) — 재시험 한 숫자만 보면 '오늘 새로 깨진 것'과 '몇 주째 같은 부채'가
+    # 섞여 보인다. ⛔ 급락 판정(아래 SEV2)은 여전히 **재시험 원지표**로 한다: 만성제외 계열로
+    # 바꾸면 분모가 작아져 오경보가 는다(그림자 재집계 최근 10회차 최대 낙폭 7.0%p → 13.5%p).
+    ct = a.get("만성트랙") or {}
+    if (ct.get("만성") or {}).get("문항수"):
+        bits.append(f"만성제외 재시험 {ct['재시험_만성제외'].get('정답률')}%"
+                    f"(만성 {ct['만성']['문항수']}건 별도)")
+        if (ct.get("신규회귀") or {}).get("건수"):
+            bits.append(f"새로깨짐 {ct['신규회귀']['건수']}건")
     if a.get("어휘갭"):
         bits.append(f"어휘갭 {a['어휘갭'].get('정답률차')}%p")
     if a.get("수술대기") is not None:
