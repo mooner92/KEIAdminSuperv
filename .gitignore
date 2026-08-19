@@ -199,3 +199,5 @@ web/lab-assets/
 # MLflow 파일 스토어(specs/10) — artifact에 질문·답변 본문 포함. ⛔ 커밋 금지.
 eval/mlruns/
 eval/mlflow.db
+eval/question_bank.jsonl.bak-*
+web/gifgen/
