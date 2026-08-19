@@ -53,6 +53,7 @@ export default function Layout({
   const changelogOn = useFlag("changelog");
   const approvalNav = useFlag("approval_finder");
   const travelNav = useFlag("travel_calc"); // docs/72 P1: 여비 계산기
+  const gianNav = useFlag("gian_helper");   // docs/72 P4: 기안 도우미
   const helpHub = useFlag("help_hub");
   const eventsOn = useFlag("events_tab");
   const landingOn = useFlag("landing_page");
@@ -199,6 +200,7 @@ export default function Layout({
             {eventsOn ? <Link href="/calendar/" className={nav("/calendar")}><IconCalendar size={17} /><span>업무 캘린더</span></Link> : null}
             {approvalNav ? <Link href="/approval/" className={nav("/approval")}><IconCheck size={17} /><span>결재선 판정기</span></Link> : null}
             {travelNav ? <Link href="/travel/" className={nav("/travel")}><IconCalendar size={17} /><span>여비 계산기</span></Link> : null}
+            {gianNav ? <Link href="/gian/" className={nav("/gian")}><IconDoc size={17} /><span>기안 도우미</span></Link> : null}
             <Link href="/help/" className={nav("/help")} onClick={closeHelp} aria-pressed={onHelp}>
               <IconDoc size={17} /><span>{onHelp ? "도움말 닫기" : "도움말"}</span>
             </Link>
