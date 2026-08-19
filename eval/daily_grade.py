@@ -18,7 +18,8 @@ import sys
 
 import axes  # 결정적 축 채점(specs/07 B)
 import scenarios  # 복합 시나리오 채점(specs/07 A)
-from daily_common import DAILY_DIR, ROOT, chroma_col, llm_json, load_bank, norm_q, save_bank
+from daily_common import (CHRONIC_STREAK, DAILY_DIR, ROOT, chroma_col, chronic_of, llm_json,
+                          load_bank, norm_q, prev_verdict, save_bank)
 
 sys.path.insert(0, str(ROOT / "tools"))
 from refusal_detect import is_refusal  # 단일 정본(specs/01 P0) — 결론부 스코프+부정형 한정(T9)
@@ -284,6 +285,10 @@ def main() -> int:
         #   그래서 합산 정답률의 일별 비교(80.7→91.2)는 대부분 표본 구성이고, 개선 여부를
         #   말해주지 못한다. 코호트를 나누면 재시험분에서 오답 7→1이 깨끗하게 보인다.
         r["코호트"] = cohort_of(b)
+        # ⛔ 코호트 값은 그대로 둔다(재시험·신규 2종) — 만성은 **직교 축**의 별도 필드다.
+        #    코호트에 '만성'을 세 번째 값으로 끼우면 과거 파일과 비교가 끊긴다(Wave 규약).
+        r["만성"] = chronic_of(b)
+        r["직전판정"] = prev_verdict(b)
         r["실패유형"] = classify_failure(r)
         if not b:
             continue
@@ -317,13 +322,31 @@ def main() -> int:
     코호트별 = {n: _acc([r for r in results if r.get("코호트") == n]) for n in ("재시험", "신규")}
     실패유형별 = dict(Counter(r["실패유형"] for r in results if r.get("실패유형")))
 
+    # ── 만성 분해 — 재시험을 '오늘 새로 깨진 것' vs '묵은 부채'로 가른다 ──
+    #    ⛔ 합산 `정답률`·`코호트별`은 손대지 않는다(과거 일자와 비교 가능해야 한다).
+    재시험 = [r for r in results if r.get("코호트") == "재시험"]
+    만성 = [r for r in 재시험 if r.get("만성")]
+    급성 = [r for r in 재시험 if not r.get("만성")]
+    # 신규회귀 = 직전 회차엔 맞혔는데 오늘 틀린 것 = **오늘 새로 깨진 것**의 직답.
+    #   분모(직전정답)를 함께 낸다 — 건수만 보면 표본 크기에 속는다.
+    직전정답 = [r for r in 재시험 if r.get("직전판정") == "정답"]
+    새로깨짐 = [r for r in 직전정답 if r["판정"] not in ("정답", "폐기", "판정불가")]
+    만성트랙 = {"기준": f"직전까지 연속 미정답 {CHRONIC_STREAK}회 이상",
+                "만성": _acc(만성), "재시험_만성제외": _acc(급성),
+                "신규회귀": {"건수": len(새로깨짐), "분모_직전정답": len(직전정답),
+                          "비율": round(100 * len(새로깨짐) / len(직전정답), 1) if 직전정답 else None}}
+
     out = DAILY_DIR / f"{args.date}.graded.json"
     out.write_text(json.dumps({"date": args.date, "정답률": acc, "집계": dict(cnt),
-                               "코호트별": 코호트별, "실패유형별": 실패유형별,
+                               "코호트별": 코호트별, "만성트랙": 만성트랙, "실패유형별": 실패유형별,
                                "문항": results}, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"\n정답률 {acc}% — {dict(cnt)} → {out}")
     for n, v in 코호트별.items():
         print(f"  · {n}: {v['정답률']}% ({v['문항수']}건) {v['집계']}")
+    print(f"  · └만성제외 재시험: {만성트랙['재시험_만성제외']['정답률']}% "
+          f"({만성트랙['재시험_만성제외']['문항수']}건) · 만성 {만성트랙['만성']['정답률']}% "
+          f"({만성트랙['만성']['문항수']}건) · 신규회귀 {만성트랙['신규회귀']['건수']}"
+          f"/{만성트랙['신규회귀']['분모_직전정답']}")
     print(f"  · 실패유형: {실패유형별}")
     return 0
 

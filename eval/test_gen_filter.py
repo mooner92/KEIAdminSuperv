@@ -11,7 +11,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from gen_filter import (PARA_MAX_OVERLAP, content_words, doc_overlap,  # noqa: E402
-                        paraphrase, question_defects)
+                        golden_defects, paraphrase, question_defects)
+from daily_common import chunk_unanswerable  # noqa: E402  출제 후보 청크 게이트(순수 함수)
 
 
 def test_real_defects_rejected():
@@ -87,6 +88,133 @@ def test_ending_rules():
     assert "종결어미" in question_defects("연차휴가 신청 절차를 정리한 평서문이다")
     assert not question_defects("연차휴가 며칠까지 쓸 수 있나요?")
     assert not question_defects("초과근무 수당 신청 방법 좀 알려주세요.")
+
+
+# ───────── 출제 지시문 누출(2026-08-15 실측) ─────────
+def test_prompt_leak_rejected():
+    """출제 LLM이 **자기가 받은 지시를 그대로 뱉은** 문항 — 은행 전수에서 실제로 발견됐다.
+    이 문장은 '요'로 끝나 종결어미 게이트를 통과했고 지시어·한자·파편도 없어 전부 빠져나갔다.
+    시험 문제 자리에 출제 지시문이 앉으면 서비스가 무엇을 하든 오답이다(순수한 점수 오염)."""
+    real = "탕비실 커피머리 보습을 위한 자연스러운 질문 1개 만들어주세요."
+    assert "출제지시누출" in question_defects(real), question_defects(real)
+    for q in ["다음 주제로 질문을 만들어 JSON으로 출력하세요.",
+              "주제: 출장비 정산에 대해 자연스러운 문항 1개 생성해주세요.",
+              '{"질문": "연차 신청은 어떻게 하나요?"} 형식으로 출력하라']:
+        assert "출제지시누출" in question_defects(q), q
+
+
+def test_prompt_leak_spares_polite_requests():
+    """⛔ 오탐 방지선 — 은행의 정상 문항 132건이 '알려주세요'로 끝난다.
+    '만들어/생성해 주세요'만 물고 '알려/설명해 주세요'는 건드리면 안 된다."""
+    for q in ["초과근무 수당 신청 방법 좀 알려주세요.",
+              "규정상 '전자이미지서명'의 정의를 알려주세요.",
+              "출장 여비 계산 기준을 설명해주세요."]:
+        assert "출제지시누출" not in question_defects(q), q
+
+
+# ───────── 기대 정답(골든) 결함 사전 ─────────
+# ⛔ 픽스처 주의: 골든은 원래 볼트 verbatim이라 여기서는 **구조만 같은 합성 문자열**을 쓴다
+#    (이 레포는 코드 전용 — 위 _SRC 주석과 같은 원칙). golden_defects는 순수 형태 함수라
+#    합성 픽스처로도 계약이 그대로 검증된다.
+def test_golden_label_rejected():
+    """골든이 '답이 담긴 한 문장'이 아니면 무슨 답을 해도 대조가 안 된다.
+    실측 계기: 질문 '퇴직하면 정산 절차가 어떻게 되나요?' / 골든 '#### (공통)…행사'."""
+    for g, code in [("#### (공통)국내외교류협력및행사", "제목줄"),
+                    ("## 제3절 보존기간", "제목줄"),
+                    ("(담당)대정부자료수발관리", "괄호라벨"),
+                    ("화면에 확인되는 컬럼:", "콜론종결"),
+                    ("- 성명 : - 생년월일 :", "콜론종결"),
+                    ("| 기능정리 2 | 기능정리_2_GEN.md | 일반·총무 |", "파일명")]:
+        assert code in golden_defects(g), (g, golden_defects(g))
+    assert golden_defects("") == ["골든없음"]
+
+
+def test_buchik_golden_rejected():
+    """부칙(시행일·경과조치)이 골든인데 질문은 업무를 묻는다 = 무엇을 답해도 대조가 안 된다.
+    실측(2026-08-17 · 은행 7,014 · 채점 8,400여): 이 조합 5건의 판정은 폐기 3·판정불가 1·오답 1,
+    정답 0(기저 폐기율 4.5% · Fisher p=0.00085). 아래 질문·골든은 은행 실측 발췌."""
+    cases = [
+        ("제가 복귀했는데 서류가 반려되었는데 왜 안 되나요?",
+         "이 규정 시행 전에 처리된 사항에 대하여는 이 규정에 의한 것으로 본다."),
+        ("특근매식비를 신청하려면 어떤 절차로 해야 하나요?",
+         "이 규칙은 2025년 12월 22일부터 시행한다."),
+        ("휴가 다녀오고 나서 관련 규칙이 달라졌나요?",
+         "이 규정 시행 전에 처리된 사항에 대하여는 이 규정에 의한 것으로 본다."),
+    ]
+    for q, g in cases:
+        assert "부칙골든" in question_defects(q, g), (q, question_defects(q, g))
+
+
+def test_buchik_golden_spares_timepoint_questions():
+    """⛔ 부칙 골든을 통째로 막지 않는다 — **시점을 묻는 질문에는 부칙이 정답**이다.
+    실측: 부칙 골든 중 시점 질문 12건은 미정답 0/11(폐기 8.3% · p=0.42)로 기저와 다르지 않았다.
+    여기서 막으면 잘 맞히는 문항 12건이 죽는다(자기 채점 조작)."""
+    ok = [
+        ("직인을 찍어야 하는 규칙이 오늘부터 시작되는 건가요?",
+         "이 규정은 2023 년 11 월 27 일 부터 시행한다."),
+        ("원칙적으로 퇴직금 규정은 언제부터 적용되나요?",
+         "이 규정은 2023 년 12 월 27 일 부터 시행한다."),
+        ("휴가에서 복귀했는데 적용되는 규정이 바뀌었나요?",
+         "이 규정 시행 전에 처리된 사항에 대하여는 이 규정에 의한 것으로 본다."),
+        ("규정부터 얼마나 지나서 들어온 사람도 내일부터 신청할 수 있나요?",
+         "이 규정은 2023년 12월 18부터 시행한다."),
+    ]
+    for q, g in ok:
+        assert "부칙골든" not in question_defects(q, g), (q, question_defects(q, g))
+
+
+def test_golden_amendment_history_kept():
+    """⛔ **개정 이력 골든은 일부러 살린다** — 가설이 측정으로 기각됐다(2026-08-17).
+    `<개정 …>` 포함 골든 52문항·62출제의 폐기율 1.6%·미정답률 7.3%로 기저(4.5%·10.3%)보다
+    **낮다**. 서식 머리표는 '어느 서식이냐'를 묻는 질문의 정답으로 실제 작동한다."""
+    for g in ["[별지 제15호 서식]<개정 2002. 12. 30., 2007. 7. 2., 2010. 6. 29.> 직원평가 총괄표",
+              "<개정 2023. 11. 27.>"]:
+        assert not golden_defects(g), (g, golden_defects(g))
+    q = "겸직 승인이 됐거든요, 평가서 같은 거 어디에서 신청해요?"
+    g = "[별지 제15호 서식]<개정 2002. 12. 30., 2007. 7. 2., 2010. 6. 29.> 직원평가 총괄표"
+    assert not question_defects(q, g), question_defects(q, g)
+
+
+def test_golden_keeps_table_rows():
+    """⛔ **표 행 골든은 일부러 살린다** — 측정이 직관을 기각했다(2026-08-15).
+    파이프표 골든 159건의 미정답률은 14%로 기저(15%)와 같았고 136건이 정답이었다.
+    여기서 표를 막으면 정상 문항을 대량으로 죽인다."""
+    for g in ["| 200만원 이하 | 전결권자 실･팀장 |",
+              "| 구분 | 지급액 | 비고 |  200만원 |",
+              "출장자는 출장 종료 후 15일 이내에 출장복명서를 제출하여야 한다."]:
+        assert not golden_defects(g), (g, golden_defects(g))
+
+
+# ───────── 출제 후보 청크 게이트 ─────────
+# ⛔ 픽스처는 **구조만** 재현한 합성 문서다(데이터 분리 원칙). 게이트는 줄 길이·비율만 보는
+#    순수 함수라 형태가 같으면 계약이 검증된다.
+def test_chunk_gate_rejects_conversion_debris():
+    """세로쓰기 PDF 잔해·목차 쪽번호는 '문답 가능한 지식'이 아니다(실측 미정답률 22.6%)."""
+    vertical = "\n".join(list("출판물발간절차부록") + ["2024", "99", "01"])
+    assert "문자파편" in chunk_unanswerable(vertical), chunk_unanswerable(vertical)
+    columns = "* 컬럼:\n" + "\n".join(f"  * {n}" for n in
+                                      ["No", "선택", "상태", "성명", "소속", "직위", "역할"])
+    assert "라벨나열" in chunk_unanswerable(columns), chunk_unanswerable(columns)
+    build = "\n".join(["| 원본 | 파일명 | 모듈 |",
+                       "| 기능정리 1 | 기능정리1.md | 회계 |",
+                       "| 기능정리 2 | 기능정리2.md | 총무 |"])
+    assert "적재산출물" in chunk_unanswerable(build), chunk_unanswerable(build)
+    assert chunk_unanswerable("") == ["빈청크"]
+
+
+def test_chunk_gate_spares_normal_prose_and_gaejosik():
+    """⛔ 이 코퍼스는 **개조식이 정상**이다(가이드·시스템 문서).
+    '서술어로 끝나야 한다'는 과거 철회된 게이트 — 표·라벨 밀도로도 개조식을 죽이면 안 된다.
+    실측 제외율: regulation 0.1% · term 0%(규정 원문은 사실상 무손실)."""
+    gaejosik = ("- 미준수시 1일 3점씩 감점\n"
+                "- 연 15일의 유급휴가 부여\n"
+                "- 초과근무는 사전 승인 후 인정\n"
+                "- 부서장 전결로 처리한다")
+    assert not chunk_unanswerable(gaejosik), chunk_unanswerable(gaejosik)
+    table_with_prose = ("| 구분 | 지급액 |\n| --- | --- |\n| 국내출장 | 20,000원 |\n"
+                        "출장자는 출장 종료 후 15일 이내에 출장복명서를 제출하여야 한다.\n"
+                        "여비는 별표 2의 기준에 따라 지급하며 부서장이 승인한다.")
+    assert not chunk_unanswerable(table_with_prose), chunk_unanswerable(table_with_prose)
 
 
 # ───────── 일상어 패러프레이즈(specs/11 A1) ─────────

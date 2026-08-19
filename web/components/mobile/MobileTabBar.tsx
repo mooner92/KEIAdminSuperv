@@ -19,7 +19,7 @@ export const MOBILE_TABS: MobileTab[] = [
   { key: "browse", icon: "📚", label: "문서", href: "/browse/", match: ["/browse", "/d/"] },
   {
     key: "more", icon: "☰", label: "더보기", href: "/now/",
-    match: ["/now", "/graph", "/calendar", "/forms", "/approval", "/journey", "/travel",
+    match: ["/now", "/graph", "/calendar", "/forms", "/approval", "/journey", "/travel", "/gian",
       "/changelog", "/feedback", "/help", "/about", "/admin"],
   },
 ];

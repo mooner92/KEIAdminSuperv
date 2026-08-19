@@ -496,6 +496,18 @@ FLAG_REGISTRY: dict = {
         "owner": "platform",
         "expires": "2026-10-31",
     },
+    "gian_helper": {
+        "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
+        "description": "기안 도우미(docs/72 P4) — 결재선 질문의 나머지 절반('어떻게 쓰지·뭘 첨부·기록물철·"
+                       "협조냐 결재냐')에 답하는 전용 화면 /gian + 업무 도구 허브·보조 메뉴 진입. 업무군 5종을 "
+                       "고르면 ⓐ문서종류 ⓑ첨부(**권장** 라벨 — 규정이 아니라 시스템 노트 서술) ⓒ기록물철 후보"
+                       "(공통 ZA 코드·보존기간·근거 문장) ⓓ결재선 역할 7종(문서관리규정 제26·27·29·30조 조인) "
+                       "ⓔ관련 전결권자(위임전결 별표)를 한 화면에. 데이터=tools/index/gian_map.json"
+                       "(01r_gian_map.py, 결정적·LLM 0회). ⛔ 창작 0 — 첨부는 '권장', 기록물철은 '후보', "
+                       "근거 못 찾은 자리는 '원문 확인'. 프론트 표시 전용(빌드타임 로드)·재임베딩 불필요.",
+        "owner": "platform",
+        "expires": "2026-11-30",
+    },
     "feedback_center": {
         "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
         "description": "의견 보내기(docs/51) — 콘텐츠·서비스 능동 제보: /feedback 페이지(폼+내 제보 내역) + "
@@ -1281,6 +1293,7 @@ def _reindex_worker(vault: str):
             ("01m_deadlines.py", ["--vault", vault]),
             ("01n_approval.py", ["--vault", vault]),
             ("01k2_journey_freshness.py", ["--vault", vault]),  # article_status 소비 — 01k 다음
+            ("01r_gian_map.py", ["--vault", vault]),            # approval.json 소비 — 01n 다음
             ("01o_table_integrity.py", ["--vault", vault]),
         ]
         n_ok = 0

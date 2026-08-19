@@ -1,0 +1,71 @@
+/* 기안 도우미 — 업무 선택·안내 블록 전용 스타일.
+   ⛔ 목록·행 스타일은 공용 스킨(common/ResultRow + BrowseUI.module.css)만 쓴다(사본 금지).
+   여기 있는 것은 여비 계산기(Travel.module.css)와 같은 계열의 '컨트롤·근거·면책'뿐이다. */
+
+/* 업무군 선택 — 항목이 5개라 pill을 줄바꿈 허용으로 편다 */
+.picker { display: flex; flex-wrap: wrap; gap: 8px; }
+.pick {
+  border: 1px solid var(--color-border-strong); background: var(--color-surface);
+  color: var(--color-text); border-radius: 999px; padding: 7px 15px;
+  font-size: 13.5px; font-weight: 700; cursor: pointer;
+}
+.pick:hover { border-color: var(--color-primary); color: var(--color-primary-strong); }
+.pickOn { background: var(--color-primary); border-color: var(--color-primary); color: var(--color-on-primary, #fff); }
+.pickOn:hover { color: var(--color-on-primary, #fff); }
+
+/* 값 나열(문서종류·확인사항) */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 0; padding: 0; list-style: none; }
+.chip {
+  border: 1px solid var(--color-border); background: var(--color-bg-subtle);
+  border-radius: 8px; padding: 4px 10px; font-size: 13px; color: var(--color-text);
+}
+
+/* 근거·주석 */
+.src { font-size: 12px; line-height: 1.55; color: var(--color-text-secondary); }
+.src b { color: var(--color-text); }
+.notes { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.note {
+  font-size: 12.5px; line-height: 1.6; color: var(--color-text-secondary);
+  border-left: 2px solid var(--color-border-strong); padding-left: 9px;
+}
+.note b { color: var(--color-text); }
+
+/* 결재선 역할 카드 */
+.roles {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px;
+  list-style: none; margin: 0; padding: 0;   /* 카드 자체에 불릿 점이 찍히던 실측 결함 */
+}
+.role { border: 1px solid var(--color-border); border-radius: 12px; padding: 11px 13px; background: var(--color-surface); }
+.roleName { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 800; color: var(--color-text); }
+.roleDesc { margin: 6px 0 0; padding-left: 16px; font-size: 12.5px; line-height: 1.6; color: var(--color-text-secondary); }
+.roleSrc { margin-top: 7px; font-size: 11.5px; line-height: 1.5; color: var(--color-text-secondary); }
+.roleSrc b { color: var(--color-text); }
+.roleNone { color: var(--color-danger, #c0392b); font-weight: 700; }
+
+/* '권장' 같은 비단정 라벨 */
+.soft {
+  border: 1px solid var(--color-border-strong); border-radius: 999px;
+  padding: 1px 8px; font-size: 11.5px; font-weight: 700; color: var(--color-text-secondary);
+}
+
+/* 경고 박스(일상감사 기준 등) */
+.callout {
+  margin-top: 4px; padding: 11px 13px; border-radius: 10px;
+  border: 1px solid var(--color-primary); background: var(--color-primary-weak);
+  font-size: 13px; line-height: 1.6; color: var(--color-text);
+}
+.callout b { font-weight: 800; }
+
+.disclaimer {
+  margin-top: 14px; padding: 11px 13px; border-radius: 10px;
+  border: 1px solid var(--color-border); background: var(--color-bg-subtle);
+  font-size: 12.5px; line-height: 1.65; color: var(--color-text-secondary);
+}
+.disclaimer b { color: var(--color-text); }
+
+/* 전결 목록 필터 */
+.filter { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--color-text-secondary); }
+.sel {
+  border: 1px solid var(--color-border-strong); border-radius: 8px; padding: 4px 8px;
+  background: var(--color-surface); color: var(--color-text); font-size: 13px; color-scheme: light dark;
+}

@@ -123,6 +123,61 @@ def test_evidence_unfit_is_surgery_not_search_failure():
         assert "근거부적합 1건" in acts and "인덱스 귀속" in acts, acts
 
 
+def test_chronic_track_splits_retry_cohort():
+    """만성 분해(2026-08-19): 재시험 한 숫자에 섞인 '오늘 새로 깨진 것'과 '묵은 부채'를 가른다.
+
+    ⛔ 합산 정답률·코호트별은 건드리지 않는다 — 표시용 분해만 얹는다.
+    ⛔ 만성 판정은 그 회차 **시작 시점 이력**만 본다(look-ahead 금지).
+    """
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        R.DAILY = tmp
+        # 1~3회차: q1은 계속 오답(→ 4회차 시작 시점에 만성), q2는 계속 정답
+        for day in ("2026-02-01", "2026-02-02", "2026-02-03"):
+            _write(tmp, day, [dict(_q(1, "오답", "문서어", "생성환각"), 코호트="재시험"),
+                              dict(_q(2, "정답", "문서어"), 코호트="재시험")])
+        # 4회차: q1 여전히 오답(만성) · q2 처음 오답(= 오늘 새로 깨진 것)
+        _write(tmp, "2026-02-04", [dict(_q(1, "오답", "문서어", "생성환각"), 코호트="재시험"),
+                                   dict(_q(2, "오답", "문서어", "검색실패"), 코호트="재시험")])
+        a = R.analyze("2026-02-04")
+        ct = a["만성트랙"]
+        assert ct["만성"]["문항수"] == 1 and ct["만성"]["정답률"] == 0.0, ct["만성"]
+        assert ct["재시험_만성제외"]["문항수"] == 1, ct["재시험_만성제외"]
+        assert ct["신규회귀"] == {"건수": 1, "분모_직전정답": 1, "비율": 100.0}, ct["신규회귀"]
+        assert ct.get("그림자") is True                      # 과거 파일 재작성 없이 재구성
+        md = R.render_md(a)
+        assert "만성 제외 재시험" in md and "계속 출제한다" in md, md
+        acts = " / ".join(a["행동후보"])
+        assert "만성(고착 부채) 1건" in acts and "새로 깨진" in acts, acts
+
+
+def test_chronic_track_prefers_stored_over_shadow():
+    """daily_grade가 회차에 새겨둔 값이 있으면 그대로 쓴다 — 재계산으로 수치가 갈리면 안 된다."""
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        R.DAILY = tmp
+        items = [dict(_q(1, "오답", "문서어", "생성환각"), 코호트="재시험")]
+        (tmp / "2026-03-01.graded.json").write_text(json.dumps(
+            {"date": "2026-03-01", "정답률": 0.0, "집계": {}, "코호트별": {}, "실패유형별": {},
+             "만성트랙": {"기준": "고정값", "만성": {"문항수": 9, "정답률": 11.1},
+                       "재시험_만성제외": {"문항수": 1, "정답률": 0.0},
+                       "신규회귀": {"건수": 0, "분모_직전정답": 0, "비율": None}},
+             "문항": items}, ensure_ascii=False), encoding="utf-8")
+        ct = R.analyze("2026-03-01")["만성트랙"]
+        assert ct["만성"]["문항수"] == 9 and ct.get("그림자") is None, ct
+
+
+def test_chronic_absent_when_no_retry_cohort():
+    """만성이 0이면 리포트에 분해 섹션이 아예 안 뜬다 — 없는 부채를 만들어 보이지 않는다."""
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        R.DAILY = tmp
+        _write(tmp, "2026-04-01", [_q(1, "정답", "문서어"), _q(2, "정답", "일상어")])
+        a = R.analyze("2026-04-01")
+        assert a["만성트랙"]["만성"]["문항수"] == 0
+        assert "만성 제외 재시험" not in R.render_md(a)
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     bad = 0

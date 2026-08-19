@@ -14,9 +14,14 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from daily_common import CHRONIC_STREAK, chronic_of, prev_verdict  # noqa: E402
 from daily_grade import classify_failure, cohort_of, golden_suspect  # noqa: E402
 
 DAILY = Path(__file__).resolve().parent / "daily"
+
+
+def _hist(*verdicts):
+    return {"판정이력": [{"date": f"d{i}", "판정": v} for i, v in enumerate(verdicts)]}
 
 
 # ── ① 코호트 판정 ────────────────────────────────────────────────────────────────
@@ -107,6 +112,71 @@ def test_replay_sample_churn():
     wb = sum(1 for h in common if vb[h] == "오답")
     print(f"     공통(재시험) 오답: 29일 {wa}건 → 30일 {wb}건  ← 개선 신호")
     assert (wa, wb) == (7, 1), f"오답 7→1이어야 함(실측): {wa}→{wb}"
+
+
+# ── ⑤ 만성(고착 부채) 분리 — 2026-08-19 ───────────────────────────────────────────
+def test_chronic_needs_consecutive_streak():
+    """만성 = 직전까지 **연속** 미정답 3회 — 띄엄띄엄 틀린 건 만성이 아니다."""
+    assert CHRONIC_STREAK == 3
+    assert chronic_of(_hist("오답", "오답", "오답"))
+    assert chronic_of(_hist("정답", "정답", "오답", "오답", "오답", "검토필요"))
+    assert not chronic_of(_hist("오답", "오답"))                       # 아직 2회
+    assert not chronic_of(_hist("오답", "정답", "오답", "오답"))          # 연속 아님
+    assert not chronic_of(None) and not chronic_of({}) and not chronic_of(_hist())
+
+
+def test_chronic_graduates_on_one_correct():
+    """⚠ 낙인이 아니라 **현재 상태** — 정답 1회로 즉시 해제된다.
+    (해제되지 않으면 고친 문항이 계속 부채 칸에 남아 개선이 보이지 않는다)"""
+    assert not chronic_of(_hist("오답", "오답", "오답", "오답", "정답"))
+    assert prev_verdict(_hist("오답", "오답", "정답")) == "정답"
+    assert prev_verdict(_hist()) == ""
+
+
+def test_chronic_ignores_unscored_verdicts():
+    """폐기·판정불가는 채점이 성립하지 않은 것 — 부채로도 회복으로도 세지 않는다.
+    ⛔ 이걸 세면 시험지 결함이 서비스 부채로 둔갑한다(정답률 분모 규칙과 같은 철학)."""
+    assert chronic_of(_hist("오답", "폐기", "오답", "판정불가", "오답"))
+    assert not chronic_of(_hist("오답", "오답", "정답", "판정불가"))     # 마지막 유효 판정=정답
+
+
+def test_chronic_track_is_orthogonal_to_cohort():
+    """⛔ 코호트 값은 여전히 2종뿐 — 만성을 코호트의 세 번째 값으로 끼우면 과거 회차와
+    비교가 끊긴다(Wave 규약). 만성은 별도 축이다."""
+    b = _hist("오답", "오답", "오답")
+    assert cohort_of(b) == "재시험" and chronic_of(b) is True
+    assert cohort_of(None) == "신규" and chronic_of(None) is False
+
+
+def test_chronic_replay_is_debt_not_noise():
+    """실측 재생(2026-08-19) — 만성 트랙은 거의 순수 부채여야 분리가 의미를 가진다.
+
+    ⛔ 만성 판정은 그 회차 **시작 시점 이력**만 쓴다(look-ahead 금지). 나중 회차 결과로
+       과거의 만성 여부를 정하면 지표가 미래를 커닝한다.
+    """
+    files = sorted(DAILY.glob("*.graded.json"), key=lambda p: p.name)
+    if not files:
+        print("     skip: graded 파일 없음")
+        return
+    hist, seen = {}, None
+    for f in files:
+        items = json.loads(f.read_text(encoding="utf-8")).get("문항") or []
+        retry = [r for r in items if r.get("코호트") == "재시험"]
+        ch = [r for r in retry
+              if chronic_of({"판정이력": [{"판정": v} for v in hist.get(r["id"], [])]})]
+        if f.name.startswith("2026-08-19"):
+            ok = sum(1 for r in ch if r["판정"] == "정답")
+            seen = (len(ch), ok)
+        for r in items:
+            if r["판정"] not in ("폐기", "판정불가"):
+                hist.setdefault(r["id"], []).append(r["판정"])
+    if seen is None:
+        print("     skip: 2026-08-19 회차 없음")
+        return
+    n, ok = seen
+    print(f"     08-19 만성 {n}건 · 정답 {ok}건")
+    assert n == 7, f"만성 7건이어야 함(실측): {n}"
+    assert ok == 0, f"만성 트랙 정답 0건이어야 함(실측 — 순수 부채): {ok}"
 
 
 if __name__ == "__main__":

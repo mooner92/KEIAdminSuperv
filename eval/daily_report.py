@@ -20,11 +20,15 @@ import collections
 import datetime
 import json
 import pathlib
+import sys
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent
 DAILY = HERE / "daily"
 REPORTS = ROOT / "web" / "public" / "quality" / "reports"
+
+sys.path.insert(0, str(HERE))
+from daily_common import CHRONIC_STREAK, UNSCORED, chronic_of  # noqa: E402  만성 판정 단일 정본
 
 # 이 두 줄이 리포트의 뼈대다 — 무엇이 서비스 결함이고 무엇이 시험지 결함인가.
 # '근거부적합'(2026-08-06 신설) = 근거는 회수됐는데 거부 — 검색이 아니라 인덱스 귀속·골든·
@@ -42,6 +46,47 @@ def _rate(c: collections.Counter) -> float:
     문항을 분모에 넣으면 시험지 결함이 서비스 점수를 깎는다(측정 오염)."""
     scored = sum(c.values()) - c["폐기"] - c["판정불가"]
     return round(100 * c["정답"] / scored, 1) if scored else 0.0
+
+
+def _acc(rows: list) -> dict:
+    c = collections.Counter(r["판정"] for r in rows)
+    return {"문항수": len(rows), "정답률": _rate(c) if rows else None}
+
+
+def chronic_track(date: str, items: list, stored: dict | None = None) -> dict:
+    """재시험 코호트를 **①만성 제외 ②만성**으로 분해한다(+오늘 새로 깨진 것).
+
+    daily_grade가 회차에 새겨둔 `만성트랙`이 있으면 그대로 쓰고, 없으면(이 기능 이전에
+    채점된 회차) **그림자 재구성**한다 — 과거 회차 파일은 절대 재작성하지 않는다(전방 적용).
+    ⛔ 그림자 재구성도 그 회차 **시작 시점 이력**만 본다(look-ahead 금지) — 나중 회차의
+       결과로 과거의 만성 여부를 정하면 지표가 미래를 커닝한다.
+    """
+    if stored:
+        return stored
+    hist: dict = collections.defaultdict(list)
+    for f in sorted(DAILY.glob("*.graded.json"), key=lambda p: p.name):
+        name = f.name[: -len(".graded.json")]
+        rows = items if name == date else None
+        if rows is None:
+            try:
+                rows = json.loads(f.read_text(encoding="utf-8")).get("문항") or []
+            except Exception:  # noqa: BLE001 — 손상 파일이 리포트를 죽이면 안 된다
+                continue
+        if name == date:
+            break
+        for r in rows:
+            if r["판정"] not in UNSCORED:
+                hist[r["id"]].append(r["판정"])
+    retry = [r for r in items if r.get("코호트") == "재시험"]
+    chron = [r for r in retry if chronic_of({"판정이력": [{"판정": v} for v in hist.get(r["id"], [])]})]
+    ids = {id(r) for r in chron}
+    acute = [r for r in retry if id(r) not in ids]
+    prev_ok = [r for r in retry if hist.get(r["id"]) and hist[r["id"]][-1] == "정답"]
+    broke = [r for r in prev_ok if r["판정"] not in UNSCORED and r["판정"] != "정답"]
+    return {"기준": f"직전까지 연속 미정답 {CHRONIC_STREAK}회 이상", "그림자": True,
+            "만성": _acc(chron), "재시험_만성제외": _acc(acute),
+            "신규회귀": {"건수": len(broke), "분모_직전정답": len(prev_ok),
+                      "비율": round(100 * len(broke) / len(prev_ok), 1) if prev_ok else None}}
 
 
 def _prev_round(date: str) -> str:
@@ -115,14 +160,16 @@ def analyze(date: str) -> dict:
         "date": date, "문항수": len(items), "정답률": g.get("정답률"),
         "직전회차": prev, "직전정답률": prev_rate,
         "코호트별": g.get("코호트별") or {}, "실패유형별": g.get("실패유형별") or {},
+        "만성트랙": chronic_track(date, items, g.get("만성트랙")),
         "어휘층": layers, "어휘갭": gap, "짝불일치": pairs,
         "수술대기": surgery, "측정노이즈": dict(noise),
         "검색실패규정": by_reg.most_common(5), "약점주제": weak,
-        "행동후보": _actions(gap, surgery, noise, len(items), by_reg),
+        "행동후보": _actions(gap, surgery, noise, len(items), by_reg,
+                          chronic_track(date, items, g.get("만성트랙"))),
     }
 
 
-def _actions(gap, surgery, noise, n, by_reg) -> list:
+def _actions(gap, surgery, noise, n, by_reg, ct=None) -> list:
     """다음 행동 후보 — **규칙이** 만든다(LLM 아님). 같은 입력이면 같은 출력이어야 신뢰가 쌓인다.
     ⛔ 추측 금지: 각 항목에 근거 수치를 함께 적는다."""
     out = []
@@ -143,6 +190,15 @@ def _actions(gap, surgery, noise, n, by_reg) -> list:
         out.append(f"근거부적합 {len(unfit)}건 — 근거는 회수됐으나 기대 답이 없음. "
                    f"인덱스 귀속(defterms·clause_xref)·골든 출처·기능 배선 점검"
                    + (f" — 대상: {regs}" if regs else ""))
+    # 만성/급성 분해 — "오늘 새로 깨진 게 있나"(회귀)와 "묵은 부채가 얼마나 남았나"를 갈라 적는다.
+    # ⛔ 만성이 많다고 출제를 줄이라는 권고는 넣지 않는다(자기 채점 조작) — 규모만 보고한다.
+    if ct and (ct.get("만성") or {}).get("문항수"):
+        ch, ac, nr = ct["만성"], ct["재시험_만성제외"], ct["신규회귀"]
+        out.append(f"만성(고착 부채) {ch['문항수']}건 {ch['정답률']}% — 재시험 지표에서 분리해 읽을 것"
+                   f"(만성 제외 재시험 {ac['정답률']}% · {ac['문항수']}건). 기준: {ct['기준']}")
+        if nr.get("건수"):
+            out.append(f"오늘 새로 깨진 재시험 {nr['건수']}건"
+                       f"(직전 정답 {nr['분모_직전정답']}건 중 {nr['비율']}%) — 회귀 후보 우선 확인")
     nz = sum(noise.values())
     if n and nz / n >= 0.10:
         # ⚠ dict를 그대로 찍지 않는다 — 이 문장은 화면(게시판 카드)에도 그대로 나간다.
@@ -162,7 +218,9 @@ def render_md(a: dict) -> str:
     L += [f"**전체 {a['정답률']}%** · {a['문항수']}문항{delta}", ""]
 
     co = a["코호트별"]
-    if co:
+    ct = a.get("만성트랙") or {}
+    has_chronic = bool((ct.get("만성") or {}).get("문항수"))
+    if co or has_chronic:
         L.append("## 코호트")
         for k, v in co.items():
             L.append(f"- {k}: {v.get('정답률')}% ({v.get('문항수')}건)")
@@ -170,6 +228,20 @@ def render_md(a: dict) -> str:
         if "재시험" in co and "신규" in co:
             L.append("  · 재시험은 전에 틀린 문항만 모은 코호트라 낮게 나오는 것이 정상 — "
                      "볼 것은 **재시험의 추이**(오르면 개선된 것)")
+        # 재시험 분해(2026-08-19) — 한 숫자에 섞인 '회귀'와 '고착 부채'를 갈라 보여준다.
+        if has_chronic:
+            ch, ac, nr = ct["만성"], ct["재시험_만성제외"], ct["신규회귀"]
+            L += ["",
+                  f"**재시험 분해** ({ct['기준']}"
+                  + (" · 그림자 재집계" if ct.get("그림자") else "") + ")",
+                  f"- 만성 제외 재시험: **{ac['정답률']}%** ({ac['문항수']}건) "
+                  "← 오늘 새로 깨진 게 있는지 보는 자리",
+                  f"- 만성(고착 부채): {ch['정답률']}% ({ch['문항수']}건) "
+                  "← 어제와 달라진 게 없으면 이 숫자도 그대로다",
+                  f"- 오늘 새로 깨진 재시험: {nr['건수']}건 / 직전 정답 {nr['분모_직전정답']}건"
+                  + (f" ({nr['비율']}%)" if nr.get("비율") is not None else ""),
+                  "  · 만성 문항도 **계속 출제한다**(회귀 감시 가치 유지) — 분리는 지표를 읽기 "
+                  "위한 것이지 시험을 쉽게 만들려는 것이 아니다."]
         L.append("")
 
     if a["어휘층"]:
