@@ -92,6 +92,48 @@ def gen_refusal(seed: str, bank_grams: list) -> dict | None:
     return {"질문": q}
 
 
+# ── 골든 → 청크 재바인딩 선택자 (2026-08-20 실측 결함 수리) ─────────────────────────
+# ⛔ 예전 규칙은 "후보를 순회하다 2-그램 겹침 0.8 넘는 **첫 청크**에서 break"였다. 그 규칙이
+#    시험지를 자기모순으로 만든다 — **판별 토큰만 다른 이웃 청크**가 먼저 걸리기 때문이다.
+#    실측(dq-2026-08-16b-037p, 사이버위기대응실무매뉴얼):
+#      · 골든 = 「※ 모든 유지보수업체 담당자는 "심각" 단계에서는 비상대기 필수」
+#      · #679 = 「… "경계" 단계에서는 비상대기(유선, 상주) 필수 / 라. 심 각 * 경계 단계의 대응조치 지속」
+#        → 겹침 0.852 (≥0.8) · 정확포함 ✗  ← 재색인 후 id 순서상 먼저라 여기에 묶였다
+#      · #681 = 골든 문장 그대로                 겹침 1.000 · 정확포함 ✓  ← 진짜 근거
+#    묶이고 나면 채점기는 "골든은 심각이라는데 원문은 경계"를 보고 **답이 맞아도 오답**을 준다
+#    (재현: 답변 2종 × 재채점 13회 전부 오답 → 정확한 청크로 바꾸면 08-19 정답 5/5 복원).
+# 규칙: ① 정규화 **정확 포함**이 있으면 그것(값이 뒤집힌 이웃을 원천 차단) ② 없으면 겹침
+#       **최대**(첫 히트 아님) ③ 동점이면 **현행 유지**(재색인마다 흔들리지 않게).
+# ⚠ 이건 채점 정합성 수리이지 점수 지렛대가 아니다 — 오바인딩 355문항의 미정답률은 5.26%로
+#   기저 10.92%보다 오히려 **낮았다**(리프트 ×0.48). 고쳐도 합산 점수는 거의 안 움직인다.
+#   그게 정상이다(잘 맞히는 문항을 지우는 자기 채점 조작과 반대 방향).
+BIND_MIN_OVERLAP = 0.8
+
+
+def pick_chunk(golden: str, cands: list, ndocs: dict, current: str | None = None) -> str | None:
+    """골든 문장이 실제로 들어 있는 청크 id(없으면 None → 호출부가 stale 처리).
+
+    ndocs = {청크id: norm_q(문서)} — 호출부가 1회 배치 조회해 넘긴다(N+1 제거).
+    """
+    ng = norm_q(golden or "")
+    gg = {ng[i:i + 2] for i in range(len(ng) - 1)}
+    if not gg:
+        return None
+    exact = [c for c in cands if ng and ng in ndocs.get(c, "")]
+    if exact:
+        return current if current in exact else exact[0]
+    best, best_ov = None, -1.0
+    for c in cands:
+        ov = sum(1 for x in gg if x in ndocs.get(c, "")) / len(gg)
+        if ov > best_ov:
+            best, best_ov = c, ov
+    if best_ov < BIND_MIN_OVERLAP:
+        return None
+    if current in cands and best_ov - (sum(1 for x in gg if x in ndocs.get(current, "")) / len(gg)) < 1e-9:
+        return current   # 동점이면 흔들지 않는다
+    return best
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--date", default=datetime.date.today().isoformat())
@@ -109,10 +151,12 @@ def main() -> int:
         # ③ 조 소멸 → retire. stale은 회귀 풀 제외 + 재생성 대상 목록 출력.
         bank = load_bank()
         col = chroma_col()
-        got = col.get(include=["metadatas"])
+        got = col.get(include=["metadatas", "documents"])
         by_key: dict = {}
         for i, m in enumerate(got["metadatas"]):
             by_key.setdefault((m.get("규정명", ""), m.get("조", "")), []).append(got["ids"][i])
+        # 문서를 한 번에 들고 정규화해 둔다(후보마다 col.get 하던 N+1 제거 — 6천 청크 1회).
+        ndocs = {i: norm_q(d) for i, d in zip(got["ids"], got["documents"])}
         rebound = stale = retired = kept = 0
         stale_list = []
         for b in bank:
@@ -136,14 +180,7 @@ def main() -> int:
                 else:
                     kept += 1
                 continue
-            ng = norm_q(golden)
-            gg = {ng[i:i + 2] for i in range(len(ng) - 1)}
-            hit = None
-            for cid in cands:
-                doc = col.get(ids=[cid], include=["documents"])["documents"][0]
-                if sum(1 for x in gg if x in norm_q(doc)) / max(1, len(gg)) >= 0.8:
-                    hit = cid
-                    break
+            hit = pick_chunk(golden, cands, ndocs, src.get("청크id"))
             if hit:
                 if src.get("청크id") != hit:
                     src["청크id"] = hit

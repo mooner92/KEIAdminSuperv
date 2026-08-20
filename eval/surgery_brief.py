@@ -23,6 +23,14 @@ from daily_common import retrieved_expected
 HERE = Path(__file__).resolve().parent
 DAILY = HERE / "daily"
 SURGERY = ("검색실패", "생성환각", "근거부적합")   # daily_report.SURGERY와 동일(회귀가 대사)
+UNSCORED = ("폐기", "판정불가")
+# ⛔ **새로깨짐은 실패유형과 무관하게 반드시 싣는다**(2026-08-20 실측 결함).
+#   그날 새로깨짐 2건 중 **1건(183p)이 브리핑에 아예 없었다** — 실패유형이 '골든품질'이라
+#   수술대기 3종에 안 걸렸기 때문이다. 그런데 "어제까지 맞히던 게 오늘 깨졌다"는 이 시스템에서
+#   가장 우선순위 높은 신호다(만성 부채와 달리 **오늘 무언가 달라졌다**는 뜻). 분류가 뭐든
+#   세션이 봐야 한다 — 그래서 합집합으로 싣고 순서도 맨 앞으로 올린다.
+#   ⚠ `직전판정`은 만성 분해(2026-08-19) 이후 회차에만 있다 — 없으면 조용히 빈 집합이 된다
+#      (그림자 재구성은 여기서 하지 않는다. 정본은 daily_grade·daily_report이고 브리핑은 소비자).
 
 _CAP_ANSWER = 700   # 답변 인용 상한(원인 판단에 충분·문서 비대 방지)
 _CAP_GOLDEN = 400
@@ -49,6 +57,12 @@ def _srcs(q: dict) -> list[str]:
     return out
 
 
+def broke_today(q: dict) -> bool:
+    """직전 회차엔 맞혔는데 오늘 미정답 — '오늘 새로 깨진 것'(회귀 후보)."""
+    return (q.get("직전판정") == "정답" and q.get("판정") not in UNSCORED
+            and q.get("판정") != "정답")
+
+
 def _item_md(i: int, q: dict) -> str:
     src = q.get("출처") or {}
     expected = f"{src.get('규정명', '?')} {src.get('조', '')}".strip()
@@ -57,9 +71,12 @@ def _item_md(i: int, q: dict) -> str:
     question = "\n".join(f"  {t}" for t in turns) if turns else f"  {q.get('질문', '')}"
     answer = (q.get("답변") or "(빈 답변)")[:_CAP_ANSWER].replace("\n", "\n  > ")
     L = [
-        f"## {i}. [{q.get('실패유형', '?')}] {q.get('id', '?')}",
+        f"## {i}. {'🔻새로깨짐 ' if broke_today(q) else ''}"
+        f"[{q.get('실패유형') or '분류없음'}] {q.get('id', '?')}",
         f"- 유형 {q.get('유형', '?')} · 어휘층 {q.get('어휘층') or '-'} · "
-        f"코호트 {q.get('코호트', '?')} · 판정 {q.get('판정', '?')}",
+        f"코호트 {q.get('코호트', '?')} · 판정 {q.get('판정', '?')}"
+        + (f" · **직전 회차 정답 → 오늘 {q.get('판정')}**(최우선 — 오늘 달라진 것)"
+           if broke_today(q) else ""),
         "- 질문:", question,
         f"- 골든(기대 정답): {(q.get('골든') or '(없음 — 거부형)')[:_CAP_GOLDEN]}",
         f"- 기대 근거: {expected} — {hit}",
@@ -82,16 +99,25 @@ def build(date: str) -> Path | None:
         print(f"[surgery_brief] {f.name} 없음 — 생략")
         return None
     d = json.loads(f.read_text(encoding="utf-8"))
-    items = [q for q in (d.get("문항") or []) if (q.get("실패유형") or "") in SURGERY]
+    rows = d.get("문항") or []
+    surg = [q for q in rows if (q.get("실패유형") or "") in SURGERY]
+    # 새로깨짐은 실패유형과 무관하게 합집합 + 맨 앞(위 상수 주석의 실측 근거)
+    broke = [q for q in rows if broke_today(q)]
+    ids = {id(q) for q in broke}
+    items = broke + [q for q in surg if id(q) not in ids]
     if not items:
         print("[surgery_brief] 수술대기 0건 — 브리핑 없음")
         return None
     by_type: dict[str, int] = {}
-    for q in items:
+    for q in surg:
         by_type[q["실패유형"]] = by_type.get(q["실패유형"], 0) + 1
+    extra = len(items) - len(surg)
     head = [
-        f"# 수술 브리핑 {date} — 수술대기 {len(items)}건"
-        f" ({' · '.join(f'{k} {v}' for k, v in sorted(by_type.items()))})",
+        f"# 수술 브리핑 {date} — 수술대기 {len(surg)}건"
+        f" ({' · '.join(f'{k} {v}' for k, v in sorted(by_type.items()))})"
+        + (f" + 🔻새로깨짐 {len(broke)}건"
+           + (f"(그중 {extra}건은 수술대기 분류 밖 — 그래도 최우선)" if extra else "")
+           if broke else ""),
         "",
         "> 기계가 만든 수술 대상 목록(아침 분석서의 수술대기 분류 그대로 · LLM 0회).",
         "> **세션 계약**: ① 항목별 원인 파악(검색/생성/게이트/원문) → 수정 + 회귀",

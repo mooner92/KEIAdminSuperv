@@ -40,6 +40,36 @@ def test_build_and_paste_line_contract():
         (surgery_brief.DAILY / f"{FIX_DATE}.surgery.md").unlink(missing_ok=True)
 
 
+def test_newly_broken_always_included_even_outside_surgery_set():
+    # 2026-08-20 실측: 새로깨짐 2건 중 1건이 '골든품질'이라 브리핑에서 통째로 빠졌다.
+    # "어제 맞히던 게 오늘 깨졌다"는 분류와 무관하게 최우선으로 실려야 한다(+맨 앞).
+    g = {"date": FIX_DATE, "문항": [
+        {"id": "surgcase", "질문": "수술대기 질문?", "골든": "g", "답변": "a",
+         "실패유형": "검색실패", "판정": "오답", "유형": "사실형", "코호트": "신규"},
+        {"id": "brokecase", "질문": "어제 맞히던 질문?", "골든": "g", "답변": "a",
+         "실패유형": "골든품질", "판정": "오답", "유형": "사실형",
+         "코호트": "재시험", "직전판정": "정답"},
+        {"id": "chroniccase", "질문": "묵은 부채?", "골든": "g", "답변": "a",
+         "실패유형": "생성환각", "판정": "오답", "유형": "사실형",
+         "코호트": "재시험", "직전판정": "오답"},
+        {"id": "unscoredcase", "질문": "폐기?", "실패유형": "출제결함", "판정": "폐기",
+         "유형": "사실형", "코호트": "재시험", "직전판정": "정답"},
+    ]}
+    gf = surgery_brief.DAILY / f"{FIX_DATE}.graded.json"
+    gf.write_text(json.dumps(g, ensure_ascii=False), encoding="utf-8")
+    try:
+        md = surgery_brief.build(FIX_DATE).read_text(encoding="utf-8")
+        assert "수술대기 2건" in md, "수술대기 건수는 기존 3종 집합 그대로여야 한다(분석서와 대사)"
+        assert "🔻새로깨짐 2건" not in md and "🔻새로깨짐 1건" in md, "만성(직전=오답)까지 셌다"
+        assert "수술대기 분류 밖" in md, "분류 밖 편입 사실이 머리에 안 보인다"
+        assert md.index("brokecase") < md.index("surgcase"), "새로깨짐이 맨 앞이 아니다"
+        assert "unscoredcase" not in md, "폐기·판정불가는 새로깨짐이 아니다(채점 미성립)"
+        assert md.count("🔻새로깨짐 [") == 1
+    finally:
+        gf.unlink(missing_ok=True)
+        (surgery_brief.DAILY / f"{FIX_DATE}.surgery.md").unlink(missing_ok=True)
+
+
 def test_slack_gets_pointer_only():
     # ⛔ Slack엔 붙여넣기 한 줄만 — eval_notice가 surgery.md '존재'만 보고, 내용을 읽지 않는다.
     src = (HERE / "eval_notice.py").read_text(encoding="utf-8")
