@@ -1,4 +1,8 @@
 // 기안 도우미(/gian, docs/72 P4) 실렌더 검증 — 5개 항목과 **근거**가 실제로 그려지는지.
+// 2026-08-20 화면 개편(요약 카드 + 접기) 반영: 조문 원문·체크리스트 전문·편철 원칙은
+// `<details>`(components/gian/Fold)로 내려갔다. ⛔검증 항목은 하나도 줄이지 않는다 —
+// 접힌 것은 **펼쳐서** 그대로 확인하고(정보 삭제가 아님을 이 회귀가 증명한다),
+// "기본은 접혀 있다"·"요약 카드가 있다"는 검증을 오히려 **추가**했다.
 // ⛔ 비밀번호는 env로만: set -a; . tools/.test_credentials; set +a; node web/verify-gian-helper.mjs
 // 플래그(gian_helper)는 검증 중에만 켜고 **원래 값으로 되돌린다**(dev DB 부수효과 없음).
 // ⚠ 파일명이 verify-gian.mjs가 아닌 이유: 그 이름은 이미 '기안 노트 적재·크로스링크' 검증이
@@ -31,6 +35,11 @@ console.log(`플래그 ${FLAG}: 이전=${had ? prev : "(없음)"} → 검증용 
 const b = await chromium.launch();
 const fails = [];
 const ok = (c, m) => { console.log((c ? "✅" : "❌") + " " + m); if (!c) fails.push(m); };
+/** 접기(Fold) 전부 펼치기 — 접힌 근거도 **삭제되지 않았음**을 같은 문자열로 확인하기 위해. */
+const expandAll = async (p) => {
+  await p.evaluate(() => document.querySelectorAll("details").forEach((d) => { d.open = true; }));
+  await p.waitForTimeout(250);
+};
 
 try {
   const ctx = await b.newContext({ viewport: { width: 1440, height: 1200 } });
@@ -47,6 +56,29 @@ try {
   let body = await p.innerText("body");
   ok(!body.includes("아직 준비 중"), "1) 플래그 ON — 화면 노출(준비 중 문구 없음)");
   ok(!body.includes("기안 안내표를 읽지 못했습니다"), "2) gian_map.json 로드 성공(빈 상태 아님)");
+
+  // ── 개편 계약: 첫 화면은 "핵심만", 원문은 접혀 있다(2026-08-20 운영자 지적) ──
+  const foldCount = await p.locator("details").count();
+  ok(foldCount >= 4, `A) 접기(Fold) ${foldCount}개 — 원문·전문은 접어서 내렸다`);
+  ok(await p.locator("details[open]").count() === 0, "B) 기본 상태에서 모든 접기가 닫혀 있다");
+  ok(!body.includes("결재는 결재권자가 소정의 결재란에"),
+    "C) 첫 화면에 조문 원문이 박혀 있지 않다(접기 안으로 이동)");
+  ok(!body.includes("잘못 편철하면 전자기록물 검색"),
+    "D) 첫 화면에 편철 원칙 전문이 나열되지 않는다");
+  // 요약 카드 4장 = 위계의 시작(무엇을 몇 건 봐야 하는지)
+  for (const [label, n] of [["문서종류", 7], ["첨부", 5], ["기록물철", 2], ["전결 규칙", 11]]) {
+    ok(await p.getByRole("button", { name: new RegExp(`^${label} ${n}`) }).count() > 0,
+      `E) 요약 카드 '${label} ${n}'`);
+  }
+  ok(body.includes("권장") && body.includes("후보"), "F) 요약 카드에 단정 금지 라벨(권장·후보) 유지");
+  // 카드 → 섹션 이동
+  await p.getByRole("button", { name: /^기록물철 2/ }).click();
+  await p.waitForTimeout(600);
+  ok(await p.locator("#gian-file").count() > 0, "G) 요약 카드가 가리키는 섹션 앵커(#gian-file) 존재");
+
+  // 접힌 근거를 전부 펼쳐서 — 아래 기존 검증 항목은 하나도 줄이지 않는다
+  await expandAll(p);
+  body = await p.innerText("body");
 
   // ⓐ 어떤 문서로 기안하나
   ok(body.includes("국내출장신청") && body.includes("해외출장결과보고"), "3) ⓐ 문서종류(국내출장신청·해외출장결과보고)");
@@ -82,6 +114,7 @@ try {
   // 업무군 전환 — 회계·예산·구매·자산
   await p.getByRole("button", { name: "회계·예산·구매·자산" }).click();
   await p.waitForTimeout(500);
+  await expandAll(p);
   body = await p.innerText("body");
   ok(body.includes("원인행위품의") && body.includes("세금계산서"), "20) 업무군 전환 — 문서종류·첨부 갱신");
   ok(body.includes("ZA000110") && body.includes("(공통)예산및회계"), "21) 업무군 전환 — 기록물철 후보 갱신");
@@ -98,6 +131,7 @@ try {
   ok(await sel.count() > 0, "25) 전결 목록 직급 필터 존재(출장 — leaf가 직급)");
   await sel.selectOption({ label: "일반직원" });
   await p.waitForTimeout(400);
+  await expandAll(p);
   body = await p.innerText("body");
   ok(body.includes("일반직원") && !body.includes("· 부원장"), "26) 직급 필터 적용(일반직원만)");
   // 금액구간 leaf(회계)에는 직급 필터가 없어야 한다 — 빈 항목만 든 셀렉트 금지
