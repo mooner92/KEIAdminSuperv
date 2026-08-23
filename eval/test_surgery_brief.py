@@ -82,6 +82,33 @@ def test_cron_wired_before_digest():
     assert sh.index("surgery_brief.py") < sh.index("--digest"), "브리핑이 다이제스트보다 뒤"
 
 
+def test_header_carries_denominator_and_interval():
+    """회차 지표 머리줄은 **분모와 95% 구간**을 달고 나온다(2026-08-23 수술).
+
+    실측 사고: 재시험 64.6%→54.3%(둘 다 n≈46)를 구조 결함으로 읽고 3일치를 추적했다가
+    전량 기각됐다. 분모가 안 보이면 세션은 잡음을 회귀로 오진한다.
+    ⛔ 정답률 값 자체는 그대로여야 한다 — 구간은 해석을 돕지 값을 바꾸지 않는다.
+    """
+    g = {"date": FIX_DATE, "정답률": 89.2,
+         "코호트별": {"재시험": {"문항수": 3, "정답률": 33.3}},
+         "문항": [
+             {"id": "r1", "질문": "합성?", "골든": "g", "답변": "a", "실패유형": "검색실패",
+              "판정": "오답", "유형": "사실형", "코호트": "재시험"},
+             {"id": "r2", "질문": "합성2?", "판정": "오답", "유형": "사실형", "코호트": "재시험"},
+             {"id": "r3", "질문": "합성3?", "판정": "정답", "유형": "사실형", "코호트": "재시험"},
+         ]}
+    gf = surgery_brief.DAILY / f"{FIX_DATE}.graded.json"
+    gf.write_text(json.dumps(g, ensure_ascii=False), encoding="utf-8")
+    try:
+        md = surgery_brief.build(FIX_DATE).read_text(encoding="utf-8")
+        assert "재시험 33.3%" in md, md.split("\n")[2]
+        assert "n=3" in md and "95% 구간" in md, md.split("\n")[2]
+        assert "잡음" in md
+    finally:
+        gf.unlink(missing_ok=True)
+        (surgery_brief.DAILY / f"{FIX_DATE}.surgery.md").unlink(missing_ok=True)
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     bad = 0

@@ -18,7 +18,7 @@ import datetime
 import json
 from pathlib import Path
 
-from daily_common import retrieved_expected
+from daily_common import retrieved_expected, wilson_ci
 
 HERE = Path(__file__).resolve().parent
 DAILY = HERE / "daily"
@@ -92,6 +92,23 @@ def _item_md(i: int, q: dict) -> str:
     return "\n".join(L)
 
 
+def _rate_line(d: dict) -> str:
+    """'회차 지표: 전체 90.4% · 재시험 56.5%(n=46 · 95% 구간 42.2–69.8%)' — 분모 없으면 값만."""
+    parts = [f"전체 {d.get('정답률')}%"]
+    v = ((d.get("코호트별") or {}).get("재시험") or {})
+    if v.get("정답률") is not None:
+        n = v.get("분모")
+        ci = v.get("신뢰구간") or [None, None]
+        if not n:   # 이 기능 이전 회차 — 문항에서 되센다(과거 파일은 재작성하지 않는다)
+            rows = [q for q in (d.get("문항") or [])
+                    if q.get("코호트") == "재시험" and q.get("판정") not in UNSCORED]
+            n = len(rows)
+            ci = wilson_ci(sum(1 for q in rows if q["판정"] == "정답"), n)
+        parts.append(f"재시험 {v['정답률']}%"
+                     + (f"(n={n} · 95% 구간 {ci[0]}–{ci[1]}%)" if n and ci[0] is not None else ""))
+    return "회차 지표: " + " · ".join(parts) + " — 한 회차 스윙은 구간 안이면 잡음이다."
+
+
 def build(date: str) -> Path | None:
     """graded.json → surgery.md. 수술대기 0건이면 파일을 만들지 않는다(None)."""
     f = DAILY / f"{date}.graded.json"
@@ -119,6 +136,11 @@ def build(date: str) -> Path | None:
            + (f"(그중 {extra}건은 수술대기 분류 밖 — 그래도 최우선)" if extra else "")
            if broke else ""),
         "",
+        # 회차 지표의 **분모와 구간**을 머리에 박는다(2026-08-23 수술).
+        # 실측 사고: "같은 날 b회차가 a회차보다 항상 나쁘다(08-22 64.6→54.3)"를 구조 결함으로
+        # 보고 3일치를 추적했으나 전량 기각됐다 — 재시험 분모는 n≈46이라 10%p 스윙이 구간 안이다.
+        # 세션이 회차 비교에서 출발하지 않도록, **비교할 자격이 있는지**를 먼저 보여준다.
+        f"> {_rate_line(d)}",
         "> 기계가 만든 수술 대상 목록(아침 분석서의 수술대기 분류 그대로 · LLM 0회).",
         "> **세션 계약**: ① 항목별 원인 파악(검색/생성/게이트/원문) → 수정 + 회귀",
         "> ② 원문 결함은 코드로 고치지 말고 검수 큐로(⛔규정 내용 추측 금지 — 절대규칙 1)",

@@ -178,6 +178,70 @@ def test_chronic_absent_when_no_retry_cohort():
         assert "만성 제외 재시험" not in R.render_md(a)
 
 
+# ── 회차 간 비교 가능성(2026-08-23 수술) ─────────────────────────────────────────
+# 계약: ④ 값은 안 바뀌고 **분모·구간만 붙는다** ⑤ 잡음 범위 판정은 결정적이다
+#       ⑥ 누적 재시험은 **과거만** 본다(look-ahead 금지)
+
+def test_ci_does_not_change_the_rate():
+    """④ 신뢰구간을 붙여도 정답률 숫자는 한 자리도 바뀌지 않는다(조작 방지의 최소 조건)."""
+    rows = [_q(1, "정답"), _q(2, "정답"), _q(3, "오답"), _q(4, "폐기")]
+    v = R._acc(rows)
+    assert v["정답률"] == 66.7 and v["분모"] == 3, v
+    lo, hi = v["신뢰구간"]
+    assert lo < 66.7 < hi, v
+    # 구간은 항상 [0,100] 안 — 0%·100%에서 정규근사가 밖으로 나가는 것을 막는다
+    assert R.wilson_ci(0, 10)[0] == 0.0 and R.wilson_ci(10, 10)[1] == 100.0
+    assert R.wilson_ci(0, 0) == (None, None)
+    # 표본이 커지면 구간이 좁아진다 = '분모를 늘리면 말할 자격이 생긴다'
+    w46, w233 = R.wilson_ci(26, 46), R.wilson_ci(140, 233)
+    assert (w46[1] - w46[0]) > (w233[1] - w233[0]) * 1.8, (w46, w233)
+
+
+def test_noise_band_is_deterministic():
+    """⑤ 직전 값이 오늘 구간 안이면 '잡음 범위' — 실측 08-22b(64.6%→54.3%, n=46)가 기준선."""
+    ci = R.wilson_ci(25, 46)                       # 54.3%
+    assert R.within_noise(64.6, ci), ci            # 실측: 10.3%p 스윙도 구간 안이었다
+    assert not R.within_noise(95.0, ci), ci
+    assert not R.within_noise(None, ci)
+    assert not R.within_noise(60.0, [None, None])
+
+
+def test_pooled_retry_never_looks_ahead():
+    """⑥ 누적 재시험은 오늘까지만 본다 — 미래 회차를 넣으면 지표가 미래를 커닝한다."""
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        R.DAILY = tmp
+        _write(tmp, "2026-05-01", [dict(_q(1, "정답"), 코호트="재시험")])
+        _write(tmp, "2026-05-02", [dict(_q(2, "오답"), 코호트="재시험")])
+        _write(tmp, "2026-05-03", [dict(_q(3, "오답"), 코호트="재시험")])   # 미래
+        p = R.pooled_retry("2026-05-02")
+        assert p["회차"] == ["2026-05-01", "2026-05-02"], p
+        assert p["분모"] == 2 and p["정답률"] == 50.0, p
+        # 창 크기를 넘으면 오래된 회차가 빠진다(추세 지표이지 누계가 아니다)
+        assert R.pooled_retry("2026-05-03", k=1)["회차"] == ["2026-05-03"]
+
+
+def test_noise_band_reaches_the_action_list():
+    """잡음 범위 판정은 **행동 후보에도** 실린다 — 세션이 잡음을 수술하러 가면 안 된다."""
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        R.DAILY = tmp
+        prev = [dict(_q(i, "정답" if i < 3 else "오답"), 코호트="재시험") for i in range(1, 5)]
+        (tmp / "2026-06-01.graded.json").write_text(json.dumps(
+            {"date": "2026-06-01", "정답률": 50.0, "집계": {},
+             "코호트별": {"재시험": {"문항수": 4, "정답률": 50.0}}, "실패유형별": {},
+             "문항": prev}, ensure_ascii=False), encoding="utf-8")
+        today = [dict(_q(i, "오답" if i < 4 else "정답"), 코호트="재시험") for i in range(1, 5)]
+        (tmp / "2026-06-02.graded.json").write_text(json.dumps(
+            {"date": "2026-06-02", "정답률": 25.0, "집계": {},
+             "코호트별": {"재시험": {"문항수": 4, "정답률": 25.0}}, "실패유형별": {},
+             "문항": today}, ensure_ascii=False), encoding="utf-8")
+        a = R.analyze("2026-06-02")
+        assert a["직전재시험"] == 50.0, a["직전재시험"]
+        assert any("잡음 범위" in x for x in a["행동후보"]), a["행동후보"]
+        assert "잡음 범위" in R.render_md(a)
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     bad = 0

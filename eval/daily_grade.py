@@ -19,7 +19,7 @@ import sys
 import axes  # 결정적 축 채점(specs/07 B)
 import scenarios  # 복합 시나리오 채점(specs/07 A)
 from daily_common import (CHRONIC_STREAK, DAILY_DIR, ROOT, chroma_col, chronic_of, llm_json,
-                          load_bank, norm_q, prev_verdict, save_bank)
+                          load_bank, norm_q, prev_verdict, save_bank, wilson_ci)
 
 sys.path.insert(0, str(ROOT / "tools"))
 from refusal_detect import is_refusal  # 단일 정본(specs/01 P0) — 결론부 스코프+부정형 한정(T9)
@@ -313,11 +313,16 @@ def main() -> int:
     # ── 코호트별·실패유형별 집계 (docs/58 §6d) ──
     # ⛔ 합산 `정답률`은 계산식을 바꾸지 않는다(과거 일자와 비교 가능해야 한다).
     #    코호트는 *같은 분모 규칙*으로 따로 계산한 표시용 지표다.
+    #    ⛔ **분모와 신뢰구간을 함께 새긴다**(2026-08-23). 정답률 값은 한 자리도 바뀌지 않는다 —
+    #    재시험은 분모가 n≈46이라 95% 구간이 ±14%p인데, 브리핑은 5~10%p 스윙을 신호처럼
+    #    읽어 왔다("b회차가 a보다 나쁘다" 가설의 출처). 구간이 없으면 잡음을 회귀로 오진한다.
     def _acc(rows: list) -> dict:
         c = Counter(r["판정"] for r in rows)
         d = len(rows) - c.get("판정불가", 0) - c.get("폐기", 0)
-        return {"문항수": len(rows), "집계": dict(c),
-                "정답률": round(100 * c.get("정답", 0) / d, 1) if d else None}
+        lo, hi = wilson_ci(c.get("정답", 0), d)
+        return {"문항수": len(rows), "집계": dict(c), "분모": d,
+                "정답률": round(100 * c.get("정답", 0) / d, 1) if d else None,
+                "신뢰구간": [lo, hi]}
 
     코호트별 = {n: _acc([r for r in results if r.get("코호트") == n]) for n in ("재시험", "신규")}
     실패유형별 = dict(Counter(r["실패유형"] for r in results if r.get("실패유형")))
@@ -334,7 +339,14 @@ def main() -> int:
     만성트랙 = {"기준": f"직전까지 연속 미정답 {CHRONIC_STREAK}회 이상",
                 "만성": _acc(만성), "재시험_만성제외": _acc(급성),
                 "신규회귀": {"건수": len(새로깨짐), "분모_직전정답": len(직전정답),
-                          "비율": round(100 * len(새로깨짐) / len(직전정답), 1) if 직전정답 else None}}
+                          "비율": round(100 * len(새로깨짐) / len(직전정답), 1) if 직전정답 else None,
+                          # 분모가 20 안팎이라 이 비율도 구간이 넓다. 실측(2026-08-23):
+                          # 08-21~23b에 새로깨짐률이 11.9%→21.4%(p=0.006)로 올라 회귀처럼
+                          # 보였는데, **분모 구성 변화**였다 — '이력 정답률 ≥0.8' 문항이
+                          # 직전정답 분모에서 31%→2%로 사라졌다(회귀 풀이 진동하는 묵은
+                          # open만 남기고, 잘 맞히는 문항은 3연속 정답으로 fixed 졸업).
+                          # 사전 구성으로 직접표준화하면 21.4%→15.0%로 대부분이 설명된다.
+                          "신뢰구간": list(wilson_ci(len(새로깨짐), len(직전정답)))}}
 
     out = DAILY_DIR / f"{args.date}.graded.json"
     out.write_text(json.dumps({"date": args.date, "정답률": acc, "집계": dict(cnt),
