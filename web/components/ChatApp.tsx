@@ -698,7 +698,7 @@ export default function ChatApp({
                 m.role === "user" ? (
                   <li key={m.id} className={styles.userRow}>
                     {fmtT(m.created_at) ? <span className={styles.msgTime}>{fmtT(m.created_at)}</span> : null}
-                    <div className={styles.userBubble}>{m.content}</div>
+                    <div className={`${styles.userBubble}${/\n/.test(m.content) || m.content.length > 42 ? " " + styles.multiline : ""}`}>{m.content}</div>
                   </li>
                 ) : (
                   <li key={m.id} className={styles.aiRow}>

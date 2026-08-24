@@ -113,8 +113,15 @@
   font-weight: 700;
   line-height: 1.55;
   white-space: pre-wrap;
+  /* ⚠ keep-all은 한국어 단어 중간 끊김을 막지만, 공백 없는 긴 토큰(사번·URL·붙여넣은
+     여러 줄)은 알약(999px) 밖으로 삐져나온다(실측 2026-08-24). overflow-wrap:anywhere로
+     그런 토큰만 강제 줄바꿈한다. keep-all과 함께 두면 일반 한국어는 어절 단위로 흐른다. */
   word-break: keep-all;
+  overflow-wrap: anywhere;
+  min-width: 0;
 }
+/* 여러 줄로 늘어난 사용자 말풍선은 완전한 알약(999px)이 어색하다 — 곡률을 낮춰 둥근 카드로. */
+.userBubble.multiline { border-radius: 18px; }
 .aiBubble {
   /* v2 보정(사용자 피드백 2026-07-28): 플레인 답변 + 스텝 스트립 조합이 "여러 개의 답변"처럼
      읽혔다 → 답변 전체를 **하나의 은은한 컨테이너**로 묶는다(좌측 앰버 헤어라인 + 아주 옅은 틴트).
