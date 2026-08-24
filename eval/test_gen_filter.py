@@ -11,7 +11,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from gen_filter import (PARA_MAX_OVERLAP, content_words, doc_overlap,  # noqa: E402
-                        golden_defects, paraphrase, question_defects)
+                        golden_defects, is_fragment, paraphrase, question_defects)
 from daily_common import chunk_unanswerable  # noqa: E402  출제 후보 청크 게이트(순수 함수)
 
 
@@ -288,6 +288,26 @@ def test_paraphrase_accepts_plain_language():
     assert p and "겹침" in why, (p, why)
 
 
+# ── 미완성 문장(파편) 게이트 — 2026-08-24 실측 ────────────────────────────────
+# 계기: 복합형 s01 "…자문료 지급까지"가 물음 없이 출제돼, 모델의 정상적인 '확인 불가'가
+#   검색실패로 집계되며 수술 대기에 위장 편입됐다. 은행 전수 오탐 0(9,367문항 중 1건).
+def test_fragment_question_is_a_defect():
+    q = "전문가 등급·활용유형 확인부터 자문승인신청·PMS 활용계획·결과보고·자문료 지급까지"
+    assert is_fragment(q), "조사 '까지'로 끊긴 파편을 못 잡았다"
+    assert "미완성문장" in question_defects(q), "결함 사전에 안 실렸다"
+
+
+def test_fragment_gate_spares_polite_requests_and_normal_questions():
+    # ⛔ 막는 것은 '문장이 끊긴 것'이지 물음표·종결어미가 아니다(_PROMPT_LEAK와 같은 방침).
+    for q in ("전용이 가능한지 여부와 전용책임자가 누구인지 확인해 주세요.",
+              "연장근로 신청 시 보상방식은 어떻게 되나요?",
+              "국내출장의 여비 기준, 결제 수단 및 정산 신청 기한은 어떻게 되나요?",
+              "출장비 정산은 며칠 이내에 해야 하나요"):
+        assert not is_fragment(q), f"정상 문장을 파편으로 오판: {q}"
+        assert "미완성문장" not in question_defects(q), f"정상 문장에 결함 부착: {q}"
+
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     bad = 0
@@ -299,3 +319,4 @@ if __name__ == "__main__":
             bad += 1
             print(f"  ❌  {fn.__name__}: {e}")
     sys.exit(1 if bad else print(f"\n✅ {len(fns)}개 통과 — 출제 결함 사전(실측 픽스처)") or 0)
+

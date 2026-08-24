@@ -19,7 +19,7 @@ import sys
 import axes  # 결정적 축 채점(specs/07 B)
 import scenarios  # 복합 시나리오 채점(specs/07 A)
 from daily_common import (CHRONIC_STREAK, DAILY_DIR, ROOT, chroma_col, chronic_of, llm_json,
-                          load_bank, norm_q, prev_verdict, save_bank, wilson_ci)
+                          load_bank, norm_q, prev_verdict, save_bank, type_standardized, wilson_ci)
 
 sys.path.insert(0, str(ROOT / "tools"))
 from refusal_detect import is_refusal  # 단일 정본(specs/01 P0) — 결론부 스코프+부정형 한정(T9)
@@ -320,9 +320,13 @@ def main() -> int:
         c = Counter(r["판정"] for r in rows)
         d = len(rows) - c.get("판정불가", 0) - c.get("폐기", 0)
         lo, hi = wilson_ci(c.get("정답", 0), d)
+        # ⛔ **유형 구성도 함께 새긴다**(2026-08-24). 복합형·거부형은 개수 상한이 있어
+        #    회차가 작아지면 비중이 3배로 뛴다 — 08-24 신규 '급락'(93.6→86.5)의 5.3%p가
+        #    이것이었다. 구성 없이는 시험지가 어려워진 것을 서비스 회귀로 오진한다.
+        #    (근거·기준 구성은 daily_common.TYPE_REF_MIX 주석)
         return {"문항수": len(rows), "집계": dict(c), "분모": d,
                 "정답률": round(100 * c.get("정답", 0) / d, 1) if d else None,
-                "신뢰구간": [lo, hi]}
+                "신뢰구간": [lo, hi], **type_standardized(rows)}
 
     코호트별 = {n: _acc([r for r in results if r.get("코호트") == n]) for n in ("재시험", "신규")}
     실패유형별 = dict(Counter(r["실패유형"] for r in results if r.get("실패유형")))

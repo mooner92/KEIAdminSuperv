@@ -29,7 +29,7 @@ REPORTS = ROOT / "web" / "public" / "quality" / "reports"
 
 sys.path.insert(0, str(HERE))
 from daily_common import (CHRONIC_STREAK, UNSCORED, chronic_of,  # noqa: E402  만성 판정 단일 정본
-                          wilson_ci, within_noise)
+                          type_standardized, wilson_ci, within_noise)
 
 # 이 두 줄이 리포트의 뼈대다 — 무엇이 서비스 결함이고 무엇이 시험지 결함인가.
 # '근거부적합'(2026-08-06 신설) = 근거는 회수됐는데 거부 — 검색이 아니라 인덱스 귀속·골든·
@@ -39,7 +39,14 @@ SURGERY = ("검색실패", "생성환각", "근거부적합")
 # 시드재검토 = "코퍼스 밖" 시드 가정이 틀렸다는 신호(볼트에 근거가 실제로 있었음) —
 # 시험지 쪽 문제이므로 NOISE(specs/16 W1-B). 거부형 면제와 같은 커밋: 버킷 없이 두면
 # 19건이 리포트에서 사라진다(사라진 것은 통계에서 정상처럼 보인다 — docs/68 §1 교훈).
-NOISE = ("출제결함", "골든품질", "판정불가-기타", "검토필요-기타", "시드재검토")
+# '부분정답'(2026-08-24 편입) = 복합형 all-or-nothing 커버리지 규칙이 낸 판정.
+#   ⛔ 버킷이 없어 **어느 쪽에도 안 잡히고 리포트에서 사라지고 있었다** — 08-24 6건이 그랬다
+#   (위 시드재검토와 똑같은 구멍. 사라진 것은 통계에서 정상처럼 보인다).
+#   NOISE로 넣는 근거는 실측이다: 08-22~08-24 복합형 117골든에서 '질문이 실제로 물어본'
+#   골든은 답변이 96~97% 덮었고(56/58), 08-24 미정답 8건 중 6건은 **질문이 묻지도 않은**
+#   골든을 못 덮어서 깎인 것이었다(그날 물어본 골든 커버리지는 8/8 = 100%).
+#   ⚠ 시험지 쪽 문제라는 뜻이지 '무시하라'가 아니다 — 근본 수리는 scenarios.ASK_MIN 게이트.
+NOISE = ("출제결함", "골든품질", "판정불가-기타", "검토필요-기타", "시드재검토", "부분정답")
 
 
 def _rate(c: collections.Counter) -> float:
@@ -225,6 +232,11 @@ def analyze(date: str) -> dict:
             co[name] = {**co[name],
                         **{k: v for k, v in _acc([r for r in items if r.get("코호트") == name]).items()
                            if k in ("분모", "신뢰구간")}}
+        # 구성 보정도 같은 규칙으로 채운다(2026-08-24 신설 이전 회차). ⛔ 계산만 하고
+        # 회차 파일은 건드리지 않는다 — 과거 회차 재작성 금지(원시 정답률은 정본 그대로).
+        if co[name].get("구성보정정답률") is None:
+            co[name] = {**co[name],
+                        **type_standardized([r for r in items if r.get("코호트") == name])}
 
     weak = sorted(((t, _rate(c), sum(c.values())) for t, c in by_topic.items() if sum(c.values()) >= 5),
                   key=lambda x: x[1])[:5]
@@ -311,6 +323,17 @@ def render_md(a: dict) -> str:
             ci = _ci_txt(v)
             L.append(f"- {k}: {v.get('정답률')}% ({v.get('문항수')}건"
                      + (ci.replace(" (", " · ").rstrip(")") if ci else "") + ")")
+        # 신규 코호트의 구성 보정(2026-08-24) — 회차 크기가 다르면 원시값은 비교 불가다.
+        #   복합형·거부형은 개수 상한(여정 16·시드 19)이 있어 회차가 작아지면 비중이 3배로
+        #   뛴다. 08-24가 정확히 그랬다(하드유형 6.1%→17.3%, 원시 93.6→86.5, 보정 91.8).
+        nw = co.get("신규") or {}
+        if nw.get("구성보정정답률") is not None:
+            d = round(nw["구성보정정답률"] - (nw.get("정답률") or 0), 1)
+            L.append(f"  · 신규 **구성보정 {nw['구성보정정답률']}%**({d:+.1f}%p) — "
+                     f"어려운 유형(복합·거부) 비중 {nw.get('하드유형비중')}%"
+                     + (" ⚠ 평소(5~6%)보다 높다 — 원시값 하락을 회귀로 읽지 말 것"
+                        if (nw.get("하드유형비중") or 0) >= 10 else "")
+                     + f" · 구성 {nw.get('유형구성')}")
         # ⚠ 재시험이 낮은 건 정상이다(전에 틀린 것만 모은 코호트) — 오해 방지 문구를 고정한다.
         if "재시험" in co and "신규" in co:
             L.append("  · 재시험은 전에 틀린 문항만 모은 코호트라 낮게 나오는 것이 정상 — "

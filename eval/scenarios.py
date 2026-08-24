@@ -28,6 +28,7 @@ import re
 import sys
 
 from daily_common import ROOT, chroma_col, llm_json, norm_q, refusal_cause
+from gen_filter import is_fragment  # 미완성 문장(파편) 단일 정본 — ⛔각자 정규식 복제 금지
 
 sys.path.insert(0, str(ROOT / "tools"))
 from refusal_detect import is_refusal  # noqa: E402  단일 정본(specs/01 P0)
@@ -167,7 +168,11 @@ def gen_scenario(j: dict, rng: random.Random, col, with_turn: bool = False) -> d
 
     q = re.sub(r"\s+", " ", str(r.get("질문", ""))).strip()
     goldens = [re.sub(r"\s+", " ", str(g)).strip() for g in (r.get("골든") or []) if str(g).strip()]
-    if not q or len(q) < 15 or len(q) > 220 or len(goldens) < 2 or not _korean_ok(q):
+    # ⚠ 복합형은 gen_filter.question_defects를 타지 않는다(청크 문항 전용 경로) — 그래서
+    #   파편 검사를 여기서 한 번 더 부른다. 실측: 08-24 s01이 물음 없는 나열로 출제돼
+    #   '검색실패' 수술 대기로 위장했다(gen_filter._FRAGMENT 주석).
+    if not q or len(q) < 15 or len(q) > 220 or len(goldens) < 2 or not _korean_ok(q) \
+            or is_fragment(q):
         return None
 
     # ── 게이트 ① 골든 verbatim 실존(근거 어느 하나에라도) ──
@@ -181,6 +186,27 @@ def gen_scenario(j: dict, rng: random.Random, col, with_turn: bool = False) -> d
             break
     if len(matched) < 2:
         return None
+
+    # ── 게이트 ①-b **질문이 실제로 물어본 골든만 남긴다**(2026-08-24 실측 신설) ──
+    # 실측 결함: 게이트①은 "골든이 근거에 실존하는가"만 본다. 그래서 LLM이 근거 2건 중
+    #   1건만 묻는 질문을 써도 골든 2건이 그대로 붙었다 — 답변이 옳아도 묻지 않은 골든을
+    #   못 덮어 `grade_scenario`가 '부분'을 매긴다(all-or-nothing 커버리지 규칙).
+    #   예: "연장근로 신청 시 보상방식은?"에 골든 「해당 연도 총 휴가일수 - 사용일수 =
+    #       잔여일수」가 붙어 일치 6% → 부분. 물어본 것은 정확히 답했는데도 미정답이 된다.
+    # 임계 0.10은 눈대중이 아니라 **측정값**이고, 일부러 낮게 잡았다.
+    #   08-22~08-24 복합형 117골든 구간별 실측('질문이 물었는가 → 답변이 덮었는가'):
+    #     **<0.10 54%(n=13)** · 0.10~0.15 62% · 0.15~0.25 73~75% · 0.30~ 96~97%(56/58)
+    #   <0.10 구간은 CI(29,77)로 동전던지기 — 측정값이 아니라 '답변이 안 물어본 것까지
+    #   자진해서 말했는가'라는 운이다. 반면 0.30에도 무릎이 있지만 **거기서 자르면 안 된다**:
+    #   ⛔ 기각한 대안 — ASK_MIN=0.30(채점골든 2건 요구)은 08-22·23 복합형을 전량 판정불가로
+    #      만들고(오늘 11/11), 완화판(1건 요구)도 5회차 중 4회차를 정답률 100%로 만들었다.
+    #      변별력이 0이 된 지표는 좋아 보일 뿐 아무것도 재지 못한다. 0.10에서는 5회차 통틀어
+    #      골든 13건만 빠지고 판정불가 1건, 회차별 50~92%로 변별이 살아 있다.
+    # ⛔ 골든을 지우는 게 아니라 채점 대상에서 뺄 뿐 — 근거·출처(ev)는 그대로 보존한다.
+    asked = [m for m in matched if _cover(m["골든"], q) >= ASK_MIN]
+    if len(asked) < 2:
+        return None      # 물어본 근거가 2건 미만 = 복합형 요건 미달(사실상 단일근거 질문)
+    matched = asked
 
     # ── 게이트 ② 질문 속 숫자는 근거 합집합에 실존(환각 상황 차단) ──
     allsrc = "".join(e["doc"] for e in ev).replace(" ", "")
@@ -248,9 +274,28 @@ def _cover(golden: str, 답변: str) -> float:
     return max(bg, kw)
 
 
+# 질문이 그 골든을 '물어봤다'고 인정하는 최소 겹침 — 게이트①-b와 같은 값(근거는 그 주석).
+# 낮게 잡은 것은 의도다: 채점에서 빼는 것은 **측정값이 아닌 골든(동전던지기 구간)**뿐이다.
+ASK_MIN = 0.10
+
+
 def grade_scenario(item: dict, 답변: str) -> tuple:
     """(판정, 증거, 원인) — 골든별 개별 대조. ⛔오답 선언은 보수적."""
-    gs = item.get("골든들") or [item.get("골든", "")]
+    gs = [g for g in (item.get("골든들") or [item.get("골든", "")]) if g]
+    # ── 묻지 않은 골든은 채점하지 않는다(2026-08-24 실측) ──
+    # 게이트①-b가 붙기 전에 은행에 들어간 문항은 '질문이 안 물어본 골든'을 달고 있다.
+    # 그걸 채점하면 **옳은 답변이 부분정답으로 깎인다** — 08-24 회차에서 복합형 미정답
+    # 8건 중 6건이 이 경로였고, 질문이 실제로 물어본 골든에 대한 답변 커버리지는
+    # 8/8 = 100%였다(즉 답변 품질 저하가 아니라 채점 대상 선정 결함).
+    질의 = item.get("질문") or ""
+    scored = [g for g in gs if not 질의 or _cover(g, 질의) >= ASK_MIN]
+    미질의 = len(gs) - len(scored)
+    if 질의 and not scored:
+        # 질문이 어느 골든도 안 물어봤다 = 채점이 성립하지 않는다. ⛔'오답'으로 몰지 않는다.
+        #   판정불가는 분모에서 빠지고 은행 상태도 안 건드린다(폐기=retire와 달리 자동 은퇴
+        #   없음 — 은행 수정은 사람이 golden_repair.py --retire로. 절대 규칙).
+        return ("판정불가", f"복합형 요건 미달 — 골든 {len(gs)}건 중 질문이 물어본 것 0건", None)
+    gs = scored
     hits = [(g, _cover(g, 답변)) for g in gs if g]
     ok = [g for g, c in hits if c >= 0.45]
     miss = [(g, c) for g, c in hits if c < 0.45]
@@ -259,7 +304,9 @@ def grade_scenario(item: dict, 답변: str) -> tuple:
     if is_refusal(답변) and not ok:
         regs = ", ".join(f"{s['규정명']} {s['조']}" for s in (item.get("출처들") or [])[:3])
         return "오답", f"근거({regs})가 실재하는데 확인 불가로 답변함", refusal_cause(item)
+    꼬리 = f" (묻지 않은 골든 {미질의}건은 채점 제외)" if 미질의 else ""
     if ok:
         빠짐 = " / ".join(f"「{g[:40]}…」({c:.0%})" for g, c in miss[:2])
-        return "부분", f"근거 {len(ok)}/{len(hits)}건만 반영 — 빠진 항목: {빠짐}", None
-    return "검토필요", f"근거 {len(hits)}건 중 반영 0건(최고 일치 {max(c for _, c in hits):.0%})", None
+        return "부분", f"근거 {len(ok)}/{len(hits)}건만 반영 — 빠진 항목: {빠짐}{꼬리}", None
+    return ("검토필요",
+            f"근거 {len(hits)}건 중 반영 0건(최고 일치 {max(c for _, c in hits):.0%}){꼬리}", None)

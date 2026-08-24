@@ -242,6 +242,41 @@ def test_noise_band_reaches_the_action_list():
         assert "잡음 범위" in R.render_md(a)
 
 
+# ── 유형 구성 보정 — 2026-08-24 실측 ──────────────────────────────────────────
+# 08-24 신규 정답률 93.6→86.5는 회귀로 보고됐으나, 복합형·거부형이 개수 상한(여정 16·
+# 시드 19) 때문에 회차가 작아지면 비중만 3배로 뛰는 구조 때문이었다(5.5~6.3%→17.3%).
+def test_standardized_rate_does_not_change_the_raw_rate():
+    from daily_common import type_standardized
+    rows = ([{"유형": "값형", "판정": "정답"}] * 9 + [{"유형": "값형", "판정": "오답"}]
+            + [{"유형": "거부형", "판정": "오답"}] * 5)
+    raw = 9 / 15
+    st = type_standardized(rows)
+    assert st["구성보정정답률"] is not None
+    # ⛔ 보정치는 원시값을 대체하지 않는다 — 별도 필드로만 존재한다.
+    assert "정답률" not in st, "보정 함수가 원시 정답률을 덮어쓰면 안 된다"
+    # 거부형이 기준 구성(3.1%)보다 훨씬 많으므로 보정치는 원시값보다 **높아야** 한다.
+    assert st["구성보정정답률"] > 100 * raw, (st, raw)
+    assert st["하드유형비중"] == round(100 * 5 / 15, 1)
+
+
+def test_standardized_rate_is_flat_when_mix_matches_reference():
+    """구성이 기준과 같고 유형별 정답률이 같으면 보정치 == 원시값(자가 무해성)."""
+    from daily_common import TYPE_REF_MIX, type_standardized
+    rows = []
+    for t, w in TYPE_REF_MIX.items():
+        n = max(2, round(w * 200))
+        rows += [{"유형": t, "판정": "정답"}] * (n // 2) + [{"유형": t, "판정": "오답"}] * (n - n // 2)
+    st = type_standardized(rows)
+    assert abs(st["구성보정정답률"] - 50.0) < 1.0, st
+
+
+def test_partial_credit_is_bucketed_and_never_vanishes():
+    """부분정답이 어느 버킷에도 없어 리포트에서 사라지던 구멍(08-24 6건)."""
+    assert "부분정답" in R.NOISE, "부분정답이 버킷 없이 남으면 통계에서 사라진다"
+    assert "부분정답" not in R.SURGERY, "부분정답은 서비스 결함 큐를 먹으면 안 된다"
+
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     bad = 0
@@ -253,3 +288,4 @@ if __name__ == "__main__":
             bad += 1
             print(f"  ❌  {fn.__name__}: {e}")
     sys.exit(1 if bad else print(f"\n✅ {len(fns)}개 통과 — 아침 분석서 집계 규칙") or 0)
+
