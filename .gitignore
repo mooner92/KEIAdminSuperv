@@ -184,7 +184,16 @@ eval/question_bank.jsonl
 eval/ab/
 eval/question_bank.jsonl.bak
 eval/*.bak
-eval/daily/
+# ⚠ 디렉터리(eval/daily/)를 통째로 제외하면 Git 규칙상 안의 파일을 !로 되살릴 수 없다
+#   (2026-08-27 실측: 자동 수술 결과 문서가 관문에 안 보여 '변경 없음'으로 끝났다).
+#   그래서 파일 단위로 제외하고 수술 산출물만 예외로 되살린다.
+eval/daily/*
+# ⚠ 단, **수술 산출물은 추적한다**(2026-08-27 실측): eval/daily/ 통째 제외라 자동 수술이
+#   쓴 결과 문서가 관문에 안 보여 '변경 없음'으로 끝나고 브랜치가 안 만들어졌다.
+#   회차 원본(questions/answers/graded)은 계속 제외 — 규정 본문이 들어 있어 공개 금지다.
+#   수술 문서는 지표·조치 서술이라 공개 안전하고, 사람이 검토하려면 diff로 보여야 한다.
+!eval/daily/*.surgery-result.md
+!eval/daily/LATEST-SURGERY.md
 eval/faq_candidates/
 tools/.daily_eval_signals.json
 web/public/quality/

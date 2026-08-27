@@ -19,7 +19,8 @@ BR_FILE="eval/daily/${DATE}.surgery.md"
 REPORT="eval/daily/LATEST-SURGERY.md"   # 세션이 읽는 최신 보고서(항상 덮어씀)
 BRANCH="autosurgery/${DATE}"
 PY="$ROOT/tools/.venv/bin/python"
-say() { echo "[$(date '+%F %T')] $*" | tee -a "$LOG"; }
+# crontab이 stdout을 이미 $LOG로 리다이렉트한다 — tee를 쓰면 같은 줄이 두 번 남는다
+say() { echo "[$(date '+%F %T')] $*"; }
 notify() { "$PY" "$ROOT/eval/auto_surgery_notify.py" --status "$1" --date "$DATE" --detail "$2" || true; }
 revert() { git checkout -- . 2>/dev/null; git clean -fdq eval/ 2>/dev/null; }
 
@@ -65,8 +66,11 @@ EOP
 )"
 
 say "▶ 수술 시작 ${DATE} (base ${BASE:0:7})"
-claude -p "$PROMPT" --output-format json --max-turns 120 \
-       --allowedTools "Read,Glob,Grep,Edit,Write,Bash" 2>&1 | tail -c 3000 >> "$LOG"
+RES=$(claude -p "$PROMPT" --output-format json --max-turns 120 \
+        --allowedTools "Read,Glob,Grep,Edit,Write,Bash" 2>&1)
+# 비용만 뽑아 남긴다 — 원문 JSON은 4KB 한 줄이라 로그를 못 읽게 만든다(08-27 실측)
+COST=$(echo "$RES" | grep -o '"total_cost_usd":[0-9.]*' | head -1 | cut -d: -f2)
+say "  claude 종료 · 비용 \$${COST:-?}"
 
 # ── 결정적 관문 ──────────────────────────────────────────────────────────────
 CHANGED=$( { git diff --name-only "$BASE"; git ls-files -o --exclude-standard; } | sed '/^$/d' | sort -u )
