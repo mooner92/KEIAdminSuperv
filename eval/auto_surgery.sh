@@ -85,8 +85,19 @@ if [ -n "$OUTSIDE$PAST" ]; then
 fi
 
 FAIL=""                                                                      # ⓒ 회귀 전량 통과
+# ⚠ 모델·chroma 적재 통합테스트는 관문에서 제외한다(2026-08-29 실측 사고): test_action_expand는
+#   Ollama/모델을 로드하는 환경 의존 테스트라 결정적 회귀가 아닌데, 관문이 이걸 돌리다 3일간
+#   멈춰 flock 락을 쥐고 자동화 전체를 죽였다(08-30·31·09-01 전부 미실행). 수술 에이전트 자신도
+#   '빠른 런에서 제외'라 적는 테스트다. ⓐ 통합테스트 제외 + ⓑ timeout 백스톱(어떤 테스트도
+#   자동화를 다시 물지 못하게) 이중으로 막는다. timeout(124)은 락을 풀기 위해 반드시 프로세스를 죽인다.
+INTEGRATION_TESTS="test_action_expand.py"   # 모델 적재 — 결정적 회귀 아님, 관문 제외
 for t in "$ROOT"/eval/test_*.py; do
-  "$PY" "$t" >/dev/null 2>&1 || FAIL="$FAIL $(basename "$t")"
+  b=$(basename "$t")
+  case " $INTEGRATION_TESTS " in *" $b "*) continue;; esac
+  timeout 180 "$PY" "$t" >/dev/null 2>&1
+  rc=$?
+  [ "$rc" -eq 124 ] && say "⚠ 회귀 $b 180s 타임아웃 — 실패 처리(자동화는 락 해제 후 계속)"
+  [ "$rc" -ne 0 ] && FAIL="$FAIL $b"
 done
 if [ -n "$FAIL" ]; then
   say "⛔ 회귀 실패 —$FAIL · 되돌림"; revert; notify blocked "회귀 실패:$FAIL"; exit 1
