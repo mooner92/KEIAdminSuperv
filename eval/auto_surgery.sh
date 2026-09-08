@@ -33,7 +33,20 @@ if [ "${AVAIL_G:-0}" -lt 10 ]; then
 fi
 [ -f "$BR_FILE" ] || { say "브리핑 없음 — 수술대기 0건이거나 평가 미완료"; exit 0; }
 command -v claude >/dev/null || { say "⛔ claude CLI 없음"; notify blocked "claude CLI 없음"; exit 1; }
-git diff --quiet || { say "⛔ 미커밋 변경 있음 — 사람이 작업 중으로 보고 생략"; exit 0; }
+# ⚠ 미커밋이면 생략한다(사람 작업 보호). 다만 **조용히 반복되면 안 된다** — 2026-09-02 A/B로
+#   rag_core.py를 고치고 커밋하지 않은 채 두었더니 09-03~09-08 **6일간 매일 생략**됐고
+#   로그에만 남아 아무도 몰랐다. 연속 2회부터 알림을 띄운다(자동 커밋은 하지 않는다 —
+#   남의 미완성 작업을 대신 커밋하는 게 더 위험하다).
+SKIPF="$HOME/kei-backups/.autosurgery-skips"
+if ! git diff --quiet; then
+  n=$(( $(cat "$SKIPF" 2>/dev/null || echo 0) + 1 ))
+  echo "$n" > "$SKIPF"
+  say "⛔ 미커밋 변경 있음 — 사람이 작업 중으로 보고 생략(연속 ${n}회)"
+  [ "$n" -ge 2 ] && notify blocked \
+    "미커밋 변경으로 ${n}일 연속 수술 생략 — $(git status --short | head -3 | tr '\n' ' ') · 커밋하거나 되돌려야 재개됩니다"
+  exit 0
+fi
+: > "$SKIPF"   # 정상 진입 = 연속 카운터 초기화
 
 START_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 BASE=$(git rev-parse HEAD)
