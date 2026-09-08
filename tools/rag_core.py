@@ -2185,6 +2185,17 @@ def _gen_extra():
     if NO_THINK and QWEN35:
         extra["reasoning_effort"] = "none"  # OpenAI 호환(/v1) 경로용 — 실제 효력(실측)
         extra["think"] = False              # 네이티브 경로/타 버전 대비(무해)
+    # 백엔드별 '사고 off' 방언 주입구(RAG_GEN_EXTRA, JSON). 미설정이면 위 반환값 그대로 —
+    # 현행 Ollama/qwen3.5 운영 경로는 불변이다. vLLM(Qwen3.8-27B)은 reasoning_effort도
+    # /no_think도 안 먹고 chat_template_kwargs.enable_thinking=false만 유효하다
+    # (2026-09-02 실측: 사고 켠 채 26.9초·사고 1,309자 → 끄면 1.4초로 19배). keep_alive는 무시(무해).
+    #   예: RAG_GEN_EXTRA='{"chat_template_kwargs":{"enable_thinking":false}}'
+    _ge = os.environ.get("RAG_GEN_EXTRA", "").strip()
+    if _ge:
+        try:
+            extra.update(json.loads(_ge))
+        except (ValueError, TypeError) as e:  # 잘못된 JSON이 생성을 막지 않게 — 기본 동작 유지
+            print(f"[rag_core] ⚠ RAG_GEN_EXTRA 파싱 실패({e}) — 무시하고 기본값 사용")
     return extra
 
 
