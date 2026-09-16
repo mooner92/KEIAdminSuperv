@@ -140,6 +140,33 @@ def test_header_carries_denominator_and_interval():
         (surgery_brief.DAILY / f"{FIX_DATE}.surgery.md").unlink(missing_ok=True)
 
 
+
+
+def test_brief_carries_cross_day_memory():
+    """수술에 기억을 주는 블록(추세표+기각원장)이 브리핑에 실린다.
+
+    2026-09-16 교차일 분석: 8일간 기각 9건 중 2건이 중복 제기됐고, 거부형 오답이
+    15→23(+53%)인데 매일 밴드를 새로 맞춰 '안정'으로 결론했다. 원인은 세션이 어제를
+    모르는 것 — 브리핑이 어제까지를 싣지 않으면 같은 낭비가 반복된다.
+    """
+    g = {"date": FIX_DATE, "문항": [
+        {"id": "memcase", "질문": "기억 질문?", "골든": "g", "답변": "a",
+         "실패유형": "검색실패", "판정": "오답", "유형": "값형", "코호트": "재시험"},
+    ]}
+    gf = surgery_brief.DAILY / f"{FIX_DATE}.graded.json"
+    gf.write_text(json.dumps(g, ensure_ascii=False), encoding="utf-8")
+    try:
+        md = surgery_brief.build(FIX_DATE).read_text(encoding="utf-8")
+        assert "최근 회차 추세" in md, "추세표 섹션이 없다"
+        assert "기각 원장" in md, "기각 원장이 인라인되지 않았다"
+        # 원장의 핵심 계약 — 표면형 게이트 반복 실패가 실제로 전달되는지
+        assert "표면형 골든 게이트" in md, "반복 실패모드 경고가 누락됐다"
+        assert "밴드를 오늘" in md, "밴드 재적합 경고가 누락됐다"
+    finally:
+        gf.unlink(missing_ok=True)
+        (surgery_brief.DAILY / f"{FIX_DATE}.surgery.md").unlink(missing_ok=True)
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     bad = 0
@@ -151,3 +178,4 @@ if __name__ == "__main__":
             bad += 1
             print(f"  ❌  {fn.__name__}: {e}")
     sys.exit(1 if bad else print(f"\n✅ {len(fns)}개 통과 — 수술 브리핑 계약(분류 대사·유출 금지·배선)") or 0)
+
