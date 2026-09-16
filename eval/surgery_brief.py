@@ -63,6 +63,32 @@ def broke_today(q: dict) -> bool:
             and q.get("판정") != "정답")
 
 
+def _stability(q: dict) -> str:
+    """새로깨짐 문항의 진동 이력 — '직전=정답'만으로는 진성 회귀와 구별되지 않는다.
+    실측(2026-09-16 수술): 역대 새로깨짐 268건 중 **직전 정답연속 ≥4회는 0건**이었다.
+    3연속 정답이면 fixed로 졸업해 재시험 풀을 떠나므로(daily_grade), 재시험 풀에는
+    구조적으로 진동 문항만 남는다 — 즉 '직전=정답→오늘=오답'은 진성 회귀 탐지력이 0에
+    수렴한다(당일에도 4/4가 진동 이력). 그래서 '최우선' 프레이밍을 **직전 연속 정답수**로
+    보정한다: 값 자체는 노출만, 억제하지 않는다(여전히 맨 앞·🔻). streak≥4가 등장하면
+    태그가 '진성회귀 의심'으로 뒤집혀 오히려 더 튄다 — 억제기가 아니라 트립와이어다.
+    ⚠ 판정이력이 없으면(만성 분해 이전·합성 픽스처) 빈 문자열 — 조용히 생략한다."""
+    h = [x.get("판정") for x in (q.get("판정이력") or [])]
+    if not h:
+        return ""
+    streak = 0
+    for v in reversed(h):
+        if v == "정답":
+            streak += 1
+        else:
+            break
+    last = h[-10:]
+    ok = sum(1 for v in last if v == "정답")
+    flips = sum(1 for i in range(1, len(last)) if last[i] != last[i - 1])
+    tag = "진성회귀 의심" if streak >= 4 else "진동(안정정답 아님 — 잡음 가능성 높음)"
+    return (f" · 진동이력: 직전 정답연속 {streak}회 · 최근{len(last)}회 중 정답 {ok}·전환 {flips} "
+            f"→ {tag}")
+
+
 def _item_md(i: int, q: dict) -> str:
     src = q.get("출처") or {}
     expected = f"{src.get('규정명', '?')} {src.get('조', '')}".strip()
@@ -76,6 +102,7 @@ def _item_md(i: int, q: dict) -> str:
         f"- 유형 {q.get('유형', '?')} · 어휘층 {q.get('어휘층') or '-'} · "
         f"코호트 {q.get('코호트', '?')} · 판정 {q.get('판정', '?')}"
         + (f" · **직전 회차 정답 → 오늘 {q.get('판정')}**(최우선 — 오늘 달라진 것)"
+           + _stability(q)
            if broke_today(q) else ""),
         "- 질문:", question,
         f"- 골든(기대 정답): {(q.get('골든') or '(없음 — 거부형)')[:_CAP_GOLDEN]}",

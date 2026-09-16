@@ -70,6 +70,37 @@ def test_newly_broken_always_included_even_outside_surgery_set():
         (surgery_brief.DAILY / f"{FIX_DATE}.surgery.md").unlink(missing_ok=True)
 
 
+def test_newly_broken_carries_stability_signal():
+    # 2026-09-16 실측: 역대 새로깨짐 268건 중 직전 정답연속 ≥4회는 0건 — 재시험 풀은 구조적
+    # 진동 문항만 남는다. '최우선' 프레이밍을 직전 연속 정답수로 보정한다(억제 아님·트립와이어).
+    g = {"date": FIX_DATE, "문항": [
+        # 진동형 — 직전만 정답, 그 전 오답 → streak 1, '진동' 태그
+        {"id": "flapcase", "질문": "진동 질문?", "골든": "g", "답변": "a",
+         "실패유형": "생성환각", "판정": "오답", "유형": "거부형", "코호트": "재시험",
+         "직전판정": "정답",
+         "판정이력": [{"date": "d1", "판정": "오답"}, {"date": "d2", "판정": "정답"},
+                    {"date": "d3", "판정": "오답"}, {"date": "d4", "판정": "정답"}]},
+        # 안정형 — 직전 5연속 정답 후 깨짐 → streak 5, '진성회귀 의심' (역대 미발생, 트립와이어)
+        {"id": "stablecase", "질문": "안정 질문?", "골든": "g", "답변": "a",
+         "실패유형": "검색실패", "판정": "오답", "유형": "값형", "코호트": "재시험",
+         "직전판정": "정답",
+         "판정이력": [{"date": "d1", "판정": "정답"}, {"date": "d2", "판정": "정답"},
+                    {"date": "d3", "판정": "정답"}, {"date": "d4", "판정": "정답"},
+                    {"date": "d5", "판정": "정답"}]},
+    ]}
+    gf = surgery_brief.DAILY / f"{FIX_DATE}.graded.json"
+    gf.write_text(json.dumps(g, ensure_ascii=False), encoding="utf-8")
+    try:
+        md = surgery_brief.build(FIX_DATE).read_text(encoding="utf-8")
+        assert "직전 정답연속 1회" in md and "진동(안정정답 아님" in md, "진동형에 보정 신호 없음"
+        assert "직전 정답연속 5회" in md and "진성회귀 의심" in md, "안정형 트립와이어 미작동"
+        # 억제 금지 — 둘 다 여전히 🔻 최우선으로 실린다
+        assert md.count("🔻새로깨짐 [") == 2, "보정이 새로깨짐 편입을 억제했다(억제 금지)"
+    finally:
+        gf.unlink(missing_ok=True)
+        (surgery_brief.DAILY / f"{FIX_DATE}.surgery.md").unlink(missing_ok=True)
+
+
 def test_slack_gets_pointer_only():
     # ⛔ Slack엔 붙여넣기 한 줄만 — eval_notice가 surgery.md '존재'만 보고, 내용을 읽지 않는다.
     src = (HERE / "eval_notice.py").read_text(encoding="utf-8")
