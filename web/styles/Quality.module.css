@@ -17,6 +17,9 @@
 .score { font-size: 58px; font-weight: 900; line-height: 1.1; margin: 4px 0 8px; font-variant-numeric: tabular-nums; }
 .scoreSub { display: flex; flex-wrap: wrap; gap: 6px 12px; }
 .tally { font-size: 12px; font-weight: 700; color: var(--color-text-secondary); }
+/* docs/74 — 에이전트 답변 날 표시(정답률을 단발 경로와 섞어 읽지 않게) */
+.pathTag { margin-top: var(--space-2); font-size: 12px; font-weight: 700; color: var(--color-text-secondary);
+  border: 1px dashed var(--color-border); border-radius: 8px; padding: 4px 8px; }
 /* 추이 표(막대 대체 — 날짜·수치 직접 판독) + 셀 내 미니 수평바(보조 시각) */
 .trendTableWrap { overflow-x: auto; max-height: 200px; overflow-y: auto; }
 .trendTable { width: 100%; border-collapse: collapse; font-size: 12.5px; }

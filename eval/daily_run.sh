@@ -21,7 +21,7 @@ if [ "${FREE:-0}" -gt 21000 ]; then
   echo "[$(date)] GPU 과점유(${FREE}MiB) — 당일 스킵"; exit 0
 fi
 
-echo "[$(date)] 일일 자가평가 시작 ($DATE)"
+echo "[$(date)] 일일 자가평가 시작 ($DATE, 답변경로=${DAILY_EVAL_MODEL:-kei-admin-rag})"
 $PY daily_gen.py --sync          # 0) 골든 자가검증(재색인 대응: 재바인딩·stale·retire)
 $PY daily_gen.py --date "$DATE"
 $PY daily_answer.py --date "$DATE"
@@ -36,7 +36,11 @@ $PY daily_report.py --date "$DATE" || true
 # 미설정/미존재 시 조용히 skip(dev 단독 운용 안전). server.js가 web/public/quality를 직서빙 →
 # 재빌드 불필요. ⛔ quality 데이터만 복사(코드·볼트 무관).
 PROD_Q="${PROD_QUALITY_DIR:-/KEIAdminSuperv/web/public/quality}"
-if [ -d "$(dirname "$PROD_Q")" ]; then
+# 에이전트 답변 날(docs/74)은 dev 실험 — prod 게시판은 '실서비스(단발) 지표'이고 prod 화면엔 경로 표시가
+# 없어 섞으면 오독된다. 명시적으로 DAILY_EVAL_MIRROR_PROD=1일 때만 미러한다.
+if [ "${DAILY_EVAL_MODEL:-kei-admin-rag}" != "kei-admin-rag" ] && [ "${DAILY_EVAL_MIRROR_PROD:-0}" != "1" ]; then
+  echo "[$(date)] 답변경로=${DAILY_EVAL_MODEL} — prod 게시판 미러 생략(docs/74)"
+elif [ -d "$(dirname "$PROD_Q")" ]; then
   # ⚠ 스크립트는 eval/에서 실행된다(cd "$(dirname "$0")") — 소스는 반드시 상위 경로.
   #    실측 2026-07-27: 상대경로 'web/...'가 eval/web/...을 가리켜 **prod 동기화가 매일 조용히 실패**했다.
   rsync -a --delete ../web/public/quality/ "$PROD_Q"/ && echo "[$(date)] prod 게시판 동기화 → $PROD_Q"

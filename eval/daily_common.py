@@ -20,6 +20,11 @@ TOTAL = int(os.environ.get("DAILY_EVAL_TOTAL", "60"))
 NEW_N = int(os.environ.get("DAILY_EVAL_NEW", "40"))
 REG_N = max(0, TOTAL - NEW_N)
 API = os.environ.get("DAILY_EVAL_API", "http://127.0.0.1:9001")  # dev 기본 — prod 등록은 승격 절차
+# 답변 경로(docs/74, 2026-10-06): kei-admin-rag = 단발 RAG(채팅과 동일) · kei-agent = omp 에이전트.
+# ⚠ 게시판 정답률은 **이 경로의** 품질이다 — 답변 파일·게시판에 경로를 함께 기록해 비교 가능하게 한다.
+ANSWER_MODEL = os.environ.get("DAILY_EVAL_MODEL", "kei-admin-rag")
+# 에이전트는 점검 턴+도구 호출로 단발보다 몇 배 느리다(실측 최대 450s/문항) — 클라이언트 타임아웃을 넉넉히.
+ANSWER_TIMEOUT = int(os.environ.get("DAILY_EVAL_TIMEOUT", "900" if ANSWER_MODEL == "kei-agent" else "300"))
 LLM_BASE = os.environ.get("VLLM_BASE", "http://127.0.0.1:11436/v1")
 LLM_MODEL = os.environ.get("LLM_MODEL", "hf.co/unsloth/Qwen3.5-9B-GGUF:Q4_K_M")
 CHROMA_DIR = os.environ.get("CHROMA_DIR", str(ROOT / "tools" / "chroma"))
@@ -181,13 +186,14 @@ def rag_answer(question: str, history: list | None = None) -> dict:
     for hq, ha in (history or []):
         msgs += [{"role": "user", "content": hq}, {"role": "assistant", "content": ha}]
     msgs.append({"role": "user", "content": question})
-    body = json.dumps({"model": "kei-admin-rag", "messages": msgs}).encode()
+    body = json.dumps({"model": ANSWER_MODEL, "messages": msgs}).encode()
     req = urllib.request.Request(f"{API}/v1/chat/completions", data=body,
                                  headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=300) as r:
+    with urllib.request.urlopen(req, timeout=ANSWER_TIMEOUT) as r:
         d = json.load(r)
     return {"content": d["choices"][0]["message"]["content"], "x_sources": d.get("x_sources", []),
-            "x_gates": d.get("x_gates")}   # specs/16 W1-E 텔레메트리(없으면 None — 구서버 호환)
+            "x_gates": d.get("x_gates"),   # specs/16 W1-E 텔레메트리(없으면 None — 구서버 호환)
+            "x_agent": d.get("x_agent")}   # docs/74 — 에이전트 도구 호출·강등(단발이면 None)
 
 
 def chroma_col():
