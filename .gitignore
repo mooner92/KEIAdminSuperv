@@ -210,3 +210,7 @@ eval/mlruns/
 eval/mlflow.db
 eval/question_bank.jsonl.bak-*
 web/gifgen/
+
+# 에이전트 하네스(omp) — 의존성·격리 홈은 로컬 산출물
+tools/agent/node_modules/
+tools/agent/.omp-home/

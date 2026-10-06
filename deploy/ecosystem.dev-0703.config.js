@@ -76,6 +76,13 @@ module.exports = {
         AUTOFIX_ENABLED: "0",
         // 사용량 데이터 보관 2년(기본 180일) — "의미있는 데이터라 잘 보관"(docs/35 §0, 📈 통계 탭)
         TRACK_RETENTION_DAYS: "730",
+        // 에이전트 답변 경로(docs/74, 2026-10-06): model="kei-agent" 요청만 omp 하네스+로컬 Qwen
+        // 에이전트로 답한다(기본 kei-admin-rag 요청·채팅 UI는 불변). LLM은 같은 GGUF의 num_ctx 32K
+        // 별칭(kei-qwen35-agent) — 서비스용 8K 러너를 재적재하지 않게 이름을 분리했다.
+        RAG_AGENT: "1",
+        RAG_AGENT_LLM: "kei-qwen35-agent:latest",
+        RAG_AGENT_LLM_BASE: "http://127.0.0.1:11437/v1", // 에이전트 전용 Ollama(deploy/ecosystem.agent-ollama.config.js)
+        RAG_AGENT_BUN: "/home/mhchoi/.nvm/versions/node/v22.23.0/bin/bun",
         PYTHONUNBUFFERED: "1",
       },
     },
