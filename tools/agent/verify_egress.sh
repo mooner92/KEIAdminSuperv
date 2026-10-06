@@ -6,7 +6,7 @@
 # (bun update) 반드시 이걸 다시 돌려 루프백 외 connect가 0인지 확인한다.
 #
 # 방법: 모의 도구 서버 + 실제 에이전트 Ollama로 1문항 실행을 strace(connect)로 감시.
-# 사용: tools/agent/verify_egress.sh   (에이전트 Ollama 11437 가동 필요, strace 필요)
+# 사용: tools/agent/verify_egress.sh   (에이전트 Ollama 11438 가동 필요, strace 필요)
 set -euo pipefail
 cd "$(dirname "$0")"
 BUN="${RAG_AGENT_BUN:-$(command -v bun || echo /home/mhchoi/.nvm/versions/node/v22.23.0/bin/bun)}"
@@ -30,7 +30,7 @@ PORT=$(head -1 "$TMP/port")
 cat > "$TMP/in.json" <<EOF
 {"question":"모의 질문입니다. 목적 조항을 알려줘.","history":[],"system":"검색 도구로 근거를 찾아 한 줄로 답한다.",
  "api":"http://127.0.0.1:$PORT","token":"t","temperature":0.1,
- "model":{"baseUrl":"${RAG_AGENT_LLM_BASE:-http://127.0.0.1:11437/v1}","id":"${RAG_AGENT_LLM:-kei-qwen35-agent:latest}","contextWindow":32768,"maxTokens":256},
+ "model":{"baseUrl":"${RAG_AGENT_LLM_BASE:-http://127.0.0.1:11438/v1}","id":"${RAG_AGENT_LLM:-kei-qwen35-agent:latest}","contextWindow":32768,"maxTokens":256},
  "maxToolCalls":2,"agentDir":"$TMP/omp-home"}
 EOF
 
@@ -43,5 +43,5 @@ EXT=$(grep -oE 'inet6?_addr\("[^"]+"\)|inet_pton\(AF_INET6?, "[^"]+"' "$TMP/stra
 if [ -n "$EXT" ]; then
   echo "❌ 루프백 외 연결 발견:"; echo "$EXT"; exit 1
 fi
-grep -q '"answer"' "$TMP/out.txt" || { echo "❌ 에이전트 출력 없음(Ollama 11437 가동 확인)"; tail -3 "$TMP/out.txt"; exit 1; }
+grep -q '"answer"' "$TMP/out.txt" || { echo "❌ 에이전트 출력 없음(Ollama 11438 가동 확인)"; tail -3 "$TMP/out.txt"; exit 1; }
 echo "✅ 외부망 연결 0 — 루프백만 사용 ($(grep -c 'connect(' "$TMP/strace.log") connect 호출 감시)"

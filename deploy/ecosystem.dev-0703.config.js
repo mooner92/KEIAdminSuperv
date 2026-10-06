@@ -81,7 +81,7 @@ module.exports = {
         // 별칭(kei-qwen35-agent) — 서비스용 8K 러너를 재적재하지 않게 이름을 분리했다.
         RAG_AGENT: "1",
         RAG_AGENT_LLM: "kei-qwen35-agent:latest",
-        RAG_AGENT_LLM_BASE: "http://127.0.0.1:11437/v1", // 에이전트 전용 Ollama(deploy/ecosystem.agent-ollama.config.js)
+        RAG_AGENT_LLM_BASE: "http://127.0.0.1:11438/v1", // 에이전트 전용 Ollama(deploy/ecosystem.agent-ollama.config.js)
         RAG_AGENT_BUN: "/home/mhchoi/.nvm/versions/node/v22.23.0/bin/bun",
         PYTHONUNBUFFERED: "1",
       },

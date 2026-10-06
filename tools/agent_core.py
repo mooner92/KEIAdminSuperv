@@ -36,7 +36,7 @@ OMP_HOME = AGENT_DIR / ".omp-home"          # gitignore — omp 설정/캐시 �
 ENABLED = os.environ.get("RAG_AGENT", "0") == "1"
 MODEL_ID = os.environ.get("RAG_AGENT_MODEL_ID", "kei-agent")        # 요청 model 필드로 선택
 LLM = os.environ.get("RAG_AGENT_LLM", "kei-qwen35-agent:latest")    # 같은 GGUF·num_ctx 32K 별칭
-# 에이전트 전용 Ollama(11437) — 서비스 Ollama(11436)는 러너 1개만 상주해 32K 별칭을 올리면 서비스 러너가
+# 에이전트 전용 Ollama(11438) — 서비스 Ollama(11436)는 러너 1개만 상주해 32K 별칭을 올리면 서비스 러너가
 # 축출된다(실측: 다음 서비스 답변 106초). 미설정이면 서비스와 같은 베이스(실험용).
 LLM_BASE = os.environ.get("RAG_AGENT_LLM_BASE", "") or rag_core.VLLM_BASE
 CTX = int(os.environ.get("RAG_AGENT_CTX", "32768"))
