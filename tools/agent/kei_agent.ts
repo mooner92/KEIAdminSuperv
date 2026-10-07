@@ -13,7 +13,8 @@
  *                    maxToolCalls, agentDir, temperature, seed?{context,sources,hint}}
  *   seed = 서비스 단발 경로와 같은 1차 검색 결과. 에이전트는 이 [근거]에서 출발해 부족할 때만 도구로 보충한다
  *          → 근거가 단발 경로의 상위집합이 된다(실측: 시드 없이 시작하면 9B가 도구를 건너뛰고 지어냈다).
- * 출력(stdout 마지막 줄 JSON): {answer, evidence[{tool,args,context,sources}], toolCalls[], ms, error?}
+ * 출력(stdout NDJSON): 진행 중 {type:"progress", stage:seed|check|tool|answer|verify, …} 여러 줄 →
+ *   마지막 줄 {type:"result", answer, draft, absent[], evidence[{tool,args,context,sources}], toolCalls[], ms, error?}
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import {
@@ -115,6 +116,7 @@ function makeTool(
 				return textResult("이미 같은 인자로 호출했습니다. 다른 검색어를 쓰거나, 지금까지의 [근거]로 답하세요.");
 			}
 			seen.add(key);
+			progress("tool", { tool: name, args });
 			const t = Date.now();
 			try {
 				const res = await callApi(path, args);
@@ -186,6 +188,11 @@ function emit(obj: Record<string, unknown>) {
 	process.stdout.write(`\n${JSON.stringify(obj)}\n`);
 }
 
+/** 진행 단계 실시간 보고(NDJSON 한 줄) — 채팅 화면이 '검색 중…·열람 중…'을 보여 주는 재료(docs/74 §7). */
+function progress(stage: string, detail: Record<string, unknown> = {}) {
+	process.stdout.write(`${JSON.stringify({ type: "progress", stage, ...detail, ms: Date.now() - t0 })}\n`);
+}
+
 try {
 	const authStorage = await discoverAuthStorage(agentDir);
 	const modelRegistry = new ModelRegistry(authStorage);
@@ -228,6 +235,7 @@ try {
 	if (seed?.context) {
 		evidence.push({ tool: "seed", args: {}, context: seed.context, sources: seed.sources ?? [] });
 		seed.context.split(SEP).forEach(b => seenHeads.add(head(b)));
+		progress("seed", { n: (seed.sources ?? []).length });
 	}
 	const seedPart = seed?.context
 		? `\n\n[근거]\n${seed.context}${seed.hint ? `\n\n[추가 확인 후보]\n${seed.hint}` : ""}`
@@ -244,8 +252,11 @@ try {
 	// ② 답변 턴 — 같은 세션(도구 결과가 문맥에 남음)에서 서비스 규칙대로 최종 답변. 점검 텍스트는 버린다.
 	let checkNote = "";
 	let nudged = false;
+	let draft = "";
+	let absent: string[] = [];
 	if (input.checkPrompt) {
 		const before = toolCalls.length;
+		progress("check");
 		await session.prompt(`${prefix}[질문]\n${input.question}${seedPart}\n\n${input.checkPrompt}`);
 		checkNote = lastText();
 		// 실측(2026-10-06): 점검에서 '없음'을 표시하고 "도구 사용 계획: search_regs(…)"라고 **글로만** 쓴 채
@@ -257,14 +268,44 @@ try {
 					"계획만 쓰지 말고 지금 바로 도구를 실제로 호출해 '없음' 항목을 찾아라(설명 문장 금지). 더 찾을 곳이 없으면 '점검 완료'라고만 써라.",
 			);
 		}
+		progress("answer");
 		await session.prompt(input.finalPrompt);
 	} else {
+		progress("answer");
 		await session.prompt(`${prefix}[질문]\n${input.question}${seedPart}`);
 	}
-	const answer = lastText();
-	emit({ answer, checkNote, nudged, evidence, toolCalls, ms: Date.now() - t0 });
+	let answer = lastText();
+
+	// ③ 검증 턴(2026-10-07, 10-07 회차 미정답 24건 분석): 미정답의 과반이 '다른 대상의 조문을 끌어와
+	// 답함'(명상실 질문에 휴양시설·콘도 조항 등)이고, 다음이 '근거에 없는 조건 덧붙임'·'있는 근거를
+	// 없다고 함'이었다. 초안을 근거 원문과 대조해 고쳐 쓰게 하고, 질문 핵심어 중 근거에 없는 말을
+	// 결정적으로 짚어 준다(형태소 분석 — LLM 0회). 힌트는 판단 재료일 뿐 거부 지시가 아니다
+	// (일상어 질문은 근거와 단어가 달라도 정답일 수 있다).
+	if (input.verifyPrompt && answer) {
+		draft = answer;
+		try {
+			const ctx = evidence.map(e => e.context).join(SEP);
+			absent = ((await callApi("/v1/agent/absent", { question: input.question, context: ctx })) as unknown as
+				{ terms?: string[] }).terms ?? [];
+		} catch {
+			absent = [];
+		}
+		const hint = absent.length
+			? `\n\n[참고 — 자동 점검] 질문의 핵심어 중 지금까지의 [근거]에 한 번도 나오지 않는 말: ${absent.join(", ")}. ` +
+				"근거가 이 대상을 다른 이름으로 다루는지(예: 일상어 '밥값' = 문서어 '식비') 확인하고, " +
+				"다른 대상의 규정이라면 끌어오지 말라."
+			: "";
+		progress("verify");
+		await session.prompt(`${input.verifyPrompt}${hint}`);
+		const revised = lastText();
+		// 9B가 검증 '과정'을 쓰거나 비정상적으로 짧게 끝내면 초안을 유지한다(빈 답·메타 서술 방지).
+		if (revised && revised.length >= draft.length * 0.3 && !/^(검증|수정|대조|초안)/.test(revised)) {
+			answer = revised.split("\n").filter(l => !/초안/.test(l)).join("\n").trim();
+		}
+	}
+	emit({ type: "result", answer, draft, absent, checkNote, nudged, evidence, toolCalls, ms: Date.now() - t0 });
 	await session.dispose?.();
 } catch (e) {
-	emit({ answer: "", evidence, toolCalls, ms: Date.now() - t0, error: String((e as Error)?.stack ?? e) });
+	emit({ type: "result", answer: "", evidence, toolCalls, ms: Date.now() - t0, error: String((e as Error)?.stack ?? e) });
 }
 process.exit(0);

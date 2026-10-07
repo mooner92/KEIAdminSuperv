@@ -11,9 +11,9 @@
 
 실행: .venv/bin/python tools/test_agent_core.py
 """
+import io
 import json
 import sys
-import types
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -88,20 +88,65 @@ def test_env_blocks_external_proxy():
 
 
 def _run_with(out_json: dict):
-    """run_agent를 모델·검색·bun 없이 돌린다(하위 프로세스 출력만 주입)."""
-    saved = (agent_core._bun, agent_core.subprocess.run, rag_core.condense_query, rag_core.retrieve,
+    """run_agent를 모델·검색·bun 없이 돌린다(러너 결과만 주입)."""
+    saved = (agent_core._bun, agent_core._spawn, rag_core.condense_query, rag_core.retrieve,
              rag_core.post_answer_notes)
     try:
         agent_core._bun = lambda: "/bin/true"
-        agent_core.subprocess.run = lambda *a, **k: types.SimpleNamespace(
-            stdout="log\n" + json.dumps(out_json, ensure_ascii=False), stderr="", returncode=0)
+        agent_core._spawn = lambda bun, payload, on_progress=None: out_json
         rag_core.condense_query = lambda q, h=None: q
         rag_core.retrieve = lambda q: ("", [])
         rag_core.post_answer_notes = lambda *a, **k: ""
         return agent_core.run_agent("질문", [])
     finally:
-        (agent_core._bun, agent_core.subprocess.run, rag_core.condense_query, rag_core.retrieve,
+        (agent_core._bun, agent_core._spawn, rag_core.condense_query, rag_core.retrieve,
          rag_core.post_answer_notes) = saved
+
+
+class _FakeProc:
+    """Popen 대역 — 러너 stdout NDJSON을 줄 단위로 흘린다."""
+    def __init__(self, lines):
+        self.stdin = io.StringIO()
+        self.stdin.close = lambda: None
+        self.stdout = iter(lines)
+        self.returncode = 0
+
+    def wait(self):
+        return 0
+
+    def kill(self):
+        pass
+
+
+def test_spawn_streams_progress_then_result():
+    lines = ['{"type":"progress","stage":"seed","n":5,"ms":10}\n', "omp 로그 한 줄\n",
+             '{"type":"progress","stage":"tool","tool":"search_regs","args":{"query":"숙박비"},"ms":20}\n',
+             '{"type":"result","answer":"답","evidence":[],"toolCalls":[]}\n']
+    got = []
+    saved = agent_core.subprocess.Popen
+    try:
+        agent_core.subprocess.Popen = lambda *a, **k: _FakeProc(lines)
+        out = agent_core._spawn("/bin/true", {"q": 1}, on_progress=got.append)
+    finally:
+        agent_core.subprocess.Popen = saved
+    assert [e["stage"] for e in got] == ["seed", "tool"] and got[1]["args"]["query"] == "숙박비"
+    assert out["answer"] == "답"
+
+
+def test_progress_callback_error_does_not_break():
+    lines = ['{"type":"progress","stage":"check"}\n', '{"type":"result","answer":"답"}\n']
+    saved = agent_core.subprocess.Popen
+    try:
+        agent_core.subprocess.Popen = lambda *a, **k: _FakeProc(lines)
+        out = agent_core._spawn("/bin/true", {}, on_progress=lambda e: 1 / 0)
+    finally:
+        agent_core.subprocess.Popen = saved
+    assert out["answer"] == "답"
+
+
+def test_verify_prompt_only_adds():   # 검증 턴은 SYSTEM 재확인 — 완화 문구가 없어야 한다
+    vp = agent_core.VERIFY_PROMPT
+    assert "규정에서 확인되지 않습니다" in vp and "지어" not in vp.replace("지어내지", "")
 
 
 def test_zero_evidence_answer_rejected():  # 절대 규칙 1 — 근거 없이 쓴 답은 받지 않는다
@@ -119,12 +164,14 @@ def test_success_postprocessed():
           {"tool": "read_article", "context": "[여비규정 별표 2 · 조문 전문]\n…",
            "sources": [{**REG, "조": "별표 2", "tag": "여비규정 별표 2"}]}]
     r = _run_with({"answer": "**별표 2를 따릅니다.** [링크](https://evil.example/x)", "evidence": ev,
-                   "toolCalls": [{"tool": "read_article"}], "checkNote": "점검 완료"})
+                   "toolCalls": [{"tool": "read_article"}], "checkNote": "점검 완료",
+                   "draft": "**초안**", "absent": ["명상실(규정 전체에 없음)"]})
     assert r is not None
     assert "https://evil.example" not in r["answer"]
     assert rag_core.DISCLAIMER in r["answer"]
     assert [s["조"] for s in r["srcs"]] == ["제16조", "별표 2"]
     assert r["trace"]["check"] == "점검 완료"
+    assert r["trace"]["verified"] and r["trace"]["revised"] and r["trace"]["absent"]
 
 
 if __name__ == "__main__":

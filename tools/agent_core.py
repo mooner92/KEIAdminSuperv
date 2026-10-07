@@ -24,6 +24,7 @@ import re
 import secrets
 import shutil
 import subprocess
+import tempfile
 import threading
 from pathlib import Path
 
@@ -86,6 +87,23 @@ CHECK_PROMPT = (
 FINAL_PROMPT = (
     "[2단계 — 최종 답변] 지금까지의 [근거](1차 검색 결과 + 도구 결과)만으로 시스템 규칙에 맞춰 최종 답변을 작성하라."
     " 점검 표·도구 이름·검색 과정·링크(URL)는 쓰지 마라. 끝까지 '없음'인 항목은 '규정에서 확인되지 않습니다'로 답한다."
+)
+
+# ③ 검증 턴(2026-10-07): 10-07 평일 회차 미정답 24건 — 거부형 13건이 '다른 대상의 조문을 끌어와 답함'
+# (명상실→휴양시설·콘도, 택배→기록물 보존기간), 절차형은 '근거에 없는 조건 덧붙임'·'표의 행 오독',
+# 복합형은 '근거에 있는데 확인되지 않는다고 함'. 셋 다 **초안을 원문과 대조**하면 잡히는 유형이다.
+# ⛔ SYSTEM 규칙의 재확인일 뿐 새 허용·완화 없음(절대 규칙 4). RAG_AGENT_VERIFY=0이면 끈다.
+VERIFY = os.environ.get("RAG_AGENT_VERIFY", "1") != "0"
+VERIFY_PROMPT = (
+    "[3단계 — 검증] 위 답변을 [근거] 원문과 한 문장씩 대조해 고친 **최종 답변만** 다시 써라"
+    " (검증 과정·수정 내역·'초안'이라는 말은 쓰지 마라).\n"
+    "① 대상 일치: 결론이 질문이 물은 바로 그 대상(시설·제도·서류·업무)을 규율하는 조문에서 나왔는가?"
+    " 다른 대상의 조문(예: 질문은 '명상실'인데 근거는 휴양시설·콘도 조항)을 끌어왔다면 그 결론을 버리고"
+    " '규정에서 확인되지 않습니다'로 답한다.\n"
+    "② 값·조건: 금액·기한·비율·징계 수준·적용 조건이 [근거] 문장에 그대로 있는가? 근거에 없는 조건·구분"
+    "(예: '유형에 따라')은 지운다. 표에서 읽은 값은 같은 행·열인지 다시 확인한다.\n"
+    "③ 빠뜨린 근거: '확인되지 않습니다'라고 쓴 항목이 실제로 [근거]에 있으면 그 내용으로 답한다.\n"
+    "답변이 이미 맞으면 같은 내용을 그대로 다시 쓴다. 형식(첫 줄 굵은 결론·출처·면책)은 시스템 규칙대로."
 )
 
 
@@ -211,6 +229,28 @@ def tool_toc(regulation: str) -> dict:
     return {"text": text, "sources": []}
 
 
+def tool_absent(question: str, context: str) -> dict:
+    """질문 핵심 명사 중 근거 텍스트에 한 번도 안 나오는 말(형태소 분석, LLM 0회) — 검증 턴 힌트.
+
+    코퍼스 전체에도 없으면 '(규정 전체에 없음)'을 붙인다 — 그건 거의 확실한 '대상 부재' 신호다
+    (명상실·무인 택배함). 근거에만 없으면 일상어 패러프레이즈일 수 있어 힌트로만 쓴다.
+    """
+    ctx = (context or "").replace(" ", "")
+    corpus = ""
+    try:
+        corpus = rag_core._corpus_text()
+    except Exception:  # noqa: BLE001 — 코퍼스 사전 구축 실패 시 근거 대조만
+        pass
+    out = []
+    for w in rag_core._topic_nouns(question)[:12]:
+        if w in ctx:
+            continue
+        out.append(f"{w}(규정 전체에 없음)" if corpus and w not in corpus else w)
+        if len(out) >= 3:
+            break
+    return {"terms": out}
+
+
 # ── 에이전트 실행 ────────────────────────────────────────────────────────────
 _REF_RE = re.compile(r"(별표\s*\d+(?:의\d+)?|제\d+조(?:의\d+)?)")
 _HEAD_RE = re.compile(r"^\[([^\]]+)\]")
@@ -284,8 +324,90 @@ def _env() -> dict:
     return env
 
 
-def run_agent(question: str, history=None, port: int = 9000) -> dict | None:
-    """에이전트로 답변. 성공 시 {answer, context, srcs, trace}, 실패 시 None(호출자가 강등)."""
+def _spawn(bun: str, payload: dict, on_progress=None) -> dict | None:
+    """러너를 띄워 stdout NDJSON을 줄 단위로 읽는다 — 진행 이벤트는 on_progress로 즉시 전달,
+    마지막 {type:"result"} 줄을 반환. 시간 초과·파싱 실패면 None."""
+    with _SEM:   # GPU·Ollama 보호 — 동시 에이전트 수 상한
+        # stderr는 파일로 — 파이프로 두면 omp 로그가 버퍼를 채워 stdout 읽기와 교착될 수 있다
+        errf = tempfile.TemporaryFile(mode="w+t")
+        p = subprocess.Popen([bun, str(AGENT_DIR / "kei_agent.ts")], stdin=subprocess.PIPE,
+                             stdout=subprocess.PIPE, stderr=errf, text=True,
+                             cwd=str(AGENT_DIR), env=_env())
+        killed = threading.Event()
+
+        def _watchdog():
+            killed.set()
+            p.kill()
+        timer = threading.Timer(TIMEOUT, _watchdog)
+        timer.start()
+        result = None
+        try:
+            p.stdin.write(json.dumps(payload))
+            p.stdin.close()
+            for ln in p.stdout:
+                ln = ln.strip()
+                if not ln.startswith("{"):
+                    continue
+                try:
+                    ev = json.loads(ln)
+                except ValueError:
+                    continue
+                if ev.get("type") == "progress":
+                    if on_progress:
+                        try:
+                            on_progress(ev)
+                        except Exception:  # noqa: BLE001 — 표시 실패가 답변을 막지 않게
+                            pass
+                elif ev.get("type") == "result" or "answer" in ev:
+                    result = ev
+            p.wait()
+        finally:
+            timer.cancel()
+            errf.seek(0)
+            err_tail = errf.read()[-300:]
+            errf.close()
+        if killed.is_set():
+            print(f"[agent] ⚠ 시간 초과({TIMEOUT}s) — 단발 경로로 강등")
+            return None
+        if result is None:
+            print(f"[agent] ⚠ 출력 파싱 실패 rc={p.returncode} err={err_tail}")
+        return result
+
+
+def progress_label(ev: dict) -> dict:
+    """러너 진행 이벤트 → 채팅 화면용 한 줄(docs/74 §7). 화면은 label만 그대로 보여 준다.
+
+    ⛔ 검색어·규정명은 에이전트가 만든 텍스트라 길이를 자른다(화면 깨짐 방지). 내부 경로·포트 등은
+       이벤트에 애초에 없다(러너가 보내는 필드는 stage·tool·args·n·ms뿐).
+    """
+    st, a = ev.get("stage"), ev.get("args") or {}
+    cut = lambda x, n=28: (str(x)[:n] + "…") if len(str(x)) > n else str(x)  # noqa: E731
+    if st == "seed":
+        label = f"관련 규정 {ev.get('n', 0)}건을 찾았어요"
+    elif st == "check":
+        label = "근거가 충분한지 점검하는 중…"
+    elif st == "tool" and ev.get("tool") == "search_regs":
+        label = f"‘{cut(a.get('query', ''))}’(으)로 규정을 더 찾는 중…"
+    elif st == "tool" and ev.get("tool") == "read_article":
+        label = f"{cut(a.get('regulation', ''), 20)} {cut(a.get('article', ''), 12)} 원문을 읽는 중…"
+    elif st == "tool" and ev.get("tool") == "list_articles":
+        label = f"{cut(a.get('regulation', ''), 20)} 목차를 살펴보는 중…"
+    elif st == "answer":
+        label = "답변을 작성하는 중…"
+    elif st == "verify":
+        label = "답변을 근거와 대조해 검증하는 중…"
+    else:
+        label = "처리하는 중…"
+    return {"stage": st or "", "label": label}
+
+
+def run_agent(question: str, history=None, port: int = 9000, on_progress=None,
+              seed: tuple | None = None) -> dict | None:
+    """에이전트로 답변. 성공 시 {answer, context, srcs, trace}, 실패 시 None(호출자가 강등).
+
+    on_progress(ev): 진행 이벤트 콜백 — {stage: seed|check|tool|answer|verify, tool?, args?, n?, ms}.
+    채팅 화면의 '검색 중…·열람 중…' 표시용(docs/74 §7). 평가 경로는 쓰지 않는다.
+    seed: (context, sources) — 호출자가 이미 1차 검색을 했으면 넘긴다."""
     bun = _bun()
     if not bun:
         print("[agent] ⚠ bun 미발견 — 단발 경로로 강등")
@@ -293,30 +415,24 @@ def run_agent(question: str, history=None, port: int = 9000) -> dict | None:
     hist = [{"role": h.get("role"), "content": h.get("content")}
             for h in (history or []) if h.get("role") in ("user", "assistant") and h.get("content")]
     # 1차 근거 = 서비스 단발 경로와 같은 검색(멀티턴은 condense_query로 독립 검색어) — 기준선 이상 보장
-    q_search = rag_core.condense_query(question, hist)
-    context0, srcs0 = rag_core.retrieve(q_search)
+    # seed=(context, sources) — 채팅 경로가 이미 같은 검색을 했으면 재사용(중복 검색 방지)
+    if seed is not None:
+        context0, srcs0 = seed
+    else:
+        q_search = rag_core.condense_query(question, hist)
+        context0, srcs0 = rag_core.retrieve(q_search)
     payload = {
         "seed": {"context": context0, "sources": srcs0, "hint": citation_hint(context0, srcs0)},
         "temperature": 0.1,
         "checkPrompt": CHECK_PROMPT, "finalPrompt": FINAL_PROMPT,
+        **({"verifyPrompt": VERIFY_PROMPT} if VERIFY else {}),
         "question": question, "history": hist, "system": system_prompt(),
         "api": API_BASE.format(port=port), "token": TOKEN,
         "model": {"baseUrl": LLM_BASE, "id": LLM, "contextWindow": CTX, "maxTokens": 2048},
         "maxToolCalls": MAX_TOOLS, "agentDir": str(OMP_HOME),
     }
-    with _SEM:   # GPU·Ollama 보호 — 동시 에이전트 수 상한
-        try:
-            p = subprocess.run([bun, str(AGENT_DIR / "kei_agent.ts")], input=json.dumps(payload),
-                               capture_output=True, text=True, timeout=TIMEOUT,
-                               cwd=str(AGENT_DIR), env=_env())
-        except subprocess.TimeoutExpired:
-            print(f"[agent] ⚠ 시간 초과({TIMEOUT}s) — 단발 경로로 강등")
-            return None
-    line = next((ln for ln in reversed((p.stdout or "").splitlines()) if ln.startswith("{")), "")
-    try:
-        out = json.loads(line)
-    except ValueError:
-        print(f"[agent] ⚠ 출력 파싱 실패 rc={p.returncode} err={(p.stderr or '')[-300:]}")
+    out = _spawn(bun, payload, on_progress)
+    if out is None:
         return None
     trace = {"tool_calls": out.get("toolCalls", []), "ms": out.get("ms"), "llm": LLM}
     if out.get("error"):
@@ -331,6 +447,9 @@ def run_agent(question: str, history=None, port: int = 9000) -> dict | None:
     trace["seed_hint"] = payload["seed"]["hint"]
     trace["check"] = (out.get("checkNote") or "")[:1500]   # 점검 턴 기록(평가·디버깅용 — 답변엔 미포함)
     trace["nudged"] = bool(out.get("nudged"))   # 계획만 쓰고 도구를 안 불러 1회 재촉했는가
+    trace["verified"] = bool(out.get("draft"))   # 검증 턴을 거쳤는가
+    trace["revised"] = bool(out.get("draft")) and out.get("draft") != out.get("answer")
+    trace["absent"] = out.get("absent") or []
     context = "\n\n---\n\n".join(e["context"] for e in evidence)
     srcs = _dedup([s for e in evidence for s in (e.get("sources") or [])])
     raw = strip_unsourced_links(raw, context)

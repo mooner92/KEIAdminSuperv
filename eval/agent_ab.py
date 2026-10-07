@@ -78,7 +78,9 @@ def main() -> int:
     routes = {"/v1/agent/search": lambda b: agent_core.tool_search(b.get("query") or ""),
               "/v1/agent/article": lambda b: agent_core.tool_article(b.get("regulation") or "",
                                                                      b.get("article") or ""),
-              "/v1/agent/toc": lambda b: agent_core.tool_toc(b.get("regulation") or "")}
+              "/v1/agent/toc": lambda b: agent_core.tool_toc(b.get("regulation") or ""),
+              "/v1/agent/absent": lambda b: agent_core.tool_absent(b.get("question") or "",
+                                                                   b.get("context") or "")}
 
     class H(BaseHTTPRequestHandler):
         def do_POST(self):  # noqa: N802

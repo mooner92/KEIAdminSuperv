@@ -139,7 +139,11 @@ async function j<T>(path: string, init?: RequestInit, timeoutMs = 12000): Promis
   return (r.status === 204 ? null : await r.json()) as T;
 }
 
+// 에이전트 진행 단계(docs/74 §7) — 서버가 만든 한 줄 라벨을 그대로 보여 준다(agent_chat 플래그 경로에서만 옴).
+export type ProgressStep = { stage: string; label: string };
+
 export type StreamHandlers = {
+  onProgress?: (step: ProgressStep) => void;
   onMeta?: (sources: Source[], user: Message) => void;
   onDelta?: (token: string) => void;
   onDone?: (assistant: Message, session: ChatMeta | null, suggestions?: Suggestion[]) => void;
@@ -147,7 +151,8 @@ export type StreamHandlers = {
 };
 
 // 스트리밍(SSE) 전송 — fetch + ReadableStream으로 토큰을 순차 수신.
-// 서버 이벤트(한 줄 JSON): {type:"meta"|"delta"|"done"|"error", ...}
+// 서버 이벤트(한 줄 JSON): {type:"progress"|"meta"|"delta"|"done"|"error", ...}
+// progress는 에이전트 경로에서만 meta 전에 여러 번 온다(docs/74 §7). ': keep-alive' 주석 블록은 data가 없어 무시된다.
 // signal(docs/34 ③): Stop 버튼용 AbortSignal — 중단은 '클라이언트 수신 종료'다(서버는 백그라운드
 // 완료·저장 → 대화를 다시 열면 전체 답변이 보인다는 사실을 UI가 정직하게 표기).
 async function sendMessageStream(id: number, content: string, h: StreamHandlers, signal?: AbortSignal): Promise<void> {
@@ -189,7 +194,8 @@ async function sendMessageStream(id: number, content: string, h: StreamHandlers,
       } catch {
         continue;
       }
-      if (obj.type === "meta") h.onMeta?.(obj.sources || [], obj.user);
+      if (obj.type === "progress") h.onProgress?.({ stage: obj.stage || "", label: obj.label || "" });
+      else if (obj.type === "meta") h.onMeta?.(obj.sources || [], obj.user);
       else if (obj.type === "delta") h.onDelta?.(obj.t || "");
       else if (obj.type === "done") h.onDone?.(obj.assistant, obj.session ?? null, obj.suggestions || []);
       // 서버 절단/실패 이벤트(v1 B4): err=예외명, partial=부분 응답 존재 여부. 이후 done(마커 포함 저장본)이 따라옴.

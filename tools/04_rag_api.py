@@ -160,6 +160,8 @@ class AgentToolReq(BaseModel):
     query: str | None = None
     regulation: str | None = None
     article: str | None = None
+    question: str | None = None   # /absent — 질문 핵심어 대조용
+    context: str | None = None
 
 
 def _agent_auth(token: str | None):
@@ -184,6 +186,13 @@ def agent_article(req: AgentToolReq, x_kei_agent_token: str | None = Header(defa
 def agent_toc(req: AgentToolReq, x_kei_agent_token: str | None = Header(default=None)):
     _agent_auth(x_kei_agent_token)
     return agent_core.tool_toc(req.regulation or "")
+
+
+@app.post("/v1/agent/absent")
+def agent_absent(req: AgentToolReq, x_kei_agent_token: str | None = Header(default=None)):
+    """검증 턴 힌트 — 질문 핵심어 중 근거에 없는 말(결정적, LLM 0회). 러너가 직접 부른다(LLM 도구 아님)."""
+    _agent_auth(x_kei_agent_token)
+    return agent_core.tool_absent(req.question or "", req.context or "")
 
 
 def _agent_chat(user_msg: str, history: list, port: int):

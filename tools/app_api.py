@@ -12,9 +12,11 @@
 import datetime
 import json
 import os
+import queue
 import re
 import secrets
 import sys
+import threading
 import time
 from collections import Counter
 from typing import Optional
@@ -28,6 +30,7 @@ from sqlalchemy import event
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 
 import rag_core
+import agent_core  # docs/74 — 에이전트 답변 경로(채팅 진행 표시는 agent_chat 플래그)
 
 DB_PATH = os.environ.get("APP_DB", os.path.join(os.path.dirname(__file__), "app.db"))
 SECRET_PATH = os.environ.get("APP_SECRET_FILE", os.path.join(os.path.dirname(__file__), ".app_secret"))
@@ -356,6 +359,14 @@ FLAG_REGISTRY: dict = {
         "expires": "2026-12-31",
     },
     "impact_analysis": {"label": "개정 영향 분석", "desc": "조문 개정 시 확인해야 할 인용 조문·가이드·서식·기한 지도(/impact). specs/05", "expires": "2026-12-31"},
+    "agent_chat": {
+        "default": False,  # release 플래그 — dev(RAG_AGENT=1)에서만 의미가 있다. prod는 env가 없어 켜도 무동작
+        "description": "에이전트 답변(docs/74) — 채팅 답변을 omp 하네스 위 Qwen 에이전트(근거 점검→보충 검색·"
+                       "조문 열람→답변→근거 대조 검증)로 만든다. 대기 중 '규정을 더 찾는 중…·원문을 읽는 중…'"
+                       "처럼 진행 단계를 실시간 표시. 답변이 1~2분 걸린다(정확도 우선). 실패 시 기존 방식으로 강등.",
+        "owner": "platform",
+        "expires": "2026-12-31",
+    },
     "quality_board": {
         "default": False,  # release 플래그 — off로 배포, dev 검증 후 on
         "description": "품질 게시판 /quality(docs/58) — 매일 자가평가 60문항의 '오늘의 정답률 N%'·30일 추이·"
@@ -2928,7 +2939,8 @@ def finalize_stream_text(acc_text: str, err) -> str:
 
 
 @router.post("/chats/{cid}/messages")
-def post_message(cid: int, body: MsgIn, stream: bool = False, user: User = Depends(current_user)):
+def post_message(cid: int, body: MsgIn, request: Request, stream: bool = False,
+                 user: User = Depends(current_user)):
     q = body.content.strip()
     if not q:
         raise HTTPException(400, "질문이 비어 있습니다.")
@@ -2978,14 +2990,18 @@ def post_message(cid: int, body: MsgIn, stream: bool = False, user: User = Depen
                     "x_gates": rag_core.gate_summary(ans, context, sources)}  # specs/16 W1-E 텔레메트리
 
     # 스트리밍(SSE): meta(근거+user) → delta(토큰…) → [error] → done(저장된 assistant+session)
-    def gen():
+    def _save_user() -> dict:
         # user 메시지 먼저 저장(스트림이 끊겨도 질문은 보존)
         with Session(engine) as s:
             um = Message(session_id=cid, role="user", content=q)
             s.add(um)
             s.commit()
             s.refresh(um)
-            user_dict = _msg(um)
+            return _msg(um)
+
+    def gen(user_dict: dict | None = None):
+        if user_dict is None:
+            user_dict = _save_user()
 
         # 거부 복구(docs/71 ① — 스트림판): 두괄식이라 결론은 첫 문단에 온다. 첫 문단(160자
         # 또는 빈 줄)까지 **버퍼만** 하고, 거부로 판정되면 문서어 재검색으로 근거·스트림을
@@ -3081,8 +3097,98 @@ def post_message(cid: int, body: MsgIn, stream: bool = False, user: User = Depen
                 except Exception:  # noqa: BLE001 — 저장 실패는 조용히(연결은 이미 없음)
                     pass
 
+    def gen_agent():
+        """에이전트 답변(docs/74 §7): 진행 단계를 progress 이벤트로 흘리고, 끝나면 기존과 같은
+        meta → delta → done 순서로 답을 보낸다. 에이전트 실패면 같은 스트림 안에서 기존 경로로 강등.
+        ⛔ 저장 보장: 사용자가 중단·이탈해도(제너레이터 종료) 답은 끝까지 만들어 **정확히 한 번** 저장한다
+           — 스트림과 작업 스레드 중 늦게 끝나는 쪽이 저장(기존 경로의 '다시 열면 보인다' 약속과 동일)."""
+        user_dict = _save_user()
+        events: queue.Queue = queue.Queue()
+        holder: dict = {}
+        lock = threading.Lock()
+        state = {"saved": None, "abandoned": False}
+        port = (request.scope.get("server") or (None, 9000))[1]
+
+        def save_answer(res: dict):
+            with lock:
+                if state["saved"] is not None:
+                    return state["saved"]
+                with Session(engine) as s:
+                    cs = s.get(ChatSession, cid)
+                    am = Message(session_id=cid, role="assistant", content=res["answer"],
+                                 sources_json=json.dumps(res["srcs"], ensure_ascii=False))
+                    s.add(am)
+                    if cs and cs.title == "새 대화":
+                        cs.title = q[:40]
+                    if cs:
+                        cs.updated_at = time.time()
+                        s.add(cs)
+                    s.commit()
+                    s.refresh(am)
+                    if cs:
+                        s.refresh(cs)
+                state["saved"] = (am, cs)
+                return state["saved"]
+
+        def work():
+            try:
+                holder["res"] = agent_core.run_agent(q, history, port=port, on_progress=events.put,
+                                                     seed=(context, sources))
+            except Exception as e:  # noqa: BLE001 — 실패는 강등으로 처리
+                print(f"[agent_chat] ⚠ {type(e).__name__}: {e}")
+                holder["res"] = None
+            finally:
+                events.put(None)
+                if state["abandoned"] and holder.get("res"):
+                    save_answer(holder["res"])   # 화면은 떠났지만 답은 저장
+
+        threading.Thread(target=work, name="agent-chat", daemon=True).start()
+        delivered = False
+        try:
+            yield _sse({"type": "progress", "stage": "start", "label": "질문을 살펴보는 중…"})
+            while True:
+                try:
+                    ev = events.get(timeout=15)
+                except queue.Empty:
+                    yield ": keep-alive\n\n"   # SSE 주석 — 프록시·브라우저 유휴 절단 방지(클라이언트는 무시)
+                    continue
+                if ev is None:
+                    break
+                yield _sse({"type": "progress", **agent_core.progress_label(ev)})
+            res = holder.get("res")
+            if not res:
+                delivered = True   # 강등 경로는 gen()이 자체 저장
+                yield _sse({"type": "progress", "stage": "fallback", "label": "기본 방식으로 답변하는 중…"})
+                yield from gen(user_dict)
+                return
+            full, ctx2, srcs2 = res["answer"], res["context"], res["srcs"]
+            am, cs = save_answer(res)   # 먼저 저장 — 이후 전송 중 끊겨도 유실 없음
+            delivered = True
+            yield _sse({"type": "meta", "sources": srcs2, "user": user_dict})
+            for i in range(0, len(full), 24):   # 완성된 답을 조각내 흘린다(타자 효과 — 기존 스트림 UI 재사용)
+                yield _sse({"type": "delta", "t": full[i:i + 24]})
+                time.sleep(0.01)
+            try:
+                sugg = rag_core.suggest_followups(q, srcs2)
+            except Exception:  # noqa: BLE001
+                sugg = []
+            yield _sse({"type": "done", "assistant": _msg(am), "session": _ses(cs) if cs else None,
+                        "suggestions": sugg, "x_gates": rag_core.gate_summary(full, ctx2, srcs2),
+                        "x_agent": {k: res["trace"].get(k) for k in ("ms", "verified", "revised", "nudged")}})
+        finally:
+            if not delivered:
+                # 연결 절단(GeneratorExit) — yield 금지. 작업이 이미 끝났으면 지금 저장, 아니면 작업 스레드가 저장.
+                state["abandoned"] = True
+                if holder.get("res"):
+                    try:
+                        save_answer(holder["res"])
+                    except Exception:  # noqa: BLE001
+                        pass
+
+    # 에이전트 채팅(docs/74 §7) — 플래그 on + 이 서버가 에이전트 경로를 켰을 때만(prod는 env 없음 → 무동작)
+    use_agent = agent_core.ENABLED and rag_core._flag("agent_chat")
     return StreamingResponse(
-        gen(),
+        gen_agent() if use_agent else gen(),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
