@@ -1,6 +1,6 @@
 // 전자결재 '기안' 노트 적재 + 크로스링크 실렌더 검증 (dev 3101).
 import { chromium } from "playwright";
-const BASE = "http://localhost:3101";
+const BASE = "http://localhost:3100";
 const fails = [];
 const ok = (c, m) => { console.log((c ? "✅ " : "❌ ") + m); if (!c) fails.push(m); };
 

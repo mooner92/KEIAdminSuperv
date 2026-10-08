@@ -13,7 +13,7 @@ if (!TEST_PW) {
 const OUT = "/tmp/claude-21963/-KEIAdminSuperv/186b414b-da9d-4008-bd73-cef71d5504f3/scratchpad";
 const b = await chromium.launch();
 const ctx = await b.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
-await ctx.request.post("http://localhost:3101/api/app/auth/login", { data: { username: "b6test", password: TEST_PW } });
+await ctx.request.post("http://localhost:3100/api/app/auth/login", { data: { username: "b6test", password: TEST_PW } });
 await ctx.route("**/app/auth/me", (r) => r.fulfill({ contentType: "application/json",
   body: JSON.stringify({ id: 1, username: "b6test", is_admin: true }) }));
 await ctx.route("**/app/flags**", (r) => r.fulfill({ contentType: "application/json",
@@ -26,7 +26,7 @@ await ctx.route("**/app/trust**", (r) => r.fulfill({ contentType: "application/j
   matrix: [{ 규정명: "여비규정", 인용수: 42, 검수상태: "미검수", down: 2, slug: "4300_여비규정" }],
   feedback_types: [{ 유형: "근거 부족", n: 3 }], feedback_reasons: [] }) }));
 const p = await ctx.newPage();
-await p.goto("http://localhost:3101/admin/", { waitUntil: "networkidle" });
+await p.goto("http://localhost:3100/admin/", { waitUntil: "networkidle" });
 await p.waitForTimeout(1500);
 const tab = p.locator('button:has-text("신뢰")').first();
 if (await tab.count()) { await tab.click(); await p.waitForTimeout(1800); }

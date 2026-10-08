@@ -13,7 +13,7 @@ if (!TEST_PW) {
   process.exit(2);
 }
 
-const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
+const BASE = process.env.VERIFY_BASE || "http://localhost:3100";
 const fails = [];
 const ok = (c, m) => {
   console.log((c ? "✅ " : "❌ ") + m);

@@ -9,7 +9,7 @@ if (!TEST_PW) {
   console.error("❌ APP_TEST_PASS 미설정 — tools/.test_credentials 를 로드하세요.");
   process.exit(2);
 }
-const BASE = "http://localhost:3101";
+const BASE = "http://localhost:3100";
 const S = "/tmp/claude-21963/-KEIAdminSuperv/186b414b-da9d-4008-bd73-cef71d5504f3/scratchpad";
 const fails = [];
 const ok = (c, m) => { console.log((c ? "✅ " : "❌ ") + m); if (!c) fails.push(m); };

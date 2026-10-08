@@ -10,7 +10,7 @@ if (!PW) {
   console.error("❌ APP_TEST_PASS 미설정 — 검증 계정 비밀번호는 환경변수로만 받습니다.");
   process.exit(2);
 }
-const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
+const BASE = process.env.VERIFY_BASE || "http://localhost:3100";
 const SHOT = process.env.SHOT_DIR || "/tmp";
 const Q = process.env.VERIFY_Q || "국내출장 다녀와서 복명서는 언제까지 내야 해?";
 const fails = [];

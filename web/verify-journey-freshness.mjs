@@ -8,7 +8,7 @@ import fs from "fs";
 
 const TEST_PW = process.env.APP_TEST_PASS;
 if (!TEST_PW) { console.error("❌ APP_TEST_PASS 미설정"); process.exit(2); }
-const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
+const BASE = process.env.VERIFY_BASE || "http://localhost:3100";
 const ADMIN = process.env.APP_TEST_USER || "b6test";
 const { check, finish } = makeCheck();
 

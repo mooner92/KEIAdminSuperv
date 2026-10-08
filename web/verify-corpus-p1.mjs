@@ -1,6 +1,6 @@
 // v1.1 P1 코퍼스 관리 검증 — 목록·검색·제외 토글·재색인 배지 (dev 3101, 관리자 admintest).
 import { chromium } from "playwright";
-const BASE = "http://localhost:3101";
+const BASE = "http://localhost:3100";
 const fails = [];
 const ok = (c, m) => { console.log((c ? "✅ " : "❌ ") + m); if (!c) fails.push(m); };
 const b = await chromium.launch();

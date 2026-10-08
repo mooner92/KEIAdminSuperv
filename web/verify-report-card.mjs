@@ -6,7 +6,7 @@ import { makeCheck } from "./verify-lib.mjs";
 
 const TEST_PW = process.env.APP_TEST_PASS;
 if (!TEST_PW) { console.error("❌ APP_TEST_PASS 미설정"); process.exit(2); }
-const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
+const BASE = process.env.VERIFY_BASE || "http://localhost:3100";
 const { check, finish } = makeCheck();
 
 const b = await chromium.launch();

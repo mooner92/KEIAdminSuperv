@@ -2,7 +2,7 @@
 // 실행: cd web && node verify-outdated.mjs   (dev 3101 + 재빌드된 out/ 필요)
 import { chromium } from "playwright";
 
-const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
+const BASE = process.env.VERIFY_BASE || "http://localhost:3100";
 const b = await chromium.launch();
 const p = await b.newPage({ viewport: { width: 1280, height: 900 } });
 import { makeCheck } from "./verify-lib.mjs";

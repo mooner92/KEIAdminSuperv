@@ -1,6 +1,6 @@
 // v1 ⑭(S7 잔여) 검증 — 그래프 노드 검색(#32)·결재선→별표 원문(#33) (dev 3101, explore_upgrades on).
 import { chromium } from "playwright";
-const BASE = "http://localhost:3101";
+const BASE = "http://localhost:3100";
 const fails = [];
 const ok = (c, m) => { console.log((c ? "✅ " : "❌ ") + m); if (!c) fails.push(m); };
 const b = await chromium.launch();

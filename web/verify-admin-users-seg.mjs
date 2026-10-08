@@ -13,7 +13,7 @@ if (!TEST_PW) {
 const OUT = "/tmp/claude-21963/-KEIAdminSuperv/186b414b-da9d-4008-bd73-cef71d5504f3/scratchpad";
 const b = await chromium.launch();
 const ctx = await b.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
-await ctx.request.post("http://localhost:3101/api/app/auth/login", { data: { username: "b6test", password: TEST_PW } });
+await ctx.request.post("http://localhost:3100/api/app/auth/login", { data: { username: "b6test", password: TEST_PW } });
 await ctx.route("**/app/auth/me", (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify({ id: 1, username: "b6test", is_admin: true }) }));
 await ctx.route("**/app/flags**", (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify({ user_directory: true }) }));
 const users = [
@@ -29,7 +29,7 @@ const users = [
 ];
 await ctx.route("**/app/users**", (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify({ users }) }));
 const p = await ctx.newPage();
-await p.goto("http://localhost:3101/admin/", { waitUntil: "networkidle" });
+await p.goto("http://localhost:3100/admin/", { waitUntil: "networkidle" });
 await p.waitForTimeout(1500);
 const tab = p.locator('button:has-text("사용자")').first();
 if (await tab.count()) { await tab.click(); await p.waitForTimeout(1600); }

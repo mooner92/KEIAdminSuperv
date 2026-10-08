@@ -29,7 +29,7 @@ unit("30,000,001원(상한 개방)", findRange(KGAJI, 30_000_001)?.전결권자,
 
 // ── ② 실렌더 ──
 console.log("② 실렌더");
-const BASE = "http://localhost:3101";
+const BASE = "http://localhost:3100";
 const b = await chromium.launch();
 const ctx = await b.newContext({ viewport: { width: 1280, height: 950 } });
 console.log("  로그인:", (await ctx.request.post(`${BASE}/api/app/auth/login`, { data: { username: "b6test", password: TEST_PW } })).status());

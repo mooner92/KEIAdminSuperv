@@ -1,7 +1,7 @@
 // Track A(조문 정제·무결성) 실렌더 검증 — 문서 드로어의 준용·효력·정의어 패널 (dev 3101).
 // 전제: article_integrity 플래그 on + 재빌드된 out/(trackA 슬라이스 포함).
 import { chromium } from "playwright";
-const BASE = "http://localhost:3101";
+const BASE = "http://localhost:3100";
 const fails = [];
 const ok = (c, m) => { console.log((c ? "✅ " : "❌ ") + m); if (!c) fails.push(m); };
 

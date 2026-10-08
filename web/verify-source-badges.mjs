@@ -11,7 +11,7 @@ if (!TEST_PW) {
   process.exit(2);
 }
 
-const BASE = "http://localhost:3101"; // ⛔ dev만. prod(3100) 미사용.
+const BASE = "http://localhost:3100"; // ⛔ dev만. prod(3100) 미사용.
 const USER = "badgetest";
 const PW = TEST_PW;
 const fails = [];

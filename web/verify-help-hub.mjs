@@ -1,6 +1,6 @@
 // docs/31 §4.4 수용 기준 ⓐ~ⓖ 실렌더 검증 — 도움말 허브·FAQ(flag help_hub).
 import { chromium } from "playwright";
-const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
+const BASE = process.env.VERIFY_BASE || "http://localhost:3100";
 const b = await chromium.launch();
 import { makeCheck } from "./verify-lib.mjs";
 const { check, finish } = makeCheck();

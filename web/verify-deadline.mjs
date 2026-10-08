@@ -1,7 +1,7 @@
 // Track B 기한 역산 계산기 실렌더 검증 — 드로어 '이 규정의 기한' 패널 + 날짜계산 (dev 3101).
 // 전제: deadline_calc 플래그 on + 재빌드된 out/(deadlines 슬라이스).
 import { chromium } from "playwright";
-const BASE = "http://localhost:3101";
+const BASE = "http://localhost:3100";
 const fails = [];
 const ok = (c, m) => { console.log((c ? "✅ " : "❌ ") + m); if (!c) fails.push(m); };
 

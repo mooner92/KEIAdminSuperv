@@ -1,6 +1,6 @@
 // v1 ⑪(S8-#17) 공용 AsyncState 검증 — 네트워크 차단으로 에러 유발 → 재시도 성공 (dev 3101).
 import { chromium } from "playwright";
-const BASE = "http://localhost:3101";
+const BASE = "http://localhost:3100";
 const fails = [];
 const ok = (c, m) => { console.log((c ? "✅ " : "❌ ") + m); if (!c) fails.push(m); };
 const b = await chromium.launch();

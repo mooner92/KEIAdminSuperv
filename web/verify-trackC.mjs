@@ -1,7 +1,7 @@
 // Track C(그래프 분석) 실렌더 검증 — 드로어 '개정 파급·함께 보는 조문' 패널 (dev 3101).
 // 전제: graph_impact 플래그 on + 재빌드된 out/(trackC 슬라이스 포함).
 import { chromium } from "playwright";
-const BASE = "http://localhost:3101";
+const BASE = "http://localhost:3100";
 const fails = [];
 const ok = (c, m) => { console.log((c ? "✅ " : "❌ ") + m); if (!c) fails.push(m); };
 

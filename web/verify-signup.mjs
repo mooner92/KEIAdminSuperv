@@ -14,7 +14,7 @@ if (!TEST_PW) {
   process.exit(2);
 }
 
-const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
+const BASE = process.env.VERIFY_BASE || "http://localhost:3100";
 const EMAIL = `e2e.signup.${Date.now() % 100000}@kei.re.kr`;
 const b = await chromium.launch();
 // 이 테스트는 이메일 코드 흐름 전용 — 승인제 플래그(docs/36 §10)가 dev에 켜져 있으면 register가
