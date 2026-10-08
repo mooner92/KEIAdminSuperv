@@ -18,11 +18,19 @@ import datetime
 import json
 from pathlib import Path
 
-from daily_common import retrieved_expected
+from daily_common import retrieved_expected, wilson_ci
 
 HERE = Path(__file__).resolve().parent
 DAILY = HERE / "daily"
 SURGERY = ("검색실패", "생성환각", "근거부적합")   # daily_report.SURGERY와 동일(회귀가 대사)
+UNSCORED = ("폐기", "판정불가")
+# ⛔ **새로깨짐은 실패유형과 무관하게 반드시 싣는다**(2026-08-20 실측 결함).
+#   그날 새로깨짐 2건 중 **1건(183p)이 브리핑에 아예 없었다** — 실패유형이 '골든품질'이라
+#   수술대기 3종에 안 걸렸기 때문이다. 그런데 "어제까지 맞히던 게 오늘 깨졌다"는 이 시스템에서
+#   가장 우선순위 높은 신호다(만성 부채와 달리 **오늘 무언가 달라졌다**는 뜻). 분류가 뭐든
+#   세션이 봐야 한다 — 그래서 합집합으로 싣고 순서도 맨 앞으로 올린다.
+#   ⚠ `직전판정`은 만성 분해(2026-08-19) 이후 회차에만 있다 — 없으면 조용히 빈 집합이 된다
+#      (그림자 재구성은 여기서 하지 않는다. 정본은 daily_grade·daily_report이고 브리핑은 소비자).
 
 _CAP_ANSWER = 700   # 답변 인용 상한(원인 판단에 충분·문서 비대 방지)
 _CAP_GOLDEN = 400
@@ -49,6 +57,44 @@ def _srcs(q: dict) -> list[str]:
     return out
 
 
+def broke_today(q: dict) -> bool:
+    """직전 회차엔 맞혔는데 오늘 미정답 — '오늘 새로 깨진 것'(회귀 후보)."""
+    return (q.get("직전판정") == "정답" and q.get("판정") not in UNSCORED
+            and q.get("판정") != "정답")
+
+
+def _stability(q: dict) -> str:
+    """새로깨짐 문항의 진동 이력 — '직전=정답'만으로는 진성 회귀와 구별되지 않는다.
+    실측(2026-09-16 수술): 역대 새로깨짐 268건 중 **직전 정답연속 ≥4회는 0건**(최대 2회).
+    ⚠ 원 수술은 기전을 "3연속 정답이면 fixed 졸업해 풀을 떠나므로 진동 문항만 남는다"로
+      적었으나 **그 설명은 데이터와 어긋난다**(2026-09-16 사람 검토에서 정정): 졸업은
+      `상태=="open"`인 문항에만 적용되므로(daily_grade), 한 번도 틀린 적 없어 open이 된
+      적 없는 문항은 졸업하지 않고 연속 정답을 계속 쌓는다 — 실측 분포에 연속 3회 35건·
+      4회 12건·5회 5건이 실재한다. 결론(새로깨짐 최대 streak=2)은 맞지만 기전은 '졸업'이
+      아니라 **깨지는 문항과 안정 문항이 애초에 다른 모집단**이라는 것이다.
+    → 어느 기전이든 '직전=정답→오늘=오답'의 진성 회귀 탐지력은 낮다. '최우선' 프레이밍을
+    **직전 연속 정답수**로 보정한다: 값은 노출만, 억제하지 않는다(여전히 맨 앞·🔻).
+    streak≥4면 태그가 '진성회귀 의심'으로 뒤집혀 오히려 더 튄다 — 억제기가 아니라
+    트립와이어다. ⛔ **도달 불가능한 죽은 코드로 오해해 지우지 말 것**: 풀에 streak 4~5
+    문항이 17건 실재하므로 그중 하나가 깨지면 실제로 발동한다(위 기전 정정의 귀결).
+    ⚠ 판정이력이 없으면(만성 분해 이전·합성 픽스처) 빈 문자열 — 조용히 생략한다."""
+    h = [x.get("판정") for x in (q.get("판정이력") or [])]
+    if not h:
+        return ""
+    streak = 0
+    for v in reversed(h):
+        if v == "정답":
+            streak += 1
+        else:
+            break
+    last = h[-10:]
+    ok = sum(1 for v in last if v == "정답")
+    flips = sum(1 for i in range(1, len(last)) if last[i] != last[i - 1])
+    tag = "진성회귀 의심" if streak >= 4 else "진동(안정정답 아님 — 잡음 가능성 높음)"
+    return (f" · 진동이력: 직전 정답연속 {streak}회 · 최근{len(last)}회 중 정답 {ok}·전환 {flips} "
+            f"→ {tag}")
+
+
 def _item_md(i: int, q: dict) -> str:
     src = q.get("출처") or {}
     expected = f"{src.get('규정명', '?')} {src.get('조', '')}".strip()
@@ -57,9 +103,13 @@ def _item_md(i: int, q: dict) -> str:
     question = "\n".join(f"  {t}" for t in turns) if turns else f"  {q.get('질문', '')}"
     answer = (q.get("답변") or "(빈 답변)")[:_CAP_ANSWER].replace("\n", "\n  > ")
     L = [
-        f"## {i}. [{q.get('실패유형', '?')}] {q.get('id', '?')}",
+        f"## {i}. {'🔻새로깨짐 ' if broke_today(q) else ''}"
+        f"[{q.get('실패유형') or '분류없음'}] {q.get('id', '?')}",
         f"- 유형 {q.get('유형', '?')} · 어휘층 {q.get('어휘층') or '-'} · "
-        f"코호트 {q.get('코호트', '?')} · 판정 {q.get('판정', '?')}",
+        f"코호트 {q.get('코호트', '?')} · 판정 {q.get('판정', '?')}"
+        + (f" · **직전 회차 정답 → 오늘 {q.get('판정')}**(최우선 — 오늘 달라진 것)"
+           + _stability(q)
+           if broke_today(q) else ""),
         "- 질문:", question,
         f"- 골든(기대 정답): {(q.get('골든') or '(없음 — 거부형)')[:_CAP_GOLDEN]}",
         f"- 기대 근거: {expected} — {hit}",
@@ -75,6 +125,76 @@ def _item_md(i: int, q: dict) -> str:
     return "\n".join(L)
 
 
+def _rate_line(d: dict) -> str:
+    """'회차 지표: 전체 90.4% · 재시험 56.5%(n=46 · 95% 구간 42.2–69.8%)' — 분모 없으면 값만."""
+    parts = [f"전체 {d.get('정답률')}%"]
+    v = ((d.get("코호트별") or {}).get("재시험") or {})
+    if v.get("정답률") is not None:
+        n = v.get("분모")
+        ci = v.get("신뢰구간") or [None, None]
+        if not n:   # 이 기능 이전 회차 — 문항에서 되센다(과거 파일은 재작성하지 않는다)
+            rows = [q for q in (d.get("문항") or [])
+                    if q.get("코호트") == "재시험" and q.get("판정") not in UNSCORED]
+            n = len(rows)
+            ci = wilson_ci(sum(1 for q in rows if q["판정"] == "정답"), n)
+        parts.append(f"재시험 {v['정답률']}%"
+                     + (f"(n={n} · 95% 구간 {ci[0]}–{ci[1]}%)" if n and ci[0] is not None else ""))
+    return "회차 지표: " + " · ".join(parts) + " — 한 회차 스윙은 구간 안이면 잡음이다."
+
+
+LEDGER = Path(__file__).resolve().parent / "rejected_hypotheses.md"
+_TREND_DAYS = 10
+
+
+def _memory(date: str) -> str:
+    """수술에 **기억**을 준다 — 추세표 + 기각 원장.
+
+    2026-09-16 교차일 분석의 근본 원인: 매일의 수술 세션은 새로 시작돼 어제를 모른다.
+    그 하나에서 관찰된 병리가 전부 파생됐다 —
+      ⓐ 이미 기각한 가설 재제기(8일 기각 9건 중 일상어·용어집이 각 2회 중복)
+      ⓑ '밴드'를 매일 새로 맞춰 증가 추세를 '안정'으로 결론(거부형 오답 15→23, +53%인데
+         09-09 "밴드 16~17 정중앙" · 09-15 "밴드 17~23 정중앙")
+      ⓒ 같은 커밋을 5일 연속 재감정(16209ab)
+      ⓓ 8일에 걸친 하강을 아무도 못 봄(만성제외 재시험 87.9→55.2, -33%p)
+    전부 "오늘 하루만 본다"의 귀결이라, 브리핑에 **어제까지**를 실어 해결한다.
+    ⛔ 판단하지 않는다 — 숫자와 과거 기각 사실만 준다(해석은 수술 세션 몫).
+    """
+    lines = ["## 📈 최근 회차 추세 (오늘 하루만 보고 판단하지 말 것)", ""]
+    files = sorted(DAILY.glob("*.graded.json"))[-_TREND_DAYS:]
+    rows = []
+    for f in files:
+        try:
+            g = json.loads(f.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001 — 깨진 회차 하나가 브리핑을 막으면 안 된다
+            continue
+        c = g.get("코호트별") or {}
+        rt, nw = c.get("재시험") or {}, c.get("신규") or {}
+        rows.append((f.name.replace(".graded.json", ""), g.get("정답률"),
+                     nw.get("정답률"), nw.get("구성보정정답률"),
+                     rt.get("정답률"), rt.get("구성보정정답률"), rt.get("하드유형비중"),
+                     ((g.get("집계") or {}).get("정답") is not None) and
+                     sum(1 for q in (g.get("문항") or []) if broke_today(q))))
+    if rows:
+        lines += ["| 회차 | 전체 | 신규(원시/보정) | 재시험(원시/보정) | 하드비중 | 🔻새로깨짐 |",
+                  "|---|---|---|---|---|---|"]
+        for d0, tot, nr, nc, rr, rc, hd, bk in rows:
+            f2 = lambda v: "-" if v is None else f"{v}"  # noqa: E731
+            mark = " ←오늘" if d0 == date else ""
+            lines.append(f"| {d0}{mark} | {f2(tot)} | {f2(nr)}/{f2(nc)} | "
+                         f"{f2(rr)}/{f2(rc)} | {f2(hd)} | {bk} |")
+        lines += ["", "> ⚠ **추세를 먼저 보라**: 오늘 값이 어제 대비 움직였는지가 아니라, "
+                      "위 시계열이 **어느 방향으로 가고 있는지**를 먼저 말하라. 밴드를 오늘 "
+                      "데이터로 새로 맞추지 마라(그러면 어떤 증가도 '정중앙'이 된다).",
+                  "> ⚠ 재시험 원시가 낮을 때 '하드비중 상승의 기계적 효과'로 넘기기 전에, "
+                      "**하드비중 자체가 추세인지** 보라 — 만성 거부형이 재시험에 누적되는 "
+                      "래칫이면 그건 잡음이 아니라 구조 문제다.", ""]
+    try:
+        lines += ["---", "", LEDGER.read_text(encoding="utf-8").strip(), "", "---", ""]
+    except OSError:
+        lines += ["", "> ⚠ 기각 원장(rejected_hypotheses.md)을 읽지 못했다.", ""]
+    return "\n".join(lines)
+
+
 def build(date: str) -> Path | None:
     """graded.json → surgery.md. 수술대기 0건이면 파일을 만들지 않는다(None)."""
     f = DAILY / f"{date}.graded.json"
@@ -82,22 +202,37 @@ def build(date: str) -> Path | None:
         print(f"[surgery_brief] {f.name} 없음 — 생략")
         return None
     d = json.loads(f.read_text(encoding="utf-8"))
-    items = [q for q in (d.get("문항") or []) if (q.get("실패유형") or "") in SURGERY]
+    rows = d.get("문항") or []
+    surg = [q for q in rows if (q.get("실패유형") or "") in SURGERY]
+    # 새로깨짐은 실패유형과 무관하게 합집합 + 맨 앞(위 상수 주석의 실측 근거)
+    broke = [q for q in rows if broke_today(q)]
+    ids = {id(q) for q in broke}
+    items = broke + [q for q in surg if id(q) not in ids]
     if not items:
         print("[surgery_brief] 수술대기 0건 — 브리핑 없음")
         return None
     by_type: dict[str, int] = {}
-    for q in items:
+    for q in surg:
         by_type[q["실패유형"]] = by_type.get(q["실패유형"], 0) + 1
+    extra = len(items) - len(surg)
     head = [
-        f"# 수술 브리핑 {date} — 수술대기 {len(items)}건"
-        f" ({' · '.join(f'{k} {v}' for k, v in sorted(by_type.items()))})",
+        f"# 수술 브리핑 {date} — 수술대기 {len(surg)}건"
+        f" ({' · '.join(f'{k} {v}' for k, v in sorted(by_type.items()))})"
+        + (f" + 🔻새로깨짐 {len(broke)}건"
+           + (f"(그중 {extra}건은 수술대기 분류 밖 — 그래도 최우선)" if extra else "")
+           if broke else ""),
         "",
+        # 회차 지표의 **분모와 구간**을 머리에 박는다(2026-08-23 수술).
+        # 실측 사고: "같은 날 b회차가 a회차보다 항상 나쁘다(08-22 64.6→54.3)"를 구조 결함으로
+        # 보고 3일치를 추적했으나 전량 기각됐다 — 재시험 분모는 n≈46이라 10%p 스윙이 구간 안이다.
+        # 세션이 회차 비교에서 출발하지 않도록, **비교할 자격이 있는지**를 먼저 보여준다.
+        f"> {_rate_line(d)}",
         "> 기계가 만든 수술 대상 목록(아침 분석서의 수술대기 분류 그대로 · LLM 0회).",
         "> **세션 계약**: ① 항목별 원인 파악(검색/생성/게이트/원문) → 수정 + 회귀",
         "> ② 원문 결함은 코드로 고치지 말고 검수 큐로(⛔규정 내용 추측 금지 — 절대규칙 1)",
         "> ③ 사용자 노출 변화는 패치노트 **분류: 개선** ④ 효과는 다음날 재시험 코호트가 검증.",
         "",
+        _memory(date),
     ]
     out = DAILY / f"{date}.surgery.md"
     out.write_text("\n".join(head) + "\n".join(_item_md(i, q) for i, q in enumerate(items, 1)),

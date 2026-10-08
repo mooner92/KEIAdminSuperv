@@ -12,7 +12,7 @@ if (!TEST_PW) {
   process.exit(2);
 }
 
-const BASE = "http://localhost:3101";
+const BASE = "http://localhost:3100";
 const day = "2026-07-26";
 const raw = JSON.parse(fs.readFileSync(`public/quality/daily/${day}.json`, "utf8"));
 const hasAxis = (raw.문항 || []).some((i) => i.축);

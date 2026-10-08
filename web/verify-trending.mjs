@@ -13,7 +13,7 @@ if (!TEST_PW) {
   process.exit(2);
 }
 
-const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
+const BASE = process.env.VERIFY_BASE || "http://localhost:3100";
 const b = await chromium.launch();
 const ctx = await b.newContext({ viewport: { width: 1280, height: 900 } });
 await ctx.request.post(BASE + "/api/app/auth/login", { data: { username: TEST_USER, password: TEST_PW } });

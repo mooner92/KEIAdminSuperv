@@ -19,7 +19,7 @@ from collections import Counter as Counter0
 import axes  # 평가 축 레지스트리(specs/07 B) — 결정적 4축
 import scenarios  # 복합 시나리오(specs/07 A) — 여정 기반 다중 근거 문항
 from daily_common import (BANK, CHUNK_GATE, MIN_CHUNK, PARA_RATIO, SCEN_RATIO, chunk_unanswerable,
-                          is_self_contained, DAILY_DIR, NEW_N, REG_N, REFUSAL_SEEDS, SECTION_QUOTA,
+                          is_self_contained, is_admin_research, DAILY_DIR, NEW_N, REG_N, REFUSAL_SEEDS, SECTION_QUOTA,
                           TYPE_QUOTA, bigrams, chroma_col, jaccard, llm_json, load_bank,
                           norm_q, qhash, save_bank, topics_of)
 
@@ -92,6 +92,48 @@ def gen_refusal(seed: str, bank_grams: list) -> dict | None:
     return {"질문": q}
 
 
+# ── 골든 → 청크 재바인딩 선택자 (2026-08-20 실측 결함 수리) ─────────────────────────
+# ⛔ 예전 규칙은 "후보를 순회하다 2-그램 겹침 0.8 넘는 **첫 청크**에서 break"였다. 그 규칙이
+#    시험지를 자기모순으로 만든다 — **판별 토큰만 다른 이웃 청크**가 먼저 걸리기 때문이다.
+#    실측(dq-2026-08-16b-037p, 사이버위기대응실무매뉴얼):
+#      · 골든 = 「※ 모든 유지보수업체 담당자는 "심각" 단계에서는 비상대기 필수」
+#      · #679 = 「… "경계" 단계에서는 비상대기(유선, 상주) 필수 / 라. 심 각 * 경계 단계의 대응조치 지속」
+#        → 겹침 0.852 (≥0.8) · 정확포함 ✗  ← 재색인 후 id 순서상 먼저라 여기에 묶였다
+#      · #681 = 골든 문장 그대로                 겹침 1.000 · 정확포함 ✓  ← 진짜 근거
+#    묶이고 나면 채점기는 "골든은 심각이라는데 원문은 경계"를 보고 **답이 맞아도 오답**을 준다
+#    (재현: 답변 2종 × 재채점 13회 전부 오답 → 정확한 청크로 바꾸면 08-19 정답 5/5 복원).
+# 규칙: ① 정규화 **정확 포함**이 있으면 그것(값이 뒤집힌 이웃을 원천 차단) ② 없으면 겹침
+#       **최대**(첫 히트 아님) ③ 동점이면 **현행 유지**(재색인마다 흔들리지 않게).
+# ⚠ 이건 채점 정합성 수리이지 점수 지렛대가 아니다 — 오바인딩 355문항의 미정답률은 5.26%로
+#   기저 10.92%보다 오히려 **낮았다**(리프트 ×0.48). 고쳐도 합산 점수는 거의 안 움직인다.
+#   그게 정상이다(잘 맞히는 문항을 지우는 자기 채점 조작과 반대 방향).
+BIND_MIN_OVERLAP = 0.8
+
+
+def pick_chunk(golden: str, cands: list, ndocs: dict, current: str | None = None) -> str | None:
+    """골든 문장이 실제로 들어 있는 청크 id(없으면 None → 호출부가 stale 처리).
+
+    ndocs = {청크id: norm_q(문서)} — 호출부가 1회 배치 조회해 넘긴다(N+1 제거).
+    """
+    ng = norm_q(golden or "")
+    gg = {ng[i:i + 2] for i in range(len(ng) - 1)}
+    if not gg:
+        return None
+    exact = [c for c in cands if ng and ng in ndocs.get(c, "")]
+    if exact:
+        return current if current in exact else exact[0]
+    best, best_ov = None, -1.0
+    for c in cands:
+        ov = sum(1 for x in gg if x in ndocs.get(c, "")) / len(gg)
+        if ov > best_ov:
+            best, best_ov = c, ov
+    if best_ov < BIND_MIN_OVERLAP:
+        return None
+    if current in cands and best_ov - (sum(1 for x in gg if x in ndocs.get(current, "")) / len(gg)) < 1e-9:
+        return current   # 동점이면 흔들지 않는다
+    return best
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--date", default=datetime.date.today().isoformat())
@@ -109,10 +151,12 @@ def main() -> int:
         # ③ 조 소멸 → retire. stale은 회귀 풀 제외 + 재생성 대상 목록 출력.
         bank = load_bank()
         col = chroma_col()
-        got = col.get(include=["metadatas"])
+        got = col.get(include=["metadatas", "documents"])
         by_key: dict = {}
         for i, m in enumerate(got["metadatas"]):
             by_key.setdefault((m.get("규정명", ""), m.get("조", "")), []).append(got["ids"][i])
+        # 문서를 한 번에 들고 정규화해 둔다(후보마다 col.get 하던 N+1 제거 — 6천 청크 1회).
+        ndocs = {i: norm_q(d) for i, d in zip(got["ids"], got["documents"])}
         rebound = stale = retired = kept = 0
         stale_list = []
         for b in bank:
@@ -136,14 +180,7 @@ def main() -> int:
                 else:
                     kept += 1
                 continue
-            ng = norm_q(golden)
-            gg = {ng[i:i + 2] for i in range(len(ng) - 1)}
-            hit = None
-            for cid in cands:
-                doc = col.get(ids=[cid], include=["documents"])["documents"][0]
-                if sum(1 for x in gg if x in norm_q(doc)) / max(1, len(gg)) >= 0.8:
-                    hit = cid
-                    break
+            hit = pick_chunk(golden, cands, ndocs, src.get("청크id"))
             if hit:
                 if src.get("청크id") != hit:
                     src["청크id"] = hit
@@ -280,8 +317,9 @@ def main() -> int:
         by_sec[sec].append(i)
     if gate_drop:
         print(f"  ⛔ 출제 후보 게이트 제외: {dict(gate_drop)}")
-    for sec in by_sec:  # 미출제 청크 우선
-        by_sec[sec].sort(key=lambda i: (got["ids"][i] in used_chunks, random.random()))
+    for sec in by_sec:  # 미출제 청크 우선 → 그 안에서 행정·연구 주제 우선(2026-10-08 운영자 지시)
+        by_sec[sec].sort(key=lambda i: (got["ids"][i] in used_chunks,
+                                        not is_admin_research(got["documents"][i]), random.random()))
 
     # 어휘층 배분(specs/11 A4): 청크 슬롯을 문서어/일상어로 나눈다. 일상어는 문서어 문항에서
     # 파생되므로 **문서어 목표를 n_doc으로 줄이고** 남은 자리를 짝이 채운다(총량 불변).
@@ -334,6 +372,14 @@ def main() -> int:
         bank_grams.append(gr)
         # ── 일상어 짝(specs/11 A1) — 골든은 그대로 두고 **질문만** 눈 가리고 다시 쓴다.
         #    같은 정답을 두 어휘로 물었을 때의 결과 차이가 곧 어휘 갭의 크기다(쌍id로 연결).
+        # ⛔ **기각 — '은퇴 문항의 쌍id 짝(동일 골든)을 연쇄 은퇴'**(2026-09-11 실측).
+        #   계기: 그날 검색실패 043p의 골든 오바인딩(연장근로 골든 vs 출장복명 질문)이 이미 은퇴된
+        #         쌍둥이(d59aa0d8b017)와 **동일 골든**인데도 활성으로 새어 재출제됐다. 연쇄 은퇴로
+        #         막고 싶어진다. (짝은 골든 공유·질문만 다름 — 위 쌍id 배선.)
+        #   측정: 은퇴(877)와 쌍id로 링크된 활성 문항 511건 중 동일-골든 짝이 다수인데 그중
+        #         **460건(90%)이 정답이력 보유** — 사람은 한쪽 어휘만 일부러 은퇴하고 다른 쪽은
+        #         잘 맞혀서 남긴다(08-27 '143p 은퇴·143 보존'과 동형). 연쇄하면 정답 460건이 죽는다.
+        #   판정: 연쇄 은퇴 금지(자기 채점 조작). 043p처럼 양쪽 다 0정답인 개별건만 사람이 은퇴.
         if len(para_items) < n_para:
             try:
                 p, why = paraphrase(llm_json, g["질문"], doc, random)

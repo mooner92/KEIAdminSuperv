@@ -1,6 +1,6 @@
 // 테마 토글 검증 — 기본=시스템(OS 따름), 클릭은 라이트↔다크만(시스템 미노출). dev 3101.
 import { chromium } from "playwright";
-const BASE = "http://localhost:3101";
+const BASE = "http://localhost:3100";
 const fails = [];
 const ok = (c, m) => { console.log((c ? "✅ " : "❌ ") + m); if (!c) fails.push(m); };
 const b = await chromium.launch();

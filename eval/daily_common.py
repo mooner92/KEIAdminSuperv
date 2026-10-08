@@ -20,6 +20,11 @@ TOTAL = int(os.environ.get("DAILY_EVAL_TOTAL", "60"))
 NEW_N = int(os.environ.get("DAILY_EVAL_NEW", "40"))
 REG_N = max(0, TOTAL - NEW_N)
 API = os.environ.get("DAILY_EVAL_API", "http://127.0.0.1:9001")  # dev 기본 — prod 등록은 승격 절차
+# 답변 경로(docs/74, 2026-10-06): kei-admin-rag = 단발 RAG(채팅과 동일) · kei-agent = omp 에이전트.
+# ⚠ 게시판 정답률은 **이 경로의** 품질이다 — 답변 파일·게시판에 경로를 함께 기록해 비교 가능하게 한다.
+ANSWER_MODEL = os.environ.get("DAILY_EVAL_MODEL", "kei-admin-rag")
+# 에이전트는 점검 턴+도구 호출로 단발보다 몇 배 느리다(실측 최대 450s/문항) — 클라이언트 타임아웃을 넉넉히.
+ANSWER_TIMEOUT = int(os.environ.get("DAILY_EVAL_TIMEOUT", "900" if ANSWER_MODEL == "kei-agent" else "300"))
 LLM_BASE = os.environ.get("VLLM_BASE", "http://127.0.0.1:11436/v1")
 LLM_MODEL = os.environ.get("LLM_MODEL", "hf.co/unsloth/Qwen3.5-9B-GGUF:Q4_K_M")
 CHROMA_DIR = os.environ.get("CHROMA_DIR", str(ROOT / "tools" / "chroma"))
@@ -30,7 +35,17 @@ DAILY_DIR = HERE / "daily"
 FAQ_DIR = HERE / "faq_candidates"
 
 # 유형 쿼터(신규분) — 값형 40% · 절차 30% · 조건 20% · 거부 10% (docs/58 §1.1)
-TYPE_QUOTA = {"값형": 0.4, "절차형": 0.3, "조건형": 0.2, "거부형": 0.1}
+# ⛔ 2026-10-08 운영자 지시: 거부형(코퍼스 밖 생활 주제 — 명상실·택배·은행·회의 간식…) 출제 중단.
+#   "쓸데없는 질문으로 정답률만 낮춘다 — 연구·행정 위주로". 기본 0, 은행의 거부형은 retire 처리.
+#   근거 밖 지어내기 방지 자체는 SYSTEM 규칙·주제 부재 게이트가 계속 막는다(측정만 빠진다).
+#   다시 재려면 DAILY_EVAL_REFUSAL=0.1.
+TYPE_QUOTA = {"값형": 0.4, "절차형": 0.3, "조건형": 0.2,
+              "거부형": float(os.environ.get("DAILY_EVAL_REFUSAL", "0"))}
+
+# 출제 우선 주제(2026-10-08 운영자 지시 — 연구·행정 위주): 미출제 청크 중에서도 이 주제어가 있는
+# 청크를 먼저 쓴다. 복리후생·생활(콘도·동호회·경조)은 뒤로 — 빼지는 않는다(커버리지 순환 유지).
+ADMIN_FIRST_TOPICS = ("출장", "휴가·복무", "기안·결재", "계약·구매", "인사", "보수·수당",
+                      "회계·예산", "보안·정보", "연구관리", "교육")
 # 섹션(청크 type) 쿼터 — 규정 40 · 가이드 25 · 시스템 25 · 용어 10 (거부형 제외 분에 적용)
 SECTION_QUOTA = {"regulation": 0.40, "guide": 0.25, "system": 0.25, "term": 0.10}
 # 출제 후보 최소 길이 — **섹션마다 다르다**(2026-07-26 실측 결함).
@@ -112,6 +127,12 @@ TOPIC_KW = {
     "복리후생": ["경조", "상조", "콘도", "휴양", "동호회", "건강검진"],
 }
 
+def is_admin_research(text: str) -> bool:
+    """청크가 행정·연구 업무 주제어를 담는가(출제 우선순위용, 결정적)."""
+    t = text or ""
+    return any(k in t for topic in ADMIN_FIRST_TOPICS for k in TOPIC_KW.get(topic, ()))
+
+
 # 거부형 시드(코퍼스 밖 주제) — 실측 거부 확인된 것 포함(주차·구내식당). 은행 중복으로 재사용 차단
 REFUSAL_SEEDS = [
     "사내 주차장 배정", "구내식당 외부인 이용", "통근버스 노선",
@@ -181,13 +202,14 @@ def rag_answer(question: str, history: list | None = None) -> dict:
     for hq, ha in (history or []):
         msgs += [{"role": "user", "content": hq}, {"role": "assistant", "content": ha}]
     msgs.append({"role": "user", "content": question})
-    body = json.dumps({"model": "kei-admin-rag", "messages": msgs}).encode()
+    body = json.dumps({"model": ANSWER_MODEL, "messages": msgs}).encode()
     req = urllib.request.Request(f"{API}/v1/chat/completions", data=body,
                                  headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=300) as r:
+    with urllib.request.urlopen(req, timeout=ANSWER_TIMEOUT) as r:
         d = json.load(r)
     return {"content": d["choices"][0]["message"]["content"], "x_sources": d.get("x_sources", []),
-            "x_gates": d.get("x_gates")}   # specs/16 W1-E 텔레메트리(없으면 None — 구서버 호환)
+            "x_gates": d.get("x_gates"),   # specs/16 W1-E 텔레메트리(없으면 None — 구서버 호환)
+            "x_agent": d.get("x_agent")}   # docs/74 — 에이전트 도구 호출·강등(단발이면 None)
 
 
 def chroma_col():
@@ -274,6 +296,77 @@ def prev_verdict(bank_entry) -> str:
     """직전 회차의 채점 판정(없으면 ""). '오늘 새로 깨진 것'을 세는 데 쓴다."""
     h = graded_history(bank_entry)
     return h[-1] if h else ""
+
+
+# ── 비율의 불확실도 — 재시험 지표를 회차 간 비교 가능하게 만드는 유일한 장치 ────────────
+# ⛔ **실측으로 확립(2026-08-23 수술)**. 배경: "같은 날 b회차가 a회차보다 항상 나쁘다
+#    (08-22 64.6→54.3 · 08-23 60.9→56.5)"는 구조 가설이 제기됐고, 전량 기각됐다:
+#      ⓐ 같은 문항만 짝지은 McNemar — 08-22쌍 a정답b오답 7 vs a오답b정답 5(p=0.77),
+#         08-23쌍 5 vs 5(p=1.00). 방향성 없음.
+#      ⓑ 이력 전체의 다회차 8일 pooled — **1회차 195/291(67.0%) vs 후속회차 322/471(68.4%)**,
+#         z=-0.39 p=0.70. 후속 회차가 오히려 근소 우위다(가설과 반대 부호).
+#      ⓒ 가설의 전제("a의 갓 깨진 오답이 b로 유입돼 어렵다")도 반대였다 — 직전 회차가
+#         첫 출제였던 '초시 재시험'은 pooled 72.6%(n=73)로 누적 재시험 59.5%(n=291)보다 **쉽다**.
+#      ⓓ 구성 표준화(재시험 깊이 3층 직접표준화)로는 회차 간 분산이 줄지 않았다(4.58→4.94).
+#    → 남은 설명은 하나뿐이다: **재시험 정답률의 분모는 n≈46이고 95% 구간이 ±14%p다.**
+#      10%p 스윙 두 번은 정확히 잡음이 만드는 모양이다. 그래서 지표를 바꾸는 대신
+#      **분모와 구간을 같이 싣는다** — 숫자는 한 자리도 변하지 않고 해석만 정직해진다.
+# ⚠ Wilson 구간을 쓴다(정규근사 아님) — n<50·비율이 0/1에 가까울 때 근사가 구간을 [0,100]
+#   밖으로 내보낸다(만성 트랙은 실제로 0%가 자주 나온다).
+def wilson_ci(k: int, n: int, z: float = 1.96) -> tuple:
+    """이항비율의 Wilson 95% 신뢰구간(%, 소수 1자리). n=0이면 (None, None)."""
+    if not n:
+        return (None, None)
+    p = k / n
+    d = 1 + z * z / n
+    c = (p + z * z / (2 * n)) / d
+    h = z * ((p * (1 - p) / n + z * z / (4 * n * n)) ** 0.5) / d
+    return (round(100 * max(0.0, c - h), 1), round(100 * min(1.0, c + h), 1))
+
+
+def within_noise(rate, ci) -> bool:
+    """직전 회차 값이 이번 회차 신뢰구간 안에 있는가 = '달라졌다고 말할 수 없다'."""
+    if rate is None or not ci or ci[0] is None:
+        return False
+    return ci[0] <= rate <= ci[1]
+
+
+# ── 유형 구성 보정 — 회차 크기가 다르면 신규 정답률은 그대로 비교할 수 없다 ──────────────
+# ⛔ **실측으로 확립(2026-08-24 수술)**. 08-24 신규 정답률이 93.6→86.5로 떨어져 회귀로
+#    보고됐으나, 원인은 **회차 크기**였다:
+#      ⓐ 복합형·거부형은 **개수 상한이 있다** — 복합형은 여정 16종을 라운드로빈하고(1회차
+#         1여정), 거부형은 REFUSAL_SEEDS 19개가 전부다. 그래서 실제 출제량은 회차 크기와
+#         무관하게 각각 9~12건·10~13건으로 **거의 상수**다(08-22~08-24 실측).
+#      ⓑ 그 둘은 가장 어려운 유형이다 — pooled 복합형 78.0%·거부형 68.2% vs
+#         값형 95.3%·절차형 95.7%·조건형 96.3%.
+#      ⓒ 따라서 평일 193문항 회차에서 두 유형의 비중이 5.5~6.3% → **17.3%로 3배**가 됐다.
+#         분자·분모 규칙은 한 자리도 안 바뀌었는데 시험지만 어려워진 것이다.
+#    → 값을 바꾸지 않고 **구성 보정치를 나란히 싣는다**(원시 정답률은 정본으로 유지).
+#      08-24: 원시 86.5% → 구성보정 **91.8%**(과거 4회차 93.4~95.2와 같은 자로 잰 값).
+# ⚠ 기준 구성은 **고정 상수**다(2026-08-22~08-23b 신규 4회차 1,440문항 pooled). 매번 다시
+#   계산하면 기준이 같이 움직여 회차 간 비교가 또 끊긴다 — 기준은 얼어 있어야 자가 된다.
+TYPE_REF_MIX = {"값형": 0.426, "절차형": 0.307, "조건형": 0.208, "복합형": 0.028, "거부형": 0.031}
+
+
+def type_standardized(rows: list) -> dict:
+    """유형 직접표준화 정답률(%) + 실제 유형 구성. rows = 한 코호트의 채점 결과.
+
+    ⛔ 원시 정답률을 대체하지 않는다 — '같은 시험지로 쟀다면' 값을 병기할 뿐이다.
+    """
+    scored = [r for r in rows if r.get("판정") not in ("판정불가", "폐기")]
+    if not scored:
+        return {"구성보정정답률": None, "유형구성": {}, "하드유형비중": None}
+    mix, num, wsum = {}, 0.0, 0.0
+    for t, w in TYPE_REF_MIX.items():
+        den = [r for r in scored if r.get("유형") == t]
+        mix[t] = len(den)
+        if den:                      # 그 유형이 없는 회차는 가중치째 빼고 나머지로 정규화
+            num += w * sum(1 for r in den if r.get("판정") == "정답") / len(den)
+            wsum += w
+    hard = sum(mix.get(t, 0) for t in ("복합형", "거부형"))
+    return {"구성보정정답률": round(100 * num / wsum, 1) if wsum else None,
+            "유형구성": mix,
+            "하드유형비중": round(100 * hard / len(scored), 1)}
 
 
 # ── 정규화·중복(임베딩 없이: 해시 + 문자 2-그램 자카드 — P1 단순화, docs/58 §1.2) ──

@@ -1024,6 +1024,18 @@ def topic_absence_missing(question: str, context: str) -> list:
 #      원인: 일상어 질문은 정답을 물어도 리랭커 점수가 낮다(비거부형 정답의 18.9%가 <0.05).
 #   판정: **단독 배포 금지**. 살아 있는 쓰임은 교집합의 제2 조건 후보뿐이다
 #         (조건① 코퍼스 부재 ∧ 리랭커 저점). 그 결합 정밀도는 아직 미측정 — 다음 표적.
+# ⛔ **기각 — '질문이 「규정명 제N조」를 명시하면 그 조를 강제 첨부'하는 라우트**(2026-08-20 실측).
+#   계기: 축 문항 a04(「연구윤리규정」 제12조를 명시했는데 top-5가 제1조 ×4)가 거부로 샜다.
+#   측정(회차 파일 전수 · 명시 인용 질문 125건): 그 조가 실제로 top-k에 **회수된 비율 80.8%**.
+#     · 회수됨      n=101 정답률 **95.0%**
+#     · 규정만 회수 n=  2 정답률 50.0%
+#     · 규정도 미회수 n= 22 정답률 **63.6%**   ← 미회수여도 3분의 2는 맞힌다
+#   판정: 강제 첨부가 건질 수 있는 최대치가 8,306 채점 인스턴스 중 한 자릿수다. 답변 경로를
+#         바꿀 근거가 못 된다(원칙 4 — A/B 없이 변경 금지). a04는 **개별 회수 실패**로 남긴다.
+#   ⚠ 함께 확인된 것: 축 deadline 문항은 50건 중 49건 정답(98%)이고, 유일한 오답 a04는
+#     같은 앵커('착수한 날부터')를 문두 인용 템플릿으로 물었을 땐 정답이었다 — 템플릿별
+#     정답률 A(문두 인용) 100%(n=26) vs B(괄호 후치) 95.8%(n=24). n이 작아 템플릿 교체는
+#     보류(단일 사례로 출제 템플릿을 지우면 시험이 쉬워지는 쪽으로만 움직인다).
 def topic_absence_note(question: str, answer: str, context: str) -> str:
     """질문 대상이 코퍼스에 없는데 답변이 **자기모순으로** 단정하면 경고문 반환(이상 없으면 "").
 
@@ -2173,6 +2185,17 @@ def _gen_extra():
     if NO_THINK and QWEN35:
         extra["reasoning_effort"] = "none"  # OpenAI 호환(/v1) 경로용 — 실제 효력(실측)
         extra["think"] = False              # 네이티브 경로/타 버전 대비(무해)
+    # 백엔드별 '사고 off' 방언 주입구(RAG_GEN_EXTRA, JSON). 미설정이면 위 반환값 그대로 —
+    # 현행 Ollama/qwen3.5 운영 경로는 불변이다. vLLM(Qwen3.8-27B)은 reasoning_effort도
+    # /no_think도 안 먹고 chat_template_kwargs.enable_thinking=false만 유효하다
+    # (2026-09-02 실측: 사고 켠 채 26.9초·사고 1,309자 → 끄면 1.4초로 19배). keep_alive는 무시(무해).
+    #   예: RAG_GEN_EXTRA='{"chat_template_kwargs":{"enable_thinking":false}}'
+    _ge = os.environ.get("RAG_GEN_EXTRA", "").strip()
+    if _ge:
+        try:
+            extra.update(json.loads(_ge))
+        except (ValueError, TypeError) as e:  # 잘못된 JSON이 생성을 막지 않게 — 기본 동작 유지
+            print(f"[rag_core] ⚠ RAG_GEN_EXTRA 파싱 실패({e}) — 무시하고 기본값 사용")
     return extra
 
 

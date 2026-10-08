@@ -178,6 +178,105 @@ def test_chronic_absent_when_no_retry_cohort():
         assert "만성 제외 재시험" not in R.render_md(a)
 
 
+# ── 회차 간 비교 가능성(2026-08-23 수술) ─────────────────────────────────────────
+# 계약: ④ 값은 안 바뀌고 **분모·구간만 붙는다** ⑤ 잡음 범위 판정은 결정적이다
+#       ⑥ 누적 재시험은 **과거만** 본다(look-ahead 금지)
+
+def test_ci_does_not_change_the_rate():
+    """④ 신뢰구간을 붙여도 정답률 숫자는 한 자리도 바뀌지 않는다(조작 방지의 최소 조건)."""
+    rows = [_q(1, "정답"), _q(2, "정답"), _q(3, "오답"), _q(4, "폐기")]
+    v = R._acc(rows)
+    assert v["정답률"] == 66.7 and v["분모"] == 3, v
+    lo, hi = v["신뢰구간"]
+    assert lo < 66.7 < hi, v
+    # 구간은 항상 [0,100] 안 — 0%·100%에서 정규근사가 밖으로 나가는 것을 막는다
+    assert R.wilson_ci(0, 10)[0] == 0.0 and R.wilson_ci(10, 10)[1] == 100.0
+    assert R.wilson_ci(0, 0) == (None, None)
+    # 표본이 커지면 구간이 좁아진다 = '분모를 늘리면 말할 자격이 생긴다'
+    w46, w233 = R.wilson_ci(26, 46), R.wilson_ci(140, 233)
+    assert (w46[1] - w46[0]) > (w233[1] - w233[0]) * 1.8, (w46, w233)
+
+
+def test_noise_band_is_deterministic():
+    """⑤ 직전 값이 오늘 구간 안이면 '잡음 범위' — 실측 08-22b(64.6%→54.3%, n=46)가 기준선."""
+    ci = R.wilson_ci(25, 46)                       # 54.3%
+    assert R.within_noise(64.6, ci), ci            # 실측: 10.3%p 스윙도 구간 안이었다
+    assert not R.within_noise(95.0, ci), ci
+    assert not R.within_noise(None, ci)
+    assert not R.within_noise(60.0, [None, None])
+
+
+def test_pooled_retry_never_looks_ahead():
+    """⑥ 누적 재시험은 오늘까지만 본다 — 미래 회차를 넣으면 지표가 미래를 커닝한다."""
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        R.DAILY = tmp
+        _write(tmp, "2026-05-01", [dict(_q(1, "정답"), 코호트="재시험")])
+        _write(tmp, "2026-05-02", [dict(_q(2, "오답"), 코호트="재시험")])
+        _write(tmp, "2026-05-03", [dict(_q(3, "오답"), 코호트="재시험")])   # 미래
+        p = R.pooled_retry("2026-05-02")
+        assert p["회차"] == ["2026-05-01", "2026-05-02"], p
+        assert p["분모"] == 2 and p["정답률"] == 50.0, p
+        # 창 크기를 넘으면 오래된 회차가 빠진다(추세 지표이지 누계가 아니다)
+        assert R.pooled_retry("2026-05-03", k=1)["회차"] == ["2026-05-03"]
+
+
+def test_noise_band_reaches_the_action_list():
+    """잡음 범위 판정은 **행동 후보에도** 실린다 — 세션이 잡음을 수술하러 가면 안 된다."""
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        R.DAILY = tmp
+        prev = [dict(_q(i, "정답" if i < 3 else "오답"), 코호트="재시험") for i in range(1, 5)]
+        (tmp / "2026-06-01.graded.json").write_text(json.dumps(
+            {"date": "2026-06-01", "정답률": 50.0, "집계": {},
+             "코호트별": {"재시험": {"문항수": 4, "정답률": 50.0}}, "실패유형별": {},
+             "문항": prev}, ensure_ascii=False), encoding="utf-8")
+        today = [dict(_q(i, "오답" if i < 4 else "정답"), 코호트="재시험") for i in range(1, 5)]
+        (tmp / "2026-06-02.graded.json").write_text(json.dumps(
+            {"date": "2026-06-02", "정답률": 25.0, "집계": {},
+             "코호트별": {"재시험": {"문항수": 4, "정답률": 25.0}}, "실패유형별": {},
+             "문항": today}, ensure_ascii=False), encoding="utf-8")
+        a = R.analyze("2026-06-02")
+        assert a["직전재시험"] == 50.0, a["직전재시험"]
+        assert any("잡음 범위" in x for x in a["행동후보"]), a["행동후보"]
+        assert "잡음 범위" in R.render_md(a)
+
+
+# ── 유형 구성 보정 — 2026-08-24 실측 ──────────────────────────────────────────
+# 08-24 신규 정답률 93.6→86.5는 회귀로 보고됐으나, 복합형·거부형이 개수 상한(여정 16·
+# 시드 19) 때문에 회차가 작아지면 비중만 3배로 뛰는 구조 때문이었다(5.5~6.3%→17.3%).
+def test_standardized_rate_does_not_change_the_raw_rate():
+    from daily_common import type_standardized
+    rows = ([{"유형": "값형", "판정": "정답"}] * 9 + [{"유형": "값형", "판정": "오답"}]
+            + [{"유형": "거부형", "판정": "오답"}] * 5)
+    raw = 9 / 15
+    st = type_standardized(rows)
+    assert st["구성보정정답률"] is not None
+    # ⛔ 보정치는 원시값을 대체하지 않는다 — 별도 필드로만 존재한다.
+    assert "정답률" not in st, "보정 함수가 원시 정답률을 덮어쓰면 안 된다"
+    # 거부형이 기준 구성(3.1%)보다 훨씬 많으므로 보정치는 원시값보다 **높아야** 한다.
+    assert st["구성보정정답률"] > 100 * raw, (st, raw)
+    assert st["하드유형비중"] == round(100 * 5 / 15, 1)
+
+
+def test_standardized_rate_is_flat_when_mix_matches_reference():
+    """구성이 기준과 같고 유형별 정답률이 같으면 보정치 == 원시값(자가 무해성)."""
+    from daily_common import TYPE_REF_MIX, type_standardized
+    rows = []
+    for t, w in TYPE_REF_MIX.items():
+        n = max(2, round(w * 200))
+        rows += [{"유형": t, "판정": "정답"}] * (n // 2) + [{"유형": t, "판정": "오답"}] * (n - n // 2)
+    st = type_standardized(rows)
+    assert abs(st["구성보정정답률"] - 50.0) < 1.0, st
+
+
+def test_partial_credit_is_bucketed_and_never_vanishes():
+    """부분정답이 어느 버킷에도 없어 리포트에서 사라지던 구멍(08-24 6건)."""
+    assert "부분정답" in R.NOISE, "부분정답이 버킷 없이 남으면 통계에서 사라진다"
+    assert "부분정답" not in R.SURGERY, "부분정답은 서비스 결함 큐를 먹으면 안 된다"
+
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     bad = 0
@@ -189,3 +288,4 @@ if __name__ == "__main__":
             bad += 1
             print(f"  ❌  {fn.__name__}: {e}")
     sys.exit(1 if bad else print(f"\n✅ {len(fns)}개 통과 — 아침 분석서 집계 규칙") or 0)
+

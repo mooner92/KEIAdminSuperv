@@ -1,6 +1,7 @@
-/* 기안 도우미 — 업무 선택·안내 블록 전용 스타일.
+/* 기안 도우미 — 업무 선택·요약 카드·접기·근거 블록 전용 스타일.
    ⛔ 목록·행 스타일은 공용 스킨(common/ResultRow + BrowseUI.module.css)만 쓴다(사본 금지).
-   여기 있는 것은 여비 계산기(Travel.module.css)와 같은 계열의 '컨트롤·근거·면책'뿐이다. */
+   섹션 껍데기·페이저도 공용(common/Section·PagedList). 여기 있는 것은 여비 계산기
+   (Travel.module.css)와 같은 계열의 '컨트롤·요약·접기·근거·면책'뿐이다. */
 
 /* 업무군 선택 — 항목이 5개라 pill을 줄바꿈 허용으로 편다 */
 .picker { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -13,36 +14,87 @@
 .pickOn { background: var(--color-primary); border-color: var(--color-primary); color: var(--color-on-primary, #fff); }
 .pickOn:hover { color: var(--color-on-primary, #fff); }
 
-/* 값 나열(문서종류·확인사항) */
+/* 요약 카드 4장 — 업무를 고른 직후 "무엇을 몇 건 봐야 하는지"를 먼저 말한다.
+   누르면 해당 섹션으로 스크롤(SummaryCards). */
+.cards {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;
+  list-style: none; margin: 14px 0 0; padding: 0;
+}
+.card {
+  width: 100%; text-align: left; cursor: pointer;
+  display: flex; flex-direction: column; gap: 4px;
+  border: 1px solid var(--color-border); border-radius: 12px;
+  background: var(--color-surface); padding: 11px 13px;
+}
+.card:hover { border-color: var(--color-primary); background: var(--color-primary-weak); }
+.cardTop {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  font-size: 12.5px; font-weight: 700; color: var(--color-text-secondary);
+}
+.cardValue { font-size: 24px; font-weight: 800; line-height: 1.1; color: var(--color-text); }
+.cardValue i { font-style: normal; font-size: 13px; font-weight: 700; margin-left: 2px; color: var(--color-text-secondary); }
+
+/* 접기(Fold) — 조문 원문·체크리스트 전문·편철 원칙을 첫 화면에서 내리되 삭제하지 않는다 */
+.fold {
+  margin-top: 10px; border: 1px solid var(--color-border); border-radius: 10px;
+  background: var(--color-surface);
+}
+.foldSum {
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+  padding: 8px 12px; cursor: pointer; list-style: none;
+  font-size: 12.5px; font-weight: 700; color: var(--color-text-secondary);
+}
+.foldSum::-webkit-details-marker { display: none; }
+.foldSum:hover { color: var(--color-primary-strong); }
+.foldCaret { display: inline-block; font-size: 10px; transition: transform 120ms ease; }
+.fold[open] > .foldSum > .foldCaret { transform: rotate(90deg); }
+.fold[open] > .foldSum { border-bottom: 1px solid var(--color-border); }
+.foldTitle { color: inherit; }
+.foldCount {
+  border: 1px solid var(--color-border-strong); border-radius: 999px;
+  padding: 0 7px; font-size: 11px; font-weight: 700; color: var(--color-text-tertiary);
+}
+.foldBody { padding: 10px 12px 12px; }
+.foldBody > :first-child { margin-top: 0; }
+
+/* 값 나열(문서종류·확인사항·첨부) */
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 0; padding: 0; list-style: none; }
 .chip {
   border: 1px solid var(--color-border); background: var(--color-bg-subtle);
   border-radius: 8px; padding: 4px 10px; font-size: 13px; color: var(--color-text);
 }
 
+/* 체크리스트·원칙 — 접기 안의 줄글 목록(✔ 대신 단정한 불릿) */
+.checks {
+  margin: 6px 0 0; padding-left: 18px;
+  font-size: 12.5px; line-height: 1.65; color: var(--color-text-secondary);
+}
+.checks li { margin-bottom: 3px; }
+
 /* 근거·주석 */
 .src { font-size: 12px; line-height: 1.55; color: var(--color-text-secondary); }
 .src b { color: var(--color-text); }
-.notes { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.notes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .note {
   font-size: 12.5px; line-height: 1.6; color: var(--color-text-secondary);
   border-left: 2px solid var(--color-border-strong); padding-left: 9px;
 }
 .note b { color: var(--color-text); }
+.missing { font-size: 13px; color: var(--color-danger, #c0392b); font-weight: 700; margin: 4px 0 0; }
 
-/* 결재선 역할 카드 */
+/* 결재선 역할 카드 — 조문 원문은 섹션 접기로 내려가고 카드엔 링크만 남는다 */
 .roles {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px;
-  list-style: none; margin: 0; padding: 0;   /* 카드 자체에 불릿 점이 찍히던 실측 결함 */
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px;
+  list-style: none; margin: 12px 0 0; padding: 0;   /* 카드 자체에 불릿 점이 찍히던 실측 결함 */
 }
-.role { border: 1px solid var(--color-border); border-radius: 12px; padding: 11px 13px; background: var(--color-surface); }
-.roleName { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 800; color: var(--color-text); }
-.roleDesc { margin: 6px 0 0; padding-left: 16px; font-size: 12.5px; line-height: 1.6; color: var(--color-text-secondary); }
+.role { border: 1px solid var(--color-border); border-radius: 12px; padding: 10px 12px; background: var(--color-surface); }
+.roleName { display: flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 800; color: var(--color-text); }
+.roleDesc { margin: 5px 0 0; padding-left: 15px; font-size: 12.5px; line-height: 1.55; color: var(--color-text-secondary); }
 .roleSrc { margin-top: 7px; font-size: 11.5px; line-height: 1.5; color: var(--color-text-secondary); }
 .roleSrc b { color: var(--color-text); }
 .roleNone { color: var(--color-danger, #c0392b); font-weight: 700; }
 
-/* '권장' 같은 비단정 라벨 */
+/* '권장'·'후보' 같은 비단정 라벨 */
 .soft {
   border: 1px solid var(--color-border-strong); border-radius: 999px;
   padding: 1px 8px; font-size: 11.5px; font-weight: 700; color: var(--color-text-secondary);
@@ -55,9 +107,10 @@
   font-size: 13px; line-height: 1.6; color: var(--color-text);
 }
 .callout b { font-weight: 800; }
+.callout .checks { color: var(--color-text); }
 
 .disclaimer {
-  margin-top: 14px; padding: 11px 13px; border-radius: 10px;
+  margin-top: 12px; padding: 11px 13px; border-radius: 10px;
   border: 1px solid var(--color-border); background: var(--color-bg-subtle);
   font-size: 12.5px; line-height: 1.65; color: var(--color-text-secondary);
 }

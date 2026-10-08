@@ -113,8 +113,15 @@
   font-weight: 700;
   line-height: 1.55;
   white-space: pre-wrap;
+  /* ⚠ keep-all은 한국어 단어 중간 끊김을 막지만, 공백 없는 긴 토큰(사번·URL·붙여넣은
+     여러 줄)은 알약(999px) 밖으로 삐져나온다(실측 2026-08-24). overflow-wrap:anywhere로
+     그런 토큰만 강제 줄바꿈한다. keep-all과 함께 두면 일반 한국어는 어절 단위로 흐른다. */
   word-break: keep-all;
+  overflow-wrap: anywhere;
+  min-width: 0;
 }
+/* 여러 줄로 늘어난 사용자 말풍선은 완전한 알약(999px)이 어색하다 — 곡률을 낮춰 둥근 카드로. */
+.userBubble.multiline { border-radius: 18px; }
 .aiBubble {
   /* v2 보정(사용자 피드백 2026-07-28): 플레인 답변 + 스텝 스트립 조합이 "여러 개의 답변"처럼
      읽혔다 → 답변 전체를 **하나의 은은한 컨테이너**로 묶는다(좌측 앰버 헤어라인 + 아주 옅은 틴트).
@@ -145,6 +152,17 @@
 .evidenceBtn:hover { background: var(--color-primary-weak); }
 .evidenceBtnOn { background: var(--color-primary); border-color: var(--color-primary); color: var(--color-on-primary); }
 .typing { color: var(--color-text-tertiary); font-size: 14px; }
+/* docs/74 §7 — 에이전트 진행 단계(지난 단계 ✓ · 지금 단계 점멸). 색은 시맨틱 토큰만(다크모드 자동) */
+.agentSteps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px;
+  font-size: 13.5px; line-height: 1.5; }
+.stepDone { color: var(--color-text-tertiary); display: flex; align-items: center; gap: 8px; }
+.stepNow { color: var(--color-text-secondary); font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.stepMark { width: 20px; display: inline-flex; justify-content: center; flex-shrink: 0; }
+.stepDone .stepMark { color: var(--color-success); }
+.stepPulse { width: 8px; height: 8px; border-radius: 50%; background: var(--color-primary);
+  animation: stepPulse 1.2s ease-in-out infinite; }
+@keyframes stepPulse { 0%, 100% { opacity: .35; transform: scale(.8); } 50% { opacity: 1; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .stepPulse { animation: none; } }
 
 /* ── 금액·한도 답변: 원문 확인 유도 ── */
 .moneyNote {

@@ -9,7 +9,7 @@ async function check(label, theme) {
   const ctx = await browser.newContext({ colorScheme: "light" });
   await ctx.addInitScript((t) => localStorage.setItem("kei-theme", t), theme);
   const page = await ctx.newPage();
-  await page.goto("http://localhost:3101/", { waitUntil: "load" });
+  await page.goto("http://localhost:3100/", { waitUntil: "load" });
   await page.waitForTimeout(1500);
   const info = await page.evaluate(() => {
     const bg = getComputedStyle(document.body).backgroundColor;
@@ -35,7 +35,7 @@ await check("3101 다크", "dark");
 // 그래프 페이지도 한 번 (노드 렌더 확인)
 const ctx = await browser.newContext();
 const page = await ctx.newPage();
-await page.goto("http://localhost:3101/graph/", { waitUntil: "load" });
+await page.goto("http://localhost:3100/graph/", { waitUntil: "load" });
 await page.waitForTimeout(3000);
 const nodes = await page.evaluate(() => {
   const c = document.querySelector("canvas");

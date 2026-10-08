@@ -93,6 +93,10 @@ def main() -> int:
     (DAILY_DIR / f"{args.date}.json").write_text(
         json.dumps(final, ensure_ascii=False, indent=1), encoding="utf-8")
 
+    # 답변 경로(docs/74) — 답변 파일에 기록된 값. 구 파일엔 없으므로 단발(kei-admin-rag)로 본다.
+    _af = DAILY_DIR / f"{args.date}.answers.json"
+    path = (json.loads(_af.read_text(encoding="utf-8")).get("답변경로") if _af.exists() else None) \
+        or "kei-admin-rag"
     # ── 웹 공개본(질문·답변·판정·증거·근거 열람 — 내부 로그인 뒤) ──
     qdir = ROOT / "web" / "public" / "quality" / "daily"
     qdir.mkdir(parents=True, exist_ok=True)
@@ -108,6 +112,7 @@ def main() -> int:
          #   재시험=개선 신호 / 신규=커버리지 신호. 둘을 섞으면 개선을 증명할 수 없다.
          "코호트별": g.get("코호트별") or {}, "실패유형별": g.get("실패유형별") or {},
          "약점지도": final["약점지도"], "원인": cause_stats, "다양성": diversity,
+         "답변경로": path,   # docs/74 — 게시판이 에이전트 답변 날을 구분 표시
          "문항": pub_items},
         ensure_ascii=False, indent=1), encoding="utf-8")
     # index.json — 최근 90일 추이
@@ -115,7 +120,8 @@ def main() -> int:
     idx = json.loads(idx_f.read_text(encoding="utf-8")) if idx_f.exists() else {"days": []}
     idx["days"] = [d for d in idx["days"] if d["date"] != args.date]
     idx["days"].append({"date": args.date, "정답률": g["정답률"], "집계": g["집계"],
-                        "코호트별": g.get("코호트별") or {}})  # 추이에서도 코호트를 갈라 본다
+                        "코호트별": g.get("코호트별") or {},  # 추이에서도 코호트를 갈라 본다
+                        "답변경로": path})
     idx["days"] = sorted(idx["days"], key=lambda d: d["date"])[-90:]
     idx_f.write_text(json.dumps(idx, ensure_ascii=False, indent=1), encoding="utf-8")
 

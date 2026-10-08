@@ -11,7 +11,7 @@ if (!TEST_PW) {
 }
 const b = await chromium.launch();
 const p = await b.newPage();
-await p.goto("http://localhost:3101/", { waitUntil: "load" });
+await p.goto("http://localhost:3100/", { waitUntil: "load" });
 await p.waitForTimeout(1200);
 
 // 로그인(테스트 계정)

@@ -1,6 +1,6 @@
 // 도움말 다크 가독성 + 닫기 동선 실렌더 검증 (사용자 보고 버그).
 import { chromium } from "playwright";
-const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
+const BASE = process.env.VERIFY_BASE || "http://localhost:3100";
 const b = await chromium.launch();
 const p = await b.newPage({ viewport: { width: 1200, height: 900 } });
 import { makeCheck } from "./verify-lib.mjs";

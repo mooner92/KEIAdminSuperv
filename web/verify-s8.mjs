@@ -1,6 +1,6 @@
 // v1 ⑮⑯(S8) 검증 — /help·footer 버전·도움말 링크·404 회귀·ErrorBoundary 존재 (dev 3101).
 import { chromium } from "playwright";
-const BASE = "http://localhost:3101";
+const BASE = "http://localhost:3100";
 const fails = [];
 const ok = (c, m) => { console.log((c ? "✅ " : "❌ ") + m); if (!c) fails.push(m); };
 const b = await chromium.launch();

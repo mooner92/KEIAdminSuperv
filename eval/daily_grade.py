@@ -19,7 +19,7 @@ import sys
 import axes  # 결정적 축 채점(specs/07 B)
 import scenarios  # 복합 시나리오 채점(specs/07 A)
 from daily_common import (CHRONIC_STREAK, DAILY_DIR, ROOT, chroma_col, chronic_of, llm_json,
-                          load_bank, norm_q, prev_verdict, save_bank)
+                          load_bank, norm_q, prev_verdict, save_bank, type_standardized, wilson_ci)
 
 sys.path.insert(0, str(ROOT / "tools"))
 from refusal_detect import is_refusal  # 단일 정본(specs/01 P0) — 결론부 스코프+부정형 한정(T9)
@@ -130,6 +130,15 @@ def _governed(question: str, srcs: list) -> bool:
     return any(k in blob for k in keys)
 
 
+# ⛔ **기각 — '출처 조 미회수 검색실패를, 채점 증거의 주제-괴리 어구로 골든품질로 재분류'**(2026-09-11 실측).
+#   계기: 그날 검색실패 5건 중 3건(006·011·043p)이 실은 **골든 오바인딩**이었다 — 골든이 질문과
+#         다른 주제(회계 입찰 마감일 vs 퇴직금 자격기간 / 결원보충 vs 복직 / 연장근로 보고 vs 출장복명).
+#         회수는 질문의 진짜 주제를 정확히 물어왔고, 아래 hit 규칙이 '출처 조 미회수'만 보고 검색실패로
+#         샜다. 채점 증거의 "주제가 다르다/무관/비교할 수 없다"를 신호로 골든품질 재분류를 검토했다.
+#   측정: 최근 14회차 검색실패 65건 중 강한 주제-괴리 어구 매칭 **6건(9%)**뿐이고 나머지는 거부톤 17·
+#         기타 42(예: 042 "잘못 설명함"=같은 주제 오설명=진짜 검색/생성 결함). LLM 자유서술 어구는
+#         오탐 상수라 6/65로는 hit 규칙을 뒤집을 근거가 안 된다(원칙: 측정이 못 받치면 게이트 금지).
+#   판정: 재분류기 미채택. 개별 오바인딩 3건은 사람 골든 보수로 회부(golden_repair — 재바인딩/은퇴).
 def classify_cause(item, golden: str) -> str:
     """오답·검토필요 원인 분류(docs/58 §6): 검색실패 | 생성환각 | 원문결함 | (채점오류는 ⓒ에서)"""
     srcs = item.get("x_sources", [])
@@ -313,11 +322,20 @@ def main() -> int:
     # ── 코호트별·실패유형별 집계 (docs/58 §6d) ──
     # ⛔ 합산 `정답률`은 계산식을 바꾸지 않는다(과거 일자와 비교 가능해야 한다).
     #    코호트는 *같은 분모 규칙*으로 따로 계산한 표시용 지표다.
+    #    ⛔ **분모와 신뢰구간을 함께 새긴다**(2026-08-23). 정답률 값은 한 자리도 바뀌지 않는다 —
+    #    재시험은 분모가 n≈46이라 95% 구간이 ±14%p인데, 브리핑은 5~10%p 스윙을 신호처럼
+    #    읽어 왔다("b회차가 a보다 나쁘다" 가설의 출처). 구간이 없으면 잡음을 회귀로 오진한다.
     def _acc(rows: list) -> dict:
         c = Counter(r["판정"] for r in rows)
         d = len(rows) - c.get("판정불가", 0) - c.get("폐기", 0)
-        return {"문항수": len(rows), "집계": dict(c),
-                "정답률": round(100 * c.get("정답", 0) / d, 1) if d else None}
+        lo, hi = wilson_ci(c.get("정답", 0), d)
+        # ⛔ **유형 구성도 함께 새긴다**(2026-08-24). 복합형·거부형은 개수 상한이 있어
+        #    회차가 작아지면 비중이 3배로 뛴다 — 08-24 신규 '급락'(93.6→86.5)의 5.3%p가
+        #    이것이었다. 구성 없이는 시험지가 어려워진 것을 서비스 회귀로 오진한다.
+        #    (근거·기준 구성은 daily_common.TYPE_REF_MIX 주석)
+        return {"문항수": len(rows), "집계": dict(c), "분모": d,
+                "정답률": round(100 * c.get("정답", 0) / d, 1) if d else None,
+                "신뢰구간": [lo, hi], **type_standardized(rows)}
 
     코호트별 = {n: _acc([r for r in results if r.get("코호트") == n]) for n in ("재시험", "신규")}
     실패유형별 = dict(Counter(r["실패유형"] for r in results if r.get("실패유형")))
@@ -334,7 +352,14 @@ def main() -> int:
     만성트랙 = {"기준": f"직전까지 연속 미정답 {CHRONIC_STREAK}회 이상",
                 "만성": _acc(만성), "재시험_만성제외": _acc(급성),
                 "신규회귀": {"건수": len(새로깨짐), "분모_직전정답": len(직전정답),
-                          "비율": round(100 * len(새로깨짐) / len(직전정답), 1) if 직전정답 else None}}
+                          "비율": round(100 * len(새로깨짐) / len(직전정답), 1) if 직전정답 else None,
+                          # 분모가 20 안팎이라 이 비율도 구간이 넓다. 실측(2026-08-23):
+                          # 08-21~23b에 새로깨짐률이 11.9%→21.4%(p=0.006)로 올라 회귀처럼
+                          # 보였는데, **분모 구성 변화**였다 — '이력 정답률 ≥0.8' 문항이
+                          # 직전정답 분모에서 31%→2%로 사라졌다(회귀 풀이 진동하는 묵은
+                          # open만 남기고, 잘 맞히는 문항은 3연속 정답으로 fixed 졸업).
+                          # 사전 구성으로 직접표준화하면 21.4%→15.0%로 대부분이 설명된다.
+                          "신뢰구간": list(wilson_ci(len(새로깨짐), len(직전정답)))}}
 
     out = DAILY_DIR / f"{args.date}.graded.json"
     out.write_text(json.dumps({"date": args.date, "정답률": acc, "집계": dict(cnt),

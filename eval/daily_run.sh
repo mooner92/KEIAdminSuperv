@@ -21,7 +21,7 @@ if [ "${FREE:-0}" -gt 21000 ]; then
   echo "[$(date)] GPU 과점유(${FREE}MiB) — 당일 스킵"; exit 0
 fi
 
-echo "[$(date)] 일일 자가평가 시작 ($DATE)"
+echo "[$(date)] 일일 자가평가 시작 ($DATE, 답변경로=${DAILY_EVAL_MODEL:-kei-admin-rag})"
 $PY daily_gen.py --sync          # 0) 골든 자가검증(재색인 대응: 재바인딩·stale·retire)
 $PY daily_gen.py --date "$DATE"
 $PY daily_answer.py --date "$DATE"
@@ -32,14 +32,12 @@ $PY daily_publish.py --date "$DATE"
 # ⛔ 실패해도 크론은 계속 — 정본은 graded.json·게시판이고 분석서는 파생이다.
 $PY daily_report.py --date "$DATE" || true
 
-# prod 게시판 동기화(docs/58 — dev 크론이 유일 평가원, prod는 결과만 미러). PROD_QUALITY_DIR
-# 미설정/미존재 시 조용히 skip(dev 단독 운용 안전). server.js가 web/public/quality를 직서빙 →
-# 재빌드 불필요. ⛔ quality 데이터만 복사(코드·볼트 무관).
-PROD_Q="${PROD_QUALITY_DIR:-/KEIAdminSuperv/web/public/quality}"
-if [ -d "$(dirname "$PROD_Q")" ]; then
-  # ⚠ 스크립트는 eval/에서 실행된다(cd "$(dirname "$0")") — 소스는 반드시 상위 경로.
-  #    실측 2026-07-27: 상대경로 'web/...'가 eval/web/...을 가리켜 **prod 동기화가 매일 조용히 실패**했다.
-  rsync -a --delete ../web/public/quality/ "$PROD_Q"/ && echo "[$(date)] prod 게시판 동기화 → $PROD_Q"
+# 게시판 미러(선택) — 2026-10-08 역할 교체: 이 평가는 **운영(3101) 작업트리**에서 돌아 운영 게시판
+# (web/public/quality, server.js 직서빙)에 바로 쓴다. 다른 서버로 복사가 필요할 때만 QUALITY_MIRROR_DIR 지정.
+# (교체 전엔 dev 트리에서 돌고 /KEIAdminSuperv(구 운영)로 미러했다 — 그 경로는 이제 테스트 서버다.)
+# ⛔ quality 데이터만 복사(코드·볼트 무관). ⚠ 스크립트는 eval/에서 실행된다 — 소스는 상위 경로.
+if [ -n "${QUALITY_MIRROR_DIR:-}" ] && [ -d "$(dirname "$QUALITY_MIRROR_DIR")" ]; then
+  rsync -a --delete ../web/public/quality/ "$QUALITY_MIRROR_DIR"/ && echo "[$(date)] 게시판 미러 → $QUALITY_MIRROR_DIR"
 fi
 # MLflow 병행 기록(specs/10 — 실패해도 크론 정상. 정본은 graded.json·게시판 그대로)
 MLFLOW_TRIGGER=cron $PY mlflow_log.py --date "$DATE" || true

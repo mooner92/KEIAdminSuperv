@@ -12,7 +12,7 @@ if (!TEST_PW) {
   process.exit(2);
 }
 
-const BASE = "http://localhost:3101";
+const BASE = "http://localhost:3100";
 const USER = "fb_test";
 const PW = TEST_PW;
 const fails = [];

@@ -11,7 +11,7 @@ if (!TEST_PW) {
   console.error("❌ APP_TEST_PASS 미설정 — 검증 계정 비밀번호는 환경변수로만 받습니다.");
   process.exit(2);
 }
-const BASE = process.env.VERIFY_BASE || "http://localhost:3101";
+const BASE = process.env.VERIFY_BASE || "http://localhost:3100";
 const b = await chromium.launch();
 import { makeCheck } from "./verify-lib.mjs";
 const { check, finish } = makeCheck();

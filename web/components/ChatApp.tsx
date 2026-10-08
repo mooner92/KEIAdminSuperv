@@ -4,7 +4,7 @@ import Link from "next/link";
 import Markdown from "./common/Markdown";
 import DocDrawer from "./DocDrawer";
 import ApprovalDrawer from "./ApprovalDrawer";
-import { api, type ChatMeta, type Message, type Source, type Suggestion, type User } from "../lib/api";
+import { api, type ChatMeta, type Message, type ProgressStep, type Source, type Suggestion, type User } from "../lib/api";
 import type { DocMeta } from "../lib/vault";
 import type { JourneyChip } from "../lib/api";
 import HorongMark from "./common/HorongMark";
@@ -105,6 +105,9 @@ export default function ChatApp({
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [phase, setPhase] = useState<"search" | "write" | null>(null); // docs/34 ③: 2단계 대기 표시
+  // 에이전트 진행 단계(docs/74 §7, 서버 agent_chat 플래그) — "규정을 더 찾는 중…·원문을 읽는 중…"을
+  // 쌓아 보여 준다. 답이 1~2분 걸려도 지금 무엇을 하는지 보이게(사용자 요청: Claude처럼 진행 표시).
+  const [steps, setSteps] = useState<ProgressStep[]>([]);
   const abortRef = useRef<AbortController | null>(null); // docs/34 ③: Stop 버튼
   const tempIdRef = useRef(-1000); // 잔존 센티널 회수용 고유 음수 id 발급기
   const [openSlug, setOpenSlug] = useState<string | null>(null);
@@ -337,6 +340,7 @@ export default function ChatApp({
     setInput("");
     setSending(true);
     setPhase("search"); // docs/34 ③: 2단계 대기 표시 — 근거 수신 전 '검색 중'
+    setSteps([]);
     const ac = new AbortController();
     abortRef.current = ac;
     track("chat_send"); // 사용량(docs/35) — 질문 텍스트는 절대 안 보냄(이름만)
@@ -357,6 +361,8 @@ export default function ChatApp({
     setActiveMsgId(STREAM_ID);
     try {
       await api.sendMessageStream(chatId, q, {
+        onProgress: (st) =>
+          setSteps((prev) => (prev.length && prev[prev.length - 1].label === st.label ? prev : [...prev, st])),
         onMeta: (sources, user) => {
           setPhase("write"); // 근거 도착 — '답변 작성 중'으로 전환
           setMessages((prev) =>
@@ -698,7 +704,7 @@ export default function ChatApp({
                 m.role === "user" ? (
                   <li key={m.id} className={styles.userRow}>
                     {fmtT(m.created_at) ? <span className={styles.msgTime}>{fmtT(m.created_at)}</span> : null}
-                    <div className={styles.userBubble}>{m.content}</div>
+                    <div className={`${styles.userBubble}${/\n/.test(m.content) || m.content.length > 42 ? " " + styles.multiline : ""}`}>{m.content}</div>
                   </li>
                 ) : (
                   <li key={m.id} className={styles.aiRow}>
@@ -725,6 +731,23 @@ export default function ChatApp({
                             onNavigate={(slug, anchor) => { setOpenSlug(slug); setOpenAnchor(anchor); }} />
                         )
                       ) : (
+                        /* docs/74 §7: 에이전트 진행 단계 — 지난 단계는 ✓, 지금 단계는 구슬/점멸 */
+                        m.id === STREAM_ID && steps.length ? (
+                          <ol className={styles.agentSteps} aria-live="polite" aria-label="답변 준비 과정">
+                            {steps.map((st, i) => {
+                              const now = i === steps.length - 1;
+                              return (
+                                <li key={i} className={now ? styles.stepNow : styles.stepDone}>
+                                  <span className={styles.stepMark} aria-hidden>
+                                    {now ? (orbOn ? <ThinkingOrb size={20} state="working" aria-label="" /> :
+                                      <span className={styles.stepPulse} />) : "✓"}
+                                  </span>
+                                  {st.label}
+                                </li>
+                              );
+                            })}
+                          </ol>
+                        ) :
                         /* docs/34 ③: 2단계 대기 표시 — 지금 무슨 일이 일어나는지 보여준다 */
                         <span className={styles.typing}>
                           {orbOn ? (

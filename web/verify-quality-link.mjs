@@ -9,7 +9,7 @@ if (!TEST_PW) {
   console.error("❌ APP_TEST_PASS 미설정 — tools/.test_credentials 를 로드하세요.");
   process.exit(2);
 }
-const BASE="http://localhost:3101", USER="fb_test", PW=TEST_PW;
+const BASE="http://localhost:3100", USER="fb_test", PW=TEST_PW;
 const fails=[]; const ok=(c,m)=>{ console.log((c?"✅ ":"❌ ")+m); if(!c) fails.push(m); };
 const b=await chromium.launch();
 const ctx=await b.newContext();

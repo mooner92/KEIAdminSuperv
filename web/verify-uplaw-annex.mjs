@@ -9,7 +9,7 @@ if (!TEST_PW) {
   console.error("❌ APP_TEST_PASS 미설정 — tools/.test_credentials 를 로드하세요.");
   process.exit(2);
 }
-const BASE = "http://localhost:3101";
+const BASE = "http://localhost:3100";
 const b = await chromium.launch();
 const ctx = await b.newContext({ viewport: { width: 1240, height: 1400 } });
 const r = await ctx.request.post(`${BASE}/api/app/auth/login`, { data: { username: "b6test", password: TEST_PW } });

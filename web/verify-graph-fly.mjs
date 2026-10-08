@@ -1,6 +1,6 @@
 // 그래프 fly-to(지도식 이동) 검증 — ref 포워딩 후 카메라가 실제로 움직이는지 (dev 3101).
 import { chromium } from "playwright";
-const BASE = "http://localhost:3101";
+const BASE = "http://localhost:3100";
 const fails = [];
 const ok = (c, m) => { console.log((c ? "✅ " : "❌ ") + m); if (!c) fails.push(m); };
 const b = await chromium.launch();

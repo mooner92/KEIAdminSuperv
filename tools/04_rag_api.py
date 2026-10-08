@@ -18,12 +18,13 @@ import threading
 import time
 import uuid
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 import rag_core
+import agent_core  # 에이전트 답변 경로(omp 하네스 + 로컬 Qwen, docs/74)
 import app_api  # 엔진·MaintNotice 접근(관측 알림)
 import obs  # P0 관측 순수 로직(docs/56)
 import alerts  # 알림 단일 진입점 — MaintNotice+Slack (docs/66)
@@ -155,8 +156,67 @@ def models():
         {"id": MODEL_ID, "object": "model", "created": int(time.time()), "owned_by": "kei"}]}
 
 
+class AgentToolReq(BaseModel):
+    query: str | None = None
+    regulation: str | None = None
+    article: str | None = None
+    question: str | None = None   # /absent — 질문 핵심어 대조용
+    context: str | None = None
+
+
+def _agent_auth(token: str | None):
+    """도구 엔드포인트는 이 프로세스가 띄운 에이전트 전용 — 기동 시 생성한 토큰 일치만 허용."""
+    if not agent_core.ENABLED or token != agent_core.TOKEN:
+        raise HTTPException(status_code=403, detail="agent tools only")
+
+
+@app.post("/v1/agent/search")
+def agent_search(req: AgentToolReq, x_kei_agent_token: str | None = Header(default=None)):
+    _agent_auth(x_kei_agent_token)
+    return agent_core.tool_search(req.query or "")
+
+
+@app.post("/v1/agent/article")
+def agent_article(req: AgentToolReq, x_kei_agent_token: str | None = Header(default=None)):
+    _agent_auth(x_kei_agent_token)
+    return agent_core.tool_article(req.regulation or "", req.article or "")
+
+
+@app.post("/v1/agent/toc")
+def agent_toc(req: AgentToolReq, x_kei_agent_token: str | None = Header(default=None)):
+    _agent_auth(x_kei_agent_token)
+    return agent_core.tool_toc(req.regulation or "")
+
+
+@app.post("/v1/agent/absent")
+def agent_absent(req: AgentToolReq, x_kei_agent_token: str | None = Header(default=None)):
+    """검증 턴 힌트 — 질문 핵심어 중 근거에 없는 말(결정적, LLM 0회). 러너가 직접 부른다(LLM 도구 아님)."""
+    _agent_auth(x_kei_agent_token)
+    return agent_core.tool_absent(req.question or "", req.context or "")
+
+
+def _agent_chat(user_msg: str, history: list, port: int):
+    """model=kei-agent 요청: 에이전트로 답하고 서비스와 같은 응답 형태로 반환. 실패면 None(단발로 강등)."""
+    res = agent_core.run_agent(user_msg, history, port=port)
+    if not res:
+        return None
+    answer, context, srcs = res["answer"], res["context"], res["srcs"]
+    gates = rag_core.gate_summary(answer, context, srcs)
+    return JSONResponse({
+        "id": f"chatcmpl-{uuid.uuid4().hex[:12]}", "object": "chat.completion",
+        "created": int(time.time()), "model": agent_core.MODEL_ID,
+        "choices": [{"index": 0, "finish_reason": "stop",
+                     "message": {"role": "assistant", "content": answer}}],
+        "usage": {},
+        "x_retrieved": [s["tag"] for s in srcs if s.get("tag")],
+        "x_sources": srcs,
+        "x_gates": gates,
+        "x_agent": res["trace"],   # 도구 호출 이력(검색어·열람 조문·소요) — 평가·디버깅용
+    })
+
+
 @app.post("/v1/chat/completions")
-def chat(req: ChatReq):
+def chat(req: ChatReq, request: Request):
     """무상태 OpenAI 호환 엔드포인트. 마지막 user 메시지로 검색하고, 그 앞은 멀티턴 맥락으로 전달."""
     msgs = req.messages or []
     # 마지막 user 메시지 = 이번 질문, 그 앞 = 이전 대화 맥락
@@ -164,6 +224,14 @@ def chat(req: ChatReq):
                           if msgs[i].get("role") == "user"), None)
     user_msg = msgs[last_user_idx]["content"] if last_user_idx is not None else ""
     history = msgs[:last_user_idx] if last_user_idx is not None else []
+    agent_fallback = False
+    if agent_core.wants(req.model):
+        # 도구 콜백 포트 = 이 서버 소켓의 포트(Host 헤더는 프록시 뒤에서 달라질 수 있다)
+        port = (request.scope.get("server") or (None, 9000))[1]
+        resp = _agent_chat(user_msg, history, port)
+        if resp is not None:
+            return resp
+        agent_fallback = True   # 에이전트 실패 → 아래 단발 경로로 강등(응답에 표시)
     # 후속 질문을 직전 맥락으로 재작성한 독립 검색어로 회수(멀티턴 정확도↑). 답변은 원 질문으로.
     q_search = rag_core.condense_query(user_msg, history)
     context, srcs = rag_core.retrieve(q_search)
@@ -192,4 +260,5 @@ def chat(req: ChatReq):
         "x_sources": srcs,      # 구조화 출처(규정명·조·분류·snippet·distance)
         # 게이트·인용 텔레메트리(specs/16 W1-E) — 답변 텍스트 불변, 필드로만. 평가 저장이 소비.
         "x_gates": rag_core.gate_summary(answer, context, srcs),
+        **({"x_agent": {"fallback": True}} if agent_fallback else {}),
     })

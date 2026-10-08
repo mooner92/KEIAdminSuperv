@@ -10,7 +10,7 @@ if (!TEST_PW) {
   console.error("❌ APP_TEST_PASS 미설정 — tools/.test_credentials 를 로드하세요.");
   process.exit(2);
 }
-const BASE = "http://localhost:3101";
+const BASE = "http://localhost:3100";
 const USER = "autobadge";
 const PW = TEST_PW;
 const fails = [];

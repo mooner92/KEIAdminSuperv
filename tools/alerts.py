@@ -63,6 +63,13 @@ ALERT_REGISTRY: dict[str, Alert] = {
         "QualityDigest", 3, "일일 자가평가 결과", "quality-digest.md", "quality"),
     "quality_drop": Alert(
         "QualityDrop", 2, "재시험 코호트 정답률 급락", "quality-drop.md", "quality"),
+    # 자동 수술(2026-08-26) — 매일 10시 무인 Claude Code가 그날 수술을 하고 결과를
+    # autosurgery/<날짜> 브랜치에 담는다. ok=검토·머지 대기, blocked=관문이 막고 되돌림.
+    # SEV3(ok)는 일상 보고, SEV2(blocked)는 사람이 봐야 하는 상태다.
+    "auto_surgery": Alert(
+        "AutoSurgery", 3, "자동 수술 완료(검토 대기)", "auto-surgery.md", "quality"),
+    "auto_surgery_blocked": Alert(
+        "AutoSurgeryBlocked", 2, "자동 수술 관문 차단", "auto-surgery.md", "quality"),
 }
 
 # ───────────────────────── 설정 ─────────────────────────

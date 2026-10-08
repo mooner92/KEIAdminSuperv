@@ -31,8 +31,11 @@ type Daily = {
   약점지도: { 주제: Record<string, Stat>; 유형: Record<string, Stat>; 정량정성: Record<string, Stat>;
     축?: Record<string, Stat> };
   원인: Record<string, number>; 다양성?: Diversity; 문항: Item[];
+  답변경로?: string; // docs/74 — 'kei-agent'면 omp 에이전트 답변(채팅 서비스의 단발 경로와 다름)
 };
-type Idx = { days: { date: string; 정답률: number; 집계: Record<string, number> }[] };
+type Idx = { days: { date: string; 정답률: number; 집계: Record<string, number>; 답변경로?: string }[] };
+// 에이전트 답변 날(docs/74)은 정답률이 채팅 서비스(단발 RAG)가 아니라 에이전트 경로의 품질이다 — 섞어 읽지 않게 표시.
+const isAgent = (p?: string) => p === "kei-agent";
 
 const VERDICT: Record<string, { icon: string; cls: string; label: string }> = {
   정답: { icon: "✅", cls: "vOk", label: "정답" },
@@ -123,6 +126,9 @@ export default function QualityPage() {
                   return <span key={k} className={q.tally}>{V?.icon} {V?.label ?? k} {v}</span>;
                 })}
               </div>
+              {isAgent(day.답변경로) && (
+                <div className={q.pathTag}>🤖 에이전트 답변(omp) — 채팅 서비스(단발 검색)와 다른 경로의 정답률</div>
+              )}
             </div>
             {/* 일자별 추이 표(가독성 — 막대는 표본 적을 때 정보가 없음) */}
             <div className={q.trendCard}>
@@ -135,7 +141,8 @@ export default function QualityPage() {
                 rowKey={(d) => d.date}
                 empty="추이 데이터가 쌓이는 중"
                 cols={[
-                  { key: "date", head: "날짜", render: (d) => <span className={q.tDate}>{d.date}</span> },
+                  { key: "date", head: "날짜", render: (d) => (
+                    <span className={q.tDate}>{d.date}{isAgent(d.답변경로) ? " 🤖" : ""}</span>) },
                   { key: "acc", head: "정답률", num: true, render: (d) => (
                     <span className={q.tAcc} style={{ color: accColor(d.정답률) }}>{d.정답률}%</span>) },
                   { key: "bar", head: "", render: (d) => (
@@ -261,7 +268,9 @@ export default function QualityPage() {
             </PagedList>
           </section>
           <p className={q.note}>
-            ※ 문항은 규정 청크에서 자동 생성하고(그 청크가 정답 근거), 답변은 실서비스와 같은 구성으로 받아
+            ※ 문항은 규정 청크에서 자동 생성하고(그 청크가 정답 근거), 답변은 {isAgent(day.답변경로)
+              ? "에이전트 경로(🤖 — 같은 검색·모델 위에서 도구로 근거를 보충)로"
+              : "실서비스와 같은 구성으로"} 받아
             원문과 대조해 자동 채점합니다. 오답은 원문 대조로 증명된 것만 표시하며, 콘텐츠 수정은 사람이
             검수·확정합니다. 실제 이용자 질문은 포함되지 않습니다(합성 문항만).
           </p>
