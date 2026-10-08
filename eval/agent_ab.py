@@ -51,7 +51,7 @@ def main() -> int:
     ap.add_argument("--n-refusal", type=int, default=8)
     ap.add_argument("--n-good", type=int, default=18)
     ap.add_argument("--seed", type=int, default=1006)
-    ap.add_argument("--pm2-app", default="kei-rag-api-dev")
+    ap.add_argument("--pm2-app", default="kei-rag-api")  # 운영(3101) env — 2026-10-08 역할 교체
     ap.add_argument("--out", default=str(HERE / "reports" / "agent_ab"))
     args = ap.parse_args()
 

@@ -86,10 +86,11 @@ backup_sources() { # $1=레포 루트 — 월 1회
   [ "$any" = 1 ] && : > "$SRC_MARK" && chmod 600 "$SRC_MARK"
 }
 
-backup_db    prod /KEIAdminSuperv/tools
-backup_db    dev  /home/mhchoi/kei-dev-0703/tools
-backup_vault prod /KEIAdminSuperv
-backup_vault dev  /home/mhchoi/kei-dev-0703
+# 2026-10-08 역할 교체: 운영 = kei-dev-0703(3101) · 테스트 = /KEIAdminSuperv(3100)
+backup_db    prod /home/mhchoi/kei-dev-0703/tools
+backup_db    test /KEIAdminSuperv/tools
+backup_vault prod /home/mhchoi/kei-dev-0703
+backup_vault test /KEIAdminSuperv
 backup_sources    /KEIAdminSuperv
 
 # 로테이션: KEEP_DAYS 초과 백업 디렉터리 제거
