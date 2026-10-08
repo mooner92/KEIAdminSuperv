@@ -19,7 +19,7 @@ from collections import Counter as Counter0
 import axes  # 평가 축 레지스트리(specs/07 B) — 결정적 4축
 import scenarios  # 복합 시나리오(specs/07 A) — 여정 기반 다중 근거 문항
 from daily_common import (BANK, CHUNK_GATE, MIN_CHUNK, PARA_RATIO, SCEN_RATIO, chunk_unanswerable,
-                          is_self_contained, DAILY_DIR, NEW_N, REG_N, REFUSAL_SEEDS, SECTION_QUOTA,
+                          is_self_contained, is_admin_research, DAILY_DIR, NEW_N, REG_N, REFUSAL_SEEDS, SECTION_QUOTA,
                           TYPE_QUOTA, bigrams, chroma_col, jaccard, llm_json, load_bank,
                           norm_q, qhash, save_bank, topics_of)
 
@@ -317,8 +317,9 @@ def main() -> int:
         by_sec[sec].append(i)
     if gate_drop:
         print(f"  ⛔ 출제 후보 게이트 제외: {dict(gate_drop)}")
-    for sec in by_sec:  # 미출제 청크 우선
-        by_sec[sec].sort(key=lambda i: (got["ids"][i] in used_chunks, random.random()))
+    for sec in by_sec:  # 미출제 청크 우선 → 그 안에서 행정·연구 주제 우선(2026-10-08 운영자 지시)
+        by_sec[sec].sort(key=lambda i: (got["ids"][i] in used_chunks,
+                                        not is_admin_research(got["documents"][i]), random.random()))
 
     # 어휘층 배분(specs/11 A4): 청크 슬롯을 문서어/일상어로 나눈다. 일상어는 문서어 문항에서
     # 파생되므로 **문서어 목표를 n_doc으로 줄이고** 남은 자리를 짝이 채운다(총량 불변).
